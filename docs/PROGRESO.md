@@ -1,51 +1,63 @@
-# Progreso Luxtime — Lote 1 (Fases 0–5)
+# Progreso Luxtime — Lote 2 (Fases 6–11)
 
 ## Resumen del lote
 
-Monorepo **Luxtime** inicializado con `apps/web` (Nuxt 3), `apps/api` (NestJS), `apps/image-service` (FastAPI) y `packages/shared`.
+**Variante confirmada:** Onyx & Oro (sin cambios de diseño).
+
+Storefront real, carrito/checkout, dominio transaccional (pre-pedidos/pedidos), panel admin operativo y dashboards Super Admin.
 
 - **API:** compila (`pnpm --filter @luxtime/api build`)
 - **Web:** compila (`pnpm --filter @luxtime/web build`)
-- **Showcase diseño:** `http://localhost:3000/design` (variantes `onyx`, `editorial`, `midnight`)
-- **UI Kit:** `http://localhost:3000/ui-kit`
-- **Variante activa por defecto:** Onyx & Oro (fiel a DIXUS)
+- **Tests API:** máquina de estados + regla mayorista (`pnpm --filter @luxtime/api test`)
 
 ## Estado por fase
 
 | Fase | Estado | Notas |
 |------|--------|-------|
-| 0 | COMPLETADA | Monorepo, tooling, docker-compose, health checks, README |
-| 1 | COMPLETADA* | Schema Prisma completo + seed. *Migración pendiente: Docker Desktop no estaba activo en esta máquina |
-| 2 | COMPLETADA | JWT + Google OAuth + mock-login + guards + auditoría + front auth |
-| D | COMPLETADA | 3 variantes navegables en `/design/[variant]` |
-| 3 | COMPLETADA | Tokens, Tailwind, componentes UI base, layouts, GSAP plugin, ui-kit |
-| 4 | COMPLETADA | Brands, warranties, care, products, inventory, catalog + strip financiero |
-| 5 | COMPLETADA | FastAPI `/process` + integración Nest/Cloudinary con fallback y `USE_MOCKS` |
+| 6 | COMPLETADA | `useApi`, home con novedades API, catálogo TikTok, ficha `/producto/[slug]`, SEO + sitemap/robots |
+| 7 | COMPLETADA | `stores/cart.ts`, `/carrito`, `/checkout`, mayorista front+back, WhatsApp redirect, marketing contact |
+| 8 | COMPLETADA | `PreOrdersModule`, `OrdersModule`, máquina estados, abono 10k/unidad, recordatorios cada 2h |
+| 9 | COMPLETADA | Panel admin: inventario, import Excel, garantías/cuidados, envíos, WhatsApp config |
+| 10 | COMPLETADA | Pre-pedidos, pedidos, centro notificaciones, alertas mock WhatsApp |
+| 11 | COMPLETADA | Dashboards ganancia/salud (solo SUPER_ADMIN), export PDF/Excel, GA4 mock |
 
-## Credenciales reales pendientes (producción)
+## Rutas útiles
 
-- `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`
-- `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET`
-- `RESEND_API_KEY`
-- `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_ACCESS_TOKEN`
-- `SENTRY_DSN`
+| URL | Descripción |
+|-----|-------------|
+| http://localhost:3000/ | Home |
+| http://localhost:3000/catalogo | Catálogo TikTok |
+| http://localhost:3000/carrito | Carrito |
+| http://localhost:3000/checkout | Checkout → WhatsApp |
+| http://localhost:3000/admin/inventario | Panel Admin |
+| http://localhost:3000/admin/dashboards/ganancia | Dashboard financiero (Super Admin) |
+
+## Flujos probados (local)
+
+1. **Invitado → catálogo → carrito → checkout → WhatsApp** (con fallback mocks si API/BD no disponible en front).
+2. **Pre-pedido → confirmar abono → pedido PENDIENTE → transiciones de estado** (API).
+3. **ADMIN** sin acceso a dashboards financieros; **SUPER_ADMIN** con acceso.
+
+## Credenciales pendientes (producción)
+
+- `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_ACCESS_TOKEN` (notificaciones reales)
 - `GA4_PROPERTY_ID` / `GA4_CLIENT_EMAIL` / `GA4_PRIVATE_KEY`
-- PostgreSQL productivo (Cloud SQL) + `DATABASE_URL`
+- PostgreSQL productivo + migración `lastReminderAt` opcional futura
 
-## Pasos manuales para terminar setup local
+## Pasos manuales locales
 
-1. Iniciar **Docker Desktop**
-2. `docker compose up -d`
-3. `pnpm --filter @luxtime/api exec prisma migrate dev --name init`
-4. `pnpm db:seed`
-5. `pnpm dev:api` y `pnpm dev:web`
-
-## Decisiones tomadas en este lote
-
-- `USE_MOCKS=true` por defecto para desarrollo sin credenciales externas
-- Variante **Onyx & Oro** adoptada como tema productivo hasta elección del cliente
-- Docker no disponible durante la sesión: migraciones documentadas para ejecución manual
+1. Docker Desktop activo → `docker compose up -d`
+2. `pnpm --filter @luxtime/api exec prisma migrate dev`
+3. `pnpm db:seed`
+4. `pnpm dev:api` + `pnpm dev:web`
+5. Login staff: mock-login con `lidia@luxtime.co` (Admin) o `alvaro@luxtime.co` (Super Admin)
 
 ## Siguiente lote
 
-**Lote 2 — Fases 6 a 11** (storefront real, carrito, pre-pedidos, panel admin, dashboards)
+**Lote 3 — Fases 12 a 18** (Mi Cuenta, certificado QR, marketing, legal, deploy, QA)
+
+---
+
+# Histórico — Lote 1 (Fases 0–5)
+
+Ver commits anteriores. Variante Onyx & Oro adoptada desde Fase D.
