@@ -1,0 +1,17 @@
+{
+  "name": "luxtime",
+  "private": true,
+  "scripts": {
+    "dev:web": "pnpm --filter @luxtime/web dev",
+    "dev:api": "pnpm --filter @luxtime/api start:dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "db:migrate": "pnpm --filter @luxtime/api prisma:migrate",
+    "db:seed": "pnpm --filter @luxtime/api prisma:seed"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

@@ -1,0 +1,33 @@
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-lux-black text-lux-white font-body antialiased;
+}
+
+.lux-section-label {
+  @apply text-[10px] uppercase tracking-[0.4em] text-lux-gold mb-4;
+}
+
+.lux-section-title {
+  @apply font-display text-4xl md:text-5xl font-light text-lux-white leading-tight;
+}
+
+.lux-marquee {
+  animation: lux-marquee 25s linear infinite;
+}
+
+@keyframes lux-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lux-marquee,
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

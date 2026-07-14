@@ -1,0 +1,309 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  CUSTOMER
+}
+
+enum OrderStage {
+  PRE_ORDER
+  ORDER
+}
+
+enum OrderStatus {
+  PENDIENTE
+  PAGADO
+  ENVIADO
+  ENTREGADO
+  CANCELADO
+}
+
+enum OrderType {
+  DETAL
+  MAYORISTA
+}
+
+enum MarketingContactStatus {
+  PENDING_VALIDATION
+  VALIDATED
+  REJECTED
+}
+
+enum CustomerSegment {
+  NUEVO
+  RECURRENTE
+  ALTO_VALOR
+}
+
+enum ReviewStatus {
+  PENDING
+  PUBLISHED
+  REJECTED
+}
+
+enum PriceType {
+  RETAIL
+  WHOLESALE
+}
+
+model User {
+  id        String           @id @default(cuid())
+  email     String           @unique
+  googleId  String?          @unique
+  name      String
+  phone     String?
+  role      Role             @default(CUSTOMER)
+  segment   CustomerSegment?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  savedShipping      SavedShipping?
+  orders             Order[]
+  assignedOrders     Order[]            @relation("AssignedOrders")
+  wishlist           WishlistItem[]
+  auditLogs          AuditLog[]
+  validatedContacts  MarketingContact[] @relation("ValidatedContacts")
+}
+
+model SavedShipping {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  address   String
+  phone     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Brand {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  watches Watch[]
+}
+
+model WarrantyTemplate {
+  id             String   @id @default(cuid())
+  name           String
+  durationMonths Int
+  terms          String   @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  watches Watch[]
+}
+
+model CareTemplate {
+  id           String   @id @default(cuid())
+  name         String
+  instructions String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  watches Watch[]
+}
+
+model Watch {
+  id                  String   @id @default(cuid())
+  brandId             String
+  model               String
+  slug                String   @unique
+  movementType        String
+  specs               Json     @default("{}")
+  retailPrice         Int
+  wholesalePrice      Int
+  cost                Int?
+  profitPercent       Int?
+  stock               Int      @default(0)
+  isActive            Boolean  @default(true)
+  frontImageUrl       String?
+  backImageUrl        String?
+  imageNeedsReview    Boolean  @default(false)
+  warrantyTemplateId  String?
+  careTemplateId      String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  brand            Brand             @relation(fields: [brandId], references: [id])
+  warrantyTemplate WarrantyTemplate? @relation(fields: [warrantyTemplateId], references: [id])
+  careTemplate     CareTemplate?     @relation(fields: [careTemplateId], references: [id])
+  orderItems       OrderItem[]
+  reviews          Review[]
+  waitlist         WaitlistEntry[]
+  wishlist         WishlistItem[]
+  certificates     Certificate[]
+
+  @@index([brandId])
+  @@index([isActive, stock])
+}
+
+model ShippingZone {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  cost       Int
+  isNational Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  orders Order[]
+}
+
+model Order {
+  id               String       @id @default(cuid())
+  readableId       String       @unique
+  stage            OrderStage   @default(PRE_ORDER)
+  status           OrderStatus?
+  type             OrderType    @default(DETAL)
+  customerName     String
+  customerAddress  String
+  customerEmail    String
+  customerPhone    String?
+  userId           String?
+  shippingZoneId   String?
+  shippingCost     Int          @default(0)
+  depositExpected  Int          @default(0)
+  depositConfirmed Boolean      @default(false)
+  subtotal         Int          @default(0)
+  total            Int          @default(0)
+  whatsappMessage  String?      @db.Text
+  assignedToId     String?
+  paidAt           DateTime?
+  shippedAt        DateTime?
+  deliveredAt      DateTime?
+  canceledAt       DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  user         User?         @relation(fields: [userId], references: [id])
+  shippingZone ShippingZone? @relation(fields: [shippingZoneId], references: [id])
+  assignedTo   User?         @relation("AssignedOrders", fields: [assignedToId], references: [id])
+  items        OrderItem[]
+
+  @@index([stage, status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id           String    @id @default(cuid())
+  orderId      String
+  watchId      String
+  productName  String
+  productRef   String
+  productImage String?
+  quantity     Int
+  unitPrice    Int
+  priceType    PriceType
+  createdAt    DateTime  @default(now())
+
+  order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  watch        Watch         @relation(fields: [watchId], references: [id])
+  certificates Certificate[]
+
+  @@index([orderId])
+}
+
+model MarketingContact {
+  id            String                 @id @default(cuid())
+  email         String                 @unique
+  status        MarketingContactStatus @default(PENDING_VALIDATION)
+  source        String                 @default("checkout")
+  validatedById String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  validatedBy User? @relation("ValidatedContacts", fields: [validatedById], references: [id])
+}
+
+model Review {
+  id           String       @id @default(cuid())
+  customerName String
+  watchId      String?
+  rating       Int
+  body         String       @db.Text
+  status       ReviewStatus @default(PENDING)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  watch Watch? @relation(fields: [watchId], references: [id])
+}
+
+model WaitlistEntry {
+  id        String   @id @default(cuid())
+  email     String
+  watchId   String
+  notified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  watch Watch @relation(fields: [watchId], references: [id], onDelete: Cascade)
+
+  @@unique([email, watchId])
+}
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  watchId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  watch Watch @relation(fields: [watchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, watchId])
+}
+
+model Certificate {
+  id               String   @id @default(cuid())
+  orderItemId      String
+  watchId          String
+  slug             String   @unique
+  qrPayload        String
+  warrantySnapshot Json
+  issuedAt         DateTime @default(now())
+
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id])
+  watch     Watch     @relation(fields: [watchId], references: [id])
+}
+
+model Notification {
+  id         String    @id @default(cuid())
+  type       String
+  payload    Json
+  targetRole Role?
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([targetRole, readAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  diff      Json?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}

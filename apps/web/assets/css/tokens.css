@@ -1,0 +1,12 @@
+:root {
+  --lux-black: #0a0a0a;
+  --lux-black-2: #111111;
+  --lux-black-3: #1a1a1a;
+  --lux-gold: #c8a96e;
+  --lux-gold-light: #e2c98a;
+  --lux-gold-dark: #9a7a45;
+  --lux-white: #f5f0e8;
+  --lux-white-dim: #b8b0a0;
+  --lux-font-display: 'Cormorant Garamond', serif;
+  --lux-font-body: 'Montserrat', sans-serif;
+}

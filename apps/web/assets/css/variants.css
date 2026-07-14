@@ -1,0 +1,38 @@
+.variant-onyx {
+  --v-bg: #0a0a0a;
+  --v-bg-2: #111111;
+  --v-bg-3: #1a1a1a;
+  --v-text: #f5f0e8;
+  --v-text-dim: #b8b0a0;
+  --v-accent: #c8a96e;
+  --v-accent-light: #e2c98a;
+  --v-accent-contrast: #0a0a0a;
+}
+
+.variant-editorial {
+  --v-bg: #f7f3eb;
+  --v-bg-2: #ffffff;
+  --v-bg-3: #ece6da;
+  --v-text: #0a0a0a;
+  --v-text-dim: #5c574f;
+  --v-accent: #9a7a45;
+  --v-accent-light: #c8a96e;
+  --v-accent-contrast: #f7f3eb;
+}
+
+.variant-midnight {
+  --v-bg: #050b14;
+  --v-bg-2: #0b1424;
+  --v-bg-3: #121f33;
+  --v-text: #e8eef7;
+  --v-text-dim: #8fa0b8;
+  --v-accent: #c0c7d4;
+  --v-accent-light: #e2e8f0;
+  --v-accent-contrast: #050b14;
+}
+
+.variant-shell {
+  background: var(--v-bg);
+  color: var(--v-text);
+  min-height: 100vh;
+}
