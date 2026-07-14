@@ -45,5 +45,9 @@ export enum PriceType {
   WHOLESALE = 'WHOLESALE',
 }
 
+export * from './constants.js';
 export * from './types/catalog.js';
 export * from './types/auth.js';
+export * from './types/orders.js';
+export * from './types/settings.js';
+export * from './types/dashboard.js';
