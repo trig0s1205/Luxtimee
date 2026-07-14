@@ -18,7 +18,6 @@ import { CreateWatchDto, UpdateWatchDto } from './dto/watch.dto';
 import { Roles, Audit, Financial } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { FinancialGuard } from '../common/guards/financial.guard';
-import { AuditInterceptor } from '../common/interceptors/audit.interceptor';
 import { FinancialStripInterceptor } from '../common/interceptors/financial-strip.interceptor';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ImageProcessingService } from '../integrations/image-processing.service';
@@ -50,14 +49,12 @@ export class ProductsController {
   }
 
   @Post()
-  @UseInterceptors(AuditInterceptor)
   @Audit('CREATE', 'Watch')
   create(@Body() dto: CreateWatchDto, @CurrentUser() user: { role: Role }) {
     return this.productsService.create(dto, user.role);
   }
 
   @Patch(':id')
-  @UseInterceptors(AuditInterceptor)
   @Audit('UPDATE', 'Watch')
   update(
     @Param('id') id: string,
@@ -68,7 +65,6 @@ export class ProductsController {
   }
 
   @Delete(':id')
-  @UseInterceptors(AuditInterceptor)
   @Audit('DEACTIVATE', 'Watch')
   deactivate(@Param('id') id: string, @CurrentUser() user: { role: Role }) {
     return this.productsService.deactivate(id, user.role);
@@ -80,7 +76,6 @@ export class ProductsController {
       storage: memoryStorage(),
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
-    AuditInterceptor,
   )
   @Audit('UPLOAD_IMAGES', 'Watch')
   async uploadImages(

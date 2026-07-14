@@ -1,13 +1,19 @@
 <script setup lang="ts">
 const scrolled = ref(false);
+const cart = useCartStore();
 
 onMounted(() => {
-  const onScroll = () => {
-    scrolled.value = window.scrollY > 40;
-  };
+  cart.hydrate();
   window.addEventListener('scroll', onScroll, { passive: true });
-  onUnmount(() => window.removeEventListener('scroll', onScroll));
 });
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', onScroll);
+});
+
+const onScroll = () => {
+  scrolled.value = window.scrollY > 40;
+};
 </script>
 
 <template>
@@ -23,6 +29,8 @@ onMounted(() => {
       <li><NuxtLink to="/design" class="hover:text-lux-gold transition-colors">Diseños</NuxtLink></li>
       <li><NuxtLink to="/ui-kit" class="hover:text-lux-gold transition-colors">UI Kit</NuxtLink></li>
     </ul>
-    <div class="text-[11px] uppercase tracking-widest text-lux-white-dim">Carrito (0)</div>
+    <NuxtLink to="/carrito" class="text-[11px] uppercase tracking-widest text-lux-white-dim hover:text-lux-gold transition-colors">
+      Carrito ({{ cart.unitCount }})
+    </NuxtLink>
   </nav>
 </template>
