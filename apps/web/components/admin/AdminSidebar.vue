@@ -11,6 +11,10 @@ const links = [
   { to: '/admin/pre-pedidos', label: 'Pre-pedidos' },
   { to: '/admin/pedidos', label: 'Pedidos' },
   { to: '/admin/notificaciones', label: 'Notificaciones' },
+  { to: '/admin/resenas', label: 'Reseñas' },
+  { to: '/admin/correo', label: 'Correo' },
+  { to: '/admin/segmentos', label: 'Segmentos' },
+  { to: '/admin/auditoria', label: 'Auditoría', superOnly: true },
   { to: '/admin/dashboards/ganancia', label: 'Ganancia', superOnly: true },
   { to: '/admin/dashboards/salud', label: 'Salud del negocio', superOnly: true },
 ];

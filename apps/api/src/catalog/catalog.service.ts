@@ -68,6 +68,32 @@ export class CatalogService {
     return this.mapPublicWatch(watch);
   }
 
+  async findBestSellers(limit = 3) {
+    const items = await this.prisma.orderItem.findMany({
+      where: {
+        order: { status: { in: ['PAGADO', 'ENVIADO', 'ENTREGADO'] } },
+      },
+      select: { watchId: true, quantity: true },
+    });
+    const totals = new Map<string, number>();
+    for (const item of items) {
+      totals.set(item.watchId, (totals.get(item.watchId) ?? 0) + item.quantity);
+    }
+    const ids = [...totals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([id]) => id);
+    if (!ids.length) return [];
+    const watches = await this.prisma.watch.findMany({
+      where: { id: { in: ids }, isActive: true },
+      include: { brand: true, warrantyTemplate: true, careTemplate: true },
+    });
+    return ids
+      .map((id) => watches.find((w) => w.id === id))
+      .filter((w): w is NonNullable<typeof w> => !!w)
+      .map((w) => this.mapPublicWatch(w));
+  }
+
   async findNewArrivals(limit = 8) {
     const watches = await this.prisma.watch.findMany({
       where: { isActive: true },

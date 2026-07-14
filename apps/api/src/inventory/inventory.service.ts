@@ -1,12 +1,16 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateStockDto } from '../products/dto/watch.dto';
+import { WaitlistService } from '../waitlist/waitlist.service';
 
 @Injectable()
 export class InventoryService {
   private readonly logger = new Logger(InventoryService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private waitlistService: WaitlistService,
+  ) {}
 
   async updateStock(id: string, dto: UpdateStockDto) {
     const current = await this.prisma.watch.findUnique({ where: { id } });
@@ -23,6 +27,7 @@ export class InventoryService {
       this.logger.log(
         `[inventory:back-in-stock] watchId=${watch.id} slug=${watch.slug} stock=${dto.stock}`,
       );
+      await this.waitlistService.notifyBackInStock(watch.id);
     }
 
     if (dto.stock === 0 && previousStock > 0) {

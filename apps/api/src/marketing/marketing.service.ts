@@ -20,4 +20,14 @@ export class MarketingService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  async validateContact(id: string, userId: string, approve: boolean) {
+    return this.prisma.marketingContact.update({
+      where: { id },
+      data: {
+        status: approve ? MarketingContactStatus.VALIDATED : MarketingContactStatus.REJECTED,
+        validatedById: userId,
+      },
+    });
+  }
 }

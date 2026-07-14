@@ -80,5 +80,13 @@ export function useCatalogData() {
     }
   }
 
-  return { listCatalog, getBySlug, getNewArrivals, listBrands };
+  async function getBestSellers() {
+    try {
+      return await api.get<WatchPublicDto[]>('/catalog/best-sellers');
+    } catch {
+      return MOCK_CATALOG.slice(0, 3);
+    }
+  }
+
+  return { listCatalog, getBySlug, getNewArrivals, listBrands, getBestSellers };
 }

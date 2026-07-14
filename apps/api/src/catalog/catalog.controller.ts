@@ -14,6 +14,11 @@ export class CatalogController {
     return this.catalogService.list(query);
   }
 
+  @Get('best-sellers')
+  bestSellers() {
+    return this.catalogService.findBestSellers();
+  }
+
   @Get('new-arrivals')
   newArrivals() {
     return this.catalogService.findNewArrivals();

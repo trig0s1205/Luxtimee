@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { WHOLESALE_BANNER } from '@luxtime/shared';
-import { mockWatches } from '~/mocks/watches';
 
 const catalog = useCatalogData();
 const { reveal } = useReveal();
@@ -8,6 +7,7 @@ const heroRef = ref<HTMLElement | null>(null);
 const featuredRef = ref<HTMLElement | null>(null);
 
 const { data: newArrivals } = await useAsyncData('home-new-arrivals', () => catalog.getNewArrivals());
+const { data: bestSellers } = await useAsyncData('home-best-sellers', () => catalog.getBestSellers());
 
 useSeoMeta({
   title: 'Luxtime — Relojes de lujo en Bucaramanga',
@@ -52,10 +52,7 @@ onMounted(() => {
 
     <section class="px-6 md:px-16 py-20">
       <UiSectionHeader label="Destacados" title="Más vendidos" />
-      <p class="text-sm text-lux-white-dim mb-8 -mt-6">Top 3 provisional hasta activar métricas de ventas (Fase 14).</p>
-      <div class="grid md:grid-cols-3 gap-2">
-        <UiWatchCard v-for="watch in mockWatches.slice(0, 3)" :key="watch.id" :watch="watch" />
-      </div>
+      <CatalogFeaturedCarousel v-if="bestSellers?.length" :watches="bestSellers" />
     </section>
   </div>
 </template>
