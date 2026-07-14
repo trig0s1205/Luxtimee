@@ -29,6 +29,7 @@ const onScroll = () => {
       <li><NuxtLink to="/design" class="hover:text-lux-gold transition-colors">Diseños</NuxtLink></li>
       <li><NuxtLink to="/ui-kit" class="hover:text-lux-gold transition-colors">UI Kit</NuxtLink></li>
     </ul>
+    <NuxtLink to="/cuenta" class="text-[11px] uppercase tracking-widest text-lux-white-dim hover:text-lux-gold transition-colors hidden md:block">Mi cuenta</NuxtLink>
     <NuxtLink to="/carrito" class="text-[11px] uppercase tracking-widest text-lux-white-dim hover:text-lux-gold transition-colors">
       Carrito ({{ cart.unitCount }})
     </NuxtLink>

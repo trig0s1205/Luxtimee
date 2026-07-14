@@ -5,7 +5,13 @@ const route = useRoute();
 const slug = computed(() => String(route.params.slug));
 const catalog = useCatalogData();
 const cart = useCartStore();
+const auth = useAuthStore();
+const wishlist = useWishlistStore();
 const analytics = useAnalytics();
+
+onMounted(async () => {
+  if (auth.isAuthenticated) await wishlist.fetch();
+});
 
 const { data: watch, error } = await useAsyncData(`product-${slug.value}`, () => catalog.getBySlug(slug.value));
 
@@ -99,6 +105,9 @@ function addToCart() {
 
         <div class="flex flex-wrap gap-4 pt-4">
           <UiLuxButton :disabled="watch.stock === 0" @click="addToCart">Añadir al carrito</UiLuxButton>
+          <UiLuxButton v-if="auth.isAuthenticated" variant="ghost" @click="wishlist.toggle(watch.id)">
+            {{ wishlist.has(watch.id) ? '♥ En deseos' : '♡ Guardar' }}
+          </UiLuxButton>
           <NuxtLink to="/carrito">
             <UiLuxButton variant="ghost">Ver carrito</UiLuxButton>
           </NuxtLink>
