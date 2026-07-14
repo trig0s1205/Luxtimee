@@ -14,6 +14,14 @@ import { ProductsModule } from './products/products.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { PreOrdersModule } from './pre-orders/pre-orders.module';
+import { OrdersModule } from './orders/orders.module';
+import { MarketingModule } from './marketing/marketing.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { SettingsModule } from './settings/settings.module';
+import { ShippingModule } from './shipping/shipping.module';
+import { DashboardsModule } from './dashboards/dashboards.module';
+import { ScheduleTasksModule } from './common/schedule/schedule-tasks.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
@@ -39,6 +47,14 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     InventoryModule,
     CatalogModule,
     IntegrationsModule,
+    PreOrdersModule,
+    OrdersModule,
+    MarketingModule,
+    NotificationsModule,
+    SettingsModule,
+    ShippingModule,
+    DashboardsModule,
+    ScheduleTasksModule,
   ],
   providers: [
     {
