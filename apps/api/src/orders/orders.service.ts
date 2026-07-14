@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { OrderStage, OrderStatus, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { CertificatesService } from '../certificates/certificates.service';
 import { assertValidTransition } from './state-machine';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class OrdersService {
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
+    private certificatesService: CertificatesService,
   ) {}
 
   private mapOrder(order: Prisma.OrderGetPayload<{ include: { items: true } }>) {
@@ -53,6 +55,10 @@ export class OrdersService {
       data,
       include: { items: true },
     });
+
+    if (next === OrderStatus.PAGADO) {
+      await this.certificatesService.generateForOrder(id);
+    }
 
     await this.notificationsService.emit({
       type: 'ORDER_STATUS_CHANGED',

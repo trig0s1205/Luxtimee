@@ -22,6 +22,12 @@ import { SettingsModule } from './settings/settings.module';
 import { ShippingModule } from './shipping/shipping.module';
 import { DashboardsModule } from './dashboards/dashboards.module';
 import { ScheduleTasksModule } from './common/schedule/schedule-tasks.module';
+import { AccountModule } from './account/account.module';
+import { WishlistModule } from './wishlist/wishlist.module';
+import { CertificatesModule } from './certificates/certificates.module';
+import { ReviewsModule } from './reviews/reviews.module';
+import { WaitlistModule } from './waitlist/waitlist.module';
+import { SegmentationModule } from './segmentation/segmentation.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
@@ -55,6 +61,12 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     ShippingModule,
     DashboardsModule,
     ScheduleTasksModule,
+    AccountModule,
+    WishlistModule,
+    CertificatesModule,
+    ReviewsModule,
+    WaitlistModule,
+    SegmentationModule,
   ],
   providers: [
     {
