@@ -4,7 +4,7 @@ Plataforma e-commerce de relojes de lujo — monorepo pnpm.
 
 ## Estructura
 
-- `apps/web` — Nuxt 3 (storefront + admin)
+- `apps/web` — Nuxt 3 (storefront + admin + cuenta)
 - `apps/api` — NestJS + Prisma + PostgreSQL
 - `apps/image-service` — FastAPI (rembg + Pillow)
 - `packages/shared` — tipos y enums compartidos
@@ -14,40 +14,41 @@ Plataforma e-commerce de relojes de lujo — monorepo pnpm.
 - Node.js 20+
 - pnpm 9+
 - Docker (PostgreSQL + image-service)
-- Python 3.11+ (opcional si usas Docker para image-service)
 
 ## Arranque en local
 
 ```bash
-# 1. Instalar dependencias
 pnpm install
-
-# 2. Variables de entorno
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
-
-# 3. Infraestructura
 docker compose up -d
-
-# 4. Base de datos
-pnpm --filter @luxtime/api prisma:generate
-pnpm --filter @luxtime/api exec prisma migrate dev --name init
+pnpm --filter @luxtime/api exec prisma migrate dev
 pnpm db:seed
-
-# 5. Desarrollo
-pnpm dev:api   # http://localhost:3001/api/v1/health
-pnpm dev:web   # http://localhost:3000
+pnpm dev:api   # :3001
+pnpm dev:web   # :3000
 ```
 
 ## Rutas útiles
 
-- API health: `GET /api/v1/health`
-- Showcase diseño: `http://localhost:3000/design`
-- UI Kit: `http://localhost:3000/ui-kit`
+| URL | Descripción |
+|-----|-------------|
+| http://localhost:3000/ | Home |
+| http://localhost:3000/catalogo | Catálogo TikTok |
+| http://localhost:3000/cuenta | Mi cuenta |
+| http://localhost:3000/admin | Panel staff |
+| http://localhost:3001/api/v1/health | API health |
 
-## Mocks de desarrollo
+## Tests
 
-Con `USE_MOCKS=true` en `apps/api/.env`:
+```bash
+pnpm --filter @luxtime/api test
+pnpm --filter @luxtime/web test:e2e   # requiere dev:web activo
+```
 
-- Login demo: `POST /api/v1/auth/mock-login`
-- Cloudinary e image-service devuelven URLs mock sin credenciales reales
+## Despliegue
+
+Ver `docs/PROGRESO.md` y `.github/workflows/`. No se despliega automáticamente sin credenciales GCP/Vercel.
+
+## Mocks
+
+`USE_MOCKS=true` en API: OAuth mock, Cloudinary, Resend, WhatsApp, GA4.
