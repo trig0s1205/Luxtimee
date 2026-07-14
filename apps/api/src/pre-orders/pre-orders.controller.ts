@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { PreOrdersService } from './pre-orders.service';
 import { CreatePreOrderDto, UpdatePreOrderDto } from './dto/pre-order.dto';
@@ -11,6 +12,7 @@ export class PreOrdersController {
   constructor(private preOrdersService: PreOrdersService) {}
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post()
   create(@Body() dto: CreatePreOrderDto, @CurrentUser() user?: { id: string }) {
     return this.preOrdersService.createPublic(dto, user?.id);

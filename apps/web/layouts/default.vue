@@ -5,5 +5,6 @@
       <slot />
     </main>
     <LayoutAppFooter />
+    <LayoutCookieConsent />
   </div>
 </template>
