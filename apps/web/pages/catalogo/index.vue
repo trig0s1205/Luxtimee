@@ -1,66 +1,144 @@
 <script setup lang="ts">
 import type { WatchPublicDto } from '@luxtime/shared';
-import { WHOLESALE_BANNER } from '@luxtime/shared';
 
+const route = useRoute();
 const catalog = useCatalogData();
-const cart = useCartStore();
-const analytics = useAnalytics();
+const { observe } = useRevealObserver();
+const { t } = useLocale();
 
-const filters = ref<{ brand?: string; movement?: string; available?: string }>({});
+const PAGE_SIZE = 24;
+
+const brand = ref('all');
+const movement = ref('all');
+const available = ref('all');
+const sort = ref('newest');
+const searchQuery = ref('');
+const visibleLimit = ref(PAGE_SIZE);
+const showEncargoHero = ref(false);
 
 const { data: brands } = await useAsyncData('catalog-brands', () => catalog.listBrands());
 
-const { data: catalogResult, pending, refresh } = await useAsyncData(
-  'catalog-list',
-  () =>
-    catalog.listCatalog({
-      brand: filters.value.brand,
-      movement: filters.value.movement,
-      available: filters.value.available,
-      limit: 50,
-    }),
-  { watch: [filters] },
+const { data: allProducts, pending } = await useAsyncData('catalog-all', () =>
+  catalog.listCatalog({ limit: 200, sort: 'newest' }),
 );
 
-useSeoMeta({
-  title: 'Catálogo — Luxtime',
-  description: 'Explora nuestra colección de relojes de lujo. Scroll inmersivo y filtros por marca y disponibilidad.',
+const movements = computed(() => {
+  const set = new Set<string>();
+  for (const w of allProducts.value?.data ?? []) set.add(w.movementType);
+  return [...set].sort();
 });
 
-function onAddToCart(watch: WatchPublicDto) {
-  cart.addFromWatch(watch);
-  analytics.track('add_to_cart', { slug: watch.slug });
+function productMatchesSearch(w: WatchPublicDto, q: string) {
+  if (!q.trim()) return true;
+  const s = q.toLowerCase();
+  return (
+    w.model.toLowerCase().includes(s)
+    || w.slug.toLowerCase().includes(s)
+    || w.brand.name.toLowerCase().includes(s)
+    || w.movementType.toLowerCase().includes(s)
+  );
 }
+
+const filtered = computed(() => {
+  let list = [...(allProducts.value?.data ?? [])];
+  if (brand.value !== 'all') list = list.filter((w) => w.brand.slug === brand.value);
+  if (movement.value !== 'all') list = list.filter((w) => w.movementType === movement.value);
+  if (available.value === 'true') list = list.filter((w) => w.stock > 0);
+  if (available.value === 'false') list = list.filter((w) => w.stock === 0);
+  if (searchQuery.value.trim()) list = list.filter((w) => productMatchesSearch(w, searchQuery.value));
+  if (sort.value === 'price-desc') list.sort((a, b) => b.retailPrice - a.retailPrice);
+  else if (sort.value === 'price-asc') list.sort((a, b) => a.retailPrice - b.retailPrice);
+  return list;
+});
+
+const visible = computed(() => filtered.value.slice(0, visibleLimit.value));
+const total = computed(() => filtered.value.length);
+const hasMore = computed(() => visibleLimit.value < total.value);
+
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
+function onSearchInput() {
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    visibleLimit.value = PAGE_SIZE;
+    showEncargoHero.value = searchQuery.value.trim().length > 0 && total.value === 0;
+  }, 250);
+}
+
+function loadMore() {
+  visibleLimit.value += PAGE_SIZE;
+}
+
+watch(() => route.query.filter, (f) => {
+  if (typeof f === 'string' && f) movement.value = f;
+}, { immediate: true });
+
+onMounted(() => nextTick(() => observe()));
+
+useSeoMeta({
+  title: 'Colección — Luxtime Luxury Timepieces',
+  description: 'Explora nuestra colección de relojes de lujo. Filtra por marca, mecanismo y disponibilidad.',
+});
 </script>
 
 <template>
-  <div class="px-6 md:px-16 py-8">
-    <UiSectionHeader label="Colección" title="Catálogo" />
-    <p class="text-lux-white-dim text-sm max-w-2xl mb-6 -mt-6">
-      Desliza para descubrir cada pieza. Experiencia inmersiva inspirada en redes sociales.
-    </p>
+  <div>
+    <section class="catalog-hero">
+      <p class="section-label">{{ t('catalog.label') }}</p>
+      <h1>{{ t('catalog.title') }}</h1>
+      <p class="hero-tags" style="opacity:1;animation:none;margin-top:12px">
+        Elegance · Presence · Style · {{ total }} {{ t('catalog.modelsAvailable') }}
+      </p>
+    </section>
 
-    <div class="mb-6 p-4 border border-lux-gold/30 text-center text-xs uppercase tracking-widest text-lux-gold">
-      {{ WHOLESALE_BANNER }}
+    <div v-if="showEncargoHero" class="catalog-encargo">
+      <p class="section-label">{{ t('catalog.encargoLabel') }}</p>
+      <h2 class="section-title" style="font-size:clamp(28px,4vw,40px)">{{ t('catalog.encargoTitle') }}</h2>
+      <p class="section-body" style="max-width:480px;margin:0 auto 24px">{{ t('catalog.encargoBody') }}</p>
+      <NuxtLink to="/#contacto" class="btn-primary">{{ t('catalog.encargoCta') }}</NuxtLink>
     </div>
 
-    <CatalogFilters
-      v-if="brands"
-      v-model="filters"
-      :brands="brands"
-      @update:model-value="refresh()"
-    />
+    <template v-else>
+      <div class="catalog-filter-container">
+        <select v-model="brand" class="catalog-select" @change="visibleLimit = PAGE_SIZE">
+          <option value="all">{{ t('catalog.brand') }}</option>
+          <option v-for="b in brands" :key="b.id" :value="b.slug">{{ b.name }}</option>
+        </select>
+        <select v-model="movement" class="catalog-select" @change="visibleLimit = PAGE_SIZE">
+          <option value="all">{{ t('catalog.movement') }}</option>
+          <option v-for="m in movements" :key="m" :value="m">{{ m }}</option>
+        </select>
+        <select v-model="available" class="catalog-select" @change="visibleLimit = PAGE_SIZE">
+          <option value="all">{{ t('catalog.availability') }}</option>
+          <option value="true">{{ t('catalog.available') }}</option>
+          <option value="false">{{ t('catalog.soldOut') }}</option>
+        </select>
+        <select v-model="sort" class="catalog-select">
+          <option value="newest">{{ t('catalog.newest') }}</option>
+          <option value="price-desc">{{ t('catalog.priceDesc') }}</option>
+          <option value="price-asc">{{ t('catalog.priceAsc') }}</option>
+        </select>
+        <input
+          v-model="searchQuery"
+          type="search"
+          class="catalog-search-input"
+          :placeholder="t('catalog.searchPlaceholder')"
+          @input="onSearchInput"
+        >
+      </div>
 
-    <div v-if="pending" class="h-[60vh] flex items-center justify-center text-lux-white-dim text-sm uppercase tracking-widest">
-      Cargando catálogo…
-    </div>
-
-    <CatalogTikTokFeed
-      v-else-if="catalogResult?.data?.length"
-      :watches="catalogResult.data"
-      @select="onAddToCart"
-    />
-
-    <p v-else class="text-center text-lux-white-dim py-20">No hay relojes con estos filtros.</p>
+      <section class="catalog-section">
+        <div v-if="pending" class="text-center py-20 text-[var(--white-dim)]">{{ t('catalog.loading') }}</div>
+        <div v-else-if="visible.length" class="catalog-grid">
+          <CatalogProductCard
+            v-for="(w, i) in visible"
+            :key="w.id"
+            :watch="w"
+            :delay="(i % 6) * 0.05"
+          />
+        </div>
+        <p v-else class="text-center py-20 text-[var(--white-dim)]">{{ t('catalog.empty') }}</p>
+        <button v-if="hasMore" type="button" class="catalog-load-more" @click="loadMore">{{ t('catalog.loadMore') }}</button>
+      </section>
+    </template>
   </div>
 </template>

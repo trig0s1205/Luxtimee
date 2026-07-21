@@ -1,58 +1,93 @@
 <script setup lang="ts">
-import { WHOLESALE_BANNER } from '@luxtime/shared';
-
 const catalog = useCatalogData();
-const { reveal } = useReveal();
-const heroRef = ref<HTMLElement | null>(null);
-const featuredRef = ref<HTMLElement | null>(null);
+const { observe } = useRevealObserver();
+const { t, tm } = useLocale();
 
-const { data: newArrivals } = await useAsyncData('home-new-arrivals', () => catalog.getNewArrivals());
+const marqueeItems = computed(() => tm('home').marquee);
+
 const { data: bestSellers } = await useAsyncData('home-best-sellers', () => catalog.getBestSellers());
 
 useSeoMeta({
-  title: 'Luxtime — Relojes de lujo en Bucaramanga',
-  description: 'Alta relojería con autenticidad garantizada. Envío nacional y atención personalizada.',
-  ogTitle: 'Luxtime — Relojes de lujo',
-  ogDescription: 'El tiempo, en su forma más elegante.',
+  title: 'Luxtime — Luxury Timepieces',
+  description: 'Catálogo premium de relojes de lujo. Luxtime Luxury Timepieces.',
+  ogTitle: 'Luxtime — Luxury Timepieces',
+  ogDescription: 'Catálogo premium de relojes de lujo. Compra asesorada por WhatsApp.',
 });
 
 onMounted(() => {
-  reveal(heroRef.value);
-  reveal(featuredRef.value);
+  nextTick(() => observe());
+  const line = document.querySelector('.nosotros-line-top');
+  if (line) {
+    const io = new IntersectionObserver(([e]) => {
+      if (e?.isIntersecting) line.classList.add('animated');
+    }, { threshold: 0.5 });
+    io.observe(line);
+  }
 });
 </script>
 
 <template>
   <div>
-    <section ref="heroRef" class="min-h-[85vh] flex flex-col items-center justify-center text-center px-6">
-      <p class="lux-section-label">Alta relojería · Bucaramanga</p>
-      <h1 class="font-display text-6xl md:text-8xl font-light leading-none mb-4">
-        LUX<span class="text-lux-gold font-semibold">TIME</span>
-      </h1>
-      <p class="font-display italic text-xl text-lux-white-dim mb-10">El tiempo, en su forma más elegante</p>
-      <div class="flex flex-wrap gap-4 justify-center">
-        <NuxtLink to="/catalogo">
-          <UiLuxButton>Explorar catálogo</UiLuxButton>
-        </NuxtLink>
-        <UiLuxButton variant="ghost">Contactar por WhatsApp</UiLuxButton>
+    <section id="hero" class="section hero">
+      <div class="hero-content">
+        <p class="hero-eyebrow">{{ t('home.heroEyebrow') }}</p>
+        <h1 class="hero-title">
+          <span class="hero-title-text">LU<span class="gold">X</span>TIME</span>
+        </h1>
+        <p class="hero-subtitle">Elegance · Presence · Style</p>
+        <div class="hero-divider" />
+        <p class="hero-tags">{{ t('home.heroTags') }}</p>
+        <div class="hero-cta">
+          <NuxtLink to="/catalogo" class="btn-primary">{{ t('home.viewCollection') }}</NuxtLink>
+          <NuxtLink to="/#nosotros" class="btn-ghost">{{ t('home.contact') }}</NuxtLink>
+        </div>
       </div>
     </section>
 
-    <section class="px-6 md:px-16 py-6">
-      <UiMarquee :items="['Envío nacional', 'Autenticidad garantizada', 'Atención personalizada']" />
-    </section>
-
-    <section ref="featuredRef" class="px-6 md:px-16 py-20 bg-lux-black-2">
-      <div class="mb-4 p-4 border border-lux-gold/30 text-center text-xs uppercase tracking-widest text-lux-gold">
-        {{ WHOLESALE_BANNER }}
+    <section class="marquee-section">
+      <div class="marquee-track">
+        <span v-for="(item, i) in [...marqueeItems, ...marqueeItems]" :key="i" class="marquee-item flex items-center gap-4">
+          {{ item }}
+          <span class="w-1 h-1 rounded-full bg-lux-gold inline-block" />
+        </span>
       </div>
-      <UiSectionHeader label="Novedades" title="Recién llegados" />
-      <CatalogFeaturedCarousel v-if="newArrivals?.length" :watches="newArrivals" />
     </section>
 
-    <section class="px-6 md:px-16 py-20">
-      <UiSectionHeader label="Destacados" title="Más vendidos" />
-      <CatalogFeaturedCarousel v-if="bestSellers?.length" :watches="bestSellers" />
+    <section id="coleccion" class="section products-section">
+      <div class="products-header reveal">
+        <div>
+          <p class="section-label">{{ t('home.collectionLabel') }}</p>
+          <h2 class="section-title">{{ t('home.ourWatchesLead') }} <em>{{ t('home.ourWatchesEm') }}</em></h2>
+        </div>
+        <NuxtLink to="/catalogo" class="btn-ghost">{{ t('home.viewAll') }}</NuxtLink>
+      </div>
+      <div v-if="bestSellers?.length" class="products-grid">
+        <CatalogProductCard
+          v-for="(w, i) in bestSellers"
+          :key="w.id"
+          :watch="w"
+          :delay="i * 0.15"
+        />
+      </div>
+    </section>
+
+    <section id="nosotros" class="nosotros-section">
+      <div class="nosotros-line-top" />
+      <div class="nosotros-intro reveal">
+        <div>
+          <p class="section-label">{{ t('home.aboutLabel') }}</p>
+          <h2 class="section-title">{{ t('home.aboutTitle') }}<br><em>{{ t('home.aboutTitleEm') }}</em></h2>
+        </div>
+        <p class="section-body">
+          {{ t('home.aboutBody') }}
+          <br><br>{{ t('home.aboutLocation') }}
+        </p>
+      </div>
+    </section>
+
+    <section class="statement-section reveal">
+      <p class="statement-text">{{ t('home.statement') }}<br><em>{{ t('home.statementEm') }}</em></p>
+      <p class="statement-sub">{{ t('home.statementSub') }}</p>
     </section>
   </div>
 </template>

@@ -1,10 +1,19 @@
 import { defineStore } from 'pinia';
 import type { AuthUserDto } from '@luxtime/shared';
+import {
+  clearLocalSession,
+  loadLocalSession,
+  LOCAL_AUTH_ENABLED,
+  saveLocalSession,
+  validateLocalLogin,
+} from '~/utils/local-auth';
+import { AUTH_REDIRECT_KEY } from '~/utils/auth-redirect';
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null as AuthUserDto | null,
     loaded: false,
+    isLocalSession: false,
   }),
   getters: {
     isAuthenticated: (state) => !!state.user,
@@ -12,9 +21,15 @@ export const useAuthStore = defineStore('auth', {
     isSuperAdmin: (state) => state.user?.role === 'SUPER_ADMIN',
   },
   actions: {
-    setUser(user: AuthUserDto | null) {
+    setUser(user: AuthUserDto | null, isLocalSession = false) {
       this.user = user;
+      this.isLocalSession = isLocalSession;
       this.loaded = true;
+    },
+    hydrateLocal() {
+      if (!LOCAL_AUTH_ENABLED) return;
+      const local = loadLocalSession();
+      if (local) this.setUser(local, true);
     },
     async fetchMe() {
       const config = useRuntimeConfig();
@@ -22,10 +37,30 @@ export const useAuthStore = defineStore('auth', {
         const data = await $fetch<{ user: AuthUserDto }>(`${config.public.apiBaseUrl}/auth/me`, {
           credentials: 'include',
         });
-        this.setUser(data.user);
+        this.setUser(data.user, false);
+        return;
       } catch {
-        this.setUser(null);
+        if (LOCAL_AUTH_ENABLED) {
+          const local = loadLocalSession();
+          if (local) {
+            this.setUser(local, true);
+            return;
+          }
+        }
+        this.setUser(null, false);
       }
+    },
+    localLogin(email: string, password: string) {
+      if (!LOCAL_AUTH_ENABLED) {
+        throw new Error('Login local solo disponible en desarrollo.');
+      }
+      const user = validateLocalLogin(email, password);
+      if (!user) {
+        throw new Error('Correo o contraseña incorrectos.');
+      }
+      saveLocalSession(user);
+      this.setUser(user, true);
+      return user;
     },
     async mockLogin(email: string, name: string) {
       const config = useRuntimeConfig();
@@ -34,16 +69,25 @@ export const useAuthStore = defineStore('auth', {
         body: { email, name },
         credentials: 'include',
       });
-      this.setUser(data.user);
+      clearLocalSession();
+      this.setUser(data.user, false);
       return data.user;
     },
     async logout() {
-      const config = useRuntimeConfig();
-      await $fetch(`${config.public.apiBaseUrl}/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      this.setUser(null);
+      clearLocalSession();
+      if (import.meta.client) {
+        sessionStorage.removeItem(AUTH_REDIRECT_KEY);
+      }
+      if (!this.isLocalSession) {
+        const config = useRuntimeConfig();
+        try {
+          await $fetch(`${config.public.apiBaseUrl}/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',
+          });
+        } catch { /* */ }
+      }
+      this.setUser(null, false);
     },
   },
 });

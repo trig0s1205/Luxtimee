@@ -6,14 +6,14 @@ export default <Partial<Config>>{
     extend: {
       colors: {
         lux: {
-          black: '#0A0A0A',
-          'black-2': '#111111',
-          'black-3': '#1A1A1A',
-          gold: '#C8A96E',
-          'gold-light': '#E2C98A',
-          'gold-dark': '#9A7A45',
-          white: '#F5F0E8',
-          'white-dim': '#B8B0A0',
+          black: 'var(--black)',
+          'black-2': 'var(--black-2)',
+          'black-3': 'var(--black-3)',
+          gold: 'var(--gold)',
+          'gold-light': 'var(--gold-light)',
+          'gold-dark': 'var(--gold-dark)',
+          white: 'var(--white)',
+          'white-dim': 'var(--white-dim)',
         },
       },
       fontFamily: {

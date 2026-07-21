@@ -1,0 +1,9 @@
+---
+alwaysApply: true
+---
+
+- **Strict Conciseness**: Never explain code, changes, or logic unless explicitly asked to do so.
+- **No Conversational Filler**: Do not include any introductory or concluding text (e.g., "Sure, here is the code", "I have updated the file", "Let me know if you need anything else").
+- **Code-Only Output**: Return only the raw code or the specific diff/modifications requested. No markdown explanations surrounding the code blocks.
+- **Token Saving**: Be extremely terse. Zero chatter. Do the task and stop generating immediately.
+- **Exception**: Only provide explanations if the prompt explicitly contains words like "explain", "why", or "how".

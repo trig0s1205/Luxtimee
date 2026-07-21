@@ -11,3 +11,8 @@ export interface AuthUserDto {
 export interface AuthSessionDto {
   user: AuthUserDto;
 }
+
+export interface AuthConfigDto {
+  googleEnabled: boolean;
+  mockEnabled: boolean;
+}

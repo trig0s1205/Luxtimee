@@ -1,24 +1,55 @@
+<script setup lang="ts">
+const { t } = useLocale();
+</script>
+
 <template>
-  <footer class="border-t border-lux-gold/10 px-6 md:px-16 py-16 bg-lux-black">
-    <div class="grid md:grid-cols-4 gap-10">
-      <div class="md:col-span-2">
-        <p class="font-display text-4xl text-lux-gold tracking-widest mb-2">LUXTIME</p>
-        <p class="text-[11px] uppercase tracking-lux text-lux-white-dim mb-4">Relojes de lujo</p>
-        <p class="text-sm text-lux-white-dim max-w-sm leading-relaxed">
-          Experiencia premium inspirada en la alta relojería. Bucaramanga, Colombia.
-        </p>
+  <footer class="site-footer">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <p class="brand-name">LUXTIME</p>
+        <p class="brand-tagline">Luxury Timepieces</p>
+        <p>{{ t('footer.brandText') }}</p>
       </div>
-      <div>
-        <h4 class="text-[10px] uppercase tracking-[0.3em] text-lux-gold mb-4">Navegación</h4>
-        <ul class="space-y-3 text-sm text-lux-white-dim">
-          <li><NuxtLink to="/catalogo">Catálogo</NuxtLink></li>
-          <li><NuxtLink to="/design">Showcase de diseño</NuxtLink></li>
-          <li><NuxtLink to="/cuenta">Mi cuenta</NuxtLink></li>
+
+      <div class="footer-col">
+        <h4>{{ t('footer.collection') }}</h4>
+        <ul>
+          <li><NuxtLink to="/catalogo?filter=sport">{{ t('footer.sport') }}</NuxtLink></li>
+          <li><NuxtLink to="/catalogo?filter=classic">{{ t('footer.classics') }}</NuxtLink></li>
+          <li><NuxtLink to="/catalogo?filter=limited">{{ t('footer.limited') }}</NuxtLink></li>
+          <li><NuxtLink to="/catalogo">{{ t('footer.viewAll') }}</NuxtLink></li>
         </ul>
       </div>
-      <div>
-        <h4 class="text-[10px] uppercase tracking-[0.3em] text-lux-gold mb-4">Contacto</h4>
-        <p class="text-sm text-lux-white-dim">WhatsApp · Soporte premium</p>
+
+      <div class="footer-col">
+        <h4>{{ t('footer.legal') }}</h4>
+        <ul>
+          <li><NuxtLink to="/politica-de-privacidad">{{ t('footer.privacy') }}</NuxtLink></li>
+          <li><NuxtLink to="/terminos-y-condiciones">{{ t('footer.terms') }}</NuxtLink></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h4>{{ t('footer.brand') }}</h4>
+        <ul>
+          <li><NuxtLink to="/#nosotros">{{ t('footer.story') }}</NuxtLink></li>
+          <li><NuxtLink to="/#nosotros">{{ t('footer.aboutUs') }}</NuxtLink></li>
+          <li><NuxtLink to="/#nosotros">{{ t('nav.contact') }}</NuxtLink></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <p>{{ t('footer.rights') }}</p>
+      <div class="footer-legal">
+        <NuxtLink to="/politica-de-privacidad">{{ t('footer.privacyShort') }}</NuxtLink>
+        <span>·</span>
+        <NuxtLink to="/terminos-y-condiciones">{{ t('footer.termsShort') }}</NuxtLink>
+      </div>
+      <div class="socials">
+        <a href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="https://www.tiktok.com/" target="_blank" rel="noopener noreferrer">TikTok</a>
+        <a href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer">Facebook</a>
       </div>
     </div>
   </footer>

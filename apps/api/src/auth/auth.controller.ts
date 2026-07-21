@@ -16,18 +16,15 @@ import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/metadata.decorators';
-import { IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsString, MinLength } from 'class-validator';
 
 class MockLoginDto {
   @IsEmail()
   email!: string;
 
   @IsString()
+  @MinLength(2)
   name!: string;
-
-  @IsOptional()
-  @IsEnum(Role)
-  role?: Role;
 }
 
 @Controller({ path: 'auth', version: '1' })
@@ -54,7 +51,17 @@ export class AuthController {
     this.authService.setAuthCookies(res, tokens);
 
     const frontend = this.config.get<string>('FRONTEND_URL', 'http://localhost:3000');
-    res.redirect(`${frontend}/cuenta`);
+    res.redirect(`${frontend}/ingresar/exito`);
+  }
+
+  @Public()
+  @Get('config')
+  authConfig() {
+    const clientId = this.config.get<string>('GOOGLE_OAUTH_CLIENT_ID', '');
+    return {
+      googleEnabled: Boolean(clientId && clientId !== 'mock-client-id'),
+      mockEnabled: this.config.get('USE_MOCKS') === 'true',
+    };
   }
 
   @Public()
@@ -64,7 +71,7 @@ export class AuthController {
       throw new UnauthorizedException('Mock login deshabilitado');
     }
 
-    const user = await this.authService.mockLogin(dto.email, dto.name, dto.role);
+    const user = await this.authService.mockLogin(dto.email, dto.name);
     const tokens = await this.authService.issueTokens(user);
     this.authService.setAuthCookies(res, tokens);
 

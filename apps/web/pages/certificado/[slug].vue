@@ -14,6 +14,9 @@ interface CertPublic {
   warranty: Record<string, unknown>;
 }
 
+const loaded = ref(false);
+const showContent = ref(false);
+
 const { data: cert, error } = await useAsyncData(`cert-${slug.value}`, () =>
   api.get<CertPublic>(`/certificates/public/${slug.value}`),
 );
@@ -22,20 +25,81 @@ if (error.value || !cert.value) {
   throw createError({ statusCode: 404, message: 'Certificado no encontrado' });
 }
 
+const warrantyStatus = computed(() => {
+  if (!cert.value?.paidAt) return { text: 'Activa', active: true };
+  const paid = new Date(cert.value.paidAt);
+  const months = Number(cert.value.warranty?.durationMonths) || 12;
+  const end = new Date(paid);
+  end.setMonth(end.getMonth() + months);
+  const active = end > new Date();
+  return { text: active ? 'Vigente (VIP)' : 'Expirada', active };
+});
+
+const issueDate = computed(() => {
+  const d = cert.value?.paidAt || cert.value?.issuedAt;
+  return d ? new Date(d).toLocaleDateString('es-CO') : '—';
+});
+
 useSeoMeta({ title: `Certificado ${cert.value?.watch.model} — Luxtime`, robots: 'index,follow' });
+
+definePageMeta({ layout: false });
+
+onMounted(() => {
+  setTimeout(() => {
+    loaded.value = true;
+    setTimeout(() => { showContent.value = true; }, 400);
+  }, 1200);
+});
 </script>
 
 <template>
-  <div v-if="cert" class="min-h-screen bg-lux-black px-6 py-24 flex items-center justify-center">
-    <article class="max-w-lg w-full border border-lux-gold/30 p-8 text-center">
-      <p class="text-[10px] uppercase tracking-[0.4em] text-lux-gold mb-4">Certificado de autenticidad</p>
-      <img v-if="cert.qrPayload" :src="cert.qrPayload" alt="QR certificado" class="w-40 h-40 mx-auto mb-6 bg-white p-2" />
-      <img v-if="cert.watch.image" :src="cert.watch.image" :alt="cert.watch.model" class="max-h-48 mx-auto object-contain mb-6" />
-      <h1 class="font-display text-3xl mb-2">{{ cert.watch.brand }} {{ cert.watch.model }}</h1>
-      <p class="text-sm text-lux-white-dim mb-1">Cliente: {{ cert.customerName }}</p>
-      <p class="text-sm text-lux-white-dim mb-1">Pedido: {{ cert.orderReadableId }}</p>
-      <p v-if="cert.paidAt" class="text-sm text-lux-white-dim mb-4">Fecha de venta: {{ new Date(cert.paidAt).toLocaleDateString('es-CO') }}</p>
-      <p class="text-xs text-lux-gold uppercase tracking-widest">Documento inmutable · Luxtime</p>
-    </article>
+  <div class="min-h-screen bg-lux-black">
+    <div v-if="!loaded" class="vault-loader">
+      <p class="font-display text-2xl tracking-[0.3em] text-lux-gold uppercase">Luxtime Vault</p>
+      <div class="vault-loader-bar" />
+    </div>
+
+    <div v-else-if="cert && showContent" class="vault-container">
+      <article class="vault-card">
+        <p class="vault-badge">Certificado de Autenticidad</p>
+        <p class="text-sm text-lux-white-dim mb-2">Pieza registrada exclusivamente para</p>
+        <p class="font-display text-2xl text-lux-white mb-6">{{ cert.customerName }}</p>
+
+        <div class="vault-image-box">
+          <img v-if="cert.watch.image" :src="cert.watch.image" :alt="cert.watch.model">
+        </div>
+
+        <table class="vault-details">
+          <tbody>
+            <tr>
+              <td>Modelo</td>
+              <td>{{ cert.watch.brand }} {{ cert.watch.model }}</td>
+            </tr>
+            <tr>
+              <td>Colección</td>
+              <td>Luxtime</td>
+            </tr>
+            <tr>
+              <td>Referencia</td>
+              <td>{{ cert.orderReadableId }}</td>
+            </tr>
+            <tr>
+              <td>Código Serial</td>
+              <td class="vault-serial">{{ cert.slug }}</td>
+            </tr>
+            <tr>
+              <td>Fecha</td>
+              <td>{{ issueDate }}</td>
+            </tr>
+            <tr>
+              <td>Garantía</td>
+              <td :class="{ 'vault-warranty-active': warrantyStatus.active }">{{ warrantyStatus.text }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <img v-if="cert.qrPayload" :src="cert.qrPayload" alt="QR" class="w-32 h-32 mx-auto mt-8 bg-white p-2">
+      </article>
+    </div>
   </div>
 </template>

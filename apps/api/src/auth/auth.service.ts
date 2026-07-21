@@ -51,11 +51,17 @@ export class AuthService {
     });
   }
 
-  async mockLogin(email: string, name: string, role: Role = Role.CUSTOMER) {
-    return this.prisma.user.upsert({
-      where: { email },
-      update: { name, role },
-      create: { email, name, role },
+  async mockLogin(email: string, name: string) {
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return this.prisma.user.update({
+        where: { email },
+        data: { name },
+      });
+    }
+
+    return this.prisma.user.create({
+      data: { email, name, role: Role.CUSTOMER },
     });
   }
 

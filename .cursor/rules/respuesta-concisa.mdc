@@ -1,0 +1,14 @@
+---
+description: Formato de respuesta obligatorio y conciso para ahorrar tokens
+alwaysApply: true
+---
+
+# Respuesta mínima
+
+- Responde SIEMPRE en español.
+- Arregla lo pedido y ya. NO des explicaciones, análisis, resúmenes ni justificaciones salvo que el usuario los pida explícitamente.
+- No narres lo que vas a hacer ni lo que hiciste. Nada de "Análisis", "Solución", "Cambios" a menos que se pidan.
+- Máximo 1-2 frases al final (ej: "Listo." o "Corregido en `archivo`.").
+- No repitas notificaciones del sistema ni reexpliques errores ya resueltos.
+- Modifica solo lo que el prompt pide. No toques lógica, estilos ni config no relacionada.
+- No comentes el código con narración de cambios.

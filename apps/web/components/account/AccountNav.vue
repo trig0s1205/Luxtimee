@@ -1,12 +1,14 @@
 <script setup lang="ts">
-const links = [
-  { to: '/cuenta', label: 'Resumen' },
-  { to: '/cuenta/pedidos', label: 'Pedidos' },
-  { to: '/cuenta/garantias', label: 'Garantías' },
-  { to: '/cuenta/deseos', label: 'Lista de deseos' },
-  { to: '/cuenta/datos', label: 'Datos de envío' },
-];
 const route = useRoute();
+const { t } = useLocale();
+
+const links = computed(() => [
+  { to: '/cuenta', label: t('account.summary') },
+  { to: '/cuenta/pedidos', label: t('account.orders') },
+  { to: '/cuenta/garantias', label: t('account.warranties') },
+  { to: '/cuenta/deseos', label: t('account.wishlist') },
+  { to: '/cuenta/datos', label: t('account.shipping') },
+]);
 </script>
 
 <template>

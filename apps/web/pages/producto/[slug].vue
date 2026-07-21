@@ -7,7 +7,16 @@ const catalog = useCatalogData();
 const cart = useCartStore();
 const auth = useAuthStore();
 const wishlist = useWishlistStore();
+const api = useApi();
 const analytics = useAnalytics();
+
+const experienceItems = [
+  'Caja Estuche Luxury',
+  'Tarjeta Autenticidad PVC QR',
+  'Paño microfibra',
+  'Solución limpiadora',
+  'Batería de repuesto',
+];
 
 onMounted(async () => {
   if (auth.isAuthenticated) await wishlist.fetch();
@@ -28,61 +37,39 @@ watchEffect(() => {
   });
 });
 
-const jsonLd = computed(() => {
-  if (!watch.value) return null;
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: `${watch.value.brand.name} ${watch.value.model}`,
-    brand: watch.value.brand.name,
-    offers: {
-      '@type': 'Offer',
-      price: watch.value.retailPrice,
-      priceCurrency: 'COP',
-      availability: watch.value.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-    },
-  };
-});
-
-useHead({
-  script: computed(() =>
-    jsonLd.value
-      ? [{ type: 'application/ld+json', innerHTML: JSON.stringify(jsonLd.value) }]
-      : [],
-  ),
-});
-
 function addToCart() {
   if (!watch.value) return;
   cart.addFromWatch(watch.value);
   analytics.track('add_to_cart', { slug: watch.value.slug });
 }
+
+async function consultWhatsApp() {
+  if (!watch.value) return;
+  try {
+    const s = await api.get<{ url: string; messagePrefix: string }>('/settings/whatsapp/public');
+    const text = `${s.messagePrefix || ''} Me interesa: ${watch.value.brand.name} ${watch.value.model}`.trim();
+    const sep = s.url.includes('?') ? '&' : '?';
+    window.open(`${s.url}${sep}text=${encodeURIComponent(text)}`, '_blank');
+  } catch { /* */ }
+}
 </script>
 
 <template>
-  <div v-if="watch" class="px-6 md:px-16 py-12">
-    <div class="grid lg:grid-cols-2 gap-12 lg:gap-16">
+  <div v-if="watch" class="product-page">
+    <div class="product-page-grid">
       <CatalogProductGallery
         :front-url="watch.frontImageUrl"
         :back-url="watch.backImageUrl"
         :alt="`${watch.brand.name} ${watch.model}`"
       />
 
-      <div class="space-y-6">
-        <div>
-          <p class="text-[10px] uppercase tracking-[0.35em] text-lux-gold mb-2">{{ watch.brand.name }}</p>
-          <h1 class="font-display text-4xl md:text-5xl text-lux-white mb-3">{{ watch.model }}</h1>
-          <p class="text-sm text-lux-white-dim">
-            {{ watch.movementType }} ·
-            <UiLuxBadge :tone="watch.stock > 0 ? 'gold' : 'detal'">
-              {{ watch.stock > 0 ? 'Disponible' : 'Agotado' }}
-            </UiLuxBadge>
-          </p>
-        </div>
+      <div>
+        <p class="products-tag">{{ watch.brand.name }}</p>
+        <h1 class="detail-title">{{ watch.model }}</h1>
+        <p class="detail-ref">{{ watch.movementType }} · Ref. {{ watch.slug }}</p>
+        <p class="detail-price">{{ formatCop(watch.retailPrice) }}</p>
 
-        <p class="font-display text-3xl text-lux-gold">{{ formatCop(watch.retailPrice) }}</p>
-
-        <div v-if="Object.keys(watch.specs).length" class="grid grid-cols-2 gap-3">
+        <div v-if="Object.keys(watch.specs).length" class="grid grid-cols-2 gap-3 my-6">
           <div
             v-for="(value, key) in watch.specs"
             :key="key"
@@ -93,24 +80,38 @@ function addToCart() {
           </div>
         </div>
 
-        <div v-if="watch.warrantyTemplate" class="border border-lux-gold/15 p-5">
-          <p class="text-[10px] uppercase tracking-widest text-lux-gold mb-2">Garantía</p>
+        <div class="detail-actions">
+          <button type="button" class="btn-add-to-cart" :disabled="watch.stock === 0" @click="addToCart">
+            Agregar al carrito
+          </button>
+          <button type="button" class="btn-whatsapp" @click="consultWhatsApp">
+            💬 Consultar por WhatsApp
+          </button>
+          <button
+            v-if="auth.isAuthenticated"
+            type="button"
+            class="btn-ghost"
+            @click="wishlist.toggle(watch.id)"
+          >
+            {{ wishlist.has(watch.id) ? '♥ En deseos' : '♡ Guardar' }}
+          </button>
+        </div>
+
+        <div class="product-experience-block">
+          <p class="detail-experience-title">Tu Experiencia Luxtime incluye:</p>
+          <ul class="detail-experience">
+            <li v-for="item in experienceItems" :key="item">{{ item }}</li>
+          </ul>
+        </div>
+
+        <div v-if="watch.warrantyTemplate" class="mt-6 border border-lux-gold/15 p-5">
+          <p class="detail-experience-title">Garantía</p>
           <p class="text-sm text-lux-white-dim">{{ watch.warrantyTemplate.terms }}</p>
         </div>
 
-        <div v-if="watch.careTemplate" class="border border-lux-gold/15 p-5">
-          <p class="text-[10px] uppercase tracking-widest text-lux-gold mb-2">Cuidados</p>
+        <div v-if="watch.careTemplate" class="mt-4 border border-lux-gold/15 p-5">
+          <p class="detail-experience-title">Cuidados</p>
           <p class="text-sm text-lux-white-dim">{{ watch.careTemplate.instructions }}</p>
-        </div>
-
-        <div class="flex flex-wrap gap-4 pt-4">
-          <UiLuxButton :disabled="watch.stock === 0" @click="addToCart">Añadir al carrito</UiLuxButton>
-          <UiLuxButton v-if="auth.isAuthenticated" variant="ghost" @click="wishlist.toggle(watch.id)">
-            {{ wishlist.has(watch.id) ? '♥ En deseos' : '♡ Guardar' }}
-          </UiLuxButton>
-          <NuxtLink to="/carrito">
-            <UiLuxButton variant="ghost">Ver carrito</UiLuxButton>
-          </NuxtLink>
         </div>
       </div>
     </div>

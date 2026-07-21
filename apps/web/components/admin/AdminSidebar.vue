@@ -1,44 +1,101 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
-
-const links = [
-  { to: '/admin/inventario', label: 'Inventario' },
-  { to: '/admin/importar', label: 'Importar Excel' },
-  { to: '/admin/garantias', label: 'Garantías' },
-  { to: '/admin/cuidados', label: 'Cuidados' },
-  { to: '/admin/envios', label: 'Envíos' },
-  { to: '/admin/whatsapp', label: 'WhatsApp' },
-  { to: '/admin/pre-pedidos', label: 'Pre-pedidos' },
-  { to: '/admin/pedidos', label: 'Pedidos' },
-  { to: '/admin/notificaciones', label: 'Notificaciones' },
-  { to: '/admin/resenas', label: 'Reseñas' },
-  { to: '/admin/correo', label: 'Correo' },
-  { to: '/admin/segmentos', label: 'Segmentos' },
-  { to: '/admin/auditoria', label: 'Auditoría', superOnly: true },
-  { to: '/admin/dashboards/ganancia', label: 'Ganancia', superOnly: true },
-  { to: '/admin/dashboards/salud', label: 'Salud del negocio', superOnly: true },
-];
+const emit = defineEmits<{ logout: [] }>();
 
 const route = useRoute();
 const auth = useAuthStore();
+
+const dashboardLinks = [
+  { to: '/admin/dashboards/ganancia', label: 'Profit', superOnly: true },
+  { to: '/admin/dashboards/salud', label: 'Health Panel' },
+];
+
+const visibleDashboardLinks = computed(() =>
+  dashboardLinks.filter((link) => !link.superOnly || auth.isSuperAdmin),
+);
+
+const mainLinks = [
+  { to: '/admin/inventario', label: 'Products' },
+  { to: '/admin/inventario', label: 'Inventory' },
+  { to: '/admin/pre-pedidos', label: 'Pre-orders' },
+  { to: '/admin/pedidos', label: 'Orders' },
+  { to: '/admin/garantias', label: 'Warranties' },
+  { to: '/admin/correo', label: 'Email Marketing' },
+  { to: '/admin/segmentos', label: 'Segmentation' },
+];
+
+const bottomLinks = [
+  { to: '/admin/whatsapp', label: 'Settings' },
+];
+
+function isActive(path: string) {
+  return route.path === path || route.path.startsWith(`${path}/`);
+}
 </script>
 
 <template>
-  <aside class="hidden lg:block w-64 border-r border-lux-gold/10 p-8 shrink-0">
-    <p class="font-display text-2xl text-lux-gold mb-8">Admin</p>
-    <nav class="space-y-2 text-sm">
-      <NuxtLink
-        v-for="link in links"
-        :key="link.to"
-        :to="link.to"
-        class="block py-2 px-3 transition-colors"
-        :class="[
-          route.path.startsWith(link.to) ? 'text-lux-gold border-l border-lux-gold' : 'text-lux-white-dim hover:text-lux-white',
-          link.superOnly && !auth.isSuperAdmin ? 'hidden' : '',
-        ]"
-      >
-        {{ link.label }}
-      </NuxtLink>
+  <aside class="admin-sidebar hidden lg:flex flex-col w-64 p-6 shrink-0 min-h-screen admin-shell">
+    <div class="admin-sidebar-brand">
+      <h2>LUXTIME</h2>
+      <p>Luxury Horology Admin</p>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto">
+      <div class="admin-nav-section">
+        <p class="admin-nav-section-label">Dashboard</p>
+        <NuxtLink
+          v-for="link in visibleDashboardLinks"
+          :key="link.to"
+          :to="link.to"
+          class="admin-nav-link"
+          :class="{ active: isActive(link.to) }"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M3 12h4l2-7 4 14 2-7h6" />
+          </svg>
+          {{ link.label }}
+        </NuxtLink>
+      </div>
+
+      <div class="admin-nav-section">
+        <NuxtLink
+          v-for="link in mainLinks"
+          :key="`${link.to}-${link.label}`"
+          :to="link.to"
+          class="admin-nav-link"
+          :class="{ active: isActive(link.to) }"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="1" />
+          </svg>
+          {{ link.label }}
+        </NuxtLink>
+      </div>
     </nav>
+
+    <div class="admin-support-box">
+      <p>Support</p>
+      <span>help@luxtime.co</span>
+    </div>
+
+    <NuxtLink
+      v-for="link in bottomLinks"
+      :key="link.to"
+      :to="link.to"
+      class="admin-nav-link"
+      :class="{ active: isActive(link.to) }"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+      </svg>
+      {{ link.label }}
+    </NuxtLink>
+
+    <button type="button" class="admin-nav-link admin-logout-btn--sidebar !border-0 !bg-transparent" @click="emit('logout')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+      </svg>
+      Logout
+    </button>
   </aside>
 </template>
