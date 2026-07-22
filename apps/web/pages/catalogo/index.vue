@@ -68,6 +68,11 @@ function loadMore() {
   visibleLimit.value += PAGE_SIZE;
 }
 
+function clearSearch() {
+  searchQuery.value = '';
+  onSearchInput();
+}
+
 watch(() => route.query.filter, (f) => {
   if (typeof f === 'string' && f) movement.value = f;
 }, { immediate: true });
@@ -99,31 +104,68 @@ useSeoMeta({
 
     <template v-else>
       <div class="catalog-filter-container">
-        <select v-model="brand" class="catalog-select" @change="visibleLimit = PAGE_SIZE">
-          <option value="all">{{ t('catalog.brand') }}</option>
-          <option v-for="b in brands" :key="b.id" :value="b.slug">{{ b.name }}</option>
-        </select>
-        <select v-model="movement" class="catalog-select" @change="visibleLimit = PAGE_SIZE">
-          <option value="all">{{ t('catalog.movement') }}</option>
-          <option v-for="m in movements" :key="m" :value="m">{{ m }}</option>
-        </select>
-        <select v-model="available" class="catalog-select" @change="visibleLimit = PAGE_SIZE">
-          <option value="all">{{ t('catalog.availability') }}</option>
-          <option value="true">{{ t('catalog.available') }}</option>
-          <option value="false">{{ t('catalog.soldOut') }}</option>
-        </select>
-        <select v-model="sort" class="catalog-select">
-          <option value="newest">{{ t('catalog.newest') }}</option>
-          <option value="price-desc">{{ t('catalog.priceDesc') }}</option>
-          <option value="price-asc">{{ t('catalog.priceAsc') }}</option>
-        </select>
-        <input
-          v-model="searchQuery"
-          type="search"
-          class="catalog-search-input"
-          :placeholder="t('catalog.searchPlaceholder')"
-          @input="onSearchInput"
-        >
+        <div class="catalog-filters-row">
+          <div class="catalog-field" :class="{ 'is-active': brand !== 'all' }">
+            <select v-model="brand" class="catalog-select" @change="visibleLimit = PAGE_SIZE">
+              <option value="all">{{ t('catalog.brand') }}</option>
+              <option v-for="b in brands" :key="b.id" :value="b.slug">{{ b.name }}</option>
+            </select>
+            <svg class="catalog-field-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+          <div class="catalog-field" :class="{ 'is-active': movement !== 'all' }">
+            <select v-model="movement" class="catalog-select" @change="visibleLimit = PAGE_SIZE">
+              <option value="all">{{ t('catalog.movement') }}</option>
+              <option v-for="m in movements" :key="m" :value="m">{{ m }}</option>
+            </select>
+            <svg class="catalog-field-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+          <div class="catalog-field" :class="{ 'is-active': available !== 'all' }">
+            <select v-model="available" class="catalog-select" @change="visibleLimit = PAGE_SIZE">
+              <option value="all">{{ t('catalog.availability') }}</option>
+              <option value="true">{{ t('catalog.available') }}</option>
+              <option value="false">{{ t('catalog.soldOut') }}</option>
+            </select>
+            <svg class="catalog-field-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+          <div class="catalog-field" :class="{ 'is-active': sort !== 'newest' }">
+            <select v-model="sort" class="catalog-select">
+              <option value="newest">{{ t('catalog.newest') }}</option>
+              <option value="price-desc">{{ t('catalog.priceDesc') }}</option>
+              <option value="price-asc">{{ t('catalog.priceAsc') }}</option>
+            </select>
+            <svg class="catalog-field-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+        </div>
+        <div class="catalog-search-field">
+          <svg class="catalog-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3-3" />
+          </svg>
+          <input
+            v-model="searchQuery"
+            type="search"
+            class="catalog-search-input"
+            :placeholder="t('catalog.searchPlaceholder')"
+            @input="onSearchInput"
+          >
+          <button
+            v-if="searchQuery"
+            type="button"
+            class="catalog-search-clear"
+            :aria-label="t('catalog.clearSearch')"
+            @click="clearSearch"
+          >
+            ×
+          </button>
+        </div>
       </div>
 
       <section class="catalog-section">

@@ -11,17 +11,16 @@ export function isSafeRedirect(path: string | undefined | null): path is string 
 }
 
 export function resolvePostLoginRedirect(user: AuthUserDto, requested?: string | null): string {
+  if (!STAFF_ROLES.has(user.role)) {
+    return '/ingresar?error=forbidden';
+  }
+
   const path = requested?.trim();
-  if (isSafeRedirect(path)) {
-    if (path.startsWith('/admin') && !STAFF_ROLES.has(user.role)) {
-      return '/cuenta';
-    }
-    if (path === '/ingresar' || path.startsWith('/ingresar/')) {
-      return STAFF_ROLES.has(user.role) ? '/admin/inventario' : '/cuenta';
-    }
+  if (isSafeRedirect(path) && path.startsWith('/admin') && !path.startsWith('/ingresar')) {
     return path;
   }
-  return STAFF_ROLES.has(user.role) ? '/admin/inventario' : '/cuenta';
+
+  return '/admin/inventario';
 }
 
 export function storeAuthRedirect(path: string) {

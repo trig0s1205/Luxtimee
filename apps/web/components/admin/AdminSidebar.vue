@@ -5,8 +5,8 @@ const route = useRoute();
 const auth = useAuthStore();
 
 const dashboardLinks = [
-  { to: '/admin/dashboards/ganancia', label: 'Profit', superOnly: true },
-  { to: '/admin/dashboards/salud', label: 'Health Panel' },
+  { to: '/admin/dashboards/ganancia', label: 'Ganancia', superOnly: true },
+  { to: '/admin/dashboards/salud', label: 'Panel de salud' },
 ];
 
 const visibleDashboardLinks = computed(() =>
@@ -14,17 +14,17 @@ const visibleDashboardLinks = computed(() =>
 );
 
 const mainLinks = [
-  { to: '/admin/inventario', label: 'Products' },
-  { to: '/admin/inventario', label: 'Inventory' },
-  { to: '/admin/pre-pedidos', label: 'Pre-orders' },
-  { to: '/admin/pedidos', label: 'Orders' },
-  { to: '/admin/garantias', label: 'Warranties' },
-  { to: '/admin/correo', label: 'Email Marketing' },
-  { to: '/admin/segmentos', label: 'Segmentation' },
+  { to: '/admin/inventario', label: 'Productos' },
+  { to: '/admin/inventario', label: 'Inventario' },
+  { to: '/admin/pre-pedidos', label: 'Pre-pedidos' },
+  { to: '/admin/pedidos', label: 'Pedidos' },
+  { to: '/admin/garantias', label: 'Garantías' },
+  { to: '/admin/correo', label: 'Email marketing' },
+  { to: '/admin/segmentos', label: 'Segmentación' },
 ];
 
 const bottomLinks = [
-  { to: '/admin/whatsapp', label: 'Settings' },
+  { to: '/admin/whatsapp', label: 'Configuración' },
 ];
 
 function isActive(path: string) {
@@ -36,12 +36,12 @@ function isActive(path: string) {
   <aside class="admin-sidebar hidden lg:flex flex-col w-64 p-6 shrink-0 min-h-screen admin-shell">
     <div class="admin-sidebar-brand">
       <h2>LUXTIME</h2>
-      <p>Luxury Horology Admin</p>
+      <p>Administración de relojería de lujo</p>
     </div>
 
     <nav class="flex-1 overflow-y-auto">
       <div class="admin-nav-section">
-        <p class="admin-nav-section-label">Dashboard</p>
+        <p class="admin-nav-section-label">Panel</p>
         <NuxtLink
           v-for="link in visibleDashboardLinks"
           :key="link.to"
@@ -73,7 +73,7 @@ function isActive(path: string) {
     </nav>
 
     <div class="admin-support-box">
-      <p>Support</p>
+      <p>Soporte</p>
       <span>help@luxtime.co</span>
     </div>
 
@@ -95,7 +95,7 @@ function isActive(path: string) {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
       </svg>
-      Logout
+      Cerrar sesión
     </button>
   </aside>
 </template>

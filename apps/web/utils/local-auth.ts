@@ -5,7 +5,6 @@ const STORAGE_KEY = 'luxtime-dev-auth';
 const DEV_ACCOUNTS: Record<string, { password: string; name: string; role: Role }> = {
   'alvaro@luxtime.co': { password: 'luxtime', name: 'Álvaro', role: Role.SUPER_ADMIN },
   'lidia@luxtime.co': { password: 'luxtime', name: 'Lidia', role: Role.ADMIN },
-  'cliente@luxtime.co': { password: 'luxtime', name: 'Cliente Demo', role: Role.CUSTOMER },
 };
 
 export const LOCAL_AUTH_ENABLED = import.meta.dev;

@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import type { AuthConfigDto } from '@luxtime/shared';
+import type { AuthConfigDto, AuthUserDto } from '@luxtime/shared';
+import { Role } from '@luxtime/shared';
 import { DEV_ACCOUNT_HINTS, LOCAL_AUTH_ENABLED } from '~/utils/local-auth';
 import { isSafeRedirect, storeAuthRedirect } from '~/utils/auth-redirect';
 
 const props = defineProps<{
   redirect?: string | null;
 }>();
+
+const STAFF_ROLES = new Set<Role>([Role.ADMIN, Role.SUPER_ADMIN]);
 
 const route = useRoute();
 const auth = useAuthStore();
@@ -92,6 +95,12 @@ async function submitLogin(preset?: { email: string; password: string }) {
       throw new Error('No hay método de inicio de sesión disponible.');
     }
 
+    if (!user || !STAFF_ROLES.has(user.role)) {
+      await auth.logout();
+      error.value = 'Tu cuenta no tiene permisos para acceder al panel de administración.';
+      return;
+    }
+
     await navigateTo(redirectAfterLogin(user, redirectTarget.value));
   } catch (e: unknown) {
     const err = e as { data?: { message?: string | string[] }; message?: string };
@@ -108,7 +117,7 @@ async function submitLogin(preset?: { email: string; password: string }) {
     <p class="auth-eyebrow">Acceso seguro</p>
     <h1 class="auth-title">Iniciar <em>sesión</em></h1>
     <p class="auth-subtitle">
-      Ingresa con tu correo para acceder al panel de administración y tu cuenta Luxtime.
+      Acceso exclusivo para el equipo administrativo de Luxtime.
     </p>
 
     <p v-if="queryError" class="auth-alert auth-alert--warning">{{ queryError }}</p>
@@ -162,14 +171,6 @@ async function submitLogin(preset?: { email: string; password: string }) {
           @click="submitLogin({ email: 'lidia@luxtime.co', password: 'luxtime' })"
         >
           Admin
-        </button>
-        <button
-          type="button"
-          class="btn-ghost"
-          :disabled="loading"
-          @click="submitLogin({ email: 'cliente@luxtime.co', password: 'luxtime' })"
-        >
-          Cliente
         </button>
       </div>
       <p class="auth-dev-hint">Contraseña dev: <strong>luxtime</strong></p>

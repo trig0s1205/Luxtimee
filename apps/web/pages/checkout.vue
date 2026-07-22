@@ -32,18 +32,8 @@ const shippingCost = computed(() => {
 
 const total = computed(() => cart.subtotal + shippingCost.value);
 
-const auth = useAuthStore();
-
-onMounted(async () => {
+onMounted(() => {
   cart.hydrate();
-  if (!auth.loaded) await auth.fetchMe();
-  if (auth.isAuthenticated) {
-    const saved = await api.get<{ address: string; phone: string } | null>('/account/shipping').catch(() => null);
-    if (saved) {
-      form.customerAddress = saved.address;
-      form.customerPhone = saved.phone;
-    }
-  }
 });
 
 useSeoMeta({ title: 'Checkout — Luxtime' });

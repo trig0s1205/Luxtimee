@@ -5,8 +5,6 @@ const route = useRoute();
 const slug = computed(() => String(route.params.slug));
 const catalog = useCatalogData();
 const cart = useCartStore();
-const auth = useAuthStore();
-const wishlist = useWishlistStore();
 const api = useApi();
 const analytics = useAnalytics();
 
@@ -17,10 +15,6 @@ const experienceItems = [
   'Solución limpiadora',
   'Batería de repuesto',
 ];
-
-onMounted(async () => {
-  if (auth.isAuthenticated) await wishlist.fetch();
-});
 
 const { data: watch, error } = await useAsyncData(`product-${slug.value}`, () => catalog.getBySlug(slug.value));
 
@@ -86,14 +80,6 @@ async function consultWhatsApp() {
           </button>
           <button type="button" class="btn-whatsapp" @click="consultWhatsApp">
             💬 Consultar por WhatsApp
-          </button>
-          <button
-            v-if="auth.isAuthenticated"
-            type="button"
-            class="btn-ghost"
-            @click="wishlist.toggle(watch.id)"
-          >
-            {{ wishlist.has(watch.id) ? '♥ En deseos' : '♡ Guardar' }}
           </button>
         </div>
 

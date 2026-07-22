@@ -4,8 +4,11 @@ import { fileURLToPath } from 'node:url';
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  experimental: {
+    appManifest: false,
+  },
   modules: ['@pinia/nuxt', '@nuxtjs/tailwindcss'],
-  css: ['~/assets/css/tokens.css', '~/assets/css/base.css', '~/assets/css/dixus-pages.css', '~/assets/css/admin-dashboard.css', '~/assets/css/elite-portal.css', '~/assets/css/variants.css'],
+  css: ['~/assets/css/tokens.css', '~/assets/css/base.css', '~/assets/css/dixus-pages.css', '~/assets/css/admin-dashboard.css', '~/assets/css/variants.css'],
   alias: {
     '@luxtime/shared': fileURLToPath(new URL('../../packages/shared/src/index.ts', import.meta.url)),
   },

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 definePageMeta({ layout: false });
 
+useHead({ htmlAttrs: { lang: 'es' } });
+
 const { completeLogin } = useAuth();
 const error = ref('');
 const loading = ref(true);

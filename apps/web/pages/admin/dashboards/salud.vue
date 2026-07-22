@@ -96,14 +96,14 @@ const mockData = {
 
 const activeChart = computed(() => mockData.chart[chartPeriod.value]);
 
-useSeoMeta({ title: 'Business Health Panel — Luxtime Admin' });
+useSeoMeta({ title: 'Panel de salud del negocio — Luxtime Admin' });
 </script>
 
 <template>
   <div class="health-dashboard">
     <header class="health-dashboard-header">
       <div>
-        <h1 class="health-dashboard-title">Business Health Panel</h1>
+        <h1 class="health-dashboard-title">Panel de salud del negocio</h1>
         <p class="health-dashboard-subtitle">Operational overview and traffic analytics</p>
       </div>
       <button type="button" class="health-period-btn">

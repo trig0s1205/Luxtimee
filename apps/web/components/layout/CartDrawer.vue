@@ -42,7 +42,7 @@ function clearCart() {
 
       <div id="cart-body" class="cart-body">
         <p v-if="!cart.items.length" class="cart-empty">{{ t('cart.empty') }}</p>
-        <CartDrawerItem
+        <LayoutCartDrawerItem
           v-for="item in cart.items"
           :key="item.watchId"
           :item="item"

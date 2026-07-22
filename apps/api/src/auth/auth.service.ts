@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Role } from '@prisma/client';
@@ -11,6 +11,8 @@ export interface JwtPayload {
   role: Role;
 }
 
+const STAFF_ROLES = new Set<Role>([Role.ADMIN, Role.SUPER_ADMIN]);
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -18,6 +20,12 @@ export class AuthService {
     private jwtService: JwtService,
     private config: ConfigService,
   ) {}
+
+  private assertStaffRole(role: Role) {
+    if (!STAFF_ROLES.has(role)) {
+      throw new UnauthorizedException('No tienes acceso al panel de administración');
+    }
+  }
 
   async validateGoogleUser(profile: {
     googleId: string;
@@ -30,38 +38,33 @@ export class AuthService {
       },
     });
 
-    if (existing) {
-      return this.prisma.user.update({
-        where: { id: existing.id },
-        data: {
-          googleId: profile.googleId,
-          name: profile.name,
-          email: profile.email,
-        },
-      });
+    if (!existing) {
+      throw new UnauthorizedException('No tienes acceso al panel de administración');
     }
 
-    return this.prisma.user.create({
+    this.assertStaffRole(existing.role);
+
+    return this.prisma.user.update({
+      where: { id: existing.id },
       data: {
         googleId: profile.googleId,
-        email: profile.email,
         name: profile.name,
-        role: Role.CUSTOMER,
+        email: profile.email,
       },
     });
   }
 
   async mockLogin(email: string, name: string) {
     const existing = await this.prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      return this.prisma.user.update({
-        where: { email },
-        data: { name },
-      });
+    if (!existing) {
+      throw new UnauthorizedException('Solo personal autorizado puede iniciar sesión');
     }
 
-    return this.prisma.user.create({
-      data: { email, name, role: Role.CUSTOMER },
+    this.assertStaffRole(existing.role);
+
+    return this.prisma.user.update({
+      where: { email },
+      data: { name },
     });
   }
 

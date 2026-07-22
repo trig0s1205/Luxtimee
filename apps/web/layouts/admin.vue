@@ -1,8 +1,9 @@
 <script setup lang="ts">
-
 const auth = useAuthStore();
 
-
+useHead({
+  htmlAttrs: { lang: 'es' },
+});
 
 onMounted(() => {
 

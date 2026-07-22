@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import type { AuthUserDto } from '@luxtime/shared';
+import { Role } from '@luxtime/shared';
 import {
   clearLocalSession,
   loadLocalSession,
@@ -29,7 +30,9 @@ export const useAuthStore = defineStore('auth', {
     hydrateLocal() {
       if (!LOCAL_AUTH_ENABLED) return;
       const local = loadLocalSession();
-      if (local) this.setUser(local, true);
+      if (local && (local.role === Role.ADMIN || local.role === Role.SUPER_ADMIN)) {
+        this.setUser(local, true);
+      }
     },
     async fetchMe() {
       const config = useRuntimeConfig();
@@ -37,12 +40,16 @@ export const useAuthStore = defineStore('auth', {
         const data = await $fetch<{ user: AuthUserDto }>(`${config.public.apiBaseUrl}/auth/me`, {
           credentials: 'include',
         });
-        this.setUser(data.user, false);
+        if (data.user.role === Role.ADMIN || data.user.role === Role.SUPER_ADMIN) {
+          this.setUser(data.user, false);
+        } else {
+          this.setUser(null, false);
+        }
         return;
       } catch {
         if (LOCAL_AUTH_ENABLED) {
           const local = loadLocalSession();
-          if (local) {
+          if (local && (local.role === Role.ADMIN || local.role === Role.SUPER_ADMIN)) {
             this.setUser(local, true);
             return;
           }

@@ -4,7 +4,7 @@ Plataforma e-commerce de relojes de lujo — monorepo pnpm.
 
 ## Estructura
 
-- `apps/web` — Nuxt 3 (storefront + admin + cuenta)
+- `apps/web` — Nuxt 3 (storefront + admin)
 - `apps/api` — NestJS + Prisma + PostgreSQL
 - `apps/image-service` — FastAPI (rembg + Pillow)
 - `packages/shared` — tipos y enums compartidos
@@ -33,8 +33,8 @@ pnpm dev:web   # :3000
 | URL | Descripción |
 |-----|-------------|
 | http://localhost:3000/ | Home |
-| http://localhost:3000/catalogo | Catálogo TikTok |
-| http://localhost:3000/cuenta | Mi cuenta |
+| http://localhost:3000/catalogo | Catálogo |
+| http://localhost:3000/ingresar | Acceso admin |
 | http://localhost:3000/admin | Panel staff |
 | http://localhost:3001/api/v1/health | API health |
 
