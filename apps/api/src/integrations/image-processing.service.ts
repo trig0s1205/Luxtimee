@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 
@@ -18,37 +18,56 @@ export class ImageProcessingService {
   }
 
   async processWithMicroservice(file: Express.Multer.File): Promise<Buffer> {
-    const baseUrl = this.config.get<string>('IMAGE_SERVICE_URL', 'http://localhost:8001');
+    const baseUrl = this.config.get<string>('IMAGE_SERVICE_URL', 'http://localhost:8001').replace(/\/$/, '');
+    const endpoints = [`${baseUrl}/api/v1/process-watch`, `${baseUrl}/process`];
 
-    if (this.config.get('USE_MOCKS') === 'true') {
-      this.logger.warn('USE_MOCKS=true: devolviendo imagen original sin procesar');
-      return file.buffer;
+    if (!file.buffer?.length) {
+      throw new Error('El archivo de imagen no contiene buffer en memoria');
     }
 
-    const formData = new FormData();
-    const blob = new Blob([Uint8Array.from(file.buffer)], { type: file.mimetype });
-    formData.append('file', blob, file.originalname);
-
     let lastError: Error | null = null;
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const response = await fetch(`${baseUrl}/process`, {
-          method: 'POST',
-          body: formData,
-        });
 
-        if (!response.ok) {
-          throw new Error(`Image service respondió ${response.status}`);
+    for (const endpoint of endpoints) {
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const formData = new FormData();
+          const blob = new Blob([Uint8Array.from(file.buffer)], { type: file.mimetype });
+          formData.append('file', blob, file.originalname);
+
+          this.logger.log(`Procesando imagen en ${endpoint} (intento ${attempt})`);
+
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (response.status === 404) {
+            lastError = new Error(`Image service respondió 404 en ${endpoint}`);
+            break;
+          }
+
+          if (!response.ok) {
+            const detail = await response.text().catch(() => '');
+            throw new Error(`Image service respondió ${response.status}: ${detail}`);
+          }
+
+          const buffer = Buffer.from(await response.arrayBuffer());
+          if (!buffer.length) {
+            throw new Error('El microservicio devolvió una imagen vacía');
+          }
+
+          this.logger.log(`Imagen procesada correctamente (${buffer.length} bytes)`);
+          return buffer;
+        } catch (error) {
+          lastError = error as Error;
+          this.logger.error(`Fallo en ${endpoint} intento ${attempt}: ${lastError.message}`);
         }
-
-        return Buffer.from(await response.arrayBuffer());
-      } catch (error) {
-        lastError = error as Error;
-        this.logger.warn(`Intento ${attempt} fallido en image-service: ${lastError.message}`);
       }
     }
 
-    throw lastError ?? new Error('No se pudo procesar la imagen');
+    throw new BadGatewayException(
+      lastError?.message ?? 'No se pudo procesar la imagen. Verifica que image-service esté corriendo en el puerto 8001.',
+    );
   }
 
   async uploadToCloudinary(buffer: Buffer, publicId: string): Promise<string> {

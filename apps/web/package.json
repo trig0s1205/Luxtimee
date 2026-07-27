@@ -7,12 +7,13 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare",
+    "postinstall": "prisma generate --schema=../api/prisma/schema.prisma && nuxt prepare",
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@prisma/client": "^6.3.1",
     "@luxtime/shared": "workspace:*",
     "@pinia/nuxt": "^0.11.3",
     "gsap": "^3.12.7",
@@ -25,6 +26,11 @@
     "@nuxt/eslint": "^0.7.5",
     "@nuxtjs/tailwindcss": "^6.13.1",
     "@playwright/test": "^1.51.0",
-    "typescript": "^5.7.3"
+    "prisma": "^6.3.1",
+    "typescript": "^5.7.3",
+    "vue-tsc": "^3.3.7"
+  },
+  "prisma": {
+    "schema": "../api/prisma/schema.prisma"
   }
 }

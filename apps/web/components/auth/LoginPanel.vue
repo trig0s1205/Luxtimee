@@ -82,13 +82,9 @@ async function submitLogin(preset?: { email: string; password: string }) {
     let user = null;
 
     if (config.value.mockEnabled) {
-      try {
-        const name = DEV_ACCOUNT_HINTS.find((a) => a.email === email.value.trim().toLowerCase())?.name
-          ?? email.value.split('@')[0];
-        user = await mockLogin(email.value, name);
-      } catch {
-        user = auth.localLogin(email.value, password.value);
-      }
+      const name = DEV_ACCOUNT_HINTS.find((a) => a.email === email.value.trim().toLowerCase())?.name
+        ?? email.value.split('@')[0];
+      user = await mockLogin(email.value, name);
     } else if (LOCAL_AUTH_ENABLED) {
       user = auth.localLogin(email.value, password.value);
     } else {

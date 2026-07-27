@@ -7,6 +7,9 @@ export interface ProfitBreakdownItem {
   cost: number;
   profit: number;
   profitPercent: number;
+  retailMarginPercentage: number;
+  wholesaleMarginPercentage: number;
+  commissionPercent: number;
   commission: number;
   paidAt: string;
 }

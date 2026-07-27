@@ -4,6 +4,25 @@
   min-height: 100vh;
 }
 
+.admin-shell select,
+.admin-shell textarea,
+.admin-shell .admin-filter-select,
+.admin-shell .admin-form-field select,
+.admin-shell .admin-form-field textarea,
+.admin-shell .admin-form-readonly {
+  border: var(--border-hairline);
+}
+
+.admin-shell select:focus,
+.admin-shell textarea:focus,
+.admin-shell .admin-filter-select:focus,
+.admin-shell .admin-form-field select:focus,
+.admin-shell .admin-form-field textarea:focus {
+  border-color: rgba(200, 169, 110, 0.22);
+  outline: none;
+  box-shadow: none;
+}
+
 .admin-sidebar {
   background: #0d0d0d;
   border-right: 1px solid rgba(200, 169, 110, 0.08);

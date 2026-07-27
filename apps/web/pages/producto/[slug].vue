@@ -8,15 +8,8 @@ const cart = useCartStore();
 const api = useApi();
 const analytics = useAnalytics();
 
-const experienceItems = [
-  'Caja Estuche Luxury',
-  'Tarjeta Autenticidad PVC QR',
-  'Paño microfibra',
-  'Solución limpiadora',
-  'Batería de repuesto',
-];
-
 const { data: watch, error } = await useAsyncData(`product-${slug.value}`, () => catalog.getBySlug(slug.value));
+const { watchPrimaryImage, watchSecondaryImage, watchVideoUrl } = useMediaUrl();
 
 if (error.value) {
   throw createError({ statusCode: 404, message: 'Producto no encontrado' });
@@ -26,7 +19,8 @@ watchEffect(() => {
   if (!watch.value) return;
   useSeoMeta({
     title: `${watch.value.brand.name} ${watch.value.model} — Luxtime`,
-    description: `${watch.value.movementType}. ${watch.value.stock > 0 ? 'Disponible' : 'Agotado'}.`,
+    description: watch.value.description?.trim()
+      || `${watch.value.movementType}. ${watch.value.stock > 0 ? 'Disponible' : 'Agotado'}.`,
     ogImage: watch.value.frontImageUrl ?? undefined,
   });
 });
@@ -46,33 +40,24 @@ async function consultWhatsApp() {
     window.open(`${s.url}${sep}text=${encodeURIComponent(text)}`, '_blank');
   } catch { /* */ }
 }
+
 </script>
 
 <template>
   <div v-if="watch" class="product-page">
     <div class="product-page-grid">
       <CatalogProductGallery
-        :front-url="watch.frontImageUrl"
-        :back-url="watch.backImageUrl"
+        :front-url="watchPrimaryImage(watch)"
+        :back-url="watchSecondaryImage(watch)"
+        :video-url="watchVideoUrl(watch)"
         :alt="`${watch.brand.name} ${watch.model}`"
       />
 
-      <div>
+      <div class="product-info-col">
         <p class="products-tag">{{ watch.brand.name }}</p>
         <h1 class="detail-title">{{ watch.model }}</h1>
-        <p class="detail-ref">{{ watch.movementType }} · Ref. {{ watch.slug }}</p>
+        <p class="detail-ref">{{ watch.movementType }} · Ref. {{ watch.reference || watch.slug }}</p>
         <p class="detail-price">{{ formatCop(watch.retailPrice) }}</p>
-
-        <div v-if="Object.keys(watch.specs).length" class="grid grid-cols-2 gap-3 my-6">
-          <div
-            v-for="(value, key) in watch.specs"
-            :key="key"
-            class="border border-lux-gold/15 p-3"
-          >
-            <p class="text-[10px] uppercase tracking-widest text-lux-white-dim mb-1">{{ key }}</p>
-            <p class="text-sm text-lux-white">{{ value }}</p>
-          </div>
-        </div>
 
         <div class="detail-actions">
           <button type="button" class="btn-add-to-cart" :disabled="watch.stock === 0" @click="addToCart">
@@ -83,22 +68,7 @@ async function consultWhatsApp() {
           </button>
         </div>
 
-        <div class="product-experience-block">
-          <p class="detail-experience-title">Tu Experiencia Luxtime incluye:</p>
-          <ul class="detail-experience">
-            <li v-for="item in experienceItems" :key="item">{{ item }}</li>
-          </ul>
-        </div>
-
-        <div v-if="watch.warrantyTemplate" class="mt-6 border border-lux-gold/15 p-5">
-          <p class="detail-experience-title">Garantía</p>
-          <p class="text-sm text-lux-white-dim">{{ watch.warrantyTemplate.terms }}</p>
-        </div>
-
-        <div v-if="watch.careTemplate" class="mt-4 border border-lux-gold/15 p-5">
-          <p class="detail-experience-title">Cuidados</p>
-          <p class="text-sm text-lux-white-dim">{{ watch.careTemplate.instructions }}</p>
-        </div>
+        <CatalogWatchTechSheet :watch="watch" inline />
       </div>
     </div>
   </div>

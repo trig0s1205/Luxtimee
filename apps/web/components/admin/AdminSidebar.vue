@@ -14,8 +14,11 @@ const visibleDashboardLinks = computed(() =>
 );
 
 const mainLinks = [
-  { to: '/admin/inventario', label: 'Productos' },
   { to: '/admin/inventario', label: 'Inventario' },
+  { to: '/admin/catalog-settings', label: 'Marcas y clases' },
+  { to: '/admin/pending-costs', label: 'Pendientes de costo', superOnly: true },
+  { to: '/admin/secretaria', label: 'Secretaría', superOnly: true },
+  { to: '/admin/importar', label: 'Importar' },
   { to: '/admin/pre-pedidos', label: 'Pre-pedidos' },
   { to: '/admin/pedidos', label: 'Pedidos' },
   { to: '/admin/garantias', label: 'Garantías' },
@@ -58,7 +61,7 @@ function isActive(path: string) {
 
       <div class="admin-nav-section">
         <NuxtLink
-          v-for="link in mainLinks"
+          v-for="link in mainLinks.filter((item) => !item.superOnly || auth.isSuperAdmin)"
           :key="`${link.to}-${link.label}`"
           :to="link.to"
           class="admin-nav-link"

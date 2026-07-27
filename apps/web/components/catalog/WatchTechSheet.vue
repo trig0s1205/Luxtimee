@@ -1,0 +1,65 @@
+<script setup lang="ts">
+import type { WatchPublicDto } from '@luxtime/shared';
+import { LUXTIME_EXPERIENCE_ITEMS } from '~/constants/luxtime-experience';
+import { buildWatchTechSpecs, splitDescription } from '~/utils/watch-tech-sheet';
+
+const props = withDefaults(defineProps<{
+  watch: WatchPublicDto;
+  inline?: boolean;
+}>(), {
+  inline: false,
+});
+
+const descriptionParagraphs = computed(() => splitDescription(props.watch.description));
+const techSpecs = computed(() => buildWatchTechSpecs(props.watch));
+</script>
+
+<template>
+  <section
+    id="ficha-tecnica"
+    class="watch-tech-sheet"
+    :class="{ 'watch-tech-sheet--inline': inline }"
+  >
+    <header class="watch-tech-sheet__header">
+      <p class="watch-tech-sheet__eyebrow">Luxtime · Ficha técnica</p>
+      <h2 v-if="!inline" class="watch-tech-sheet__title">{{ watch.brand.name }} {{ watch.model }}</h2>
+    </header>
+
+    <div v-if="descriptionParagraphs.length" class="watch-tech-sheet__block">
+      <h3 class="watch-tech-sheet__block-title">Descripción</h3>
+      <div class="watch-tech-sheet__description">
+        <p v-for="(paragraph, index) in descriptionParagraphs" :key="index">{{ paragraph }}</p>
+      </div>
+    </div>
+
+    <div v-if="techSpecs.length" class="watch-tech-sheet__block">
+      <h3 class="watch-tech-sheet__block-title">Especificaciones</h3>
+      <div class="watch-tech-sheet__grid">
+        <article v-for="spec in techSpecs" :key="spec.label" class="watch-tech-sheet__spec">
+          <p class="watch-tech-sheet__spec-label">{{ spec.label }}</p>
+          <p class="watch-tech-sheet__spec-value">{{ spec.value }}</p>
+        </article>
+      </div>
+    </div>
+
+    <div class="watch-tech-sheet__block">
+      <h3 class="watch-tech-sheet__block-title">Tu experiencia Luxtime</h3>
+      <div class="watch-tech-sheet__experience">
+        <article v-for="item in LUXTIME_EXPERIENCE_ITEMS" :key="item.label" class="watch-tech-sheet__experience-card">
+          <span class="watch-tech-sheet__experience-icon" aria-hidden="true">{{ item.icon }}</span>
+          <p>{{ item.label }}</p>
+        </article>
+      </div>
+    </div>
+
+    <div v-if="watch.warrantyTemplate" class="watch-tech-sheet__block watch-tech-sheet__note">
+      <h3 class="watch-tech-sheet__block-title">Garantía</h3>
+      <p class="watch-tech-sheet__note-text">{{ watch.warrantyTemplate.terms }}</p>
+    </div>
+
+    <div v-if="watch.careTemplate" class="watch-tech-sheet__block watch-tech-sheet__note">
+      <h3 class="watch-tech-sheet__block-title">Cuidados</h3>
+      <p class="watch-tech-sheet__note-text">{{ watch.careTemplate.instructions }}</p>
+    </div>
+  </section>
+</template>

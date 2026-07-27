@@ -15,6 +15,9 @@ const emit = defineEmits<{
 const { openProduct } = useProductModal();
 const cart = useCartStore();
 const { t } = useLocale();
+const { watchPrimaryImage } = useMediaUrl();
+
+const imageUrl = computed(() => watchPrimaryImage(props.watch));
 
 const showLimited = computed(() => props.watch.stock > 0 && props.watch.stock <= 3);
 
@@ -48,8 +51,8 @@ function onAdd(e: Event) {
     <span v-if="showLimited" class="badge-limited">{{ t('product.limited') }}</span>
     <div class="products-img">
       <img
-        v-if="watch.frontImageUrl"
-        :src="watch.frontImageUrl"
+        v-if="imageUrl"
+        :src="imageUrl"
         :alt="`${watch.brand.name} ${watch.model}`"
         loading="lazy"
       >

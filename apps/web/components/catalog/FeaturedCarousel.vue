@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { WatchPublicDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
+import { watchPrimaryImage } from '~/utils/media-url';
 
 defineProps<{ watches: WatchPublicDto[] }>();
 </script>
@@ -16,8 +17,8 @@ defineProps<{ watches: WatchPublicDto[] }>();
         <NuxtLink :to="`/producto/${watch.slug}`" class="block">
           <div class="aspect-[4/5] bg-lux-black-2 flex items-center justify-center overflow-hidden">
             <img
-              v-if="watch.frontImageUrl"
-              :src="watch.frontImageUrl"
+              v-if="watchPrimaryImage(watch)"
+              :src="watchPrimaryImage(watch)"
               :alt="`${watch.brand.name} ${watch.model}`"
               class="max-w-[80%] max-h-[80%] object-contain transition-transform duration-500 group-hover:-translate-y-2"
               loading="lazy"

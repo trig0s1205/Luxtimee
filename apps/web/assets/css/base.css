@@ -167,7 +167,7 @@ section {
   font-weight: 400;
   letter-spacing: 0.25em;
   text-transform: uppercase;
-  border: 1px solid rgba(245, 240, 232, 0.25);
+  border: var(--border-hairline-white);
   cursor: pointer;
   transition: all 0.3s;
   text-decoration: none;

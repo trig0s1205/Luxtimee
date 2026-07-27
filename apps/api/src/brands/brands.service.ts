@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
 import { slugify } from '../common/utils/slug.util';
@@ -32,6 +32,10 @@ export class BrandsService {
 
   async remove(id: string) {
     await this.ensureExists(id);
+    const inUse = await this.prisma.watch.count({ where: { brandId: id } });
+    if (inUse > 0) {
+      throw new BadRequestException('No se puede eliminar: hay relojes asociados a esta marca.');
+    }
     return this.prisma.brand.delete({ where: { id } });
   }
 

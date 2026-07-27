@@ -1,5 +1,6 @@
-import { Controller, Get, Param, Query, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Logger, Param, Query, UseInterceptors } from '@nestjs/common';
 import { CatalogService } from './catalog.service';
+import { CatalogQueryDto } from './dto/catalog-query.dto';
 import { Public } from '../common/decorators/metadata.decorators';
 import { FinancialStripInterceptor } from '../common/interceptors/financial-strip.interceptor';
 
@@ -7,16 +8,22 @@ import { FinancialStripInterceptor } from '../common/interceptors/financial-stri
 @Public()
 @UseInterceptors(FinancialStripInterceptor)
 export class CatalogController {
+  private readonly logger = new Logger(CatalogController.name);
+
   constructor(private catalogService: CatalogService) {}
 
   @Get()
-  list(@Query() query: Record<string, string>) {
+  list(@Query() query: CatalogQueryDto) {
+    this.logger.log(`[catalog:list] params=${JSON.stringify(query)}`);
     return this.catalogService.list(query);
-  }
-
-  @Get('best-sellers')
+  }  @Get('best-sellers')
   bestSellers() {
     return this.catalogService.findBestSellers();
+  }
+
+  @Get('featured')
+  featured() {
+    return this.catalogService.findFeatured();
   }
 
   @Get('new-arrivals')

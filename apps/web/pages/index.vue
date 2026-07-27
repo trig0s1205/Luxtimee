@@ -5,7 +5,7 @@ const { t, tm } = useLocale();
 
 const marqueeItems = computed(() => tm('home').marquee);
 
-const { data: bestSellers } = await useAsyncData('home-best-sellers', () => catalog.getBestSellers());
+const { data: featuredWatches } = await useAsyncData('home-featured', () => catalog.getFeatured());
 
 useSeoMeta({
   title: 'Luxtime — Luxury Timepieces',
@@ -61,9 +61,9 @@ onMounted(() => {
         </div>
         <NuxtLink to="/catalogo" class="btn-ghost">{{ t('home.viewAll') }}</NuxtLink>
       </div>
-      <div v-if="bestSellers?.length" class="products-grid">
+      <div v-if="featuredWatches?.length" class="products-grid">
         <CatalogProductCard
-          v-for="(w, i) in bestSellers"
+          v-for="(w, i) in featuredWatches"
           :key="w.id"
           :watch="w"
           :delay="i * 0.15"

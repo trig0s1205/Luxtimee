@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { WatchPublicDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
+import { watchPrimaryImage, watchVideoUrl } from '~/utils/media-url';
 
 defineProps<{ watches: WatchPublicDto[] }>();
 
@@ -15,9 +16,18 @@ const emit = defineEmits<{ select: [watch: WatchPublicDto] }>();
       class="snap-start min-h-[calc(100vh-6rem)] md:min-h-[calc(100vh-8rem)] flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 px-6 py-12 bg-lux-black-2 border-b border-lux-gold/10"
     >
       <div class="flex-1 flex items-center justify-center max-h-[45vh] md:max-h-[60vh]">
+        <video
+          v-if="watchVideoUrl(watch)"
+          :src="watchVideoUrl(watch)"
+          class="max-h-full max-w-full object-contain"
+          autoplay
+          muted
+          loop
+          playsinline
+        />
         <img
-          v-if="watch.frontImageUrl"
-          :src="watch.frontImageUrl"
+          v-else-if="watchPrimaryImage(watch)"
+          :src="watchPrimaryImage(watch)"
           :alt="`${watch.brand.name} ${watch.model}`"
           class="max-h-full max-w-full object-contain"
           loading="lazy"

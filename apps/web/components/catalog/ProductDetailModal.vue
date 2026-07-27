@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { WatchPublicDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
+import { LUXTIME_EXPERIENCE_ITEMS } from '~/constants/luxtime-experience';
 
 const { open, slug, closeProduct } = useProductModal();
 const catalog = useCatalogData();
@@ -9,15 +10,7 @@ const api = useApi();
 
 const product = ref<WatchPublicDto | null>(null);
 const loading = ref(false);
-
-const experienceItems = [
-  'Caja Estuche Luxury',
-  'Tarjeta Autenticidad PVC QR',
-  'Paño microfibra',
-  'Solución limpiadora',
-  'Batería de repuesto',
-];
-
+const { watchPrimaryImage } = useMediaUrl();
 watch(slug, async (s) => {
   if (!s) {
     product.value = null;
@@ -77,8 +70,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
           <div class="detail-image-col">
             <div id="detail-image-container" class="detail-image-box">
               <img
-                v-if="product.frontImageUrl"
-                :src="product.frontImageUrl"
+                v-if="watchPrimaryImage(product)"
+                :src="watchPrimaryImage(product)"
                 :alt="`${product.brand.name} ${product.model}`"
                 class="product-real-img"
               >
@@ -101,11 +94,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
             <div class="detail-experience">
               <p class="detail-experience-title">Tu Experiencia Luxtime incluye:</p>
               <ul>
-                <li v-for="item in experienceItems" :key="item">{{ item }}</li>
+                <li v-for="item in LUXTIME_EXPERIENCE_ITEMS" :key="item.label">{{ item.label }}</li>
               </ul>
             </div>
             <NuxtLink :to="`/producto/${product.slug}`" class="detail-full-link" @click="closeProduct">
-              Ver ficha completa →
+              Ver ficha técnica →
             </NuxtLink>
           </div>
         </div>

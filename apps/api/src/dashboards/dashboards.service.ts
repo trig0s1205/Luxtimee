@@ -31,7 +31,14 @@ export class DashboardsService {
         const cost = (item.watch.cost ?? 0) * item.quantity;
         const profit = revenue - cost;
         const profitPercent = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
-        const commissionAmount = Math.round(revenue * (commission / 100));
+        const retailMarginPercentage = item.watch.retailMarginPercentage
+          ? Number(item.watch.retailMarginPercentage)
+          : profitPercent;
+        const wholesaleMarginPercentage = item.watch.wholesaleMarginPercentage
+          ? Number(item.watch.wholesaleMarginPercentage)
+          : 0;
+        const commissionPercent = commission;
+        const commissionAmount = Math.round(revenue * (commissionPercent / 100));
         return {
           orderId: order.id,
           readableId: order.readableId,
@@ -41,6 +48,9 @@ export class DashboardsService {
           cost,
           profit,
           profitPercent,
+          retailMarginPercentage,
+          wholesaleMarginPercentage,
+          commissionPercent,
           commission: commissionAmount,
           paidAt: order.paidAt?.toISOString() ?? order.createdAt.toISOString(),
         };

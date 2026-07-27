@@ -8,7 +8,13 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Role } from '@prisma/client';
 
-const FINANCIAL_FIELDS = ['cost', 'profitPercent'] as const;
+const FINANCIAL_FIELDS = [
+  'cost',
+  'profitPercent',
+  'retailMarginPercentage',
+  'wholesaleMarginPercentage',
+  'secretaryCommissionPercentage',
+] as const;
 
 function stripFinancial<T>(data: T, role?: Role): T {
   if (!data || role === Role.SUPER_ADMIN) {

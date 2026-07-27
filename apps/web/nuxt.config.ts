@@ -8,14 +8,23 @@ export default defineNuxtConfig({
     appManifest: false,
   },
   modules: ['@pinia/nuxt', '@nuxtjs/tailwindcss'],
-  css: ['~/assets/css/tokens.css', '~/assets/css/base.css', '~/assets/css/dixus-pages.css', '~/assets/css/admin-dashboard.css', '~/assets/css/variants.css'],
+  css: ['~/assets/css/tokens.css', '~/assets/css/base.css', '~/assets/css/dixus-pages.css', '~/assets/css/admin-dashboard.css', '~/assets/css/admin-tables.css', '~/assets/css/variants.css'],
   alias: {
     '@luxtime/shared': fileURLToPath(new URL('../../packages/shared/src/index.ts', import.meta.url)),
   },
   runtimeConfig: {
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:3001/api/v1',
+      apiAssetsUrl: process.env.NUXT_PUBLIC_API_ASSETS_URL || 'http://localhost:3001',
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+    },
+  },
+  nitro: {
+    devProxy: {
+      '/uploads': {
+        target: 'http://localhost:3001/uploads',
+        changeOrigin: true,
+      },
     },
   },
   app: {

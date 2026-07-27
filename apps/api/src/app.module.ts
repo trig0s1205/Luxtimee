@@ -8,9 +8,11 @@ import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
 import { BrandsModule } from './brands/brands.module';
+import { CategoriesModule } from './categories/categories.module';
 import { WarrantiesModule } from './warranties/warranties.module';
 import { CareModule } from './care/care.module';
 import { ProductsModule } from './products/products.module';
+import { WatchesModule } from './watches/watches.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { IntegrationsModule } from './integrations/integrations.module';
@@ -45,9 +47,11 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     AuthModule,
     AuditModule,
     BrandsModule,
+    CategoriesModule,
     WarrantiesModule,
     CareModule,
     ProductsModule,
+    WatchesModule,
     InventoryModule,
     CatalogModule,
     IntegrationsModule,

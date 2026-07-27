@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Watch" ADD COLUMN "gender" TEXT,
+ADD COLUMN "warrantyMonths" INTEGER NOT NULL DEFAULT 12;

@@ -1,81 +1,161 @@
 <script setup lang="ts">
-import type { WatchPublicDto } from '@luxtime/shared';
+import type { BrandDto, PaginatedResponse, WatchPublicDto } from '@luxtime/shared';
+import { normalizeGender, sanitizeCatalogQuery } from '~/utils/catalog-filters';
 
 const route = useRoute();
-const catalog = useCatalogData();
+const config = useRuntimeConfig();
 const { observe } = useRevealObserver();
 const { t } = useLocale();
 
 const PAGE_SIZE = 24;
+const GENDER_OPTIONS = ['Hombre', 'Mujer', 'Unisex'] as const;
+const FILTER_NONE = '';
 
-const brand = ref('all');
-const movement = ref('all');
-const available = ref('all');
-const sort = ref('newest');
+type CatalogSort = 'newest' | 'oldest' | 'price_asc' | 'price_desc';
+
+const brand = ref(FILTER_NONE);
+const movement = ref(FILTER_NONE);
+const available = ref(FILTER_NONE);
+const gender = ref(FILTER_NONE);
+const minPrice = ref('');
+const maxPrice = ref('');
+const sort = ref<CatalogSort>('newest');
 const searchQuery = ref('');
-const visibleLimit = ref(PAGE_SIZE);
+const debouncedSearch = ref('');
+const loadPages = ref(1);
 const showEncargoHero = ref(false);
 
-const { data: brands } = await useAsyncData('catalog-brands', () => catalog.listBrands());
+const { data: brands } = await useAsyncData('catalog-brands', () =>
+  $fetch<BrandDto[]>(`${config.public.apiBaseUrl}/brands/public`).catch(() => []),
+);
 
-const { data: allProducts, pending } = await useAsyncData('catalog-all', () =>
-  catalog.listCatalog({ limit: 200, sort: 'newest' }),
+const { data: filterMeta } = await useAsyncData('catalog-filter-meta', () =>
+  $fetch<PaginatedResponse<WatchPublicDto>>(`${config.public.apiBaseUrl}/catalog`, {
+    query: { limit: 200, page: 1, sort: 'newest' },
+  }).catch(() => ({ data: [], total: 0, page: 1, limit: 200 })),
 );
 
 const movements = computed(() => {
   const set = new Set<string>();
-  for (const w of allProducts.value?.data ?? []) set.add(w.movementType);
+  for (const w of filterMeta.value?.data ?? []) set.add(w.movementType);
   return [...set].sort();
 });
 
-function productMatchesSearch(w: WatchPublicDto, q: string) {
-  if (!q.trim()) return true;
-  const s = q.toLowerCase();
-  return (
-    w.model.toLowerCase().includes(s)
-    || w.slug.toLowerCase().includes(s)
-    || w.brand.name.toLowerCase().includes(s)
-    || w.movementType.toLowerCase().includes(s)
-  );
+function buildCatalogParams() {
+  return sanitizeCatalogQuery({
+    sort: sort.value,
+    page: 1,
+    limit: PAGE_SIZE * loadPages.value,
+    brand: brand.value || undefined,
+    movement: movement.value || undefined,
+    available: available.value || undefined,
+    gender: gender.value ? normalizeGender(gender.value) : undefined,
+    minPrice: minPrice.value !== '' && !Number.isNaN(Number(minPrice.value)) ? Number(minPrice.value) : undefined,
+    maxPrice: maxPrice.value !== '' && !Number.isNaN(Number(maxPrice.value)) ? Number(maxPrice.value) : undefined,
+    search: debouncedSearch.value.trim() || undefined,
+  });
 }
 
-const filtered = computed(() => {
-  let list = [...(allProducts.value?.data ?? [])];
-  if (brand.value !== 'all') list = list.filter((w) => w.brand.slug === brand.value);
-  if (movement.value !== 'all') list = list.filter((w) => w.movementType === movement.value);
-  if (available.value === 'true') list = list.filter((w) => w.stock > 0);
-  if (available.value === 'false') list = list.filter((w) => w.stock === 0);
-  if (searchQuery.value.trim()) list = list.filter((w) => productMatchesSearch(w, searchQuery.value));
-  if (sort.value === 'price-desc') list.sort((a, b) => b.retailPrice - a.retailPrice);
-  else if (sort.value === 'price-asc') list.sort((a, b) => a.retailPrice - b.retailPrice);
-  return list;
-});
+const { data: catalogResult, pending, refresh } = await useAsyncData(
+  'catalog-products',
+  () =>
+    $fetch<PaginatedResponse<WatchPublicDto>>(`${config.public.apiBaseUrl}/catalog`, {
+      query: buildCatalogParams(),
+    }),
+  { default: () => ({ data: [], total: 0, page: 1, limit: PAGE_SIZE }) },
+);
 
-const visible = computed(() => filtered.value.slice(0, visibleLimit.value));
-const total = computed(() => filtered.value.length);
-const hasMore = computed(() => visibleLimit.value < total.value);
+const products = computed(() => catalogResult.value?.data ?? []);
+const total = computed(() => catalogResult.value?.total ?? 0);
+const hasMore = computed(() => products.value.length < total.value);
+const isInitialLoad = computed(() => pending.value && products.value.length === 0);
+const hasActiveFilters = computed(() =>
+  !!brand.value
+  || !!movement.value
+  || !!available.value
+  || !!gender.value
+  || minPrice.value !== ''
+  || maxPrice.value !== ''
+  || sort.value !== 'newest'
+  || debouncedSearch.value.trim().length > 0,
+);
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+let skipFilterWatch = false;
+
+function scheduleRefresh() {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => {
+    refresh();
+  }, 0);
+}
+
+function onFilterChange() {
+  if (skipFilterWatch) return;
+  loadPages.value = 1;
+  showEncargoHero.value = false;
+  scheduleRefresh();
+}
+
 function onSearchInput() {
   if (searchTimer) clearTimeout(searchTimer);
   searchTimer = setTimeout(() => {
-    visibleLimit.value = PAGE_SIZE;
-    showEncargoHero.value = searchQuery.value.trim().length > 0 && total.value === 0;
-  }, 250);
+    debouncedSearch.value = searchQuery.value;
+    loadPages.value = 1;
+    scheduleRefresh();
+  }, 300);
 }
 
 function loadMore() {
-  visibleLimit.value += PAGE_SIZE;
+  loadPages.value += 1;
+  scheduleRefresh();
 }
 
 function clearSearch() {
   searchQuery.value = '';
-  onSearchInput();
+  debouncedSearch.value = '';
+  loadPages.value = 1;
+  scheduleRefresh();
 }
 
+function clearFilters() {
+  skipFilterWatch = true;
+  brand.value = FILTER_NONE;
+  movement.value = FILTER_NONE;
+  available.value = FILTER_NONE;
+  gender.value = FILTER_NONE;
+  minPrice.value = '';
+  maxPrice.value = '';
+  sort.value = 'newest';
+  searchQuery.value = '';
+  debouncedSearch.value = '';
+  showEncargoHero.value = false;
+  loadPages.value = 1;
+  skipFilterWatch = false;
+  scheduleRefresh();
+}
+
+watch([brand, movement, available, gender, minPrice, maxPrice, sort], onFilterChange);
+
+watch(debouncedSearch, () => {
+  showEncargoHero.value = debouncedSearch.value.trim().length > 0 && total.value === 0;
+});
+
 watch(() => route.query.filter, (f) => {
-  if (typeof f === 'string' && f) movement.value = f;
+  if (typeof f === 'string' && f) {
+    movement.value = f;
+    onFilterChange();
+  }
 }, { immediate: true });
+
+watch(pending, (isPending) => {
+  if (!isPending) nextTick(() => observe());
+});
+
+watch(products, () => {
+  nextTick(() => observe());
+});
 
 onMounted(() => nextTick(() => observe()));
 
@@ -105,27 +185,39 @@ useSeoMeta({
     <template v-else>
       <div class="catalog-filter-container">
         <div class="catalog-filters-row">
-          <div class="catalog-field" :class="{ 'is-active': brand !== 'all' }">
-            <select v-model="brand" class="catalog-select" @change="visibleLimit = PAGE_SIZE">
-              <option value="all">{{ t('catalog.brand') }}</option>
+          <div class="catalog-field" :class="{ 'is-active': !!brand }">
+            <select v-model="brand" class="catalog-select">
+              <option value="" disabled hidden>{{ t('catalog.brand') }}</option>
               <option v-for="b in brands" :key="b.id" :value="b.slug">{{ b.name }}</option>
             </select>
             <svg class="catalog-field-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <path d="M6 9l6 6 6-6" />
             </svg>
           </div>
-          <div class="catalog-field" :class="{ 'is-active': movement !== 'all' }">
-            <select v-model="movement" class="catalog-select" @change="visibleLimit = PAGE_SIZE">
-              <option value="all">{{ t('catalog.movement') }}</option>
+
+          <div class="catalog-field" :class="{ 'is-active': !!movement }">
+            <select v-model="movement" class="catalog-select">
+              <option value="" disabled hidden>{{ t('catalog.movement') }}</option>
               <option v-for="m in movements" :key="m" :value="m">{{ m }}</option>
             </select>
             <svg class="catalog-field-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <path d="M6 9l6 6 6-6" />
             </svg>
           </div>
-          <div class="catalog-field" :class="{ 'is-active': available !== 'all' }">
-            <select v-model="available" class="catalog-select" @change="visibleLimit = PAGE_SIZE">
-              <option value="all">{{ t('catalog.availability') }}</option>
+
+          <div class="catalog-field" :class="{ 'is-active': !!gender }">
+            <select v-model="gender" class="catalog-select">
+              <option value="" disabled hidden>{{ t('catalog.gender') }}</option>
+              <option v-for="g in GENDER_OPTIONS" :key="g" :value="g">{{ g }}</option>
+            </select>
+            <svg class="catalog-field-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+
+          <div class="catalog-field" :class="{ 'is-active': !!available }">
+            <select v-model="available" class="catalog-select">
+              <option value="" disabled hidden>{{ t('catalog.availability') }}</option>
               <option value="true">{{ t('catalog.available') }}</option>
               <option value="false">{{ t('catalog.soldOut') }}</option>
             </select>
@@ -133,17 +225,49 @@ useSeoMeta({
               <path d="M6 9l6 6 6-6" />
             </svg>
           </div>
+
           <div class="catalog-field" :class="{ 'is-active': sort !== 'newest' }">
             <select v-model="sort" class="catalog-select">
               <option value="newest">{{ t('catalog.newest') }}</option>
-              <option value="price-desc">{{ t('catalog.priceDesc') }}</option>
-              <option value="price-asc">{{ t('catalog.priceAsc') }}</option>
+              <option value="oldest">{{ t('catalog.oldest') }}</option>
+              <option value="price_asc">{{ t('catalog.priceAsc') }}</option>
+              <option value="price_desc">{{ t('catalog.priceDesc') }}</option>
             </select>
             <svg class="catalog-field-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <path d="M6 9l6 6 6-6" />
             </svg>
           </div>
+
+          <div class="catalog-field" :class="{ 'is-active': minPrice !== '' }">
+            <input
+              v-model="minPrice"
+              type="number"
+              min="0"
+              class="catalog-select catalog-price-input"
+              :placeholder="t('catalog.minPrice')"
+            >
+          </div>
+
+          <div class="catalog-field" :class="{ 'is-active': maxPrice !== '' }">
+            <input
+              v-model="maxPrice"
+              type="number"
+              min="0"
+              class="catalog-select catalog-price-input"
+              :placeholder="t('catalog.maxPrice')"
+            >
+          </div>
+
+          <button
+            v-if="hasActiveFilters"
+            type="button"
+            class="catalog-clear-filters"
+            @click="clearFilters"
+          >
+            {{ t('catalog.clearFilters') }}
+          </button>
         </div>
+
         <div class="catalog-search-field">
           <svg class="catalog-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <circle cx="11" cy="11" r="7" />
@@ -169,18 +293,91 @@ useSeoMeta({
       </div>
 
       <section class="catalog-section">
-        <div v-if="pending" class="text-center py-20 text-[var(--white-dim)]">{{ t('catalog.loading') }}</div>
-        <div v-else-if="visible.length" class="catalog-grid">
+        <div v-if="isInitialLoad" class="catalog-skeleton-grid" aria-hidden="true">
+          <div v-for="i in 6" :key="i" class="catalog-skeleton-card" />
+        </div>
+
+        <div v-else-if="products.length" class="catalog-grid">
           <CatalogProductCard
-            v-for="(w, i) in visible"
+            v-for="(w, i) in products"
             :key="w.id"
             :watch="w"
             :delay="(i % 6) * 0.05"
           />
         </div>
+
         <p v-else class="text-center py-20 text-[var(--white-dim)]">{{ t('catalog.empty') }}</p>
-        <button v-if="hasMore" type="button" class="catalog-load-more" @click="loadMore">{{ t('catalog.loadMore') }}</button>
+
+        <button v-if="hasMore && !isInitialLoad" type="button" class="catalog-load-more" :disabled="pending" @click="loadMore">
+          {{ t('catalog.loadMore') }}
+        </button>
       </section>
     </template>
   </div>
 </template>
+
+<style scoped>
+.catalog-price-input {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.catalog-price-input::placeholder {
+  color: var(--white-dim);
+  opacity: 0.55;
+}
+
+.catalog-clear-filters {
+  align-self: stretch;
+  padding: 0 18px;
+  border: 1px solid rgba(200, 169, 110, 0.35);
+  background: transparent;
+  color: var(--gold);
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.catalog-clear-filters:hover {
+  background: rgba(200, 169, 110, 0.12);
+}
+
+.catalog-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.catalog-skeleton-card {
+  aspect-ratio: 3 / 4;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.09) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: catalog-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes catalog-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (max-width: 900px) {
+  .catalog-skeleton-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .catalog-skeleton-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

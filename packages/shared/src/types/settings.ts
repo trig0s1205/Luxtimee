@@ -24,3 +24,7 @@ export interface ProfitConfigDto {
 export interface CommissionConfigDto {
   percent: number;
 }
+
+export interface CommissionUpdateResultDto extends CommissionConfigDto {
+  updatedWatches: number;
+}

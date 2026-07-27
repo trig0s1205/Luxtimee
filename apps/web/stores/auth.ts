@@ -41,12 +41,28 @@ export const useAuthStore = defineStore('auth', {
           credentials: 'include',
         });
         if (data.user.role === Role.ADMIN || data.user.role === Role.SUPER_ADMIN) {
+          clearLocalSession();
           this.setUser(data.user, false);
         } else {
           this.setUser(null, false);
         }
         return;
       } catch {
+        try {
+          await $fetch(`${config.public.apiBaseUrl}/auth/refresh`, {
+            method: 'POST',
+            credentials: 'include',
+          });
+          const data = await $fetch<{ user: AuthUserDto }>(`${config.public.apiBaseUrl}/auth/me`, {
+            credentials: 'include',
+          });
+          if (data.user.role === Role.ADMIN || data.user.role === Role.SUPER_ADMIN) {
+            clearLocalSession();
+            this.setUser(data.user, false);
+            return;
+          }
+        } catch { /* refresh falló */ }
+
         if (LOCAL_AUTH_ENABLED) {
           const local = loadLocalSession();
           if (local && (local.role === Role.ADMIN || local.role === Role.SUPER_ADMIN)) {

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
 import { slugify } from '../common/utils/slug.util';
+import { generateSku } from '../watches/utils/sku.util';
 
 @Injectable()
 export class InventoryImportService {
@@ -38,7 +39,13 @@ export class InventoryImportService {
           update: { name: brandName },
           create: { name: brandName, slug: brandSlug },
         });
-        const watchSlug = slugify(`${brandSlug}-${model}`);
+        const existing = await this.prisma.watch.findFirst({
+          where: { brandId: brand.id, model, deletedAt: null },
+          orderBy: { createdAt: 'desc' },
+        });
+        const sku = await this.ensureUniqueSku(generateSku(brand.name, model));
+        const watchSlug = await this.ensureUniqueSlug(slugify(`${brandSlug}-${model}`), existing?.id);
+
         await this.prisma.watch.upsert({
           where: { slug: watchSlug },
           update: {
@@ -49,7 +56,8 @@ export class InventoryImportService {
             isActive: true,
           },
           create: {
-            brandId: brand.id,
+            sku,
+            brand: { connect: { id: brand.id } },
             model,
             slug: watchSlug,
             movementType,
@@ -65,6 +73,27 @@ export class InventoryImportService {
     }
 
     return { imported, errors };
+  }
+
+  private async ensureUniqueSku(sku: string) {
+    let candidate = sku;
+    let suffix = 1;
+    while (await this.prisma.watch.findUnique({ where: { sku: candidate } })) {
+      candidate = `${sku}-${suffix.toString(36).toUpperCase()}`;
+      suffix++;
+    }
+    return candidate;
+  }
+
+  private async ensureUniqueSlug(slug: string, excludeId?: string) {
+    let candidate = slug;
+    let suffix = 1;
+    while (true) {
+      const existing = await this.prisma.watch.findUnique({ where: { slug: candidate } });
+      if (!existing || existing.id === excludeId) return candidate;
+      candidate = `${slug}-${suffix.toString(36).toUpperCase()}`;
+      suffix++;
+    }
   }
 
   async buildTemplate(): Promise<Buffer> {

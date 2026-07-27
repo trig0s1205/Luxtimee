@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
   CommissionConfigDto,
+  CommissionUpdateResultDto,
   LegalDocumentsDto,
   ProfitConfigDto,
   WhatsappSettingDto,
@@ -56,7 +57,21 @@ export class SettingsService {
     return this.getJson<CommissionConfigDto>('commission_percent', { percent: 5 });
   }
 
-  setCommissionConfig(value: CommissionConfigDto) {
-    return this.setJson('commission_percent', value);
+  async setCommissionConfig(value: CommissionConfigDto): Promise<CommissionUpdateResultDto> {
+    if (!Number.isFinite(value.percent) || value.percent < 0 || value.percent > 100) {
+      throw new BadRequestException('El porcentaje de comisión debe estar entre 0 y 100.');
+    }
+
+    await this.setJson('commission_percent', value);
+
+    const updated = await this.prisma.watch.updateMany({
+      where: { deletedAt: null },
+      data: { secretaryCommissionPercentage: value.percent },
+    });
+
+    return {
+      percent: value.percent,
+      updatedWatches: updated.count,
+    };
   }
 }

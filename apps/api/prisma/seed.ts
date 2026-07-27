@@ -78,6 +78,16 @@ async function main() {
     create: { name: 'Rolex', slug: 'rolex' },
   });
 
+  const defaultCategories = ['Elegante', 'Deportivo', 'Clásico', 'Cronógrafo', 'Edición Limitada'];
+  for (const name of defaultCategories) {
+    const slug = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
+    await prisma.category.upsert({
+      where: { slug },
+      update: {},
+      create: { name, slug },
+    });
+  }
+
   const warranty = await prisma.warrantyTemplate.upsert({
     where: { id: 'seed-warranty-lux' },
     update: {},
@@ -103,7 +113,8 @@ async function main() {
     where: { slug: 'rolex-submariner-date' },
     update: {},
     create: {
-      brandId: rolex.id,
+      sku: 'LUX-ROL-SUB-DATE',
+      brand: { connect: { id: rolex.id } },
       model: 'Submariner Date',
       slug: 'rolex-submariner-date',
       movementType: 'Automático',
@@ -117,8 +128,8 @@ async function main() {
       cost: 12000000,
       profitPercent: 35,
       stock: 3,
-      warrantyTemplateId: warranty.id,
-      careTemplateId: care.id,
+      warrantyTemplate: { connect: { id: warranty.id } },
+      careTemplate: { connect: { id: care.id } },
     },
   });
 
