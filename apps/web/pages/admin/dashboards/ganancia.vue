@@ -109,7 +109,7 @@ const activityRows = computed(() =>
   })),
 );
 
- = computed<ChartOrderInput[]>(() => {
+const ordersByMetric = computed<ChartOrderInput[]>(() => {
   const items = dashboard.value?.items ?? [];
   const grouped = new Map<string, { paidAt: string; readableId: string; total: number; products: string[] }>();
 
