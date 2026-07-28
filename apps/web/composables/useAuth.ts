@@ -36,11 +36,14 @@ export function useAuth() {
 
   const localLogin = (email: string, password: string) => auth.localLogin(email, password);
 
+  const credentialLogin = (email: string, password: string) => auth.credentialLogin(email, password);
+
   return {
     auth,
     loginWithGoogle,
     mockLogin,
     localLogin,
+    credentialLogin,
     completeLogin,
     fetchAuthConfig,
     redirectAfterLogin,

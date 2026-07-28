@@ -1,15 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { HealthDashboardDto } from '@luxtime/shared';
+import type { Ga4EngagementDto } from '@luxtime/shared';
 
 @Injectable()
 export class Ga4Service {
   constructor(private config: ConfigService) {}
 
-  async getEngagementMetrics(): Promise<HealthDashboardDto> {
+  async getEngagementMetrics(periodLabel = 'Últimos 30 días vs periodo anterior'): Promise<Ga4EngagementDto> {
+    const label = `${periodLabel} vs periodo anterior`;
     if (this.config.get('USE_MOCKS') === 'true' || !this.config.get('GA4_PROPERTY_ID')) {
       return {
-        periodLabel: 'Últimos 30 días vs periodo anterior',
+        periodLabel: label,
         metrics: [
           { key: 'sessions', label: 'Sesiones', current: 1240, previous: 980, changePercent: 26.5 },
           { key: 'product_views', label: 'Vistas de producto', current: 3420, previous: 2900, changePercent: 17.9 },
@@ -19,7 +20,7 @@ export class Ga4Service {
       };
     }
     return {
-      periodLabel: 'GA4 no configurado',
+      periodLabel,
       metrics: [],
     };
   }

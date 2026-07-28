@@ -37,4 +37,10 @@ describe('state-machine', () => {
     expect(() => assertValidTransition(OrderStatus.PENDIENTE, OrderStatus.ENTREGADO)).toThrow();
     expect(() => assertValidTransition(OrderStatus.PENDIENTE, OrderStatus.PAGADO)).not.toThrow();
   });
+
+  it('omite enviado en pedidos locales', () => {
+    expect(() => assertValidTransition(OrderStatus.PAGADO, OrderStatus.ENVIADO, false)).toThrow();
+    expect(() => assertValidTransition(OrderStatus.PAGADO, OrderStatus.ENTREGADO, false)).not.toThrow();
+    expect(() => assertValidTransition(OrderStatus.PAGADO, OrderStatus.ENVIADO, true)).not.toThrow();
+  });
 });

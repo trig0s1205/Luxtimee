@@ -59,12 +59,23 @@ enum WatchStatus {
   AGOTADO
 }
 
+enum WarrantyHistoryStatus {
+  VENTA_ENTREGADA
+  GARANTIA_REGISTRADA
+}
+
+enum WarrantyReplacementType {
+  SAME_WATCH
+  OTHER_WATCH
+}
+
 model User {
   id        String           @id @default(cuid())
   email     String           @unique
   googleId  String?          @unique
   name      String
   phone     String?
+  passwordHash String?
   role      Role             @default(CUSTOMER)
   segment   CustomerSegment?
   createdAt DateTime         @default(now())
@@ -76,6 +87,7 @@ model User {
   wishlist           WishlistItem[]
   auditLogs          AuditLog[]
   validatedContacts  MarketingContact[] @relation("ValidatedContacts")
+  warrantyHistories  WarrantyHistory[]  @relation("RegisteredWarranties")
 }
 
 model SavedShipping {
@@ -258,6 +270,7 @@ model Order {
   shippingZone ShippingZone? @relation(fields: [shippingZoneId], references: [id])
   assignedTo   User?         @relation("AssignedOrders", fields: [assignedToId], references: [id])
   items        OrderItem[]
+  warrantyHistories WarrantyHistory[]
 
   @@index([stage, status])
   @@index([createdAt])
@@ -278,6 +291,7 @@ model OrderItem {
   order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
   watch        Watch         @relation(fields: [watchId], references: [id])
   certificates Certificate[]
+  warrantyHistory WarrantyHistory?
 
   @@index([orderId])
 }
@@ -342,6 +356,37 @@ model Certificate {
 
   orderItem OrderItem @relation(fields: [orderItemId], references: [id])
   watch     Watch     @relation(fields: [watchId], references: [id])
+}
+
+model WarrantyHistory {
+  id                String                   @id @default(cuid())
+  orderId           String
+  orderItemId       String                   @unique
+  customerName      String
+  customerAddress   String
+  customerPhone     String?
+  productSku        String
+  productName       String
+  saleDate          DateTime
+  serviceDate       DateTime?
+  damageDescription String?                  @db.Text
+  replacementType   WarrantyReplacementType?
+  replacementSku    String?
+  replacementNotes  String?                  @db.Text
+  status            WarrantyHistoryStatus    @default(VENTA_ENTREGADA)
+  registeredById    String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem    OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  registeredBy User?     @relation("RegisteredWarranties", fields: [registeredById], references: [id])
+
+  @@index([saleDate])
+  @@index([serviceDate])
+  @@index([status])
+  @@index([productSku])
+  @@index([customerName])
 }
 
 model Notification {

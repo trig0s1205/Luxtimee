@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const api = useApi();
+const { openChat } = useWhatsApp();
 
 const plans = [
   {
@@ -29,12 +29,7 @@ const plans = [
 ];
 
 async function cotizar(plan: string) {
-  try {
-    const s = await api.get<{ url: string; messagePrefix: string }>('/settings/whatsapp/public');
-    const text = `${s.messagePrefix || ''} Hola Luxtime, deseo cotizar el plan: ${plan} (mayorista, mín. 6 unidades).`.trim();
-    const sep = s.url.includes('?') ? '&' : '?';
-    window.open(`${s.url}${sep}text=${encodeURIComponent(text)}`, '_blank');
-  } catch { /* */ }
+  await openChat(`Hola Luxtime, deseo cotizar el plan: ${plan} (mayorista, mín. 6 unidades).`);
 }
 
 useSeoMeta({ title: 'Socios Estratégicos — Luxtime' });

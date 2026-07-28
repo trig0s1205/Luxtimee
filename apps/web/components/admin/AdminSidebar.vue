@@ -13,36 +13,47 @@ const visibleDashboardLinks = computed(() =>
   dashboardLinks.filter((link) => !link.superOnly || auth.isSuperAdmin),
 );
 
-const mainLinks = [
+const linksBeforePedidos = [
   { to: '/admin/inventario', label: 'Inventario' },
   { to: '/admin/catalog-settings', label: 'Marcas y clases' },
   { to: '/admin/pending-costs', label: 'Pendientes de costo', superOnly: true },
-  { to: '/admin/secretaria', label: 'Secretaría', superOnly: true },
   { to: '/admin/importar', label: 'Importar' },
   { to: '/admin/pre-pedidos', label: 'Pre-pedidos' },
-  { to: '/admin/pedidos', label: 'Pedidos' },
+];
+
+const linksAfterPedidos = [
   { to: '/admin/garantias', label: 'Garantías' },
-  { to: '/admin/correo', label: 'Email marketing' },
-  { to: '/admin/segmentos', label: 'Segmentación' },
+  { to: '/admin/envios', label: 'Envíos', superOnly: true },
+];
+
+const pedidosLinks = [
+  { to: '/admin/pedidos/detal', label: 'Al detal' },
+  { to: '/admin/pedidos/mayor', label: 'Al mayor' },
 ];
 
 const bottomLinks = [
-  { to: '/admin/whatsapp', label: 'Configuración' },
+  { to: '/admin/configuracion', label: 'Configuración' },
 ];
 
 function isActive(path: string) {
   return route.path === path || route.path.startsWith(`${path}/`);
 }
+
+const isPedidosActive = computed(() => route.path.startsWith('/admin/pedidos'));
+
+function visibleLinks(links: typeof linksBeforePedidos) {
+  return links.filter((item) => !item.superOnly || auth.isSuperAdmin);
+}
 </script>
 
 <template>
-  <aside class="admin-sidebar hidden lg:flex flex-col w-64 p-6 shrink-0 min-h-screen admin-shell">
+  <aside class="admin-sidebar hidden lg:flex flex-col w-64 p-6 shrink-0 admin-shell">
     <div class="admin-sidebar-brand">
       <h2>LUXTIME</h2>
       <p>Administración de relojería de lujo</p>
     </div>
 
-    <nav class="flex-1 overflow-y-auto">
+    <nav class="admin-sidebar-nav">
       <div class="admin-nav-section">
         <p class="admin-nav-section-label">Panel</p>
         <NuxtLink
@@ -61,7 +72,41 @@ function isActive(path: string) {
 
       <div class="admin-nav-section">
         <NuxtLink
-          v-for="link in mainLinks.filter((item) => !item.superOnly || auth.isSuperAdmin)"
+          v-for="link in visibleLinks(linksBeforePedidos)"
+          :key="`${link.to}-${link.label}`"
+          :to="link.to"
+          class="admin-nav-link"
+          :class="{ active: isActive(link.to) }"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="1" />
+          </svg>
+          {{ link.label }}
+        </NuxtLink>
+
+        <div class="admin-nav-dropdown">
+          <div class="admin-nav-link" :class="{ active: isPedidosActive }">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="1" />
+            </svg>
+            Pedidos
+          </div>
+
+          <div class="admin-nav-dropdown-menu">
+            <NuxtLink
+              v-for="link in pedidosLinks"
+              :key="link.to"
+              :to="link.to"
+              class="admin-nav-link admin-nav-link--sub"
+              :class="{ active: isActive(link.to) }"
+            >
+              {{ link.label }}
+            </NuxtLink>
+          </div>
+        </div>
+
+        <NuxtLink
+          v-for="link in visibleLinks(linksAfterPedidos)"
           :key="`${link.to}-${link.label}`"
           :to="link.to"
           class="admin-nav-link"
@@ -75,11 +120,7 @@ function isActive(path: string) {
       </div>
     </nav>
 
-    <div class="admin-support-box">
-      <p>Soporte</p>
-      <span>help@luxtime.co</span>
-    </div>
-
+    <div class="admin-sidebar-footer">
     <NuxtLink
       v-for="link in bottomLinks"
       :key="link.to"
@@ -100,5 +141,6 @@ function isActive(path: string) {
       </svg>
       Cerrar sesión
     </button>
+    </div>
   </aside>
 </template>

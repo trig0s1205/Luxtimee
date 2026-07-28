@@ -21,8 +21,8 @@ const { data: watches, refresh, pending } = await useAsyncData('pending-cost-wat
 async function saveCost(watch: WatchStaffDto) {
   const raw = costDrafts[watch.id];
   const cost = Number(raw);
-  if (!Number.isFinite(cost) || cost < 0) {
-    toast.warning('Ingresa un costo válido en COP.');
+  if (!Number.isFinite(cost) || cost <= 0) {
+    toast.warning('Ingresa un costo mayor a 0 en COP.');
     return;
   }
 
@@ -48,7 +48,7 @@ useSeoMeta({ title: 'Relojes pendientes de costo — Luxtime Admin' });
     <UiToastContainer />
     <UiSectionHeader label="Finanzas" title="Relojes pendientes de costo" />
     <p class="pending-costs-intro">
-      Relojes registrados por secretaría sin costo asignado. Al guardar el costo se calculan los márgenes automáticamente.
+      Relojes sin costo asignado (vacío o en 0). Al guardar un costo mayor a 0 se calculan los márgenes automáticamente.
     </p>
 
     <div v-if="pending" class="pending-costs-empty">Cargando...</div>

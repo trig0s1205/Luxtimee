@@ -94,6 +94,7 @@ export interface CatalogListQuery {
   movement?: string;
   available?: string;
   gender?: string;
+  category?: string;
   sort?: 'newest' | 'oldest' | 'price_asc' | 'price_desc';
   minPrice?: number;
   maxPrice?: number;

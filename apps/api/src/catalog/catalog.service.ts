@@ -82,6 +82,11 @@ export class CatalogService {
       where.gender = { equals: gender, mode: 'insensitive' };
     }
 
+    const category = this.clean(query.category);
+    if (category) {
+      where.category = { slug: { equals: category, mode: 'insensitive' } };
+    }
+
     const available = this.clean(query.available);
     if (available === 'true') {
       where.stock = { gt: 0 };

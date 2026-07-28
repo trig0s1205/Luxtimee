@@ -28,3 +28,11 @@ export interface CommissionConfigDto {
 export interface CommissionUpdateResultDto extends CommissionConfigDto {
   updatedWatches: number;
 }
+
+export interface PlatformConfigDto {
+  supportEmail: string;
+  city: string;
+  instagramUrl: string;
+  tiktokUrl: string;
+  facebookUrl: string;
+}

@@ -52,6 +52,11 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     data.secretaryCommissionPercentage = percent;
   }
 
+  private normalizeCost(cost?: number | null) {
+    if (cost == null || cost <= 0) return null;
+    return cost;
+  }
+
   private applySuperAdminFinancials(
     data: Prisma.WatchCreateInput | Prisma.WatchUpdateInput,
     input: {
@@ -60,14 +65,15 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
       wholesalePrice: number;
     },
   ) {
+    const cost = this.normalizeCost(input.cost);
     const financials = computeWatchFinancials({
-      cost: input.cost ?? null,
+      cost,
       retailPrice: input.retailPrice,
       wholesalePrice: input.wholesalePrice,
     });
 
     Object.assign(data, {
-      cost: input.cost ?? null,
+      cost,
       retailMarginPercentage: financials.retailMarginPercentage,
       wholesaleMarginPercentage: financials.wholesaleMarginPercentage,
       profitPercent: financials.profitPercent,
@@ -224,10 +230,19 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
         wholesalePrice,
       });
     } else {
-      delete (data as Partial<UpdateWatchDto>).cost;
-      delete (data as Partial<UpdateWatchDto>).profitPercent;
-      delete (data as Partial<UpdateWatchDto>).retailMarginPercentage;
-      delete (data as Partial<UpdateWatchDto>).wholesaleMarginPercentage;
+      if (dto.cost === 0) {
+        Object.assign(data, {
+          cost: null,
+          retailMarginPercentage: null,
+          wholesaleMarginPercentage: null,
+          profitPercent: null,
+        });
+      } else {
+        delete (data as Partial<UpdateWatchDto>).cost;
+        delete (data as Partial<UpdateWatchDto>).profitPercent;
+        delete (data as Partial<UpdateWatchDto>).retailMarginPercentage;
+        delete (data as Partial<UpdateWatchDto>).wholesaleMarginPercentage;
+      }
       delete (data as Partial<UpdateWatchDto>).secretaryCommissionPercentage;
     }
 

@@ -4,6 +4,7 @@ import type {
   CommissionConfigDto,
   CommissionUpdateResultDto,
   LegalDocumentsDto,
+  PlatformConfigDto,
   ProfitConfigDto,
   WhatsappSettingDto,
 } from '@luxtime/shared';
@@ -73,5 +74,19 @@ export class SettingsService {
       percent: value.percent,
       updatedWatches: updated.count,
     };
+  }
+
+  getPlatformConfig() {
+    return this.getJson<PlatformConfigDto>('platform_config', {
+      supportEmail: 'help@luxtime.co',
+      city: 'Piedecuesta, Santander — Colombia',
+      instagramUrl: 'https://www.instagram.com/',
+      tiktokUrl: 'https://www.tiktok.com/',
+      facebookUrl: 'https://www.facebook.com/',
+    });
+  }
+
+  setPlatformConfig(value: PlatformConfigDto) {
+    return this.setJson('platform_config', value);
   }
 }

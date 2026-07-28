@@ -8,7 +8,7 @@ export const privacySections: LegalSection[] = [
   {
     title: '1. Responsable del tratamiento',
     paragraphs: [
-      'Luxtime Luxury Timepieces (en adelante, «Luxtime»), con domicilio en Bucaramanga, Colombia, es el responsable del tratamiento de los datos personales recolectados a través de este sitio web, canales de WhatsApp, formularios de contacto, checkout y demás medios digitales asociados a la marca.',
+      'Luxtime Luxury Timepieces (en adelante, «Luxtime»), con domicilio en Piedecuesta, Colombia, es el responsable del tratamiento de los datos personales recolectados a través de este sitio web, canales de WhatsApp, formularios de contacto, checkout y demás medios digitales asociados a la marca.',
       'Para cualquier solicitud relacionada con el tratamiento de datos personales puede escribirnos a: privacidad@luxtime.co',
     ],
   },
@@ -148,7 +148,7 @@ export const termsSections: LegalSection[] = [
   {
     title: '10. Ley aplicable y jurisdicción',
     paragraphs: [
-      'Estos Términos y Condiciones se rigen por las leyes de la República de Colombia. Cualquier controversia será sometida a los jueces competentes del domicilio de Luxtime en Bucaramanga, salvo norma imperativa en contrario.',
+      'Estos Términos y Condiciones se rigen por las leyes de la República de Colombia. Cualquier controversia será sometida a los jueces competentes del domicilio de Luxtime en Piedecuesta, salvo norma imperativa en contrario.',
     ],
   },
   {

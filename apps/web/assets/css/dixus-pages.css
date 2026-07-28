@@ -878,8 +878,6 @@
 
 /* —— Cart drawer —— */
 body.cart-scroll-lock {
-  position: fixed;
-  width: 100%;
   overflow: hidden;
 }
 

@@ -31,6 +31,11 @@ export class CatalogQueryDto {
   @IsString()
   @Transform(trimOptional)
   gender?: string;
+
+  @IsOptional()
+  @IsString()
+  @Transform(trimOptional)
+  category?: string;
   @IsOptional()
   @IsIn(CATALOG_SORT_VALUES)
   sort?: CatalogSortValue;

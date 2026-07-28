@@ -4,6 +4,7 @@ import { formatCop } from '~/utils/format';
 const { open, closeCart } = useCartDrawer();
 const cart = useCartStore();
 const { t } = useLocale();
+const showClearConfirm = ref(false);
 
 onMounted(() => cart.hydrate());
 
@@ -12,7 +13,12 @@ function onOverlayClick(e: MouseEvent) {
 }
 
 function clearCart() {
-  if (confirm(t('cart.clearConfirm'))) cart.clear();
+  showClearConfirm.value = true;
+}
+
+function confirmClearCart() {
+  cart.clear();
+  showClearConfirm.value = false;
 }
 </script>
 
@@ -55,5 +61,85 @@ function clearCart() {
         <button type="button" class="cart-clear" @click="clearCart">{{ t('cart.clear') }}</button>
       </footer>
     </aside>
+
+    <div v-if="showClearConfirm" class="cart-confirm-overlay" @click.self="showClearConfirm = false">
+      <div class="cart-confirm-card" role="dialog" aria-modal="true" :aria-label="t('cart.clearConfirm')">
+        <p class="cart-confirm-title">{{ t('cart.clearConfirm') }}</p>
+        <p class="cart-confirm-text">{{ t('cart.clearConfirmBody') }}</p>
+        <div class="cart-confirm-actions">
+          <button type="button" class="cart-confirm-cancel" @click="showClearConfirm = false">
+            {{ t('cart.clearConfirmNo') }}
+          </button>
+          <button type="button" class="cart-confirm-accept" @click="confirmClearCart">
+            {{ t('cart.clearConfirmYes') }}
+          </button>
+        </div>
+      </div>
+    </div>
   </Teleport>
 </template>
+
+<style scoped>
+.cart-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.cart-confirm-card {
+  width: min(100%, 380px);
+  padding: 24px;
+  border: var(--border-hairline);
+  background: var(--black-2, #111);
+  text-align: center;
+}
+
+.cart-confirm-title {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--gold);
+}
+
+.cart-confirm-text {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--white-dim);
+}
+
+.cart-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.cart-confirm-cancel,
+.cart-confirm-accept {
+  padding: 10px 18px;
+  border: var(--border-hairline);
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.cart-confirm-cancel {
+  color: var(--white-dim);
+}
+
+.cart-confirm-accept {
+  color: var(--gold);
+}
+
+.cart-confirm-accept:hover {
+  border-color: rgba(200, 169, 110, 0.35);
+}
+</style>

@@ -4,6 +4,52 @@
   min-height: 100vh;
 }
 
+@media (min-width: 1024px) {
+  .admin-layout {
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+  }
+
+  .admin-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 40;
+    height: 100vh;
+    width: 16rem;
+    overflow: hidden;
+  }
+
+  .admin-sidebar-nav {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .admin-sidebar-footer {
+    margin-top: auto;
+    flex-shrink: 0;
+  }
+
+  .admin-main {
+    flex: 1;
+    min-width: 0;
+    margin-left: 16rem;
+    height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 1.5rem 2rem;
+  }
+}
+
+@media (max-width: 1023px) {
+  .admin-main {
+    min-height: 100vh;
+    padding: 1.5rem;
+  }
+}
+
 .admin-shell select,
 .admin-shell textarea,
 .admin-shell .admin-filter-select,
@@ -101,27 +147,21 @@
   color: var(--gold);
 }
 
-.admin-support-box {
-  margin-top: auto;
-  padding: 16px;
-  border: 1px solid rgba(200, 169, 110, 0.12);
-  background: rgba(200, 169, 110, 0.03);
-  margin-bottom: 16px;
+.admin-nav-dropdown {
+  position: relative;
 }
 
-.admin-support-box p {
-  font-family: var(--font-body);
+.admin-nav-dropdown-menu {
+  display: none;
+}
+
+.admin-nav-dropdown:hover .admin-nav-dropdown-menu {
+  display: block;
+}
+
+.admin-nav-link--sub {
+  padding-left: 38px;
   font-size: 10px;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: var(--gold);
-  margin-bottom: 4px;
-}
-
-.admin-support-box span {
-  font-family: var(--font-body);
-  font-size: 11px;
-  color: var(--white-dim);
 }
 
 /* —— Health dashboard —— */
@@ -166,6 +206,17 @@
   cursor: pointer;
 }
 
+.health-period-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.health-alert-empty {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--white-dim);
+}
+
 .health-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -176,7 +227,7 @@
 .health-kpi-card {
   position: relative;
   padding: 20px 22px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: var(--border-hairline);
   background: rgba(17, 17, 17, 0.8);
 }
 
@@ -233,10 +284,14 @@
   margin-bottom: 24px;
 }
 
+.health-main-grid--single {
+  grid-template-columns: 1fr;
+}
+
 .health-chart-card,
 .health-alerts-card,
 .health-table-card {
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: var(--border-hairline);
   background: rgba(17, 17, 17, 0.8);
   padding: 24px;
 }
@@ -280,7 +335,7 @@
 
 .health-chart-svg {
   width: 100%;
-  height: 220px;
+  height: 280px;
 }
 
 .health-alerts-title {
@@ -510,6 +565,32 @@
 .health-export-btn:hover {
   background: var(--gold-light);
   transform: translateY(-1px);
+}
+
+.health-export-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.health-export-card {
+  margin-bottom: 24px;
+}
+
+.health-export-hint {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--white-dim);
+  margin-bottom: 18px;
+}
+
+.health-export-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .profit-stock-list {

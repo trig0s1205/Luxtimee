@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ProfitDashboardDto } from '@luxtime/shared';
+import type { ChartGranularity, ChartOrderInput } from '~/utils/chart-series';
 import { formatCop } from '~/utils/format';
 
 definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
@@ -23,6 +24,24 @@ const chartPeriods: { key: ChartPeriod; label: string }[] = [
   { key: 'month', label: '1 mes' },
   { key: 'all', label: 'Histórico' },
 ];
+
+const granularity = computed<ChartGranularity>(() => {
+  if (chartPeriod.value === 'day') return 'hour';
+  if (chartPeriod.value === 'all') return 'month';
+  return 'day';
+});
+
+type ProfitMetric = 'profit' | 'commission';
+const chartMetric = ref<ProfitMetric>('profit');
+
+const metricOptions: { key: ProfitMetric; label: string }[] = [
+  { key: 'profit', label: 'Ganancia neta' },
+  { key: 'commission', label: 'Comisión secretaría' },
+];
+
+const chartTitle = computed(() =>
+  chartMetric.value === 'commission' ? 'COMISIÓN SECRETARÍA' : 'GANANCIA NETA',
+);
 
 const { data: dashboard, refresh, pending } = await useAsyncData(
   'profit-dashboard',
@@ -90,28 +109,64 @@ const activityRows = computed(() =>
   })),
 );
 
-const chartData = computed(() => {
+ = computed<ChartOrderInput[]>(() => {
   const items = dashboard.value?.items ?? [];
-  if (!items.length) {
-    return { labels: ['Sin datos'], values: [0] };
-  }
+  const grouped = new Map<string, { paidAt: string; readableId: string; total: number; products: string[] }>();
 
-  const grouped = new Map<string, number>();
   for (const item of items) {
-    const key = new Date(item.paidAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
-    grouped.set(key, (grouped.get(key) ?? 0) + item.profit);
+    const value = Number(chartMetric.value === 'commission' ? item.commission : item.profit);
+    if (!Number.isFinite(value)) continue;
+
+    const entry = grouped.get(item.orderId) ?? {
+      paidAt: item.paidAt,
+      readableId: item.readableId,
+      total: 0,
+      products: [],
+    };
+    entry.total += value;
+    entry.products.push(item.productName);
+    grouped.set(item.orderId, entry);
   }
 
-  return {
-    labels: [...grouped.keys()],
-    values: [...grouped.values()],
-  };
+  return [...grouped.entries()].map(([orderId, entry]) => ({
+    id: orderId,
+    at: entry.paidAt,
+    amount: entry.total,
+    sku: entry.readableId,
+  }));
 });
 
+// Debe coincidir con periodStart() del backend para que el eje X no se corte.
+const rangeStart = computed<number | null>(() => {
+  const now = new Date();
+  if (chartPeriod.value === 'day') {
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  }
+  if (chartPeriod.value === 'week') return now.getTime() - 7 * 86400000;
+  if (chartPeriod.value === 'month') return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  return null;
+});
+
+type ExportPeriod = 'day' | 'week' | 'month';
+const exportPeriod = ref<ExportPeriod>('day');
+const exportPeriods: { key: ExportPeriod; label: string }[] = [
+  { key: 'day', label: 'Diario' },
+  { key: 'week', label: 'Semanal' },
+  { key: 'month', label: 'Mensual' },
+];
+const exporting = ref<'pdf' | 'excel' | null>(null);
+
 async function exportReport(type: 'pdf' | 'excel') {
-  const config = useRuntimeConfig();
-  const endpoint = type === 'pdf' ? 'profit/export/pdf' : 'profit/export/excel';
-  window.open(`${config.public.apiBaseUrl}/dashboards/${endpoint}?period=${chartPeriod.value}`, '_blank');
+  exporting.value = type;
+  try {
+    const config = useRuntimeConfig();
+    const endpoint = type === 'pdf' ? 'profit/export/pdf' : 'profit/export/excel';
+    window.open(`${config.public.apiBaseUrl}/dashboards/${endpoint}?period=${exportPeriod.value}`, '_blank');
+  } finally {
+    window.setTimeout(() => {
+      exporting.value = null;
+    }, 800);
+  }
 }
 
 useSeoMeta({ title: 'Dashboard de Ganancia — Luxtime Admin' });
@@ -124,15 +179,38 @@ useSeoMeta({ title: 'Dashboard de Ganancia — Luxtime Admin' });
         <h1 class="health-dashboard-title">Dashboard de Ganancia (Super Admin)</h1>
         <p class="health-dashboard-subtitle">Desglose financiero y comisiones de secretaría</p>
       </div>
-      <div class="health-header-actions">
-        <button type="button" class="health-export-btn" @click="exportReport('pdf')">
-          Exportar PDF
-        </button>
-        <button type="button" class="health-export-btn" @click="exportReport('excel')">
-          Exportar Excel
-        </button>
-      </div>
     </header>
+
+    <section class="health-table-card health-export-card">
+      <div class="health-table-header">
+        <h3>Exportar reporte</h3>
+      </div>
+      <p class="health-export-hint">
+        Los reportes en PDF y Excel incluyen los datos de contacto del Super Admin registrados en Configuración.
+        El histórico no se puede exportar por su volumen de datos: elige diario, semanal o mensual.
+      </p>
+      <div class="health-export-controls">
+        <div class="health-chart-toggle">
+          <button
+            v-for="period in exportPeriods"
+            :key="period.key"
+            type="button"
+            :class="{ active: exportPeriod === period.key }"
+            @click="exportPeriod = period.key"
+          >
+            {{ period.label }}
+          </button>
+        </div>
+        <div class="health-header-actions">
+          <button type="button" class="health-export-btn" :disabled="exporting === 'pdf'" @click="exportReport('pdf')">
+            {{ exporting === 'pdf' ? 'Generando...' : 'Exportar PDF' }}
+          </button>
+          <button type="button" class="health-export-btn" :disabled="exporting === 'excel'" @click="exportReport('excel')">
+            {{ exporting === 'excel' ? 'Generando...' : 'Exportar Excel' }}
+          </button>
+        </div>
+      </div>
+    </section>
 
     <div v-if="pending" class="health-kpi-grid">
       <article v-for="i in 4" :key="i" class="health-kpi-card">Cargando...</article>
@@ -147,30 +225,24 @@ useSeoMeta({ title: 'Dashboard de Ganancia — Luxtime Admin' });
       </article>
     </div>
 
-    <div class="health-main-grid">
-      <section class="health-chart-card">
-        <div class="health-chart-header">
-          <h2 class="health-chart-title">Evolución de Ganancias</h2>
-          <div class="health-chart-toggle">
-            <button
-              v-for="period in chartPeriods"
-              :key="period.key"
-              type="button"
-              :class="{ active: chartPeriod === period.key }"
-              @click="chartPeriod = period.key"
-            >
-              {{ period.label }}
-            </button>
-          </div>
-        </div>
-
-        <AdminLineChart
-          chart-id="profit-chart"
-          stroke-color="#D4AF37"
-          :labels="chartData.labels"
-          :values="chartData.values"
-        />
-      </section>
+    <div class="health-main-grid health-main-grid--single">
+      <AdminRevenueTrendChart
+        :title="chartTitle"
+        :ranges="chartPeriods"
+        :range="chartPeriod"
+        :granularity="granularity"
+        :orders="ordersByMetric"
+        :from="rangeStart"
+        :loading="pending"
+        color="#D4AF37"
+        :metric-options="metricOptions"
+        :metric="chartMetric"
+        empty-title="Sin ganancias en este periodo"
+        empty-subtitle="Las ventas confirmadas aparecerán aquí"
+        @update:range="chartPeriod = $event as ChartPeriod"
+        @update:metric="chartMetric = $event as ProfitMetric"
+        @retry="refresh()"
+      />
     </div>
 
     <section class="health-table-card">

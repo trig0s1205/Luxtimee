@@ -9,13 +9,53 @@ export class WhatsappService {
     prefix: string;
     customerName: string;
     customerAddress: string;
-    readableId: string;
-    items: Array<{ name: string; qty: number; price: number }>;
+    customerPhone?: string;
+    shippingZoneName?: string;
+    shippingCost?: number;
+    items: Array<{ label: string; qty: number; price: number }>;
     total: number;
     type: string;
   }) {
-    const lines = input.items.map((i) => `• ${i.name} x${i.qty}`).join('\n');
-    return `${input.prefix}\n\nPedido: ${input.readableId}\nCliente: ${input.customerName}\nDirección: ${input.customerAddress}\nTipo: ${input.type}\n\n${lines}\n\nTotal estimado: $${input.total.toLocaleString('es-CO')} COP`;
+    const divider = '━━━━━━━━━━━━━━━━';
+    const itemLines = input.items
+      .map((item, index) => {
+        const lineTotal = item.price * item.qty;
+        return [
+          `*${index + 1}.* ${item.label}`,
+          `   _Cantidad:_ x${item.qty}  ·  _Precio unit.:_ $${item.price.toLocaleString('es-CO')}`,
+          lineTotal !== item.price ? `   _Subtotal:_ $${lineTotal.toLocaleString('es-CO')}` : null,
+        ]
+          .filter(Boolean)
+          .join('\n');
+      })
+      .join('\n\n');
+
+    const contactBlock = [
+      `👤 *Cliente:* ${input.customerName}`,
+      input.customerPhone ? `📱 *Teléfono:* ${input.customerPhone}` : null,
+      `📍 *Dirección:* ${input.customerAddress}`,
+      input.shippingZoneName
+        ? `🚚 *Zona de envío:* ${input.shippingZoneName}${input.shippingCost ? ` — $${input.shippingCost.toLocaleString('es-CO')}` : ''}`
+        : null,
+      `🏷️ *Tipo de pedido:* ${input.type}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    return [
+      `*✨ LUXTIME — Intención de compra*`,
+      '',
+      input.prefix,
+      '',
+      contactBlock,
+      '',
+      `*⌚ Relojes solicitados*`,
+      divider,
+      itemLines,
+      divider,
+      '',
+      `💰 *Total estimado:* $${input.total.toLocaleString('es-CO')} COP`,
+    ].join('\n');
   }
 
   buildRedirectUrl(baseUrl: string, message: string) {
@@ -32,7 +72,6 @@ export class WhatsappService {
       console.log('[whatsapp-mock]', message);
       return { ok: true, mock: true };
     }
-    // Integración real con Meta Cloud API en producción
     return { ok: false, reason: 'WHATSAPP_ACCESS_TOKEN no configurado' };
   }
 }

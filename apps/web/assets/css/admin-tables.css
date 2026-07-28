@@ -1,6 +1,6 @@
 .admin-catalog-table-wrap {
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: var(--border-hairline);
   background: rgba(17, 17, 17, 0.8);
 }
 
@@ -26,7 +26,7 @@
   padding: 14px 16px;
   font-size: 12px;
   color: var(--lux-white);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: var(--border-hairline);
   vertical-align: middle;
 }
 
@@ -65,7 +65,7 @@
   width: 30px;
   height: 30px;
   margin-left: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: var(--border-hairline);
   background: transparent;
   color: var(--lux-white-dim);
   font-size: 14px;

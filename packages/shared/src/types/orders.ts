@@ -15,7 +15,6 @@ export interface CartItemDto {
 export interface CreatePreOrderDto {
   customerName: string;
   customerAddress: string;
-  customerEmail: string;
   customerPhone?: string;
   shippingZoneId?: string;
   consentAccepted: boolean;
@@ -25,12 +24,14 @@ export interface CreatePreOrderDto {
 export interface OrderItemDto {
   id: string;
   watchId: string;
+  productSku: string;
   productName: string;
   productRef: string;
   productImage: string | null;
   quantity: number;
   unitPrice: number;
   priceType: PriceType;
+  warrantyRegistered: boolean;
 }
 
 export interface OrderDto {
@@ -44,6 +45,11 @@ export interface OrderDto {
   customerEmail: string;
   customerPhone: string | null;
   shippingZoneId: string | null;
+  shippingZone?: {
+    id: string;
+    name: string;
+    isNational: boolean;
+  } | null;
   shippingCost: number;
   depositExpected: number;
   depositConfirmed: boolean;
@@ -62,7 +68,6 @@ export interface OrderDto {
 export interface UpdatePreOrderDto {
   customerName?: string;
   customerAddress?: string;
-  customerEmail?: string;
   customerPhone?: string;
   shippingZoneId?: string;
   items?: Array<{ watchId: string; quantity: number }>;
@@ -70,6 +75,17 @@ export interface UpdatePreOrderDto {
 
 export interface TransitionOrderDto {
   status: OrderStatus;
+}
+
+export type OrderListPeriod = 'day' | 'week' | 'month' | 'all';
+
+export interface OrdersListDto {
+  items: OrderDto[];
+  total: number;
+  page: number;
+  limit: number;
+  period: OrderListPeriod;
+  periodLabel: string;
 }
 
 export interface PricingSummary {

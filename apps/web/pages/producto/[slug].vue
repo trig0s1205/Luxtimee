@@ -5,7 +5,7 @@ const route = useRoute();
 const slug = computed(() => String(route.params.slug));
 const catalog = useCatalogData();
 const cart = useCartStore();
-const api = useApi();
+const { openChat } = useWhatsApp();
 const analytics = useAnalytics();
 
 const { data: watch, error } = await useAsyncData(`product-${slug.value}`, () => catalog.getBySlug(slug.value));
@@ -33,12 +33,7 @@ function addToCart() {
 
 async function consultWhatsApp() {
   if (!watch.value) return;
-  try {
-    const s = await api.get<{ url: string; messagePrefix: string }>('/settings/whatsapp/public');
-    const text = `${s.messagePrefix || ''} Me interesa: ${watch.value.brand.name} ${watch.value.model}`.trim();
-    const sep = s.url.includes('?') ? '&' : '?';
-    window.open(`${s.url}${sep}text=${encodeURIComponent(text)}`, '_blank');
-  } catch { /* */ }
+  await openChat(`Me interesa: ${watch.value.brand.name} ${watch.value.model}`);
 }
 
 </script>

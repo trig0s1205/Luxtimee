@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ReviewStatus } from '@prisma/client';
+import { toUpperText } from '@luxtime/shared';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -8,7 +9,13 @@ export class ReviewsService {
 
   createPublic(dto: { customerName: string; watchId?: string; rating: number; body: string }) {
     return this.prisma.review.create({
-      data: { ...dto, status: ReviewStatus.PENDING },
+      data: {
+        customerName: toUpperText(dto.customerName),
+        watchId: dto.watchId,
+        rating: dto.rating,
+        body: toUpperText(dto.body),
+        status: ReviewStatus.PENDING,
+      },
     });
   }
 

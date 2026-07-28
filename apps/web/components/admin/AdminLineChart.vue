@@ -9,20 +9,25 @@ const props = withDefaults(defineProps<{
   chartId: 'admin-chart',
 });
 
+const W = 600;
+const H = 200;
+const padX = 20;
+const padY = 20;
+
+const gradientId = computed(() => `${props.chartId}-gradient`);
+const glowId = computed(() => `${props.chartId}-glow`);
+
 const chartPoints = computed(() => {
   const data = props.values;
   if (!data.length) return [];
   const max = Math.max(...data);
   const min = Math.min(...data);
   const range = max - min || 1;
-  const w = 600;
-  const h = 180;
-  const padX = 20;
-  const padY = 20;
+  const plotBottom = 170;
 
   return data.map((val, i) => {
-    const x = padX + (i / Math.max(data.length - 1, 1)) * (w - padX * 2);
-    const y = padY + (1 - (val - min) / range) * (h - padY * 2);
+    const x = padX + (i / Math.max(data.length - 1, 1)) * (W - padX * 2);
+    const y = padY + (1 - (val - min) / range) * (plotBottom - padY);
     return { x, y };
   });
 });
@@ -41,13 +46,10 @@ const chartAreaPath = computed(() => {
   const first = pts[0];
   return `${line} L ${last.x} 180 L ${first.x} 180 Z`;
 });
-
-const gradientId = computed(() => `${props.chartId}-gradient`);
-const glowId = computed(() => `${props.chartId}-glow`);
 </script>
 
 <template>
-  <svg class="health-chart-svg" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true">
+  <svg class="health-chart-svg" viewBox="0 0 600 200" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
     <defs>
       <linearGradient :id="gradientId" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" :stop-color="strokeColor" stop-opacity="0.35" />

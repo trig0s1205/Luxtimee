@@ -1,6 +1,8 @@
 import { PrismaClient, Role } from '@prisma/client';
+import { hashPassword } from '../src/auth/password.util';
 
 const prisma = new PrismaClient();
+const defaultStaffPassword = hashPassword('luxtime');
 
 async function main() {
   const shippingZones = [
@@ -22,21 +24,23 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: 'alvaro@luxtime.co' },
-    update: { role: Role.SUPER_ADMIN, name: 'Álvaro' },
+    update: { role: Role.SUPER_ADMIN, name: 'Álvaro', passwordHash: defaultStaffPassword },
     create: {
       email: 'alvaro@luxtime.co',
       name: 'Álvaro',
       role: Role.SUPER_ADMIN,
+      passwordHash: defaultStaffPassword,
     },
   });
 
   await prisma.user.upsert({
     where: { email: 'lidia@luxtime.co' },
-    update: { role: Role.ADMIN, name: 'Lidia' },
+    update: { role: Role.ADMIN, name: 'Lidia', passwordHash: defaultStaffPassword },
     create: {
       email: 'lidia@luxtime.co',
       name: 'Lidia',
       role: Role.ADMIN,
+      passwordHash: defaultStaffPassword,
     },
   });
 
@@ -61,6 +65,16 @@ async function main() {
     {
       key: 'profit_config',
       value: { defaultProfitPercent: 30 },
+    },
+    {
+      key: 'platform_config',
+      value: {
+        supportEmail: 'help@luxtime.co',
+        city: 'Piedecuesta, Santander — Colombia',
+        instagramUrl: 'https://www.instagram.com/',
+        tiktokUrl: 'https://www.tiktok.com/',
+        facebookUrl: 'https://www.facebook.com/',
+      },
     },
   ];
 

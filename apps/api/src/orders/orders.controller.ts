@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
 import { OrderStatus, Role } from '@prisma/client';
 import { OrdersService } from './orders.service';
 import { TransitionOrderDto } from '../pre-orders/dto/pre-order.dto';
+import { OrdersQueryDto } from './dto/orders-query.dto';
 import { Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 
@@ -12,8 +13,14 @@ export class OrdersController {
   constructor(private ordersService: OrdersService) {}
 
   @Get()
-  findAll() {
-    return this.ordersService.findAllOrders();
+  findAll(@Query() query: OrdersQueryDto) {
+    return this.ordersService.findAllOrders({
+      period: query.period,
+      status: query.status,
+      type: query.type,
+      page: query.page,
+      limit: query.limit,
+    });
   }
 
   @Patch(':id/status')

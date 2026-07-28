@@ -6,7 +6,7 @@ import { LUXTIME_EXPERIENCE_ITEMS } from '~/constants/luxtime-experience';
 const { open, slug, closeProduct } = useProductModal();
 const catalog = useCatalogData();
 const cart = useCartStore();
-const api = useApi();
+const { openChat } = useWhatsApp();
 
 const product = ref<WatchPublicDto | null>(null);
 const loading = ref(false);
@@ -30,18 +30,12 @@ watch(slug, async (s) => {
 function addToCart() {
   if (!product.value) return;
   cart.addFromWatch(product.value);
+  closeProduct();
 }
 
 async function consultWhatsApp() {
   if (!product.value) return;
-  try {
-    const settings = await api.get<{ url: string; messagePrefix: string }>('/settings/whatsapp/public');
-    const text = `${settings.messagePrefix || ''} Me interesa: ${product.value.brand.name} ${product.value.model} (Ref. ${product.value.slug})`.trim();
-    const sep = settings.url.includes('?') ? '&' : '?';
-    window.open(`${settings.url}${sep}text=${encodeURIComponent(text)}`, '_blank');
-  } catch {
-    /* sin config */
-  }
+  await openChat(`Me interesa: ${product.value.brand.name} ${product.value.model} (Ref. ${product.value.slug})`);
 }
 
 function onOverlayClick(e: MouseEvent) {

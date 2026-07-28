@@ -1,5 +1,18 @@
 <script setup lang="ts">
+import type { PlatformConfigDto } from '@luxtime/shared';
+
 const { t } = useLocale();
+const config = useRuntimeConfig();
+
+const { data: platform } = await useAsyncData('footer-platform', () =>
+  $fetch<PlatformConfigDto>(`${config.public.apiBaseUrl}/settings/platform/public`).catch(() => ({
+    supportEmail: 'help@luxtime.co',
+    city: 'Piedecuesta, Santander — Colombia',
+    instagramUrl: 'https://www.instagram.com/',
+    tiktokUrl: 'https://www.tiktok.com/',
+    facebookUrl: 'https://www.facebook.com/',
+  })),
+);
 </script>
 
 <template>
@@ -14,9 +27,9 @@ const { t } = useLocale();
       <div class="footer-col">
         <h4>{{ t('footer.collection') }}</h4>
         <ul>
-          <li><NuxtLink to="/catalogo?filter=sport">{{ t('footer.sport') }}</NuxtLink></li>
-          <li><NuxtLink to="/catalogo?filter=classic">{{ t('footer.classics') }}</NuxtLink></li>
-          <li><NuxtLink to="/catalogo?filter=limited">{{ t('footer.limited') }}</NuxtLink></li>
+          <li><NuxtLink to="/catalogo?category=deportivo">{{ t('footer.sport') }}</NuxtLink></li>
+          <li><NuxtLink to="/catalogo?category=clasico">{{ t('footer.classics') }}</NuxtLink></li>
+          <li><NuxtLink to="/catalogo?category=edicion-limitada">{{ t('footer.limited') }}</NuxtLink></li>
           <li><NuxtLink to="/catalogo">{{ t('footer.viewAll') }}</NuxtLink></li>
         </ul>
       </div>
@@ -34,7 +47,7 @@ const { t } = useLocale();
         <ul>
           <li><NuxtLink to="/#nosotros">{{ t('footer.story') }}</NuxtLink></li>
           <li><NuxtLink to="/#nosotros">{{ t('footer.aboutUs') }}</NuxtLink></li>
-          <li><NuxtLink to="/#nosotros">{{ t('nav.contact') }}</NuxtLink></li>
+          <li><NuxtLink to="/#contacto">{{ t('nav.contact') }}</NuxtLink></li>
         </ul>
       </div>
     </div>
@@ -47,9 +60,9 @@ const { t } = useLocale();
         <NuxtLink to="/terminos-y-condiciones">{{ t('footer.termsShort') }}</NuxtLink>
       </div>
       <div class="socials">
-        <a href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer">Instagram</a>
-        <a href="https://www.tiktok.com/" target="_blank" rel="noopener noreferrer">TikTok</a>
-        <a href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer">Facebook</a>
+        <a :href="platform?.instagramUrl || 'https://www.instagram.com/'" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a :href="platform?.tiktokUrl || 'https://www.tiktok.com/'" target="_blank" rel="noopener noreferrer">TikTok</a>
+        <a :href="platform?.facebookUrl || 'https://www.facebook.com/'" target="_blank" rel="noopener noreferrer">Facebook</a>
       </div>
     </div>
   </footer>

@@ -12,7 +12,7 @@ const STAFF_ROLES = new Set<Role>([Role.ADMIN, Role.SUPER_ADMIN]);
 
 const route = useRoute();
 const auth = useAuthStore();
-const { loginWithGoogle, mockLogin, redirectAfterLogin } = useAuth();
+const { loginWithGoogle, mockLogin, credentialLogin, redirectAfterLogin } = useAuth();
 const api = useApi();
 
 const email = ref('');
@@ -85,10 +85,16 @@ async function submitLogin(preset?: { email: string; password: string }) {
       const name = DEV_ACCOUNT_HINTS.find((a) => a.email === email.value.trim().toLowerCase())?.name
         ?? email.value.split('@')[0];
       user = await mockLogin(email.value, name);
-    } else if (LOCAL_AUTH_ENABLED) {
-      user = auth.localLogin(email.value, password.value);
     } else {
-      throw new Error('No hay método de inicio de sesión disponible.');
+      try {
+        user = await credentialLogin(email.value, password.value);
+      } catch {
+        if (LOCAL_AUTH_ENABLED) {
+          user = auth.localLogin(email.value, password.value);
+        } else {
+          throw new Error('Correo o contraseña incorrectos.');
+        }
+      }
     }
 
     if (!user || !STAFF_ROLES.has(user.role)) {

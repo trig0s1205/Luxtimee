@@ -29,11 +29,11 @@ async function logout() {
 
 <template>
 
-  <div class="min-h-screen bg-lux-black flex admin-shell">
+  <div class="admin-layout admin-shell">
 
     <AdminSidebar @logout="logout" />
 
-    <main class="flex-1 min-w-0 p-6 md:p-8 overflow-x-hidden">
+    <main class="admin-main">
 
       <slot />
 

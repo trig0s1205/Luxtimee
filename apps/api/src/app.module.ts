@@ -10,6 +10,7 @@ import { AuditModule } from './audit/audit.module';
 import { BrandsModule } from './brands/brands.module';
 import { CategoriesModule } from './categories/categories.module';
 import { WarrantiesModule } from './warranties/warranties.module';
+import { WarrantyHistoriesModule } from './warranty-histories/warranty-histories.module';
 import { CareModule } from './care/care.module';
 import { ProductsModule } from './products/products.module';
 import { WatchesModule } from './watches/watches.module';
@@ -67,6 +68,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     ReviewsModule,
     WaitlistModule,
     SegmentationModule,
+    WarrantyHistoriesModule,
   ],
   providers: [
     {

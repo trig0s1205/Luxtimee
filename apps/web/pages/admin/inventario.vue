@@ -124,6 +124,8 @@ async function handleSubmit(form: WatchFormPayload) {
 
     if (auth.isSuperAdmin && form.cost !== undefined) {
       payload.cost = Number(form.cost);
+    } else if (!auth.isSuperAdmin && editingWatch.value && Number(form.cost) === 0) {
+      payload.cost = 0;
     }
 
     if (watchId) {

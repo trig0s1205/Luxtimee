@@ -1,7 +1,6 @@
 import {
   IsArray,
   IsBoolean,
-  IsEmail,
   IsInt,
   IsOptional,
   IsString,
@@ -9,6 +8,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { Uppercase, UppercaseOptional } from '../../common/decorators/uppercase.decorator';
 
 export class PreOrderItemDto {
   @IsString()
@@ -21,16 +21,16 @@ export class PreOrderItemDto {
 
 export class CreatePreOrderDto {
   @IsString()
+  @Uppercase()
   customerName!: string;
 
   @IsString()
+  @Uppercase()
   customerAddress!: string;
-
-  @IsEmail()
-  customerEmail!: string;
 
   @IsOptional()
   @IsString()
+  @UppercaseOptional()
   customerPhone?: string;
 
   @IsOptional()
@@ -49,18 +49,17 @@ export class CreatePreOrderDto {
 export class UpdatePreOrderDto {
   @IsOptional()
   @IsString()
+  @UppercaseOptional()
   customerName?: string;
 
   @IsOptional()
   @IsString()
+  @UppercaseOptional()
   customerAddress?: string;
 
   @IsOptional()
-  @IsEmail()
-  customerEmail?: string;
-
-  @IsOptional()
   @IsString()
+  @UppercaseOptional()
   customerPhone?: string;
 
   @IsOptional()

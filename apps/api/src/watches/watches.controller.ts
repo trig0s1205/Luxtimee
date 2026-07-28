@@ -24,6 +24,7 @@ import { CreateWatchDto, UpdateWatchDto, WatchQueryDto } from './dto';
 import { Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { FinancialStripInterceptor } from '../common/interceptors/financial-strip.interceptor';
 
 const UPLOAD_DIR = join(process.cwd(), 'uploads', 'watches');
 
@@ -68,6 +69,7 @@ function mediaFileFilter(
 @Controller({ path: 'watches', version: '1' })
 @Roles(Role.ADMIN, Role.SUPER_ADMIN)
 @UseGuards(RolesGuard)
+@UseInterceptors(FinancialStripInterceptor)
 export class WatchesController {
   constructor(private watchesService: WatchesService) {}
 

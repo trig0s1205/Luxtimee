@@ -1,5 +1,13 @@
 <script setup lang="ts">
-defineProps<{ modelValue?: string | number | null; placeholder?: string; type?: string }>();
+defineProps<{
+  modelValue?: string | number | null;
+  placeholder?: string;
+  type?: string;
+  name?: string;
+  id?: string;
+  autocomplete?: string;
+  required?: boolean;
+}>();
 const emit = defineEmits<{ 'update:modelValue': [value: string | number] }>();
 
 function onInput(e: Event) {
@@ -14,9 +22,13 @@ function onInput(e: Event) {
 
 <template>
   <input
+    :id="id"
+    :name="name"
     :type="type || 'text'"
     :value="modelValue ?? ''"
     :placeholder="placeholder"
+    :autocomplete="autocomplete"
+    :required="required"
     class="lux-input"
     @input="onInput"
   />

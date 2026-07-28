@@ -124,7 +124,10 @@ export class WatchesRepository {
 
   async findPendingCost() {
     return this.prisma.watch.findMany({
-      where: { deletedAt: null, cost: null },
+      where: {
+        deletedAt: null,
+        OR: [{ cost: null }, { cost: 0 }],
+      },
       include: { brand: true },
       orderBy: { createdAt: 'desc' },
     });

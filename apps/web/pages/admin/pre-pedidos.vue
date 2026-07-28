@@ -29,7 +29,7 @@ async function cancelOrder(id: string) {
           <h3 class="font-display text-xl">{{ order.readableId }}</h3>
           <UiLuxBadge :tone="order.type === 'MAYORISTA' ? 'mayorista' : 'detal'">{{ order.type }}</UiLuxBadge>
         </div>
-        <p class="text-sm text-lux-white-dim">{{ order.customerName }} · {{ order.customerEmail }}</p>
+        <p class="text-sm text-lux-white-dim">{{ order.customerName }} · {{ order.customerPhone || 'Sin teléfono' }}</p>
         <p class="text-sm">{{ order.customerAddress }}</p>
         <p class="text-lux-gold">Total {{ formatCop(order.total) }} · Abono esperado {{ formatCop(order.depositExpected) }}</p>
         <ul class="text-sm text-lux-white-dim">

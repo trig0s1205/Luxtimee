@@ -18,20 +18,66 @@ async function save(zone: ShippingZoneDto, cost: number) {
 <template>
   <div>
     <UiSectionHeader label="Operaciones" title="Tarifas de envío" />
-    <div class="space-y-3 max-w-xl">
-      <div v-for="zone in zones" :key="zone.id" class="flex items-center gap-4 border border-lux-gold/15 p-4">
-        <div class="flex-1">
+    <div class="shipping-zones-list">
+      <div v-for="zone in zones" :key="zone.id" class="shipping-zone-row">
+        <div class="shipping-zone-info">
           <p class="font-display">{{ zone.name }}</p>
-          <p class="text-xs text-lux-white-dim">{{ zone.isNational ? 'Nacional' : 'Metropolitana' }}</p>
+          <p class="shipping-zone-type">{{ zone.isNational ? 'Nacional' : 'Metropolitana' }}</p>
         </div>
         <input
           type="number"
-          class="w-32 bg-transparent border border-lux-gold/25 px-3 py-2 text-sm"
+          class="shipping-zone-input"
           :value="zone.cost"
           @change="save(zone, Number(($event.target as HTMLInputElement).value))"
         />
-        <span class="text-xs text-lux-white-dim">{{ formatCop(zone.cost) }}</span>
+        <span class="shipping-zone-price">{{ formatCop(zone.cost) }}</span>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.shipping-zones-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 36rem;
+}
+
+.shipping-zone-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: var(--border-hairline);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.shipping-zone-info {
+  flex: 1;
+}
+
+.shipping-zone-type {
+  font-size: 12px;
+  color: var(--lux-white-dim);
+}
+
+.shipping-zone-input {
+  width: 8rem;
+  background: transparent;
+  border: var(--border-hairline);
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--lux-white);
+  outline: none;
+}
+
+.shipping-zone-input:focus {
+  border-color: rgba(200, 169, 110, 0.22);
+}
+
+.shipping-zone-price {
+  font-size: 12px;
+  color: var(--lux-white-dim);
+}
+</style>

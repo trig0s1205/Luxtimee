@@ -1,13 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { OrderStage, OrderStatus } from '@prisma/client';
-
-const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  PENDIENTE: [OrderStatus.PAGADO, OrderStatus.CANCELADO],
-  PAGADO: [OrderStatus.ENVIADO],
-  ENVIADO: [OrderStatus.ENTREGADO],
-  ENTREGADO: [],
-  CANCELADO: [],
-};
+import { getOrderAllowedTransitions } from '@luxtime/shared';
 
 export function assertPreOrderEditable(stage: OrderStage, canceledAt: Date | null) {
   if (stage !== OrderStage.PRE_ORDER || canceledAt) {
@@ -25,9 +18,13 @@ export function assertCanConfirmDeposit(
   }
 }
 
-export function assertValidTransition(current: OrderStatus, next: OrderStatus) {
-  const allowed = ORDER_TRANSITIONS[current] ?? [];
-  if (!allowed.includes(next)) {
+export function assertValidTransition(
+  current: OrderStatus,
+  next: OrderStatus,
+  isNational = false,
+) {
+  const allowed = getOrderAllowedTransitions(current, isNational);
+  if (!allowed.some((status) => status === next)) {
     throw new BadRequestException(`Transición inválida: ${current} → ${next}`);
   }
 }

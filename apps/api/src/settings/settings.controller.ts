@@ -4,6 +4,7 @@ import { SettingsService } from './settings.service';
 import { Public, Roles, Audit, Financial } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { FinancialGuard } from '../common/guards/financial.guard';
+import type { PlatformConfigDto } from '@luxtime/shared';
 
 @Controller({ path: 'settings', version: '1' })
 export class SettingsController {
@@ -21,6 +22,12 @@ export class SettingsController {
     return this.settingsService.getWhatsappLink();
   }
 
+  @Public()
+  @Get('platform/public')
+  getPlatformPublic() {
+    return this.settingsService.getPlatformConfig();
+  }
+
   @Get('whatsapp')
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @UseGuards(RolesGuard)
@@ -29,11 +36,26 @@ export class SettingsController {
   }
 
   @Patch('whatsapp')
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @Roles(Role.SUPER_ADMIN)
   @UseGuards(RolesGuard)
   @Audit('UPDATE', 'Setting')
   setWhatsapp(@Body() body: { url: string; messagePrefix: string }) {
     return this.settingsService.setWhatsappLink(body);
+  }
+
+  @Get('platform')
+  @Roles(Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  getPlatform() {
+    return this.settingsService.getPlatformConfig();
+  }
+
+  @Patch('platform')
+  @Roles(Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  @Audit('UPDATE', 'Setting')
+  setPlatform(@Body() body: PlatformConfigDto) {
+    return this.settingsService.setPlatformConfig(body);
   }
 
   @Get('profit')

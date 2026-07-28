@@ -23,6 +23,14 @@ export interface ProfitDashboardDto {
   items: ProfitBreakdownItem[];
 }
 
+export type ProfitReportPeriod = 'day' | 'week' | 'month';
+
+export interface ReportOwnerDto {
+  name: string;
+  email: string;
+  phone: string | null;
+}
+
 export interface HealthMetricDto {
   key: string;
   label: string;
@@ -31,7 +39,89 @@ export interface HealthMetricDto {
   changePercent: number;
 }
 
+export interface Ga4EngagementDto {
+  periodLabel: string;
+  metrics: HealthMetricDto[];
+}
+
+export interface HealthBusinessDto {
+  preOrders: number;
+  paidOrders: number;
+  activeWatches: number;
+  lowStockCount: number;
+  ordersToShip: number;
+  periodRevenue: number;
+  unitsSold: number;
+  previousPaidOrders: number;
+  previousPeriodRevenue: number;
+}
+
+export interface HealthUnattendedPreOrderDto {
+  id: string;
+  readableId: string;
+  customerName: string;
+  model: string;
+  waitHours: number;
+}
+
+export interface HealthLowStockWatchDto {
+  id: string;
+  model: string;
+  brand: string;
+  stock: number;
+  image: string | null;
+}
+
+export interface HealthTopWatchDto {
+  id: string;
+  model: string;
+  brand: string;
+  reference: string | null;
+  image: string | null;
+  unitsSold: number;
+  stock: number;
+}
+
+export interface HealthChartOrderDto {
+  id: string;
+  readableId: string;
+  customerName: string;
+  total: number;
+  status: string;
+  productSummary: string;
+  paidAt: string;
+}
+
+export interface HealthChartBoundsDto {
+  from: string;
+  to: string;
+}
+
 export interface HealthDashboardDto {
+  period: string;
   metrics: HealthMetricDto[];
   periodLabel: string;
+  business: HealthBusinessDto;
+  chartBounds: HealthChartBoundsDto;
+  chartOrders: HealthChartOrderDto[];
+  unattendedPreOrders: HealthUnattendedPreOrderDto[];
+  lowStockWatches: HealthLowStockWatchDto[];
+  topWatches: HealthTopWatchDto[];
+}
+
+export type RevenueRange = 'today' | '1_week' | '1_month' | 'historical';
+
+export interface RevenueOrderPointDto {
+  id: string;
+  readableId: string;
+  customerName: string;
+  productSummary: string;
+  paidAt: string;
+  total: number;
+}
+
+export interface RevenueDashboardDto {
+  range: RevenueRange;
+  orders: RevenueOrderPointDto[];
+  total: number;
 }

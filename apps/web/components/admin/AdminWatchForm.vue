@@ -752,7 +752,7 @@ const skuPreview = computed(() => props.watch?.sku ?? 'Se generará automáticam
 .admin-spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(200, 169, 110, 0.2);
+  border: var(--border-hairline);
   border-top-color: var(--lux-gold);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -827,7 +827,7 @@ const skuPreview = computed(() => props.watch?.sku ?? 'Se generará automáticam
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: var(--border-hairline);
   background: rgba(0, 0, 0, 0.5);
   color: var(--lux-white);
   font-size: 14px;

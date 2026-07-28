@@ -1,35 +1,24 @@
 <script setup lang="ts">
-import type { WhatsappSettingDto } from '@luxtime/shared';
-
 const route = useRoute();
-const api = useApi();
+const { buildUrl, loadSettings, hasWhatsApp } = useWhatsApp();
 
 const hiddenPrefixes = ['/admin', '/certificado', '/checkout'];
 
 const visible = computed(
-  () => !hiddenPrefixes.some((prefix) => route.path.startsWith(prefix)),
+  () => !hiddenPrefixes.some((prefix) => route.path.startsWith(prefix)) && hasWhatsApp.value,
 );
 
-const waUrl = ref('https://wa.me/');
+const waUrl = ref<string | null>(null);
 
 onMounted(async () => {
-  try {
-    const data = await api.get<WhatsappSettingDto>('/settings/whatsapp/public');
-    if (data?.url) {
-      const prefix = data.messagePrefix
-        ? encodeURIComponent(`${data.messagePrefix} `)
-        : '';
-      waUrl.value = `${data.url}${prefix ? `?text=${prefix}` : ''}`;
-    }
-  } catch {
-    /* fallback wa.me sin número */
-  }
+  await loadSettings();
+  waUrl.value = buildUrl();
 });
 </script>
 
 <template>
   <a
-    v-if="visible"
+    v-if="visible && waUrl"
     :href="waUrl"
     class="whatsapp-float"
     target="_blank"

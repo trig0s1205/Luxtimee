@@ -7,8 +7,10 @@
     <LayoutAppFooter />
     <LayoutWhatsAppFloat />
     <LayoutCartDrawer />
+    <LayoutWholesaleNotice />
     <CatalogProductDetailModal />
     <LayoutCookieConsent />
+    <UiToastContainer />
   </div>
 </template>
 

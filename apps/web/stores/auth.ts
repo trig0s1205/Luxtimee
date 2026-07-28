@@ -96,6 +96,17 @@ export const useAuthStore = defineStore('auth', {
       this.setUser(data.user, false);
       return data.user;
     },
+    async credentialLogin(email: string, password: string) {
+      const config = useRuntimeConfig();
+      const data = await $fetch<{ user: AuthUserDto }>(`${config.public.apiBaseUrl}/auth/login`, {
+        method: 'POST',
+        body: { email: email.trim(), password },
+        credentials: 'include',
+      });
+      clearLocalSession();
+      this.setUser(data.user, false);
+      return data.user;
+    },
     async logout() {
       clearLocalSession();
       if (import.meta.client) {

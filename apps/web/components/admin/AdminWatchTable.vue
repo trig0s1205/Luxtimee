@@ -95,7 +95,7 @@ function statusClass(status: string) {
 <style scoped>
 .admin-table-wrap {
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: var(--border-hairline);
   background: rgba(17, 17, 17, 0.8);
 }
 
@@ -121,7 +121,7 @@ function statusClass(status: string) {
   padding: 14px 16px;
   font-size: 12px;
   color: var(--lux-white);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: var(--border-hairline);
   vertical-align: middle;
 }
 
@@ -217,7 +217,7 @@ function statusClass(status: string) {
   width: 30px;
   height: 30px;
   margin-left: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: var(--border-hairline);
   background: transparent;
   color: var(--lux-white-dim);
   font-size: 14px;
@@ -245,7 +245,7 @@ function statusClass(status: string) {
   display: inline-block;
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(200, 169, 110, 0.2);
+  border: var(--border-hairline);
   border-top-color: var(--lux-gold);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;

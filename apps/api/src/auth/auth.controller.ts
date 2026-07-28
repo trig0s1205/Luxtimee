@@ -1,11 +1,12 @@
 import {
+  Body,
   Controller,
   Get,
+  Patch,
   Post,
   Req,
   Res,
   UseGuards,
-  Body,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -17,6 +18,12 @@ import { AuthService } from './auth.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/metadata.decorators';
 import { IsEmail, IsString, MinLength } from 'class-validator';
+import {
+  ChangeEmailDto,
+  ChangePasswordDto,
+  LoginCredentialsDto,
+  UpdateProfileDto,
+} from './dto/auth-account.dto';
 
 class MockLoginDto {
   @IsEmail()
@@ -61,6 +68,26 @@ export class AuthController {
     return {
       googleEnabled: Boolean(clientId && clientId !== 'mock-client-id'),
       mockEnabled: this.config.get('USE_MOCKS') === 'true',
+    };
+  }
+
+  @Public()
+  @Post('login')
+  async loginWithCredentials(
+    @Body() dto: LoginCredentialsDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const user = await this.authService.loginWithPassword(dto.email, dto.password);
+    const tokens = await this.authService.issueTokens(user);
+    this.authService.setAuthCookies(res, tokens);
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        phone: user.phone,
+      },
     };
   }
 
@@ -112,8 +139,35 @@ export class AuthController {
   }
 
   @Get('me')
-  async me(@CurrentUser() user: { id: string; email: string; name: string; role: Role }) {
+  async me(@CurrentUser() user: { id: string; email: string; name: string; role: Role; phone?: string | null }) {
     return { user };
+  }
+
+  @Patch('me')
+  async updateProfile(
+    @CurrentUser() user: { id: string; role: Role },
+    @Body() dto: UpdateProfileDto,
+  ) {
+    const updated = await this.authService.updateProfile(user.id, dto);
+    return { user: updated };
+  }
+
+  @Patch('me/email')
+  async changeEmail(
+    @CurrentUser() user: { id: string },
+    @Body() dto: ChangeEmailDto,
+  ) {
+    const updated = await this.authService.changeEmail(user.id, dto.email, dto.currentPassword);
+    return { user: updated };
+  }
+
+  @Patch('me/password')
+  async changePassword(
+    @CurrentUser() user: { id: string },
+    @Body() dto: ChangePasswordDto,
+  ) {
+    const updated = await this.authService.changePassword(user.id, dto.newPassword, dto.currentPassword);
+    return { user: updated };
   }
 
   @Post('logout')

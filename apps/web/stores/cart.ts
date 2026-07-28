@@ -42,8 +42,16 @@ export const useCartStore = defineStore('cart', {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.items));
     },
 
+    notifyWholesaleIfNeeded(beforeCount: number) {
+      if (!import.meta.client) return;
+      if (beforeCount < WHOLESALE_MIN_UNITS && this.unitCount >= WHOLESALE_MIN_UNITS) {
+        useWholesaleNotice().show();
+      }
+    },
+
     addFromWatch(watch: WatchPublicDto, quantity = 1) {
       this.hydrate();
+      const beforeCount = this.unitCount;
       const existing = this.items.find((i) => i.watchId === watch.id);
       if (existing) {
         existing.quantity = Math.min(existing.quantity + quantity, watch.stock || existing.quantity + quantity);
@@ -61,10 +69,16 @@ export const useCartStore = defineStore('cart', {
         });
       }
       this.persist();
+      this.notifyWholesaleIfNeeded(beforeCount);
+      if (import.meta.client) {
+        const { openCart } = useCartDrawer();
+        openCart();
+      }
     },
 
     setQuantity(watchId: string, quantity: number) {
       this.hydrate();
+      const beforeCount = this.unitCount;
       const item = this.items.find((i) => i.watchId === watchId);
       if (!item) return;
       if (quantity <= 0) {
@@ -73,6 +87,7 @@ export const useCartStore = defineStore('cart', {
       }
       item.quantity = Math.min(quantity, item.stock || quantity);
       this.persist();
+      this.notifyWholesaleIfNeeded(beforeCount);
     },
 
     remove(watchId: string) {

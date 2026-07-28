@@ -1,9 +1,10 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { Response } from 'express';
+import { hashPassword, verifyPassword } from './password.util';
 
 export interface JwtPayload {
   sub: string;
@@ -51,6 +52,74 @@ export class AuthService {
         name: profile.name,
         email: profile.email,
       },
+    });
+  }
+
+  async loginWithPassword(email: string, password: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
+
+    if (!user?.passwordHash || !verifyPassword(password, user.passwordHash)) {
+      throw new UnauthorizedException('Correo o contraseña incorrectos');
+    }
+
+    this.assertStaffRole(user.role);
+    return user;
+  }
+
+  async updateProfile(userId: string, data: { name?: string; phone?: string }) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(data.name !== undefined ? { name: data.name.trim() } : {}),
+        ...(data.phone !== undefined ? { phone: data.phone.trim() || null } : {}),
+      },
+      select: { id: true, email: true, name: true, role: true, phone: true },
+    });
+  }
+
+  async changeEmail(userId: string, email: string, currentPassword?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException();
+
+    if (user.passwordHash) {
+      if (!currentPassword || !verifyPassword(currentPassword, user.passwordHash)) {
+        throw new UnauthorizedException('La contraseña actual no es correcta');
+      }
+    }
+
+    const normalized = email.trim().toLowerCase();
+    const existing = await this.prisma.user.findUnique({ where: { email: normalized } });
+    if (existing && existing.id !== userId) {
+      throw new ConflictException('Ese correo ya está en uso');
+    }
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { email: normalized },
+      select: { id: true, email: true, name: true, role: true, phone: true },
+    });
+  }
+
+  async changePassword(userId: string, newPassword: string, currentPassword?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException();
+
+    if (user.passwordHash) {
+      if (!currentPassword || !verifyPassword(currentPassword, user.passwordHash)) {
+        throw new UnauthorizedException('La contraseña actual no es correcta');
+      }
+    }
+
+    if (newPassword.length < 6) {
+      throw new BadRequestException('La nueva contraseña debe tener al menos 6 caracteres');
+    }
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: hashPassword(newPassword) },
+      select: { id: true, email: true, name: true, role: true, phone: true },
     });
   }
 

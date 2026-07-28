@@ -1,9 +1,22 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { OrderStage, OrderStatus, Prisma, Role } from '@prisma/client';
+import { OrderStage, OrderStatus, OrderType, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CertificatesService } from '../certificates/certificates.service';
 import { assertValidTransition } from './state-machine';
+import type { OrdersPeriod } from './dto/orders-query.dto';
+
+const orderInclude = {
+  items: {
+    include: {
+      watch: { select: { sku: true } },
+      warrantyHistory: { select: { status: true } },
+    },
+  },
+  shippingZone: true,
+} as const;
+
+type OrderWithRelations = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
 
 @Injectable()
 export class OrdersService {
@@ -13,33 +26,104 @@ export class OrdersService {
     private certificatesService: CertificatesService,
   ) {}
 
-  private mapOrder(order: Prisma.OrderGetPayload<{ include: { items: true } }>) {
+  private mapOrder(order: OrderWithRelations) {
+    const { items, shippingZone, ...rest } = order;
     return {
-      ...order,
+      ...rest,
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
       paidAt: order.paidAt?.toISOString() ?? null,
       shippedAt: order.shippedAt?.toISOString() ?? null,
       deliveredAt: order.deliveredAt?.toISOString() ?? null,
       canceledAt: order.canceledAt?.toISOString() ?? null,
+      items: items.map((item) => ({
+        id: item.id,
+        watchId: item.watchId,
+        productSku: item.watch.sku,
+        productName: item.productName,
+        productRef: item.productRef,
+        productImage: item.productImage,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        priceType: item.priceType,
+        warrantyRegistered:
+          item.warrantyHistory?.status === 'GARANTIA_REGISTRADA',
+      })),
+      shippingZone: shippingZone
+        ? {
+            id: shippingZone.id,
+            name: shippingZone.name,
+            isNational: shippingZone.isNational,
+          }
+        : null,
     };
   }
 
-  async findAllOrders() {
-    const orders = await this.prisma.order.findMany({
-      where: { stage: OrderStage.ORDER },
-      include: { items: true },
-      orderBy: { updatedAt: 'desc' },
-    });
-    return orders.map((o) => this.mapOrder(o));
+  async findAllOrders(options: {
+    period?: OrdersPeriod;
+    status?: OrderStatus;
+    type?: OrderType;
+    page?: number;
+    limit?: number;
+  } = {}) {
+    const period = options.period ?? 'day';
+    const page = options.page ?? 1;
+    const limit = options.limit ?? 15;
+    const since = this.periodStart(period);
+
+    const where: Prisma.OrderWhereInput = {
+      stage: OrderStage.ORDER,
+      ...(since ? { createdAt: { gte: since } } : {}),
+      ...(options.status ? { status: options.status } : {}),
+      ...(options.type ? { type: options.type } : {}),
+    };
+
+    const [total, orders] = await Promise.all([
+      this.prisma.order.count({ where }),
+      this.prisma.order.findMany({
+        where,
+        include: orderInclude,
+        orderBy: { updatedAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      items: orders.map((o) => this.mapOrder(o)),
+      total,
+      page,
+      limit,
+      period,
+      periodLabel: this.periodLabel(period),
+    };
+  }
+
+  private periodStart(period: OrdersPeriod) {
+    const now = new Date();
+    if (period === 'day') return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (period === 'week') return new Date(now.getTime() - 7 * 86400000);
+    if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1);
+    return null;
+  }
+
+  private periodLabel(period: OrdersPeriod) {
+    if (period === 'day') return 'Hoy';
+    if (period === 'week') return 'Última semana';
+    if (period === 'month') return 'Este mes';
+    return 'Histórico';
   }
 
   async transitionStatus(id: string, next: OrderStatus) {
-    const order = await this.prisma.order.findUnique({ where: { id }, include: { items: true } });
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: orderInclude,
+    });
     if (!order || order.stage !== OrderStage.ORDER || !order.status) {
       throw new NotFoundException('Pedido no encontrado');
     }
-    assertValidTransition(order.status, next);
+    const isNational = order.shippingZone?.isNational ?? false;
+    assertValidTransition(order.status, next, isNational);
 
     const data: Prisma.OrderUpdateInput = { status: next };
     if (next === OrderStatus.PAGADO) {
@@ -53,7 +137,7 @@ export class OrdersService {
     const updated = await this.prisma.order.update({
       where: { id },
       data,
-      include: { items: true },
+      include: orderInclude,
     });
 
     if (next === OrderStatus.PAGADO) {

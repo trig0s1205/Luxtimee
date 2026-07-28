@@ -9,7 +9,6 @@ const analytics = useAnalytics();
 const form = reactive({
   customerName: '',
   customerAddress: '',
-  customerEmail: '',
   customerPhone: '',
   shippingZoneId: '',
   consentAccepted: false,
@@ -58,7 +57,7 @@ async function submit() {
     analytics.track('checkout_complete', { total: total.value });
     cart.clear();
     if (import.meta.client && res.whatsappUrl) {
-      window.location.href = res.whatsappUrl;
+      window.open(res.whatsappUrl, '_blank', 'noopener,noreferrer');
     }
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'No se pudo crear el pre-pedido';
@@ -77,15 +76,39 @@ async function submit() {
       <NuxtLink to="/catalogo" class="block mt-4 text-lux-gold">Volver al catálogo</NuxtLink>
     </div>
 
-    <form v-else class="space-y-5" @submit.prevent="submit">
-      <UiLuxInput v-model="form.customerName" placeholder="Nombre completo" required />
-      <UiLuxInput v-model="form.customerAddress" placeholder="Dirección" required />
-      <UiLuxInput v-model="form.customerEmail" type="email" placeholder="Correo electrónico" required />
-      <UiLuxInput v-model="form.customerPhone" placeholder="Teléfono (opcional)" />
+    <form v-else class="checkout-form space-y-5" autocomplete="on" @submit.prevent="submit">
+      <UiLuxInput
+        id="checkout-name"
+        v-model="form.customerName"
+        name="name"
+        autocomplete="name"
+        placeholder="Nombre completo"
+        required
+      />
+      <UiLuxInput
+        id="checkout-address"
+        v-model="form.customerAddress"
+        name="street-address"
+        autocomplete="street-address"
+        placeholder="Dirección de entrega"
+        required
+      />
+      <UiLuxInput
+        id="checkout-phone"
+        v-model="form.customerPhone"
+        name="tel"
+        type="tel"
+        autocomplete="tel"
+        placeholder="Teléfono / WhatsApp"
+        required
+      />
 
-      <label class="block text-xs uppercase tracking-widest text-lux-white-dim">Zona de envío</label>
+      <label class="block text-xs uppercase tracking-widest text-lux-white-dim" for="checkout-shipping">Zona de envío</label>
       <select
+        id="checkout-shipping"
         v-model="form.shippingZoneId"
+        name="shipping-zone"
+        autocomplete="shipping address-level2"
         required
         class="w-full bg-lux-black-2 border border-lux-gold/20 px-4 py-3 text-sm"
       >

@@ -11,6 +11,7 @@ export interface PricedLineInput {
   productName: string;
   productRef: string;
   productImage?: string | null;
+  whatsappLabel?: string;
 }
 
 export interface PricedLine extends PricedLineInput {

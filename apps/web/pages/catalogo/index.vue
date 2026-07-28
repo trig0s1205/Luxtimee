@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { BrandDto, PaginatedResponse, WatchPublicDto } from '@luxtime/shared';
-import { normalizeGender, sanitizeCatalogQuery } from '~/utils/catalog-filters';
+import type { BrandDto, CategoryDto, PaginatedResponse, WatchPublicDto } from '@luxtime/shared';
+import { normalizeGender, resolveCatalogRouteQuery, sanitizeCatalogQuery } from '~/utils/catalog-filters';
 
 const route = useRoute();
 const config = useRuntimeConfig();
@@ -15,6 +15,7 @@ type CatalogSort = 'newest' | 'oldest' | 'price_asc' | 'price_desc';
 
 const brand = ref(FILTER_NONE);
 const movement = ref(FILTER_NONE);
+const category = ref(FILTER_NONE);
 const available = ref(FILTER_NONE);
 const gender = ref(FILTER_NONE);
 const minPrice = ref('');
@@ -27,6 +28,10 @@ const showEncargoHero = ref(false);
 
 const { data: brands } = await useAsyncData('catalog-brands', () =>
   $fetch<BrandDto[]>(`${config.public.apiBaseUrl}/brands/public`).catch(() => []),
+);
+
+const { data: categories } = await useAsyncData('catalog-categories', () =>
+  $fetch<CategoryDto[]>(`${config.public.apiBaseUrl}/categories/public`).catch(() => []),
 );
 
 const { data: filterMeta } = await useAsyncData('catalog-filter-meta', () =>
@@ -48,6 +53,7 @@ function buildCatalogParams() {
     limit: PAGE_SIZE * loadPages.value,
     brand: brand.value || undefined,
     movement: movement.value || undefined,
+    category: category.value || undefined,
     available: available.value || undefined,
     gender: gender.value ? normalizeGender(gender.value) : undefined,
     minPrice: minPrice.value !== '' && !Number.isNaN(Number(minPrice.value)) ? Number(minPrice.value) : undefined,
@@ -72,6 +78,7 @@ const isInitialLoad = computed(() => pending.value && products.value.length === 
 const hasActiveFilters = computed(() =>
   !!brand.value
   || !!movement.value
+  || !!category.value
   || !!available.value
   || !!gender.value
   || minPrice.value !== ''
@@ -123,6 +130,7 @@ function clearFilters() {
   skipFilterWatch = true;
   brand.value = FILTER_NONE;
   movement.value = FILTER_NONE;
+  category.value = FILTER_NONE;
   available.value = FILTER_NONE;
   gender.value = FILTER_NONE;
   minPrice.value = '';
@@ -136,17 +144,20 @@ function clearFilters() {
   scheduleRefresh();
 }
 
-watch([brand, movement, available, gender, minPrice, maxPrice, sort], onFilterChange);
+watch([brand, movement, category, available, gender, minPrice, maxPrice, sort], onFilterChange);
 
 watch(debouncedSearch, () => {
   showEncargoHero.value = debouncedSearch.value.trim().length > 0 && total.value === 0;
 });
 
-watch(() => route.query.filter, (f) => {
-  if (typeof f === 'string' && f) {
-    movement.value = f;
-    onFilterChange();
-  }
+watch(() => route.query, (query) => {
+  const preset = resolveCatalogRouteQuery(query as Record<string, unknown>);
+  if (!preset.category) return;
+  skipFilterWatch = true;
+  category.value = preset.category;
+  skipFilterWatch = false;
+  loadPages.value = 1;
+  scheduleRefresh();
 }, { immediate: true });
 
 watch(pending, (isPending) => {
@@ -199,6 +210,16 @@ useSeoMeta({
             <select v-model="movement" class="catalog-select">
               <option value="" disabled hidden>{{ t('catalog.movement') }}</option>
               <option v-for="m in movements" :key="m" :value="m">{{ m }}</option>
+            </select>
+            <svg class="catalog-field-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </div>
+
+          <div class="catalog-field" :class="{ 'is-active': !!category }">
+            <select v-model="category" class="catalog-select">
+              <option value="" disabled hidden>{{ t('catalog.style') }}</option>
+              <option v-for="c in categories" :key="c.id" :value="c.slug">{{ c.name }}</option>
             </select>
             <svg class="catalog-field-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <path d="M6 9l6 6 6-6" />

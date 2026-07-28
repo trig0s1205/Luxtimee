@@ -48,6 +48,9 @@ export function sanitizeCatalogQuery(query: CatalogListQuery): Record<string, st
   const gender = normalizeGender(query.gender);
   if (gender) params.gender = gender;
 
+  const category = normalizeFilterValue(query.category);
+  if (category) params.category = category;
+
   const available = normalizeFilterValue(query.available);
   if (available) params.available = available;
 
@@ -66,3 +69,22 @@ function equalsInsensitive(a?: string | null, b?: string) {
 }
 
 export { equalsInsensitive };
+
+/** Presets del footer y links legacy `?filter=` */
+export const LEGACY_CATALOG_FILTER_MAP: Record<string, { category?: string }> = {
+  sport: { category: 'deportivo' },
+  classic: { category: 'clasico' },
+  limited: { category: 'edicion-limitada' },
+};
+
+export function resolveCatalogRouteQuery(query: Record<string, unknown>) {
+  const categoryParam = typeof query.category === 'string' ? query.category.trim() : '';
+  if (categoryParam) return { category: categoryParam };
+
+  const filterParam = typeof query.filter === 'string' ? query.filter.trim().toLowerCase() : '';
+  if (filterParam && LEGACY_CATALOG_FILTER_MAP[filterParam]) {
+    return LEGACY_CATALOG_FILTER_MAP[filterParam];
+  }
+
+  return {};
+}

@@ -2,6 +2,7 @@
 const catalog = useCatalogData();
 const { observe } = useRevealObserver();
 const { t, tm } = useLocale();
+const { openChat } = useWhatsApp();
 
 const marqueeItems = computed(() => tm('home').marquee);
 
@@ -13,6 +14,10 @@ useSeoMeta({
   ogTitle: 'Luxtime — Luxury Timepieces',
   ogDescription: 'Catálogo premium de relojes de lujo. Compra asesorada por WhatsApp.',
 });
+
+function contactWhatsApp() {
+  openChat('Hola Luxtime, me gustaría recibir asesoría sobre la colección.');
+}
 
 onMounted(() => {
   nextTick(() => observe());
@@ -39,7 +44,7 @@ onMounted(() => {
         <p class="hero-tags">{{ t('home.heroTags') }}</p>
         <div class="hero-cta">
           <NuxtLink to="/catalogo" class="btn-primary">{{ t('home.viewCollection') }}</NuxtLink>
-          <NuxtLink to="/#nosotros" class="btn-ghost">{{ t('home.contact') }}</NuxtLink>
+          <NuxtLink to="/#contacto" class="btn-ghost">{{ t('home.contact') }}</NuxtLink>
         </div>
       </div>
     </section>
@@ -88,6 +93,21 @@ onMounted(() => {
     <section class="statement-section reveal">
       <p class="statement-text">{{ t('home.statement') }}<br><em>{{ t('home.statementEm') }}</em></p>
       <p class="statement-sub">{{ t('home.statementSub') }}</p>
+    </section>
+
+    <section id="contacto" class="nosotros-section contact-section reveal">
+      <div class="nosotros-intro">
+        <div>
+          <p class="section-label">{{ t('home.contactLabel') }}</p>
+          <h2 class="section-title">{{ t('home.contactTitle') }}<br><em>{{ t('home.contactTitleEm') }}</em></h2>
+        </div>
+        <div>
+          <p class="section-body">{{ t('home.contactBody') }}</p>
+          <button type="button" class="btn-primary" style="margin-top:24px" @click="contactWhatsApp">
+            {{ t('home.contactCta') }}
+          </button>
+        </div>
+      </div>
     </section>
   </div>
 </template>

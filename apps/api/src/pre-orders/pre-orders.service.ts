@@ -6,7 +6,6 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { OrderStage, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { MarketingService } from '../marketing/marketing.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
 import { WhatsappService } from '../integrations/whatsapp.service';
@@ -17,12 +16,12 @@ import {
   nextStatusAfterDeposit,
 } from '../orders/state-machine';
 import { generateReadableId, priceOrderLines } from '../orders/order-pricing.util';
+import { formatWatchOrderLabel } from '../orders/watch-description.util';
 
 @Injectable()
 export class PreOrdersService {
   constructor(
     private prisma: PrismaService,
-    private marketingService: MarketingService,
     private notificationsService: NotificationsService,
     private settingsService: SettingsService,
     private whatsappService: WhatsappService,
@@ -45,7 +44,7 @@ export class PreOrdersService {
     if (!items.length) throw new BadRequestException('El carrito está vacío');
     const watches = await this.prisma.watch.findMany({
       where: { id: { in: items.map((i) => i.watchId) }, isActive: true },
-      include: { brand: true },
+      include: { brand: true, category: true },
     });
     const lines = items.map((item) => {
       const watch = watches.find((w) => w.id === item.watchId);
@@ -53,12 +52,14 @@ export class PreOrdersService {
       if (watch.stock < item.quantity) {
         throw new BadRequestException(`Stock insuficiente para ${watch.model}`);
       }
+      const whatsappLabel = formatWatchOrderLabel(watch);
       return {
         watchId: watch.id,
         quantity: item.quantity,
         retailPrice: watch.retailPrice,
         wholesalePrice: watch.wholesalePrice,
-        productName: `${watch.brand.name} ${watch.model}`,
+        productName: whatsappLabel,
+        whatsappLabel,
         productRef: watch.slug,
         productImage: watch.frontImageUrl,
       };
@@ -77,10 +78,12 @@ export class PreOrdersService {
     }
     const lineInputs = await this.buildLines(dto.items);
     let shippingCost = 0;
+    let shippingZoneName: string | undefined;
     if (dto.shippingZoneId) {
       const zone = await this.prisma.shippingZone.findUnique({ where: { id: dto.shippingZoneId } });
       if (!zone) throw new BadRequestException('Zona de envío inválida');
       shippingCost = zone.cost;
+      shippingZoneName = zone.name;
     }
     const priced = priceOrderLines(lineInputs, shippingCost);
     const whatsapp = await this.settingsService.getWhatsappLink();
@@ -88,8 +91,14 @@ export class PreOrdersService {
       prefix: whatsapp.messagePrefix,
       customerName: dto.customerName,
       customerAddress: dto.customerAddress,
-      readableId: 'pendiente',
-      items: priced.lines.map((l) => ({ name: l.productName, qty: l.quantity, price: l.unitPrice })),
+      customerPhone: dto.customerPhone,
+      shippingZoneName,
+      shippingCost: priced.shippingCost,
+      items: priced.lines.map((line) => ({
+        label: line.whatsappLabel ?? line.productName,
+        qty: line.quantity,
+        price: line.unitPrice,
+      })),
       total: priced.total,
       type: priced.type,
     });
@@ -101,7 +110,7 @@ export class PreOrdersService {
         type: priced.type,
         customerName: dto.customerName,
         customerAddress: dto.customerAddress,
-        customerEmail: dto.customerEmail,
+        customerEmail: '',
         customerPhone: dto.customerPhone,
         userId,
         shippingZoneId: dto.shippingZoneId,
@@ -125,21 +134,14 @@ export class PreOrdersService {
       include: { items: true },
     });
 
-    const finalMessage = message.replace('pendiente', order.readableId);
-    await this.prisma.order.update({
-      where: { id: order.id },
-      data: { whatsappMessage: finalMessage },
-    });
-
-    await this.marketingService.captureCheckoutEmail(dto.customerEmail);
     await this.notificationsService.emit({
       type: 'NEW_PRE_ORDER',
       targetRole: Role.ADMIN,
       payload: { orderId: order.id, readableId: order.readableId },
     });
 
-    const whatsappUrl = this.whatsappService.buildRedirectUrl(whatsapp.url, finalMessage);
-    return { order: this.mapOrder({ ...order, whatsappMessage: finalMessage }), whatsappUrl };
+    const whatsappUrl = this.whatsappService.buildRedirectUrl(whatsapp.url, message);
+    return { order: this.mapOrder({ ...order, whatsappMessage: message }), whatsappUrl };
   }
 
   async findAllPreOrders() {
@@ -195,7 +197,6 @@ export class PreOrdersService {
       data: {
         ...(dto.customerName !== undefined ? { customerName: dto.customerName } : {}),
         ...(dto.customerAddress !== undefined ? { customerAddress: dto.customerAddress } : {}),
-        ...(dto.customerEmail !== undefined ? { customerEmail: dto.customerEmail } : {}),
         ...(dto.customerPhone !== undefined ? { customerPhone: dto.customerPhone } : {}),
         ...(dto.shippingZoneId !== undefined ? { shippingZoneId: dto.shippingZoneId } : {}),
         ...pricingPatch,

@@ -9,7 +9,7 @@ const { t, showSwitcher } = useLocale();
 const navLinks = computed(() => [
   { label: t('nav.collection'), to: '/catalogo' },
   { label: t('nav.about'), to: '/#nosotros' },
-  { label: t('nav.contact'), to: '/#nosotros' },
+  { label: t('nav.contact'), to: '/#contacto' },
 ]);
 
 function onScroll() {
