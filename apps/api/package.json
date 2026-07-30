@@ -83,6 +83,11 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "moduleNameMapper": {
+      "^@luxtime/shared$": "<rootDir>/../../../packages/shared/src/index.ts",
+      "^@luxtime/shared/(.*)$": "<rootDir>/../../../packages/shared/src/$1",
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
     "collectCoverageFrom": ["**/*.(t|j)s"],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
