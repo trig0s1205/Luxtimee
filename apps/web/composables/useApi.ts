@@ -44,12 +44,13 @@ export function useApi() {
     }
 
     try {
-      return await $fetch<T>(`${baseUrl}${path}`, {
+      const response = await $fetch(`${baseUrl}${path}`, {
         method: options.method ?? 'GET',
-        body: options.body,
+        body: options.body as Record<string, unknown> | BodyInit | null | undefined,
         query: options.query,
         credentials: 'include',
       });
+      return response as T;
     } catch (err: unknown) {
       if (isUnauthorized(err) && !options._retried && auth.isAuthenticated) {
         try {

@@ -4,12 +4,13 @@ import type {
   OrderDto,
   OrderItemDto,
   OrderListPeriod,
-  OrderStatus,
   OrdersListDto,
-  OrderType,
+  OrderStatusValue,
   WarrantyReplacementType,
 } from '@luxtime/shared';
 import {
+  OrderStatus,
+  OrderType,
   ORDER_STATUS_LABELS,
   ORDER_TRANSITION_LABELS,
   getOrderAllowedTransitions,
@@ -54,11 +55,11 @@ const periodOptions: { key: OrderListPeriod; label: string }[] = [
 
 const statusFilters: Array<{ key: OrderStatus | 'ALL'; label: string }> = [
   { key: 'ALL', label: 'Todos' },
-  { key: 'PENDIENTE', label: 'Pendientes' },
-  { key: 'PAGADO', label: 'Pagados' },
-  { key: 'ENVIADO', label: 'Enviados' },
-  { key: 'ENTREGADO', label: 'Entregados' },
-  { key: 'CANCELADO', label: 'Cancelados' },
+  { key: OrderStatus.PENDIENTE, label: 'Pendientes' },
+  { key: OrderStatus.PAGADO, label: 'Pagados' },
+  { key: OrderStatus.ENVIADO, label: 'Enviados' },
+  { key: OrderStatus.ENTREGADO, label: 'Entregados' },
+  { key: OrderStatus.CANCELADO, label: 'Cancelados' },
 ];
 
 function buildOrdersUrl() {
@@ -198,7 +199,7 @@ function goToPage(next: number) {
   expandedIds.value = new Set();
 }
 
-async function transition(order: OrderDto, status: OrderStatus) {
+async function transition(order: OrderDto, status: OrderStatusValue) {
   if (updatingId.value) return;
   if (!nextTransitions(order).includes(status)) return;
 

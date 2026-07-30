@@ -5,7 +5,8 @@ import { isAdminPanelRoute, isStorefrontRoute } from '~/utils/locale-routes';
 
 const catalogs = { en, es } as const;
 
-type Catalog = typeof en;
+type CatalogKey = keyof typeof en;
+type CatalogSection<K extends CatalogKey> = (typeof en)[K] | (typeof es)[K];
 
 function resolve(obj: Record<string, unknown>, path: string): unknown {
   return path.split('.').reduce<unknown>((acc, key) => {
@@ -31,7 +32,8 @@ export function useLocale() {
     return typeof value === 'string' ? value : key;
   };
 
-  const tm = <K extends keyof Catalog>(section: K): Catalog[K] => catalogs[locale.value][section];
+  const tm = <K extends CatalogKey>(section: K): CatalogSection<K> =>
+    catalogs[locale.value][section] as CatalogSection<K>;
 
   const dateLocale = computed(() => (locale.value === 'es' ? 'es-CO' : 'en-US'));
 
