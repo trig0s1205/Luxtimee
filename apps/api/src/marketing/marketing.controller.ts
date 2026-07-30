@@ -4,6 +4,7 @@ import { MarketingService } from './marketing.service';
 import { Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ValidateMarketingContactBodyDto } from './dto/validate-contact.dto';
 
 @Controller({ path: 'marketing', version: '1' })
 @Roles(Role.ADMIN, Role.SUPER_ADMIN)
@@ -21,8 +22,8 @@ export class MarketingController {
   validate(
     @Param('id') id: string,
     @CurrentUser() user: { id: string },
-    @Body('approve') approve: boolean,
+    @Body() body: ValidateMarketingContactBodyDto,
   ) {
-    return this.marketingService.validateContact(id, user.id, approve !== false);
+    return this.marketingService.validateContact(id, user.id, body.approve !== false);
   }
 }

@@ -14,8 +14,7 @@ html {
 }
 
 section,
-footer,
-.marquee-section {
+footer {
   width: 100%;
   max-width: 100vw;
   overflow-x: hidden;
@@ -51,11 +50,6 @@ section {
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(30px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
 }
 
 @keyframes spinLoader {
@@ -278,31 +272,6 @@ section {
   height: 40px;
   background: var(--gold);
   animation: scrollAnim 2s ease-in-out infinite;
-}
-
-/* —— Marquee —— */
-.marquee-section {
-  padding: 30px 0;
-  border-top: 1px solid rgba(200, 169, 110, 0.15);
-  border-bottom: 1px solid rgba(200, 169, 110, 0.15);
-  overflow: hidden;
-  background: var(--black-2);
-}
-
-.marquee-track,
-.lux-marquee {
-  display: flex;
-  gap: 60px;
-  white-space: nowrap;
-  animation: marquee 25s linear infinite;
-}
-
-.marquee-item {
-  font-family: var(--font-body);
-  font-size: 11px;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-  color: var(--white-dim);
 }
 
 /* —— Reveal —— */
@@ -741,6 +710,22 @@ section {
   color: var(--white-dim);
 }
 
+.footer-bottom-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.footer-dev-credit {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  color: rgba(184, 176, 160, 0.38);
+}
+
 .footer-legal {
   display: flex;
   align-items: center;
@@ -932,8 +917,6 @@ section {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .marquee-track,
-  .lux-marquee,
   .hero-eyebrow,
   .hero-title,
   .hero-subtitle,

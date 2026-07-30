@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { BrandDto, CategoryDto, PaginatedResponse, WatchQueryDto, WatchStaffDto } from '@luxtime/shared';
+import type { BrandDto, CategoryDto, InventoryInsightsDto, PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
 import { WatchStatus } from '@luxtime/shared';
-import { extractApiErrorMessage } from '~/utils/api-error';
+import { extractApiErrorMessage, isBadRequest } from '~/utils/api-error';
 
 type WatchFormPayload = {
   brandId: string;
@@ -38,15 +38,29 @@ definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
 
 const api = useApi();
 const toast = useToast();
+const { confirm } = useConfirm();
 
 const auth = useAuthStore();
 
-const query = reactive<WatchQueryDto>({
+const { data: insights, pending: insightsPending, refresh: refreshInsights } = await useAsyncData(
+  'inventory-insights',
+  () => api.get<InventoryInsightsDto>('/watches/inventory-insights'),
+);
+
+const PAGE_SIZE = 30;
+const loadPages = ref(1);
+
+const query = reactive({
   search: '',
   brand: '',
-  page: 1,
-  limit: 20,
 });
+
+const fetchQuery = computed(() => ({
+  search: query.search || undefined,
+  brand: query.brand || undefined,
+  page: 1,
+  limit: PAGE_SIZE * loadPages.value,
+}));
 
 const showForm = ref(false);
 const editingWatch = ref<WatchStaffDto | null>(null);
@@ -64,14 +78,21 @@ const { data: categories } = await useAsyncData('admin-categories', () =>
 
 const { data: paginated, refresh, pending } = await useAsyncData(
   'admin-watches',
-  () => api.get<PaginatedResponse<WatchStaffDto>>('/watches', query as Record<string, string | number | boolean | undefined>).catch(() => ({ data: [], total: 0, page: 1, limit: 20 })),
-  { watch: [() => query.search, () => query.brand, () => query.page] },
+  () => api.get<PaginatedResponse<WatchStaffDto>>('/watches', fetchQuery.value as Record<string, string | number | boolean | undefined>).catch(() => ({ data: [], total: 0, page: 1, limit: PAGE_SIZE })),
+  { watch: [() => query.search, () => query.brand, () => loadPages.value] },
 );
 
 const watches = computed(() => paginated.value?.data ?? []);
-const totalPages = computed(() => Math.max(1, Math.ceil((paginated.value?.total ?? 0) / (paginated.value?.limit ?? 20))));
+const total = computed(() => paginated.value?.total ?? 0);
+const hasMore = computed(() => watches.value.length < total.value);
 
-import { extractApiErrorMessage, isBadRequest } from '~/utils/api-error';
+watch([() => query.search, () => query.brand], () => {
+  loadPages.value = 1;
+});
+
+function loadMore() {
+  loadPages.value += 1;
+}
 
 function openCreate() {
   editingWatch.value = null;
@@ -157,6 +178,7 @@ async function handleSubmit(form: WatchFormPayload) {
     showForm.value = false;
     editingWatch.value = null;
     await refresh();
+    await refreshInsights();
   } catch (err: unknown) {
     const message = extractApiErrorMessage(err, 'Error al guardar el reloj');
     submitError.value = message;
@@ -177,17 +199,24 @@ async function handleToggleVisibility(watch: WatchStaffDto) {
     await api.patch<WatchStaffDto>(`/watches/${watch.id}`, { isPublished: !watch.isPublished });
     toast.success(watch.isPublished ? 'Reloj ocultado del catálogo' : 'Reloj publicado en el catálogo');
     await refresh();
+    await refreshInsights();
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'Error al cambiar visibilidad'));
   }
 }
 
 async function handleDelete(watch: WatchStaffDto) {
-  if (!confirm(`¿Eliminar permanentemente ${watch.brand.name} ${watch.model}?`)) return;
+  const ok = await confirm({
+    title: `¿Eliminar permanentemente ${watch.brand.name} ${watch.model}?`,
+    destructive: true,
+    confirmLabel: 'Eliminar',
+  });
+  if (!ok) return;
   try {
     await api.del(`/watches/${watch.id}`);
     toast.success('Reloj eliminado correctamente');
     await refresh();
+    await refreshInsights();
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'Error al eliminar el reloj'));
   }
@@ -202,6 +231,8 @@ async function handleDelete(watch: WatchStaffDto) {
       <UiSectionHeader label="Operaciones" title="Inventario de relojes" />
       <UiLuxButton @click="openCreate">+ Nuevo Reloj</UiLuxButton>
     </div>
+
+    <AdminInventoryInsights :insights="insights" :loading="insightsPending" />
 
     <div class="admin-inventory-toolbar">
       <UiLuxInput v-model="query.search" placeholder="Buscar por SKU, referencia o modelo..." />
@@ -220,26 +251,18 @@ async function handleDelete(watch: WatchStaffDto) {
       @toggle-visibility="handleToggleVisibility"
     />
 
-    <div v-if="totalPages > 1" class="admin-inventory-pagination">
+    <div v-if="hasMore" class="admin-inventory-pagination">
       <button
         type="button"
-        :disabled="query.page === 1"
         class="admin-pagination-btn"
-        @click="query.page = (query.page ?? 1) - 1"
+        :disabled="pending"
+        @click="loadMore"
       >
-        Anterior
+        {{ pending ? 'Cargando...' : 'Cargar más' }}
       </button>
       <span class="admin-pagination-info">
-        Página {{ query.page }} de {{ totalPages }}
+        Mostrando {{ watches.length }} de {{ total }}
       </span>
-      <button
-        type="button"
-        :disabled="query.page === totalPages"
-        class="admin-pagination-btn"
-        @click="query.page = (query.page ?? 1) + 1"
-      >
-        Siguiente
-      </button>
     </div>
 
     <Teleport to="body">

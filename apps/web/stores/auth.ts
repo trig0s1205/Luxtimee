@@ -35,9 +35,9 @@ export const useAuthStore = defineStore('auth', {
       }
     },
     async fetchMe() {
-      const config = useRuntimeConfig();
+      const baseUrl = useApiBaseUrl();
       try {
-        const data = await $fetch<{ user: AuthUserDto }>(`${config.public.apiBaseUrl}/auth/me`, {
+        const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, {
           credentials: 'include',
         });
         if (data.user.role === Role.ADMIN || data.user.role === Role.SUPER_ADMIN) {
@@ -49,11 +49,11 @@ export const useAuthStore = defineStore('auth', {
         return;
       } catch {
         try {
-          await $fetch(`${config.public.apiBaseUrl}/auth/refresh`, {
+          await $fetch(`${baseUrl}/auth/refresh`, {
             method: 'POST',
             credentials: 'include',
           });
-          const data = await $fetch<{ user: AuthUserDto }>(`${config.public.apiBaseUrl}/auth/me`, {
+          const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, {
             credentials: 'include',
           });
           if (data.user.role === Role.ADMIN || data.user.role === Role.SUPER_ADMIN) {
@@ -86,8 +86,8 @@ export const useAuthStore = defineStore('auth', {
       return user;
     },
     async mockLogin(email: string, name: string) {
-      const config = useRuntimeConfig();
-      const data = await $fetch<{ user: AuthUserDto }>(`${config.public.apiBaseUrl}/auth/mock-login`, {
+      const baseUrl = useApiBaseUrl();
+      const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/mock-login`, {
         method: 'POST',
         body: { email, name },
         credentials: 'include',
@@ -97,8 +97,8 @@ export const useAuthStore = defineStore('auth', {
       return data.user;
     },
     async credentialLogin(email: string, password: string) {
-      const config = useRuntimeConfig();
-      const data = await $fetch<{ user: AuthUserDto }>(`${config.public.apiBaseUrl}/auth/login`, {
+      const baseUrl = useApiBaseUrl();
+      const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/login`, {
         method: 'POST',
         body: { email: email.trim(), password },
         credentials: 'include',
@@ -113,9 +113,9 @@ export const useAuthStore = defineStore('auth', {
         sessionStorage.removeItem(AUTH_REDIRECT_KEY);
       }
       if (!this.isLocalSession) {
-        const config = useRuntimeConfig();
+        const baseUrl = useApiBaseUrl();
         try {
-          await $fetch(`${config.public.apiBaseUrl}/auth/logout`, {
+          await $fetch(`${baseUrl}/auth/logout`, {
             method: 'POST',
             credentials: 'include',
           });

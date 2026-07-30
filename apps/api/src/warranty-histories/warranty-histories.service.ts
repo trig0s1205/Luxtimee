@@ -84,31 +84,17 @@ export class WarrantyHistoriesService {
 
   async findAll(
     options: {
-      period?: WarrantyHistoryPeriod;
-      search?: string;
       page?: number;
       limit?: number;
     } = {},
   ) {
-    const period = options.period ?? 'day';
     const page = options.page ?? 1;
-    const limit = options.limit ?? 15;
-    const since = this.periodStart(period);
-    const search = options.search?.trim();
+    const limit = options.limit ?? 50;
+    const since = this.periodStart('day');
 
     const where: Prisma.WarrantyHistoryWhereInput = {
       status: WarrantyHistoryStatus.GARANTIA_REGISTRADA,
-      ...(since ? { serviceDate: { gte: since } } : {}),
-      ...(search
-        ? {
-            OR: [
-              { productSku: { contains: search, mode: 'insensitive' } },
-              { customerName: { contains: search, mode: 'insensitive' } },
-              { customerPhone: { contains: search, mode: 'insensitive' } },
-              { productName: { contains: search, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
+      serviceDate: { gte: since! },
     };
 
     const [total, items] = await Promise.all([
@@ -126,16 +112,16 @@ export class WarrantyHistoriesService {
       total,
       page,
       limit,
-      period,
-      periodLabel: this.periodLabel(period),
+      period: 'day' as const,
+      periodLabel: 'Hoy',
     };
   }
 
-  async findForExport(period: WarrantyHistoryPeriod) {
-    const since = this.periodStart(period);
+  async findForExport(period: WarrantyHistoryPeriod = 'day') {
+    const since = this.periodStart('day');
     const where: Prisma.WarrantyHistoryWhereInput = {
       status: WarrantyHistoryStatus.GARANTIA_REGISTRADA,
-      ...(since ? { serviceDate: { gte: since } } : {}),
+      serviceDate: { gte: since! },
     };
 
     const items = await this.prisma.warrantyHistory.findMany({
@@ -144,10 +130,20 @@ export class WarrantyHistoriesService {
     });
 
     return {
-      period,
-      periodLabel: this.periodLabel(period),
+      period: 'day' as const,
+      periodLabel: 'Hoy',
       items: items.map((item) => this.mapRecord(item)),
     };
+  }
+
+  async purgeTodayRegistered() {
+    const since = this.periodStart('day');
+    return this.prisma.warrantyHistory.deleteMany({
+      where: {
+        status: WarrantyHistoryStatus.GARANTIA_REGISTRADA,
+        serviceDate: { gte: since! },
+      },
+    });
   }
 
   async register(id: string, dto: RegisterWarrantyHistoryDto, userId: string) {

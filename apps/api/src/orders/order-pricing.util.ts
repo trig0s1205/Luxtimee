@@ -1,7 +1,8 @@
 import { OrderType, PriceType } from '@prisma/client';
 
-const WHOLESALE_MIN_UNITS = 4;
 const DEPOSIT_PER_UNIT_COP = 10_000;
+
+export type PricingChannel = 'retail' | 'wholesale';
 
 export interface PricedLineInput {
   watchId: string;
@@ -20,13 +21,14 @@ export interface PricedLine extends PricedLineInput {
   lineTotal: number;
 }
 
-export function resolveOrderType(unitCount: number): OrderType {
-  return unitCount >= WHOLESALE_MIN_UNITS ? OrderType.MAYORISTA : OrderType.DETAL;
+export function resolveOrderType(_unitCount: number, channel: PricingChannel = 'retail'): OrderType {
+  return channel === 'wholesale' ? OrderType.MAYORISTA : OrderType.DETAL;
 }
 
 export function priceOrderLines(
   items: PricedLineInput[],
   shippingCost = 0,
+  channel: PricingChannel = 'retail',
 ): {
   type: OrderType;
   unitCount: number;
@@ -37,7 +39,7 @@ export function priceOrderLines(
   lines: PricedLine[];
 } {
   const unitCount = items.reduce((sum, item) => sum + item.quantity, 0);
-  const type = resolveOrderType(unitCount);
+  const type = resolveOrderType(unitCount, channel);
   const lines: PricedLine[] = items.map((item) => {
     const unitPrice = type === OrderType.MAYORISTA ? item.wholesalePrice : item.retailPrice;
     const priceType = type === OrderType.MAYORISTA ? PriceType.WHOLESALE : PriceType.RETAIL;

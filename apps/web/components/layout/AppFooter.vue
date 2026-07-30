@@ -2,10 +2,11 @@
 import type { PlatformConfigDto } from '@luxtime/shared';
 
 const { t } = useLocale();
-const config = useRuntimeConfig();
+const route = useRoute();
+const apiBase = useApiBaseUrl();
 
 const { data: platform } = await useAsyncData('footer-platform', () =>
-  $fetch<PlatformConfigDto>(`${config.public.apiBaseUrl}/settings/platform/public`).catch(() => ({
+  $fetch<PlatformConfigDto>(`${apiBase}/settings/platform/public`).catch(() => ({
     supportEmail: 'help@luxtime.co',
     city: 'Piedecuesta, Santander — Colombia',
     instagramUrl: 'https://www.instagram.com/',
@@ -47,13 +48,17 @@ const { data: platform } = await useAsyncData('footer-platform', () =>
         <ul>
           <li><NuxtLink to="/#nosotros">{{ t('footer.story') }}</NuxtLink></li>
           <li><NuxtLink to="/#nosotros">{{ t('footer.aboutUs') }}</NuxtLink></li>
+          <li><NuxtLink to="/mayoristas">{{ t('footer.wholesale') }}</NuxtLink></li>
           <li><NuxtLink to="/#contacto">{{ t('nav.contact') }}</NuxtLink></li>
         </ul>
       </div>
     </div>
 
     <div class="footer-bottom">
-      <p>{{ t('footer.rights') }}</p>
+      <div class="footer-bottom-copy">
+        <p>{{ t('footer.rights') }}</p>
+        <p v-if="route.path === '/'" class="footer-dev-credit">TRG1205</p>
+      </div>
       <div class="footer-legal">
         <NuxtLink to="/politica-de-privacidad">{{ t('footer.privacyShort') }}</NuxtLink>
         <span>·</span>

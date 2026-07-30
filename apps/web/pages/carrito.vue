@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { WHOLESALE_BANNER, WHOLESALE_MIN_UNITS } from '@luxtime/shared';
+import { WHOLESALE_BANNER } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 
 const cart = useCartStore();
@@ -13,10 +13,10 @@ useSeoMeta({ title: 'Carrito — Luxtime' });
   <div class="px-6 md:px-16 py-12 max-w-4xl mx-auto">
     <UiSectionHeader label="Compra" title="Tu carrito" />
 
-    <p v-if="cart.unitCount >= WHOLESALE_MIN_UNITS" class="mb-6 p-3 border border-lux-gold text-lux-gold text-xs uppercase tracking-widest text-center">
-      Pedido mayorista activo
+    <p class="mb-6 text-sm text-lux-white-dim">
+      {{ WHOLESALE_BANNER }}
+      <NuxtLink to="/mayoristas" class="text-lux-gold">Ver mayoristas →</NuxtLink>
     </p>
-    <p v-else class="mb-6 text-sm text-lux-white-dim">{{ WHOLESALE_BANNER }}</p>
 
     <div v-if="!cart.items.length" class="text-center py-20 text-lux-white-dim">
       <p class="mb-6">Tu carrito está vacío.</p>
@@ -44,9 +44,9 @@ useSeoMeta({ title: 'Carrito — Luxtime' });
 
       <div class="border-t border-lux-gold/20 pt-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p class="text-sm text-lux-white-dim">Subtotal</p>
+          <p class="text-sm text-lux-white-dim">Subtotal al detal</p>
           <p class="font-display text-3xl text-lux-gold">{{ formatCop(cart.subtotal) }}</p>
-          <UiLuxBadge :tone="cart.orderType === 'MAYORISTA' ? 'mayorista' : 'detal'">{{ cart.orderType }}</UiLuxBadge>
+          <UiLuxBadge tone="detal">DETAL</UiLuxBadge>
         </div>
         <NuxtLink to="/checkout"><UiLuxButton>Ir al checkout</UiLuxButton></NuxtLink>
       </div>

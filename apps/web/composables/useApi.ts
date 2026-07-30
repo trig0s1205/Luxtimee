@@ -17,8 +17,7 @@ function isUnauthorized(err: unknown) {
 let refreshPromise: Promise<void> | null = null;
 
 export function useApi() {
-  const config = useRuntimeConfig();
-  const baseUrl = config.public.apiBaseUrl as string;
+  const baseUrl = useApiBaseUrl();
 
   async function refreshSession() {
     if (!refreshPromise) {
@@ -52,7 +51,7 @@ export function useApi() {
         credentials: 'include',
       });
     } catch (err: unknown) {
-      if (isUnauthorized(err) && !options._retried) {
+      if (isUnauthorized(err) && !options._retried && auth.isAuthenticated) {
         try {
           await refreshSession();
           return request<T>(path, { ...options, _retried: true });

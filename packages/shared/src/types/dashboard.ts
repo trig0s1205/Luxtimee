@@ -1,14 +1,14 @@
 export interface ProfitBreakdownItem {
   orderId: string;
   readableId: string;
+  orderType: string;
+  orderStatus: string;
+  priceType: string;
   productName: string;
   quantity: number;
   revenue: number;
   cost: number;
   profit: number;
-  profitPercent: number;
-  retailMarginPercentage: number;
-  wholesaleMarginPercentage: number;
   commissionPercent: number;
   commission: number;
   paidAt: string;
@@ -18,8 +18,15 @@ export interface ProfitDashboardDto {
   period: string;
   totalRevenue: number;
   totalCost: number;
+  totalGrossProfit: number;
   totalProfit: number;
   totalCommission: number;
+  totalReinvestmentFund: number;
+  totalOwnerProfit: number;
+  reinvestmentPercent: number;
+  ownerProfitPercent: number;
+  commissionPercent: number;
+  totalInventoryInvestment: number;
   items: ProfitBreakdownItem[];
 }
 
@@ -46,9 +53,13 @@ export interface Ga4EngagementDto {
 
 export interface HealthBusinessDto {
   preOrders: number;
+  activePreOrders: number;
+  suspendedPreOrders: number;
+  longWaitingPreOrders: number;
   paidOrders: number;
   activeWatches: number;
-  lowStockCount: number;
+  totalInventoryUnits: number;
+  inventoryLowAlert: boolean;
   ordersToShip: number;
   periodRevenue: number;
   unitsSold: number;
@@ -62,14 +73,13 @@ export interface HealthUnattendedPreOrderDto {
   customerName: string;
   model: string;
   waitHours: number;
+  activeSince: string;
 }
 
-export interface HealthLowStockWatchDto {
-  id: string;
-  model: string;
-  brand: string;
-  stock: number;
-  image: string | null;
+export interface HealthInventoryAlertDto {
+  totalUnits: number;
+  threshold: number;
+  isLow: boolean;
 }
 
 export interface HealthTopWatchDto {
@@ -105,7 +115,8 @@ export interface HealthDashboardDto {
   chartBounds: HealthChartBoundsDto;
   chartOrders: HealthChartOrderDto[];
   unattendedPreOrders: HealthUnattendedPreOrderDto[];
-  lowStockWatches: HealthLowStockWatchDto[];
+  suspendedPreOrders: HealthUnattendedPreOrderDto[];
+  inventoryAlert: HealthInventoryAlertDto;
   topWatches: HealthTopWatchDto[];
 }
 

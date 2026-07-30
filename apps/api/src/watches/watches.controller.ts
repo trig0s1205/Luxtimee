@@ -18,6 +18,7 @@ import { diskStorage, memoryStorage } from 'multer';
 import { existsSync, mkdirSync } from 'fs';
 import { extname, join } from 'path';
 import type { Request } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { WatchesService } from './watches.service';
 import { CreateWatchDto, UpdateWatchDto, WatchQueryDto } from './dto';
@@ -25,8 +26,10 @@ import { Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { FinancialStripInterceptor } from '../common/interceptors/financial-strip.interceptor';
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from '../common/utils/file-magic.util';
 
 const UPLOAD_DIR = join(process.cwd(), 'uploads', 'watches');
+const ALLOWED_IMAGE_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
 
 if (!existsSync(UPLOAD_DIR)) {
   mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -37,8 +40,8 @@ function imageFileFilter(
   file: Express.Multer.File,
   cb: (error: Error | null, acceptFile: boolean) => void,
 ) {
-  if (!file.mimetype.startsWith('image/')) {
-    cb(new BadRequestException('Solo se permiten archivos de imagen'), false);
+  if (!ALLOWED_IMAGE_MIME.has(file.mimetype)) {
+    cb(new BadRequestException('Solo se permiten imágenes JPEG, PNG o WEBP'), false);
     return;
   }
   cb(null, true);
@@ -58,8 +61,8 @@ function mediaFileFilter(
     return;
   }
 
-  if (!file.mimetype.startsWith('image/')) {
-    cb(new BadRequestException('image1 e image2 deben ser imágenes'), false);
+  if (!ALLOWED_IMAGE_MIME.has(file.mimetype)) {
+    cb(new BadRequestException('image1 e image2 deben ser JPEG, PNG o WEBP'), false);
     return;
   }
 
@@ -85,8 +88,13 @@ export class WatchesController {
 
   @Get('pending-cost')
   @Roles(Role.SUPER_ADMIN)
-  findPendingCost() {
-    return this.watchesService.findPendingCost();
+  findPendingCost(@Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.watchesService.findPendingCost(Number(page) || 1, Number(limit) || 10);
+  }
+
+  @Get('inventory-insights')
+  getInventoryInsights() {
+    return this.watchesService.getInventoryInsights();
   }
 
   @Get(':id')
@@ -117,6 +125,7 @@ export class WatchesController {
   }
 
   @Post(':id/upload-media')
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @UseInterceptors(
     FileFieldsInterceptor(
       [
@@ -127,7 +136,7 @@ export class WatchesController {
       {
         storage: memoryStorage(),
         fileFilter: mediaFileFilter,
-        limits: { fileSize: 50 * 1024 * 1024 },
+        limits: { fileSize: MAX_VIDEO_BYTES, files: 3 },
       },
     ),
   )
@@ -165,7 +174,7 @@ export class WatchesController {
         },
       }),
       fileFilter: imageFileFilter,
-      limits: { fileSize: 10 * 1024 * 1024 },
+      limits: { fileSize: MAX_IMAGE_BYTES },
     }),
   )
   @Audit('UPLOAD_IMAGES', 'Watch')

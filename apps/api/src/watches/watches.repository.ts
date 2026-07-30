@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { OrderStage, OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { InventoryInsightWatchDto, InventoryInsightsDto } from '@luxtime/shared';
+import { findWatchIdsByFlexibleSkuSearch } from '../common/utils/sku-search.util';
 import { CreateWatchDto, UpdateWatchDto } from './dto';
 import { WatchQueryDto } from './dto/watch-query.dto';
 
@@ -28,10 +30,12 @@ export class WatchesRepository {
 
     if (query.search) {
       const term = query.search.trim();
+      const skuIds = await findWatchIdsByFlexibleSkuSearch(this.prisma, term);
       where.OR = [
         { model: { contains: term, mode: 'insensitive' } },
         { reference: { contains: term, mode: 'insensitive' } },
         { sku: { contains: term, mode: 'insensitive' } },
+        ...(skuIds.length ? [{ id: { in: skuIds } }] : []),
       ];
     }
 
@@ -122,15 +126,24 @@ export class WatchesRepository {
     return candidate;
   }
 
-  async findPendingCost() {
-    return this.prisma.watch.findMany({
-      where: {
-        deletedAt: null,
-        OR: [{ cost: null }, { cost: 0 }],
-      },
-      include: { brand: true },
-      orderBy: { createdAt: 'desc' },
-    });
+  async findPendingCost(page = 1, limit = 10) {
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.min(50, Math.max(1, limit));
+    const where = {
+      deletedAt: null,
+      OR: [{ cost: null }, { cost: 0 }],
+    };
+    const [total, data] = await Promise.all([
+      this.prisma.watch.count({ where }),
+      this.prisma.watch.findMany({
+        where,
+        include: { brand: true },
+        orderBy: { createdAt: 'desc' },
+        skip: (safePage - 1) * safeLimit,
+        take: safeLimit,
+      }),
+    ]);
+    return { data, total, page: safePage, limit: safeLimit };
   }
 
   async brandExists(id: string) {
@@ -145,5 +158,75 @@ export class WatchesRepository {
 
   async findBrandById(id: string) {
     return this.prisma.brand.findUnique({ where: { id } });
+  }
+
+  async getInventoryInsights(): Promise<InventoryInsightsDto> {
+    const watchWhere = { isActive: true, deletedAt: null };
+    const now = Date.now();
+
+    const [watches, salesAgg, stockSum, outOfStock] = await Promise.all([
+      this.prisma.watch.findMany({
+        where: watchWhere,
+        include: { brand: true },
+      }),
+      this.prisma.orderItem.groupBy({
+        by: ['watchId'],
+        _sum: { quantity: true },
+        where: {
+          order: {
+            stage: OrderStage.ORDER,
+            status: { in: [OrderStatus.PAGADO, OrderStatus.ENVIADO, OrderStatus.ENTREGADO] },
+            canceledAt: null,
+          },
+        },
+      }),
+      this.prisma.watch.aggregate({
+        where: watchWhere,
+        _sum: { stock: true },
+        _count: true,
+      }),
+      this.prisma.watch.count({ where: { ...watchWhere, stock: 0 } }),
+    ]);
+
+    const salesMap = new Map(salesAgg.map((row) => [row.watchId, row._sum.quantity ?? 0]));
+
+    const toInsight = (watch: (typeof watches)[number]): InventoryInsightWatchDto => ({
+      id: watch.id,
+      model: watch.model,
+      brand: watch.brand.name,
+      reference: watch.reference,
+      image: watch.frontImageUrl ?? watch.primaryImageUrl ?? watch.images[0] ?? null,
+      stock: watch.stock,
+      unitsSold: salesMap.get(watch.id) ?? 0,
+      createdAt: watch.createdAt.toISOString(),
+      daysInInventory: Math.max(0, Math.floor((now - watch.createdAt.getTime()) / 86400000)),
+    });
+
+    const pickExtreme = <T>(
+      items: T[],
+      compare: (a: T, b: T) => boolean,
+    ): T | null => {
+      if (!items.length) return null;
+      return items.reduce((best, current) => (compare(current, best) ? current : best));
+    };
+
+    const withStock = watches.filter((watch) => watch.stock > 0);
+
+    const lowest = pickExtreme(watches, (a, b) => a.stock <= b.stock);
+    const highest = pickExtreme(watches, (a, b) => a.stock >= b.stock);
+    const oldest = pickExtreme(withStock, (a, b) => a.createdAt <= b.createdAt);
+    const least = pickExtreme(watches, (a, b) => (salesMap.get(a.id) ?? 0) <= (salesMap.get(b.id) ?? 0));
+    const most = pickExtreme(watches, (a, b) => (salesMap.get(a.id) ?? 0) >= (salesMap.get(b.id) ?? 0));
+
+    return {
+      totalUnits: stockSum._sum.stock ?? 0,
+      totalSkus: stockSum._count,
+      outOfStockCount: outOfStock,
+      lowestStock: lowest ? toInsight(lowest) : null,
+      highestStock: highest ? toInsight(highest) : null,
+      oldestInStock: oldest ? toInsight(oldest) : null,
+      leastSold: least ? toInsight(least) : null,
+      mostSold: most ? toInsight(most) : null,
+    };
   }
 }

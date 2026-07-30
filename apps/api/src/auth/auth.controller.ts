@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  NotFoundException,
   Patch,
   Post,
   Req,
@@ -12,6 +13,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -64,14 +66,16 @@ export class AuthController {
   @Public()
   @Get('config')
   authConfig() {
+    const isProd = this.config.get('NODE_ENV') === 'production';
     const clientId = this.config.get<string>('GOOGLE_OAUTH_CLIENT_ID', '');
     return {
       googleEnabled: Boolean(clientId && clientId !== 'mock-client-id'),
-      mockEnabled: this.config.get('USE_MOCKS') === 'true',
+      mockEnabled: !isProd && this.config.get('USE_MOCKS') === 'true',
     };
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
   async loginWithCredentials(
     @Body() dto: LoginCredentialsDto,
@@ -92,8 +96,12 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('mock-login')
   async mockLogin(@Body() dto: MockLoginDto, @Res({ passthrough: true }) res: Response) {
+    if (this.config.get('NODE_ENV') === 'production') {
+      throw new NotFoundException();
+    }
     if (this.config.get('USE_MOCKS') !== 'true') {
       throw new UnauthorizedException('Mock login deshabilitado');
     }
@@ -113,6 +121,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('refresh')
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const refreshToken = req.cookies?.luxtime_refresh;

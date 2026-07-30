@@ -5,14 +5,41 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { AbuseGuardMiddleware } from './common/middleware/abuse-guard.middleware';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const isProd = process.env.NODE_ENV === 'production';
 
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
   app.use(cookieParser());
-  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+
+  const abuseGuard = new AbuseGuardMiddleware();
+  app.use((req, res, next) => abuseGuard.use(req, res, next));
+
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      contentSecurityPolicy: isProd
+        ? {
+            useDefaults: true,
+            directives: {
+              defaultSrc: ["'self'"],
+              imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+              mediaSrc: ["'self'", 'blob:', 'https:'],
+              scriptSrc: ["'self'"],
+              styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+              fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+              connectSrc: ["'self'", process.env.FRONTEND_URL ?? "'self'"],
+              frameAncestors: ["'none'"],
+            },
+          }
+        : false,
+      hsts: isProd ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
+      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+      frameguard: { action: 'deny' },
+    }),
+  );
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.useGlobalPipes(
@@ -22,16 +49,19 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
-  app.useGlobalFilters(new AllExceptionsFilter());
 
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
+    origin: isProd
+      ? process.env.FRONTEND_URL ?? false
+      : true,
     credentials: true,
   });
 
   const port = Number(process.env.PORT ?? 3001);
-  await app.listen(port);
-  console.log(`Luxtime API escuchando en http://localhost:${port}/api/v1/health`);
+  const host = process.env.HOST ?? '0.0.0.0';
+  await app.listen(port, host);
+  // eslint-disable-next-line no-console
+  console.log(`Luxtime API escuchando en http://${host}:${port}/api/v1/health`);
 }
 
 bootstrap();

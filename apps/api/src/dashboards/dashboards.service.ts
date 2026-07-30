@@ -1,75 +1,141 @@
 import { Injectable } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
+import { OrderStage, OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
+import { PreOrdersService } from '../pre-orders/pre-orders.service';
 import type { HealthDashboardDto, ProfitDashboardDto, RevenueDashboardDto, RevenueOrderPointDto, RevenueRange } from '@luxtime/shared';
+import { GLOBAL_INVENTORY_LOW_THRESHOLD, PRE_ORDER_ALERT_HOURS } from '@luxtime/shared';
 
 @Injectable()
 export class DashboardsService {
   constructor(
     private prisma: PrismaService,
     private settingsService: SettingsService,
+    private preOrdersService: PreOrdersService,
   ) {}
 
   async getProfitDashboard(period: 'day' | 'week' | 'month' | 'all' = 'month'): Promise<ProfitDashboardDto> {
     const since = this.periodStart(period);
-    const commission = (await this.settingsService.getCommissionConfig()).percent;
+    const [commissionConfig, profitConfig] = await Promise.all([
+      this.settingsService.getCommissionConfig(),
+      this.settingsService.getProfitConfig(),
+    ]);
+    const commissionPercent = commissionConfig.percent;
+    const reinvestmentPercent = profitConfig.reinvestmentPercent ?? 35;
+    const ownerProfitPercent = profitConfig.ownerProfitPercent ?? Math.max(0, 100 - reinvestmentPercent);
+    const activeStatuses = [
+      OrderStatus.PENDIENTE,
+      OrderStatus.PAGADO,
+      OrderStatus.ENVIADO,
+      OrderStatus.ENTREGADO,
+    ];
 
-    const orders = await this.prisma.order.findMany({
-      where: {
-        status: { in: [OrderStatus.PAGADO, OrderStatus.ENVIADO, OrderStatus.ENTREGADO] },
-        paidAt: since ? { gte: since } : undefined,
-      },
-      include: { items: { include: { watch: true } } },
-    });
+    const [orders, inventoryWatches] = await Promise.all([
+      this.prisma.order.findMany({
+        where: {
+          stage: OrderStage.ORDER,
+          canceledAt: null,
+          status: { in: activeStatuses },
+          ...(since
+            ? {
+                OR: [
+                  { paidAt: { gte: since } },
+                  { paidAt: null, createdAt: { gte: since } },
+                ],
+              }
+            : {}),
+        },
+        include: { items: { include: { watch: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.watch.findMany({
+        where: { deletedAt: null },
+        select: { cost: true, stock: true },
+      }),
+    ]);
 
-    const items = orders.flatMap((order) =>
-      order.items.map((item) => {
+    const totalInventoryInvestment = inventoryWatches.reduce(
+      (sum, watch) => sum + (watch.cost ?? 0) * watch.stock,
+      0,
+    );
+
+    const items = orders.flatMap((order) => {
+      const saleAt = order.paidAt ?? order.createdAt;
+      if (since && saleAt < since) return [];
+
+      return order.items.map((item) => {
         const revenue = item.unitPrice * item.quantity;
         const cost = (item.watch.cost ?? 0) * item.quantity;
-        const profit = revenue - cost;
-        const profitPercent = revenue > 0 ? Math.round((profit / revenue) * 100) : 0;
-        const retailMarginPercentage = item.watch.retailMarginPercentage
-          ? Number(item.watch.retailMarginPercentage)
-          : profitPercent;
-        const wholesaleMarginPercentage = item.watch.wholesaleMarginPercentage
-          ? Number(item.watch.wholesaleMarginPercentage)
-          : 0;
-        const commissionPercent = commission;
-        const commissionAmount = Math.round(revenue * (commissionPercent / 100));
+        const grossProfit = revenue - cost;
+        const commissionAmount = Math.round(grossProfit * (commissionPercent / 100));
+        const netProfit = grossProfit - commissionAmount;
         return {
           orderId: order.id,
           readableId: order.readableId,
+          orderType: order.type,
+          orderStatus: order.status ?? OrderStatus.PENDIENTE,
+          priceType: item.priceType,
           productName: item.productName,
           quantity: item.quantity,
           revenue,
           cost,
-          profit,
-          profitPercent,
-          retailMarginPercentage,
-          wholesaleMarginPercentage,
+          profit: netProfit,
           commissionPercent,
           commission: commissionAmount,
-          paidAt: order.paidAt?.toISOString() ?? order.createdAt.toISOString(),
+          paidAt: saleAt.toISOString(),
         };
-      }),
-    );
+      });
+    });
+
+    const totalRevenue = items.reduce((s, i) => s + i.revenue, 0);
+    const totalCost = items.reduce((s, i) => s + i.cost, 0);
+    const totalGrossProfit = totalRevenue - totalCost;
+    const totalCommission = items.reduce((s, i) => s + i.commission, 0);
+    const totalProfit = totalGrossProfit - totalCommission;
+    const totalReinvestmentFund = Math.round(totalProfit * (reinvestmentPercent / 100));
+    const totalOwnerProfit = Math.round(totalProfit * (ownerProfitPercent / 100));
 
     return {
       period,
-      totalRevenue: items.reduce((s, i) => s + i.revenue, 0),
-      totalCost: items.reduce((s, i) => s + i.cost, 0),
-      totalProfit: items.reduce((s, i) => s + i.profit, 0),
-      totalCommission: items.reduce((s, i) => s + i.commission, 0),
+      totalRevenue,
+      totalCost,
+      totalGrossProfit,
+      totalProfit,
+      totalCommission,
+      totalReinvestmentFund,
+      totalOwnerProfit,
+      reinvestmentPercent,
+      ownerProfitPercent,
+      commissionPercent,
+      totalInventoryInvestment,
       items,
     };
   }
 
   async getHealthDashboard(period: 'day' | '2weeks' | 'week' | 'month' | '3months' | 'all' = 'month'): Promise<HealthDashboardDto> {
+    await this.preOrdersService.suspendExpiredPreOrders();
+
     const since = this.periodStart(period);
     const previousRange = this.previousPeriodRange(period);
     const periodLabel = this.healthPeriodLabel(period);
-    const LOW_STOCK_THRESHOLD = 2;
+    const oneHourAgo = new Date(Date.now() - PRE_ORDER_ALERT_HOURS * 60 * 60 * 1000);
+    const activePreOrderWhere = {
+      stage: OrderStage.PRE_ORDER,
+      canceledAt: null,
+      suspendedAt: null,
+      depositConfirmed: false,
+    };
+    const suspendedPreOrderWhere = {
+      stage: OrderStage.PRE_ORDER,
+      canceledAt: null,
+      suspendedAt: { not: null },
+      depositConfirmed: false,
+    };
+
+    const longWaitingPreOrderWhere = {
+      ...activePreOrderWhere,
+      preOrderActiveAt: { lt: oneHourAgo },
+    };
 
     const paidOrdersWhere = {
       status: { in: [OrderStatus.PAGADO, OrderStatus.ENVIADO, OrderStatus.ENTREGADO] },
@@ -84,35 +150,38 @@ export class DashboardsService {
       : null;
 
     const [
-      preOrders,
+      activePreOrders,
+      suspendedPreOrdersCount,
       paidOrders,
       activeWatches,
-      lowStockWatches,
+      inventoryAggregate,
+      longWaitingPreOrdersCount,
       unattendedOrders,
+      suspendedOrders,
       paidOrdersInPeriod,
       ordersToShip,
       previousPaidOrders,
       previousPaidOrdersInPeriod,
     ] = await Promise.all([
-      this.prisma.order.count({
-        where: {
-          stage: 'PRE_ORDER',
-          canceledAt: null,
-          ...(since ? { createdAt: { gte: since } } : {}),
-        },
-      }),
+      this.prisma.order.count({ where: activePreOrderWhere }),
+      this.prisma.order.count({ where: suspendedPreOrderWhere }),
       this.prisma.order.count({ where: paidOrdersWhere }),
-      this.prisma.watch.count({ where: { isActive: true } }),
-      this.prisma.watch.findMany({
-        where: { isActive: true, deletedAt: null, stock: { lte: LOW_STOCK_THRESHOLD } },
-        include: { brand: true },
-        orderBy: { stock: 'asc' },
-        take: 6,
+      this.prisma.watch.count({ where: { isActive: true, deletedAt: null } }),
+      this.prisma.watch.aggregate({
+        where: { isActive: true, deletedAt: null },
+        _sum: { stock: true },
+      }),
+      this.prisma.order.count({ where: longWaitingPreOrderWhere }),
+      this.prisma.order.findMany({
+        where: longWaitingPreOrderWhere,
+        include: { items: true },
+        orderBy: { preOrderActiveAt: 'asc' },
+        take: 5,
       }),
       this.prisma.order.findMany({
-        where: { stage: 'PRE_ORDER', canceledAt: null, depositConfirmed: false },
+        where: suspendedPreOrderWhere,
         include: { items: true },
-        orderBy: { createdAt: 'asc' },
+        orderBy: { suspendedAt: 'desc' },
         take: 5,
       }),
       this.prisma.order.findMany({
@@ -151,6 +220,8 @@ export class DashboardsService {
       : [];
     const topWatchMap = new Map(topWatchRecords.map((watch) => [watch.id, watch]));
     const now = Date.now();
+    const totalInventoryUnits = inventoryAggregate._sum.stock ?? 0;
+    const inventoryLowAlert = totalInventoryUnits <= GLOBAL_INVENTORY_LOW_THRESHOLD;
     const periodRevenue = paidOrdersInPeriod.reduce((sum, order) => sum + order.total, 0);
     const unitsSold = paidOrdersInPeriod.reduce(
       (sum, order) => sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0),
@@ -171,10 +242,14 @@ export class DashboardsService {
       metrics: [],
       periodLabel,
       business: {
-        preOrders,
+        preOrders: activePreOrders,
+        activePreOrders,
+        suspendedPreOrders: suspendedPreOrdersCount,
+        longWaitingPreOrders: longWaitingPreOrdersCount,
         paidOrders,
         activeWatches,
-        lowStockCount: lowStockWatches.length,
+        totalInventoryUnits,
+        inventoryLowAlert,
         ordersToShip,
         periodRevenue,
         unitsSold,
@@ -199,15 +274,25 @@ export class DashboardsService {
         readableId: order.readableId,
         customerName: order.customerName,
         model: order.items[0]?.productName ?? 'Pedido',
-        waitHours: Math.max(0, Math.round((now - order.createdAt.getTime()) / 3600000)),
+        waitHours: Math.max(0, Math.round((now - order.preOrderActiveAt.getTime()) / 3600000)),
+        activeSince: order.preOrderActiveAt.toISOString(),
       })),
-      lowStockWatches: lowStockWatches.map((watch) => ({
-        id: watch.id,
-        model: watch.model,
-        brand: watch.brand.name,
-        stock: watch.stock,
-        image: watch.frontImageUrl ?? watch.primaryImageUrl ?? watch.images[0] ?? null,
+      suspendedPreOrders: suspendedOrders.map((order) => ({
+        id: order.id,
+        readableId: order.readableId,
+        customerName: order.customerName,
+        model: order.items[0]?.productName ?? 'Pedido',
+        waitHours: Math.max(
+          0,
+          Math.round((now - (order.suspendedAt?.getTime() ?? order.preOrderActiveAt.getTime())) / 3600000),
+        ),
+        activeSince: (order.suspendedAt ?? order.preOrderActiveAt).toISOString(),
       })),
+      inventoryAlert: {
+        totalUnits: totalInventoryUnits,
+        threshold: GLOBAL_INVENTORY_LOW_THRESHOLD,
+        isLow: inventoryLowAlert,
+      },
       topWatches: topSold.map((row) => {
         const watch = topWatchMap.get(row.watchId);
         return {

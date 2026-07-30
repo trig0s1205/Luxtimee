@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class WhatsappService {
+  private readonly logger = new Logger(WhatsappService.name);
+
   constructor(private config: ConfigService) {}
 
   buildCheckoutMessage(input: {
@@ -69,7 +71,7 @@ export class WhatsappService {
 
   async notifyStaff(message: string) {
     if (this.config.get('USE_MOCKS') === 'true') {
-      console.log('[whatsapp-mock]', message);
+      this.logger.debug(`[whatsapp-mock] ${message.slice(0, 200)}`);
       return { ok: true, mock: true };
     }
     return { ok: false, reason: 'WHATSAPP_ACCESS_TOKEN no configurado' };

@@ -1,10 +1,33 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Patch,
+  Post,
+  Query,
+  UploadedFiles,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { SettingsService } from './settings.service';
 import { Public, Roles, Audit, Financial } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { FinancialGuard } from '../common/guards/financial.guard';
-import type { PlatformConfigDto } from '@luxtime/shared';
+import { assertImageBuffer, MAX_IMAGE_BYTES } from '../common/utils/file-magic.util';
+import {
+  DeleteFounderImageBodyDto,
+  SetCommissionBodyDto,
+  SetHomepageConfigBodyDto,
+  SetPlatformBodyDto,
+  SetProfitBodyDto,
+  SetWhatsappBodyDto,
+} from './dto/settings-body.dto';
 
 @Controller({ path: 'settings', version: '1' })
 export class SettingsController {
@@ -28,6 +51,12 @@ export class SettingsController {
     return this.settingsService.getPlatformConfig();
   }
 
+  @Public()
+  @Get('homepage/public')
+  getHomepagePublic() {
+    return this.settingsService.getHomepageConfig();
+  }
+
   @Get('whatsapp')
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @UseGuards(RolesGuard)
@@ -39,7 +68,7 @@ export class SettingsController {
   @Roles(Role.SUPER_ADMIN)
   @UseGuards(RolesGuard)
   @Audit('UPDATE', 'Setting')
-  setWhatsapp(@Body() body: { url: string; messagePrefix: string }) {
+  setWhatsapp(@Body() body: SetWhatsappBodyDto) {
     return this.settingsService.setWhatsappLink(body);
   }
 
@@ -54,7 +83,7 @@ export class SettingsController {
   @Roles(Role.SUPER_ADMIN)
   @UseGuards(RolesGuard)
   @Audit('UPDATE', 'Setting')
-  setPlatform(@Body() body: PlatformConfigDto) {
+  setPlatform(@Body() body: SetPlatformBodyDto) {
     return this.settingsService.setPlatformConfig(body);
   }
 
@@ -71,7 +100,7 @@ export class SettingsController {
   @UseGuards(RolesGuard, FinancialGuard)
   @Financial()
   @Audit('UPDATE', 'Setting')
-  setProfit(@Body() body: { defaultProfitPercent: number }) {
+  setProfit(@Body() body: SetProfitBodyDto) {
     return this.settingsService.setProfitConfig(body);
   }
 
@@ -88,7 +117,54 @@ export class SettingsController {
   @UseGuards(RolesGuard, FinancialGuard)
   @Financial()
   @Audit('UPDATE', 'Setting')
-  setCommission(@Body() body: { percent: number }) {
+  setCommission(@Body() body: SetCommissionBodyDto) {
     return this.settingsService.setCommissionConfig(body);
+  }
+
+  @Get('homepage')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  getHomepage() {
+    return this.settingsService.getHomepageConfig();
+  }
+
+  @Patch('homepage')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  @Audit('UPDATE', 'Setting')
+  setHomepage(@Body() body: SetHomepageConfigBodyDto) {
+    return this.settingsService.setHomepageConfig(body as never);
+  }
+
+  @Post('homepage/upload-founder-images')
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  @UseInterceptors(
+    FilesInterceptor('images', 5, {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_IMAGE_BYTES },
+    }),
+  )
+  async uploadFounderImages(
+    @UploadedFiles() files: Express.Multer.File[],
+  ): Promise<{ urls: string[] }> {
+    if (!files?.length) throw new BadRequestException('No se recibieron imágenes');
+    const urls: string[] = [];
+    for (const file of files) {
+      assertImageBuffer(file.buffer, file.mimetype);
+      const { url } = await this.settingsService.uploadFounderImage(file);
+      urls.push(url);
+    }
+    return { urls };
+  }
+
+  @Delete('homepage/founder-image')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  @Audit('DELETE', 'Setting')
+  async deleteFounderImage(@Query() query: DeleteFounderImageBodyDto) {
+    await this.settingsService.deleteFounderImage(query.url);
+    return { ok: true };
   }
 }

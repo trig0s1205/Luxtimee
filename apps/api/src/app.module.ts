@@ -29,9 +29,12 @@ import { CertificatesModule } from './certificates/certificates.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
 import { SegmentationModule } from './segmentation/segmentation.module';
+import { WholesaleAccessModule } from './wholesale-access/wholesale-access.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
+
+const isProd = process.env.NODE_ENV === 'production';
 
 @Module({
   imports: [
@@ -39,7 +42,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
-        limit: 120,
+        limit: isProd ? 80 : 120,
       },
     ]),
     ScheduleModule.forRoot(),
@@ -69,6 +72,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     WaitlistModule,
     SegmentationModule,
     WarrantyHistoriesModule,
+    WholesaleAccessModule,
   ],
   providers: [
     {

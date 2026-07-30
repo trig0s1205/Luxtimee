@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { HealthDashboardDto } from '@luxtime/shared';
+import { GLOBAL_INVENTORY_LOW_THRESHOLD } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 
 definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
 
 const auth = useAuthStore();
 const api = useApi();
+const { waitHoursSince } = useLiveWaitHours();
 
 if (!auth.loaded) {
   await auth.fetchMe();
@@ -50,12 +52,12 @@ const kpis = computed<KpiCard[]>(() => {
     {
       key: 'preOrders',
       label: 'Pre-Pedidos Activos',
-      value: String(data.business.preOrders),
-      change: data.unattendedPreOrders.length
-        ? `${data.unattendedPreOrders.length} sin atender`
-        : 'Al día',
-      changeType: data.unattendedPreOrders.length ? 'warning' : 'up',
-      alert: data.unattendedPreOrders.length > 0,
+      value: String(data.business.activePreOrders),
+      change: data.business.suspendedPreOrders
+        ? `${data.business.suspendedPreOrders} suspendidos`
+        : 'Sin suspendidos',
+      changeType: data.business.suspendedPreOrders ? 'warning' : 'up',
+      alert: data.unattendedPreOrders.length > 0 || data.suspendedPreOrders.length > 0 || data.inventoryAlert.isLow,
     },
     {
       key: 'ordersToShip',
@@ -128,36 +130,83 @@ useSeoMeta({ title: 'Panel de salud del negocio — Luxtime Admin' });
         </h3>
 
         <div class="health-alert-block">
-          <h4>Pre-pedidos sin atender</h4>
-          <p v-if="!health?.unattendedPreOrders.length" class="health-alert-empty">Sin pendientes.</p>
-          <div v-for="item in health?.unattendedPreOrders" :key="item.id" class="health-alert-item">
-            <strong>{{ item.model }}</strong>
-            <p class="health-alert-wait">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v6l4 2" />
-              </svg>
-              {{ item.readableId }} · {{ item.waitHours }}h en espera
+          <h4>Pre-pedidos</h4>
+
+          <div class="health-alert-subsection">
+            <p class="health-alert-summary" :class="{ warning: (health?.suspendedPreOrders.length ?? 0) > 0 }">
+              {{ health?.business.suspendedPreOrders ?? 0 }} pre-pedido{{ (health?.business.suspendedPreOrders ?? 0) === 1 ? '' : 's' }} suspendido{{ (health?.business.suspendedPreOrders ?? 0) === 1 ? '' : 's' }}
             </p>
+            <p class="health-alert-hint">El cliente abandonó la conversación por más de 24 horas.</p>
+            <p v-if="!health?.suspendedPreOrders.length" class="health-alert-empty">Sin suspendidos.</p>
+            <div v-for="item in health?.suspendedPreOrders" :key="item.id" class="health-alert-item">
+              <strong>{{ item.model }}</strong>
+              <p class="health-alert-wait">
+                {{ item.readableId }} · suspendido hace {{ waitHoursSince(item.activeSince) }}h
+              </p>
+            </div>
+            <NuxtLink
+              v-if="(health?.business.suspendedPreOrders ?? 0) > 0"
+              to="/admin/pre-pedidos/suspendidos"
+              class="health-table-link"
+            >
+              Ver suspendidos →
+            </NuxtLink>
+          </div>
+
+          <div class="health-alert-subsection">
+            <p
+              class="health-alert-summary"
+              :class="{ critical: (health?.business.longWaitingPreOrders ?? 0) > 0 }"
+            >
+              {{ health?.business.longWaitingPreOrders ?? 0 }} pre-pedido{{ (health?.business.longWaitingPreOrders ?? 0) === 1 ? '' : 's' }} con más de 1 hora en espera
+            </p>
+            <p class="health-alert-hint">Requieren atención prioritaria antes de las 24 horas.</p>
+            <p v-if="!health?.unattendedPreOrders.length" class="health-alert-empty">Sin pre-pedidos críticos.</p>
+            <div
+              v-for="item in health?.unattendedPreOrders"
+              :key="item.id"
+              class="health-alert-item health-alert-item--critical"
+            >
+              <strong>{{ item.model }}</strong>
+              <p class="health-alert-wait">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 6v6l4 2" />
+                </svg>
+                {{ item.readableId }} · {{ waitHoursSince(item.activeSince) }}h en espera
+              </p>
+            </div>
+            <NuxtLink
+              v-if="(health?.business.longWaitingPreOrders ?? 0) > 0"
+              to="/admin/pre-pedidos/activos"
+              class="health-table-link"
+            >
+              Ver activos →
+            </NuxtLink>
           </div>
         </div>
 
-        <div class="health-alert-block">
-          <h4>Inventario Bajo</h4>
-          <p v-if="!health?.lowStockWatches.length" class="health-alert-empty">Sin alertas de stock.</p>
-          <div v-for="item in health?.lowStockWatches" :key="item.id" class="health-stock-item">
-            <div class="health-stock-item-header">
-              <span>{{ item.brand }} {{ item.model }}</span>
-              <span>{{ item.stock }} left</span>
-            </div>
-            <div class="health-stock-bar">
-              <div
-                class="health-stock-bar-fill"
-                :class="item.stock === 0 ? 'critical' : 'low'"
-                :style="{ width: `${Math.min(100, (item.stock / 3) * 100)}%` }"
-              />
-            </div>
+        <div class="health-alert-block" :class="{ 'health-alert-block--critical': health?.inventoryAlert.isLow }">
+          <h4>Inventario general</h4>
+          <p
+            class="health-alert-summary"
+            :class="{ critical: health?.inventoryAlert.isLow }"
+          >
+            {{ health?.inventoryAlert.totalUnits ?? 0 }} unidades en stock
+          </p>
+          <p class="health-alert-hint">
+            Alerta roja si el total es {{ GLOBAL_INVENTORY_LOW_THRESHOLD }} unidades o menos.
+          </p>
+          <div v-if="health?.inventoryAlert.isLow" class="health-alert-item health-alert-item--critical">
+            <strong>Inventario bajo</strong>
+            <p class="health-alert-wait">
+              Quedan {{ health.inventoryAlert.totalUnits }} de {{ health.inventoryAlert.threshold }} unidades recomendadas.
+            </p>
           </div>
+          <p v-else class="health-alert-empty">Nivel de inventario dentro del rango.</p>
+          <NuxtLink to="/admin/inventario" class="health-table-link">
+            Ver inventario →
+          </NuxtLink>
         </div>
       </aside>
     </div>

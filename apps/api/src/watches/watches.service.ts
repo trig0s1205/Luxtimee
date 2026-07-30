@@ -9,9 +9,10 @@ import { computeWatchFinancials } from './utils/margin.util';
 import { slugify } from '../common/utils/slug.util';
 import { SettingsService } from '../settings/settings.service';
 import { ImageProcessingService } from '../integrations/image-processing.service';
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, unlink, writeFile } from 'fs/promises';
 import { extname, join } from 'path';
 import { randomUUID } from 'crypto';
+import { assertMediaFile } from '../common/utils/file-magic.util';
 
 const MAX_CATALOG_FEATURED = 6;
 const CATALOG_LIMIT_MESSAGE =
@@ -57,6 +58,12 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     return cost;
   }
 
+  private normalizeReference(reference?: string | null) {
+    if (!reference) return undefined;
+    const trimmed = reference.trim();
+    return trimmed ? trimmed.toUpperCase() : undefined;
+  }
+
   private applySuperAdminFinancials(
     data: Prisma.WatchCreateInput | Prisma.WatchUpdateInput,
     input: {
@@ -90,8 +97,9 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
 
     const brand = await this.watchesRepository.findBrandById(dto.brandId);
     if (!brand) throw new NotFoundException('Marca no encontrada');
-    const baseSku = generateSku(brand.name, dto.reference);
-    const sku = await this.watchesRepository.ensureUniqueSku(baseSku);
+    const reference = this.normalizeReference(dto.reference);
+    const baseSku = generateSku(brand.name.trim().toUpperCase(), reference);
+    const sku = (await this.watchesRepository.ensureUniqueSku(baseSku)).trim().toUpperCase();
 
     const slugBase = slugify(`${dto.model}-${Date.now()}`);
     const uniqueSlug = await this.ensureUniqueSlug(slugBase);
@@ -102,10 +110,10 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     const data: Prisma.WatchCreateInput = {      sku,
       brand: { connect: { id: dto.brandId } },
       model: dto.model,
-      reference: dto.reference,
+      reference,
       slug: uniqueSlug,
       gender: dto.gender,
-      warrantyMonths: dto.warrantyMonths ?? 12,
+      warrantyMonths: dto.warrantyMonths ?? 1,
       movementType: dto.movementType ?? 'Automático',
       movementCaliber: dto.movementCaliber,
       caseDiameter: dto.caseDiameter,
@@ -182,7 +190,7 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
       data.model = dto.model;
       data.slug = await this.ensureUniqueSlug(slugify(`${dto.model}-${id.slice(-6)}`), id);
     }
-    if (dto.reference !== undefined) data.reference = dto.reference;
+    if (dto.reference !== undefined) data.reference = this.normalizeReference(dto.reference);
     if (dto.gender !== undefined) data.gender = dto.gender;
     if (dto.warrantyMonths !== undefined) data.warrantyMonths = dto.warrantyMonths;
     if (dto.movementType) data.movementType = dto.movementType;
@@ -251,8 +259,12 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     return watch;
   }
 
-  async findPendingCost() {
-    return this.watchesRepository.findPendingCost();
+  async findPendingCost(page = 1, limit = 10) {
+    return this.watchesRepository.findPendingCost(page, limit);
+  }
+
+  getInventoryInsights() {
+    return this.watchesRepository.getInventoryInsights();
   }
 
   async remove(id: string) {
@@ -267,7 +279,11 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     files: { image1: Express.Multer.File; image2: Express.Multer.File; video: Express.Multer.File },
     _baseUrl: string,
   ) {
-    await this.watchesRepository.findById(id);
+    const existing = await this.watchesRepository.findById(id);
+
+    assertMediaFile(files.image1, 'image');
+    assertMediaFile(files.image2, 'image');
+    assertMediaFile(files.video, 'video');
 
     const uploadsDir = join(process.cwd(), 'uploads', 'watches');
     const videosDir = join(uploadsDir, 'videos');
@@ -281,27 +297,59 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     const primaryName = `watch-${randomUUID()}.webp`;
     const secondaryName = `watch-${randomUUID()}.webp`;
     const videoExt = extname(files.video.originalname).toLowerCase() || '.mp4';
-    const videoName = `watch-${randomUUID()}${videoExt}`;
+    const safeVideoExt = ['.mp4', '.webm'].includes(videoExt) ? videoExt : '.mp4';
+    const videoName = `watch-${randomUUID()}${safeVideoExt}`;
 
-    await Promise.all([
-      writeFile(join(uploadsDir, primaryName), primaryBuffer),
-      writeFile(join(uploadsDir, secondaryName), secondaryBuffer),
-      writeFile(join(videosDir, videoName), files.video.buffer),
-    ]);
+    const primaryPath = join(uploadsDir, primaryName);
+    const secondaryPath = join(uploadsDir, secondaryName);
+    const videoPath = join(videosDir, videoName);
+    const writtenPaths = [primaryPath, secondaryPath, videoPath];
 
-    const primaryImageUrl = `/uploads/watches/${primaryName}`;
-    const secondaryImageUrl = `/uploads/watches/${secondaryName}`;
-    const videoUrl = `/uploads/watches/videos/${videoName}`;
+    try {
+      await Promise.all([
+        writeFile(primaryPath, primaryBuffer),
+        writeFile(secondaryPath, secondaryBuffer),
+        writeFile(videoPath, files.video.buffer),
+      ]);
 
-    return this.watchesRepository.update(id, {
-      primaryImageUrl,
-      secondaryImageUrl,
-      videoUrl,
-      images: [primaryImageUrl, secondaryImageUrl],
-      mainImageIndex: 0,
-      frontImageUrl: primaryImageUrl,
-      backImageUrl: secondaryImageUrl,
-    });
+      const primaryImageUrl = `/uploads/watches/${primaryName}`;
+      const secondaryImageUrl = `/uploads/watches/${secondaryName}`;
+      const videoUrl = `/uploads/watches/videos/${videoName}`;
+
+      const updated = await this.watchesRepository.update(id, {
+        primaryImageUrl,
+        secondaryImageUrl,
+        videoUrl,
+        images: [primaryImageUrl, secondaryImageUrl],
+        mainImageIndex: 0,
+        frontImageUrl: primaryImageUrl,
+        backImageUrl: secondaryImageUrl,
+      });
+
+      await this.bestEffortDeleteUrls([
+        existing.primaryImageUrl,
+        existing.secondaryImageUrl,
+        existing.videoUrl,
+        ...(existing.images ?? []),
+      ], [primaryImageUrl, secondaryImageUrl, videoUrl]);
+
+      return updated;
+    } catch (error) {
+      await Promise.all(
+        writtenPaths.map((path) => unlink(path).catch(() => undefined)),
+      );
+      throw error;
+    }
+  }
+
+  private async bestEffortDeleteUrls(urls: Array<string | null | undefined>, keep: string[]) {
+    const keepSet = new Set(keep);
+    const cwd = process.cwd();
+    for (const url of urls) {
+      if (!url || keepSet.has(url) || !url.startsWith('/uploads/')) continue;
+      const absolute = join(cwd, url.replace(/^\//, ''));
+      await unlink(absolute).catch(() => undefined);
+    }
   }
 
   async uploadImages(id: string, files: Express.Multer.File[], baseUrl: string) {

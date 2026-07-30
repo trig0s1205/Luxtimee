@@ -64,7 +64,7 @@ async function main() {
     },
     {
       key: 'profit_config',
-      value: { defaultProfitPercent: 30 },
+      value: { reinvestmentPercent: 35, ownerProfitPercent: 65 },
     },
     {
       key: 'platform_config',

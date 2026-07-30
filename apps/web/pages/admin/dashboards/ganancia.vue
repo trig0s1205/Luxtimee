@@ -53,10 +53,6 @@ const kpis = computed(() => {
   const data = dashboard.value;
   if (!data) return [];
 
-  const avgMargin = data.items.length
-    ? Math.round(data.items.reduce((sum, item) => sum + item.retailMarginPercentage, 0) / data.items.length)
-    : 0;
-
   return [
     {
       key: 'revenue',
@@ -70,7 +66,7 @@ const kpis = computed(() => {
       key: 'profit',
       label: 'Ganancia neta',
       value: formatCop(data.totalProfit),
-      subtitle: `Costo total: ${formatCop(data.totalCost)}`,
+      subtitle: `Ingresos − costos − comisión (${data.totalCommission ? formatCop(data.totalCommission) : '$0'})`,
       highlight: 'white' as const,
       badge: null,
     },
@@ -78,33 +74,60 @@ const kpis = computed(() => {
       key: 'commission',
       label: 'Comisión secretaría',
       value: formatCop(data.totalCommission),
-      subtitle: 'Acumulado por relojes vendidos',
+      subtitle: `${data.commissionPercent}% sobre el margen bruto vendido`,
       highlight: 'white' as const,
       badge: null,
     },
     {
-      key: 'margin',
-      label: 'Margen promedio',
-      value: `${avgMargin}%`,
-      subtitle: 'Margen bruto al detal',
+      key: 'reinvestment',
+      label: 'Fondo de reinversión',
+      value: formatCop(data.totalReinvestmentFund),
+      subtitle: `${data.reinvestmentPercent}% de la ganancia neta · ahorro para relojería`,
+      highlight: 'white' as const,
+      badge: null,
+    },
+    {
+      key: 'owner',
+      label: 'Ganancia libre del dueño',
+      value: formatCop(data.totalOwnerProfit),
+      subtitle: `${data.ownerProfitPercent}% de la ganancia neta · margen libre`,
+      highlight: 'gold' as const,
+      badge: null,
+    },
+    {
+      key: 'inventory',
+      label: 'Inversión en inventario',
+      value: formatCop(data.totalInventoryInvestment),
+      subtitle: 'Costo total del stock actual en catálogo',
       highlight: 'white' as const,
       badge: null,
     },
   ];
 });
 
+const orderTypeLabels: Record<string, string> = {
+  DETAL: 'Al detal',
+  MAYORISTA: 'Mayorista',
+};
+
+const orderStatusLabels: Record<string, string> = {
+  PENDIENTE: 'Pendiente',
+  PAGADO: 'Pagado',
+  ENVIADO: 'Enviado',
+  ENTREGADO: 'Entregado',
+};
+
 const activityRows = computed(() =>
   (dashboard.value?.items ?? []).map((item) => ({
-    id: item.orderId,
+    id: `${item.orderId}-${item.productName}`,
     orderId: item.readableId,
     date: new Date(item.paidAt).toLocaleDateString('es-CO'),
+    type: orderTypeLabels[item.orderType] ?? item.orderType,
     watch: item.productName,
-    status: 'Completado',
-    statusType: 'done' as const,
+    status: orderStatusLabels[item.orderStatus] ?? item.orderStatus,
     cost: formatCop(item.cost),
     profit: formatCop(item.profit),
     commission: formatCop(item.commission),
-    margin: `${item.retailMarginPercentage}%`,
     commissionPercent: `${item.commissionPercent}%`,
   })),
 );
@@ -212,11 +235,11 @@ useSeoMeta({ title: 'Dashboard de Ganancia — Luxtime Admin' });
       </div>
     </section>
 
-    <div v-if="pending" class="health-kpi-grid">
-      <article v-for="i in 4" :key="i" class="health-kpi-card">Cargando...</article>
+    <div v-if="pending" class="health-kpi-grid health-kpi-grid--six">
+      <article v-for="i in 6" :key="i" class="health-kpi-card">Cargando...</article>
     </div>
 
-    <div v-else class="health-kpi-grid">
+    <div v-else class="health-kpi-grid health-kpi-grid--six">
       <article v-for="kpi in kpis" :key="kpi.key" class="health-kpi-card">
         <p class="health-kpi-label">{{ kpi.label }}</p>
         <p class="health-kpi-value" :class="{ gold: kpi.highlight === 'gold' }">{{ kpi.value }}</p>
@@ -238,7 +261,7 @@ useSeoMeta({ title: 'Dashboard de Ganancia — Luxtime Admin' });
         :metric-options="metricOptions"
         :metric="chartMetric"
         empty-title="Sin ganancias en este periodo"
-        empty-subtitle="Las ventas confirmadas aparecerán aquí"
+        empty-subtitle="Los pedidos al detal y mayorista aparecerán aquí"
         @update:range="chartPeriod = $event as ChartPeriod"
         @update:metric="chartMetric = $event as ProfitMetric"
         @retry="refresh()"
@@ -255,25 +278,27 @@ useSeoMeta({ title: 'Dashboard de Ganancia — Luxtime Admin' });
           <tr>
             <th>Pedido</th>
             <th>Fecha</th>
+            <th>Tipo</th>
             <th>Reloj</th>
+            <th>Estado</th>
             <th>Costo</th>
             <th>Ganancia</th>
-            <th>Margen</th>
             <th>Comisión (%)</th>
             <th>Comisión</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="!activityRows.length">
-            <td colspan="8">Sin ventas en el periodo seleccionado.</td>
+            <td colspan="9">Sin ventas en el periodo seleccionado.</td>
           </tr>
           <tr v-for="row in activityRows" :key="row.id">
             <td>{{ row.orderId }}</td>
             <td>{{ row.date }}</td>
+            <td>{{ row.type }}</td>
             <td>{{ row.watch }}</td>
+            <td>{{ row.status }}</td>
             <td>{{ row.cost }}</td>
             <td class="profit-cell">{{ row.profit }}</td>
-            <td>{{ row.margin }}</td>
             <td>{{ row.commissionPercent }}</td>
             <td>{{ row.commission }}</td>
           </tr>

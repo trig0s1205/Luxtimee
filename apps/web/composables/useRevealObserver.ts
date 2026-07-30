@@ -18,7 +18,14 @@ export function useRevealObserver() {
     root.querySelectorAll('.reveal:not(.visible)').forEach((el) => observer!.observe(el));
   }
 
-  onMounted(() => observe());
+  onMounted(() => {
+    observe();
+    const nuxtApp = useNuxtApp();
+    nuxtApp.hook('page:finish', () => {
+      nextTick(() => observe());
+    });
+  });
+
   onUnmounted(() => observer?.disconnect());
 
   return { observe };

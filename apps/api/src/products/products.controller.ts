@@ -1,18 +1,8 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  UploadedFiles,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { Role } from '@prisma/client';
 import { memoryStorage } from 'multer';
+import type { Request } from 'express';
 import { ProductsService } from './products.service';
 import { CreateWatchDto, UpdateWatchDto } from './dto/watch.dto';
 import { Roles, Audit, Financial } from '../common/decorators/metadata.decorators';
@@ -21,6 +11,21 @@ import { FinancialGuard } from '../common/guards/financial.guard';
 import { FinancialStripInterceptor } from '../common/interceptors/financial-strip.interceptor';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ImageProcessingService } from '../integrations/image-processing.service';
+import { assertMediaFile, MAX_IMAGE_BYTES } from '../common/utils/file-magic.util';
+
+const ALLOWED_IMAGE_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+
+function productImageFilter(
+  _req: Request,
+  file: Express.Multer.File,
+  cb: (error: Error | null, acceptFile: boolean) => void,
+) {
+  if (!ALLOWED_IMAGE_MIME.has(file.mimetype)) {
+    cb(new BadRequestException('Solo se permiten imágenes JPEG, PNG o WEBP'), false);
+    return;
+  }
+  cb(null, true);
+}
 
 @Controller({ path: 'products', version: '1' })
 @Roles(Role.ADMIN, Role.SUPER_ADMIN)
@@ -74,7 +79,8 @@ export class ProductsController {
   @UseInterceptors(
     FilesInterceptor('images', 2, {
       storage: memoryStorage(),
-      limits: { fileSize: 10 * 1024 * 1024 },
+      fileFilter: productImageFilter,
+      limits: { fileSize: MAX_IMAGE_BYTES },
     }),
   )
   @Audit('UPLOAD_IMAGES', 'Watch')
@@ -85,6 +91,10 @@ export class ProductsController {
   ) {
     if (!files?.length) {
       return this.productsService.findOneStaff(id, user.role);
+    }
+
+    for (const file of files) {
+      assertMediaFile(file, 'image');
     }
 
     const updates: {

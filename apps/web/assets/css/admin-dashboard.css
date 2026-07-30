@@ -224,6 +224,10 @@
   margin-bottom: 24px;
 }
 
+.health-kpi-grid--six {
+  grid-template-columns: repeat(3, 1fr);
+}
+
 .health-kpi-card {
   position: relative;
   padding: 20px 22px;
@@ -361,6 +365,52 @@
   text-transform: uppercase;
   color: var(--white-dim);
   margin-bottom: 12px;
+}
+
+.health-alert-subsection {
+  padding: 14px 0;
+  border-top: 1px solid rgba(212, 175, 55, 0.12);
+}
+
+.health-alert-subsection:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.health-alert-summary {
+  font-size: 13px;
+  color: var(--white);
+  margin-bottom: 4px;
+}
+
+.health-alert-summary.warning {
+  color: #e8c97a;
+}
+
+.health-alert-hint {
+  font-size: 11px;
+  color: var(--white-dim);
+  margin-bottom: 10px;
+}
+
+.health-alert-subsection .health-table-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.health-alert-summary.critical {
+  color: #e85d5d;
+}
+
+.health-alert-block--critical {
+  border-color: rgba(232, 93, 93, 0.35);
+  background: rgba(232, 93, 93, 0.04);
+}
+
+.health-alert-item--critical {
+  border-color: rgba(232, 93, 93, 0.45);
+  background: rgba(232, 93, 93, 0.08);
 }
 
 .health-alert-item {

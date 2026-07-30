@@ -3,11 +3,11 @@ import type { BrandDto, CategoryDto, PaginatedResponse, WatchPublicDto } from '@
 import { normalizeGender, resolveCatalogRouteQuery, sanitizeCatalogQuery } from '~/utils/catalog-filters';
 
 const route = useRoute();
-const config = useRuntimeConfig();
+const apiBase = useApiBaseUrl();
 const { observe } = useRevealObserver();
 const { t } = useLocale();
 
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 30;
 const GENDER_OPTIONS = ['Hombre', 'Mujer', 'Unisex'] as const;
 const FILTER_NONE = '';
 
@@ -27,15 +27,15 @@ const loadPages = ref(1);
 const showEncargoHero = ref(false);
 
 const { data: brands } = await useAsyncData('catalog-brands', () =>
-  $fetch<BrandDto[]>(`${config.public.apiBaseUrl}/brands/public`).catch(() => []),
+  $fetch<BrandDto[]>(`${apiBase}/brands/public`).catch(() => []),
 );
 
 const { data: categories } = await useAsyncData('catalog-categories', () =>
-  $fetch<CategoryDto[]>(`${config.public.apiBaseUrl}/categories/public`).catch(() => []),
+  $fetch<CategoryDto[]>(`${apiBase}/categories/public`).catch(() => []),
 );
 
 const { data: filterMeta } = await useAsyncData('catalog-filter-meta', () =>
-  $fetch<PaginatedResponse<WatchPublicDto>>(`${config.public.apiBaseUrl}/catalog`, {
+  $fetch<PaginatedResponse<WatchPublicDto>>(`${apiBase}/catalog`, {
     query: { limit: 200, page: 1, sort: 'newest' },
   }).catch(() => ({ data: [], total: 0, page: 1, limit: 200 })),
 );
@@ -65,7 +65,7 @@ function buildCatalogParams() {
 const { data: catalogResult, pending, refresh } = await useAsyncData(
   'catalog-products',
   () =>
-    $fetch<PaginatedResponse<WatchPublicDto>>(`${config.public.apiBaseUrl}/catalog`, {
+    $fetch<PaginatedResponse<WatchPublicDto>>(`${apiBase}/catalog`, {
       query: buildCatalogParams(),
     }),
   { default: () => ({ data: [], total: 0, page: 1, limit: PAGE_SIZE }) },

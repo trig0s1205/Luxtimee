@@ -13,15 +13,19 @@ const active = ref<MediaView>('front');
 const hasBack = computed(() => !!props.backUrl);
 const hasVideo = computed(() => !!props.videoUrl);
 const showTabs = computed(() => hasBack.value || hasVideo.value);
+
+function selectView(view: MediaView) {
+  active.value = view;
+}
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="aspect-[2/3] bg-lux-black-2 flex items-center justify-center overflow-hidden">
+  <div class="product-gallery">
+    <div class="product-gallery__stage">
       <video
         v-if="active === 'video' && videoUrl"
         :src="videoUrl"
-        class="w-full h-full object-contain"
+        class="product-gallery__media"
         controls
         playsinline
       />
@@ -29,33 +33,34 @@ const showTabs = computed(() => hasBack.value || hasVideo.value);
         v-else
         :src="(active === 'back' && backUrl ? backUrl : frontUrl) || undefined"
         :alt="alt"
-        class="w-full h-full object-contain"
+        class="product-gallery__media"
       >
     </div>
-    <div v-if="showTabs" class="gallery-tabs">
+
+    <div v-if="showTabs" class="product-gallery__tabs">
       <button
         type="button"
-        class="gallery-tab"
-        :class="{ 'gallery-tab--active': active === 'front' }"
-        @click="active = 'front'"
+        class="product-gallery__tab"
+        :class="{ 'product-gallery__tab--active': active === 'front' }"
+        @click="selectView('front')"
       >
         Frontal
       </button>
       <button
         v-if="hasBack"
         type="button"
-        class="gallery-tab"
-        :class="{ 'gallery-tab--active': active === 'back' }"
-        @click="active = 'back'"
+        class="product-gallery__tab"
+        :class="{ 'product-gallery__tab--active': active === 'back' }"
+        @click="selectView('back')"
       >
         Trasera
       </button>
       <button
         v-if="hasVideo"
         type="button"
-        class="gallery-tab"
-        :class="{ 'gallery-tab--active': active === 'video' }"
-        @click="active = 'video'"
+        class="product-gallery__tab"
+        :class="{ 'product-gallery__tab--active': active === 'video' }"
+        @click="selectView('video')"
       >
         Video
       </button>
@@ -64,32 +69,62 @@ const showTabs = computed(() => hasBack.value || hasVideo.value);
 </template>
 
 <style scoped>
-.gallery-tabs {
+.product-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 358px;
+  margin: 0 auto;
+}
+
+.product-gallery__stage {
+  aspect-ratio: 3 / 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--black-2);
+  border: var(--border-hairline);
+}
+
+.product-gallery__media {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.product-gallery__tabs {
   display: flex;
   gap: 8px;
 }
 
-.gallery-tab {
+.product-gallery__tab {
   flex: 1;
-  padding: 8px 0;
-  background: transparent;
-  border: none;
-  border-bottom: var(--border-hairline);
+  padding: 12px 10px;
+  background: rgba(200, 169, 110, 0.08);
+  border: 1px solid rgba(200, 169, 110, 0.22);
+  border-radius: 2px;
   font-family: var(--font-body);
-  font-size: 10px;
-  letter-spacing: 0.2em;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--white-dim);
   cursor: pointer;
-  transition: color 0.25s, border-color 0.25s;
+  transition: color 0.25s, border-color 0.25s, background 0.25s;
 }
 
-.gallery-tab:hover {
+.product-gallery__tab:hover {
   color: var(--white);
+  background: rgba(200, 169, 110, 0.12);
+  border-color: rgba(200, 169, 110, 0.35);
 }
 
-.gallery-tab--active {
+.product-gallery__tab--active {
   color: var(--gold);
-  border-bottom-color: rgba(200, 169, 110, 0.25);
+  background: rgba(200, 169, 110, 0.18);
+  border-color: rgba(200, 169, 110, 0.55);
+  box-shadow: 0 0 0 1px rgba(200, 169, 110, 0.15);
 }
 </style>

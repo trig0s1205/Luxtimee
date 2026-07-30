@@ -39,6 +39,8 @@ async function logout() {
 
     </main>
 
+    <UiConfirmDialog />
+
   </div>
 
 </template>

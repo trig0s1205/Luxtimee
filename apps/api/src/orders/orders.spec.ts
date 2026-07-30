@@ -4,9 +4,9 @@ import { assertValidTransition } from './state-machine';
 import { OrderStatus } from '@prisma/client';
 
 describe('order-pricing', () => {
-  it('aplica mayorista desde 4 unidades', () => {
-    expect(resolveOrderType(3)).toBe(OrderType.DETAL);
-    expect(resolveOrderType(4)).toBe(OrderType.MAYORISTA);
+  it('retail siempre cobra al detal aunque haya 4+ unidades', () => {
+    expect(resolveOrderType(3, 'retail')).toBe(OrderType.DETAL);
+    expect(resolveOrderType(4, 'retail')).toBe(OrderType.DETAL);
     const priced = priceOrderLines([
       {
         watchId: '1',
@@ -24,11 +24,27 @@ describe('order-pricing', () => {
         productName: 'B',
         productRef: 'b',
       },
-    ]);
+    ], 0, 'retail');
+    expect(priced.type).toBe(OrderType.DETAL);
+    expect(priced.lines[0].unitPrice).toBe(100);
+    expect(priced.lines[0].priceType).toBe(PriceType.RETAIL);
+  });
+
+  it('canal mayorista aplica precio wholesale', () => {
+    const priced = priceOrderLines([
+      {
+        watchId: '1',
+        quantity: 1,
+        retailPrice: 100,
+        wholesalePrice: 80,
+        productName: 'A',
+        productRef: 'a',
+      },
+    ], 0, 'wholesale');
     expect(priced.type).toBe(OrderType.MAYORISTA);
     expect(priced.lines[0].unitPrice).toBe(80);
     expect(priced.lines[0].priceType).toBe(PriceType.WHOLESALE);
-    expect(priced.depositExpected).toBe(40000);
+    expect(priced.depositExpected).toBe(10000);
   });
 });
 

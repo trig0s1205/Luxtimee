@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import type { Response } from 'express';
-import type { ReportOwnerDto, WarrantyHistoryPeriod } from '@luxtime/shared';
+import type { ReportOwnerDto } from '@luxtime/shared';
 import { WarrantyHistoriesService } from './warranty-histories.service';
 import { ReportsService } from '../integrations/reports.service';
 import {
@@ -24,8 +24,6 @@ import { Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
-const EXPORT_PERIODS: WarrantyHistoryPeriod[] = ['day', 'week', 'month'];
-
 @Controller({ path: 'warranty-histories', version: '1' })
 @Roles(Role.ADMIN, Role.SUPER_ADMIN)
 @UseGuards(RolesGuard)
@@ -36,38 +34,34 @@ export class WarrantyHistoriesController {
   ) {}
 
   @Get('export/excel')
-  async exportExcel(
-    @Query('period') period: string,
-    @CurrentUser() user: AuthenticatedUser,
-    @Res() res: Response,
-  ) {
-    const safePeriod = this.assertExportPeriod(period);
-    const data = await this.warrantyHistoriesService.findForExport(safePeriod);
+  async exportExcel(@CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
+    const data = await this.warrantyHistoriesService.findForExport('day');
+    if (!data.items.length) {
+      throw new BadRequestException('No hay garantías registradas hoy para exportar.');
+    }
     const buffer = await this.reportsService.buildWarrantyExcel(data, this.toReportOwner(user));
+    await this.warrantyHistoriesService.purgeTodayRegistered();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="luxtime-garantias-${safePeriod}.xlsx"`);
+    res.setHeader('Content-Disposition', 'attachment; filename="luxtime-garantias-hoy.xlsx"');
     res.send(buffer);
   }
 
   @Get('export/pdf')
-  async exportPdf(
-    @Query('period') period: string,
-    @CurrentUser() user: AuthenticatedUser,
-    @Res() res: Response,
-  ) {
-    const safePeriod = this.assertExportPeriod(period);
-    const data = await this.warrantyHistoriesService.findForExport(safePeriod);
+  async exportPdf(@CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
+    const data = await this.warrantyHistoriesService.findForExport('day');
+    if (!data.items.length) {
+      throw new BadRequestException('No hay garantías registradas hoy para exportar.');
+    }
     const buffer = await this.reportsService.buildWarrantyPdf(data, this.toReportOwner(user));
+    await this.warrantyHistoriesService.purgeTodayRegistered();
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="luxtime-garantias-${safePeriod}.pdf"`);
+    res.setHeader('Content-Disposition', 'attachment; filename="luxtime-garantias-hoy.pdf"');
     res.send(buffer);
   }
 
   @Get()
   findAll(@Query() query: WarrantyHistoriesQueryDto) {
     return this.warrantyHistoriesService.findAll({
-      period: query.period,
-      search: query.search,
       page: query.page,
       limit: query.limit,
     });
@@ -93,13 +87,6 @@ export class WarrantyHistoriesController {
       throw new BadRequestException('Indique el SKU del reloj de reemplazo.');
     }
     return this.warrantyHistoriesService.register(id, dto, user.id);
-  }
-
-  private assertExportPeriod(period: string): WarrantyHistoryPeriod {
-    if (!EXPORT_PERIODS.includes(period as WarrantyHistoryPeriod)) {
-      throw new BadRequestException('Los reportes solo pueden exportarse por día, semana o mes.');
-    }
-    return period as WarrantyHistoryPeriod;
   }
 
   private toReportOwner(user: AuthenticatedUser): ReportOwnerDto {

@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { findWatchIdsByFlexibleSkuSearch } from '../common/utils/sku-search.util';
 import { CatalogQueryDto } from './dto/catalog-query.dto';
 
 @Injectable()
@@ -22,7 +23,7 @@ export class CatalogService {
   }
 
   private mapPublicWatch(watch: Record<string, unknown>) {
-    const { cost, profitPercent, imageNeedsReview, ...rest } = watch;
+    const { cost, profitPercent, wholesalePrice: _wholesalePrice, imageNeedsReview, ...rest } = watch;
 
     const primaryImageUrl = this.normalizeMediaUrl(rest.primaryImageUrl as string | null);
     const secondaryImageUrl = this.normalizeMediaUrl(rest.secondaryImageUrl as string | null);
@@ -54,13 +55,21 @@ export class CatalogService {
     };
   }
 
+  private mapWholesaleWatch(watch: Record<string, unknown>) {
+    const mapped = this.mapPublicWatch(watch);
+    return {
+      ...mapped,
+      wholesalePrice: watch.wholesalePrice,
+    };
+  }
+
   private clean(value?: string) {
     const trimmed = value?.trim();
     if (!trimmed || trimmed.toLowerCase() === 'all') return undefined;
     return trimmed;
   }
 
-  private buildWhere(query: CatalogQueryDto): Prisma.WatchWhereInput {
+  private async buildWhere(query: CatalogQueryDto): Promise<Prisma.WatchWhereInput> {
     const where: Prisma.WatchWhereInput = {
       isActive: true,
       isPublished: true,
@@ -103,11 +112,13 @@ export class CatalogService {
 
     const search = query.search?.trim();
     if (search) {
+      const skuIds = await findWatchIdsByFlexibleSkuSearch(this.prisma, search, { catalogOnly: true });
       where.OR = [
         { model: { contains: search, mode: 'insensitive' } },
         { reference: { contains: search, mode: 'insensitive' } },
         { sku: { contains: search, mode: 'insensitive' } },
         { brand: { name: { contains: search, mode: 'insensitive' } } },
+        ...(skuIds.length ? [{ id: { in: skuIds } }] : []),
       ];
     }
 
@@ -132,7 +143,7 @@ export class CatalogService {
     const page = Math.max(1, query.page ?? 1);
     const limit = Math.min(200, Math.max(1, query.limit ?? 12));
     const skip = (page - 1) * limit;
-    const where = this.buildWhere(query);
+    const where = await this.buildWhere(query);
     const orderBy = this.buildOrderBy(query.sort);
 
     this.logger.debug(`[catalog:list] query=${JSON.stringify(query)}`);
@@ -169,7 +180,7 @@ export class CatalogService {
     return this.mapPublicWatch(watch);
   }
 
-  async findBestSellers(limit = 3) {
+  async findBestSellers(limit = 6) {
     const items = await this.prisma.orderItem.findMany({
       where: {
         order: { status: { in: ['PAGADO', 'ENVIADO', 'ENTREGADO'] } },
@@ -206,7 +217,7 @@ export class CatalogService {
     return watches.map((w) => this.mapPublicWatch(w));
   }
 
-  async findFeatured(limit = 6) {
+  async findFeatured(limit = 12) {
     const watches = await this.prisma.watch.findMany({
       where: {
         isActive: true,
@@ -220,5 +231,41 @@ export class CatalogService {
     });
 
     return watches.map((w) => this.mapPublicWatch(w));
+  }
+
+  async listWholesale(query: CatalogQueryDto) {
+    const page = Math.max(1, query.page ?? 1);
+    const limit = Math.min(200, Math.max(1, query.limit ?? 12));
+    const skip = (page - 1) * limit;
+    const where = await this.buildWhere(query);
+    const orderBy = this.buildOrderBy(query.sort);
+
+    const [data, total] = await Promise.all([
+      this.prisma.watch.findMany({
+        where,
+        include: { brand: true, category: true, warrantyTemplate: true, careTemplate: true },
+        orderBy,
+        skip,
+        take: limit,
+      }),
+      this.prisma.watch.count({ where }),
+    ]);
+
+    return {
+      data: data.map((w) => this.mapWholesaleWatch(w)),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async findWholesaleBySlug(slug: string) {
+    const watch = await this.prisma.watch.findFirst({
+      where: { slug, isActive: true, isPublished: true, deletedAt: null },
+      include: { brand: true, category: true, warrantyTemplate: true, careTemplate: true },
+    });
+
+    if (!watch) throw new NotFoundException('Producto no encontrado');
+    return this.mapWholesaleWatch(watch);
   }
 }

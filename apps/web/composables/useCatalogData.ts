@@ -1,5 +1,5 @@
 import type { BrandDto, CatalogListQuery, PaginatedResponse, WatchPublicDto } from '@luxtime/shared';
-import { WatchStatus } from '@luxtime/shared';
+import { WatchStatus, matchesSkuSearch } from '@luxtime/shared';
 import { mockWatches } from '~/mocks/watches';
 import { equalsInsensitive, sanitizeCatalogQuery } from '~/utils/catalog-filters';
 
@@ -67,7 +67,8 @@ function filterMockCatalog(query: CatalogListQuery): PaginatedResponse<WatchPubl
       (w) =>
         w.model.toLowerCase().includes(term)
         || w.slug.toLowerCase().includes(term)
-        || w.brand.name.toLowerCase().includes(term),
+        || w.brand.name.toLowerCase().includes(term)
+        || matchesSkuSearch(w.sku, String(params.search)),
     );
   }
 
@@ -143,21 +144,57 @@ export function useCatalogData() {
     }
   }
 
-  async function getFeatured() {
+  async function getFeatured(limit = 12) {
     try {
-      return await api.get<WatchPublicDto[]>('/catalog/featured');
+      return await api.get<WatchPublicDto[]>('/catalog/featured', { limit });
     } catch {
-      return MOCK_CATALOG.filter((w) => w.showInCatalog).slice(0, 6);
+      return MOCK_CATALOG.filter((w) => w.showInCatalog).slice(0, limit);
     }
   }
 
-  async function getBestSellers() {
+  async function getBestSellers(limit = 6) {
     try {
-      return await api.get<WatchPublicDto[]>('/catalog/best-sellers');
+      const best = await api.get<WatchPublicDto[]>('/catalog/best-sellers', { limit });
+      if (best.length >= limit) return best.slice(0, limit);
+      const featured = await getFeatured(limit);
+      const seen = new Set(best.map((w) => w.id));
+      const merged = [...best];
+      for (const watch of featured) {
+        if (seen.has(watch.id)) continue;
+        merged.push(watch);
+        seen.add(watch.id);
+        if (merged.length >= limit) break;
+      }
+      return merged;
     } catch {
-      return MOCK_CATALOG.slice(0, 3);
+      return MOCK_CATALOG.slice(0, limit);
     }
   }
 
-  return { listCatalog, getBySlug, getNewArrivals, listBrands, getBestSellers, getFeatured };
+  async function listWholesaleCatalog(query: CatalogListQuery = {}) {
+    const params = sanitizeCatalogQuery(query);
+    const baseUrl = useApiBaseUrl();
+    return $fetch<PaginatedResponse<WatchPublicDto>>(`${baseUrl}/catalog/wholesale`, {
+      query: params,
+      credentials: 'include',
+    });
+  }
+
+  async function getWholesaleBySlug(slug: string) {
+    const baseUrl = useApiBaseUrl();
+    return $fetch<WatchPublicDto>(`${baseUrl}/catalog/wholesale/${slug}`, {
+      credentials: 'include',
+    });
+  }
+
+  return {
+    listCatalog,
+    getBySlug,
+    getNewArrivals,
+    listBrands,
+    getBestSellers,
+    getFeatured,
+    listWholesaleCatalog,
+    getWholesaleBySlug,
+  };
 }

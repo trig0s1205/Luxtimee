@@ -89,8 +89,8 @@ const form = reactive<WatchFormPayload>({
   reference: props.watch?.reference ?? undefined,
   description: props.watch?.description ?? undefined,
   gender: props.watch?.gender ?? undefined,
-  warrantyMonths: props.watch?.warrantyMonths ?? 12,
-  waterResistance: props.watch?.waterResistance ?? undefined,
+  warrantyMonths: props.watch?.warrantyMonths ?? 1,
+  waterResistance: props.watch?.waterResistance ?? '',
   retailPrice: props.watch?.retailPrice ?? 0,
   wholesalePrice: props.watch?.wholesalePrice ?? 0,
   cost: props.watch?.cost ?? undefined,
@@ -285,12 +285,12 @@ const skuPreview = computed(() => props.watch?.sku ?? 'Se generará automáticam
 
           <div class="admin-form-field">
             <label>Garantía (Meses)</label>
-            <UiLuxInput v-model="form.warrantyMonths" type="number" placeholder="Ej. 12" />
+            <UiLuxInput v-model="form.warrantyMonths" type="number" placeholder="Ej. 1" />
           </div>
 
           <div class="admin-form-field">
             <label>Resistencia al agua</label>
-            <UiLuxInput v-model="form.waterResistance" placeholder="Ej. 300m / 30 ATM" />
+            <UiLuxInput v-model="form.waterResistance" />
           </div>
 
           <div class="admin-form-field admin-form-field--full">

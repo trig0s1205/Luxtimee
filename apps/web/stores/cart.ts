@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
-import type { CartItemDto, OrderType, WatchPublicDto } from '@luxtime/shared';
-import { WHOLESALE_MIN_UNITS } from '@luxtime/shared';
+import type { CartItemDto, WatchPublicDto } from '@luxtime/shared';
 
 const STORAGE_KEY = 'luxtime-cart';
 
@@ -12,16 +11,8 @@ export const useCartStore = defineStore('cart', {
 
   getters: {
     unitCount: (state) => state.items.reduce((sum, item) => sum + item.quantity, 0),
-    orderType(): OrderType {
-      return this.unitCount >= WHOLESALE_MIN_UNITS ? 'MAYORISTA' : 'DETAL';
-    },
-    subtotal: (state) => {
-      const store = useCartStore();
-      return state.items.reduce((sum, item) => {
-        const price = store.orderType === 'MAYORISTA' ? item.wholesalePrice : item.retailPrice;
-        return sum + price * item.quantity;
-      }, 0);
-    },
+    orderType: () => 'DETAL' as const,
+    subtotal: (state) => state.items.reduce((sum, item) => sum + item.retailPrice * item.quantity, 0),
     itemCount: (state) => state.items.length,
   },
 
@@ -42,19 +33,20 @@ export const useCartStore = defineStore('cart', {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.items));
     },
 
-    notifyWholesaleIfNeeded(beforeCount: number) {
-      if (!import.meta.client) return;
-      if (beforeCount < WHOLESALE_MIN_UNITS && this.unitCount >= WHOLESALE_MIN_UNITS) {
-        useWholesaleNotice().show();
-      }
-    },
-
     addFromWatch(watch: WatchPublicDto, quantity = 1) {
       this.hydrate();
-      const beforeCount = this.unitCount;
+      const stock = watch.stock ?? 0;
       const existing = this.items.find((i) => i.watchId === watch.id);
+      const currentQty = existing?.quantity ?? 0;
+
+      if (stock <= 0 || currentQty + quantity > stock) {
+        if (import.meta.client) useStockNotice().show();
+        return;
+      }
+
       if (existing) {
-        existing.quantity = Math.min(existing.quantity + quantity, watch.stock || existing.quantity + quantity);
+        existing.stock = stock;
+        existing.quantity += quantity;
       } else {
         this.items.push({
           watchId: watch.id,
@@ -62,14 +54,13 @@ export const useCartStore = defineStore('cart', {
           productName: `${watch.brand.name} ${watch.model}`,
           productRef: watch.slug,
           productImage: watch.frontImageUrl,
-          quantity: Math.min(quantity, watch.stock || quantity),
+          quantity,
           retailPrice: watch.retailPrice,
-          wholesalePrice: watch.wholesalePrice,
-          stock: watch.stock,
+          wholesalePrice: watch.wholesalePrice ?? watch.retailPrice,
+          stock,
         });
       }
       this.persist();
-      this.notifyWholesaleIfNeeded(beforeCount);
       if (import.meta.client) {
         const { openCart } = useCartDrawer();
         openCart();
@@ -78,16 +69,18 @@ export const useCartStore = defineStore('cart', {
 
     setQuantity(watchId: string, quantity: number) {
       this.hydrate();
-      const beforeCount = this.unitCount;
       const item = this.items.find((i) => i.watchId === watchId);
       if (!item) return;
       if (quantity <= 0) {
         this.remove(watchId);
         return;
       }
-      item.quantity = Math.min(quantity, item.stock || quantity);
+      if (quantity > item.stock) {
+        if (import.meta.client) useStockNotice().show();
+        return;
+      }
+      item.quantity = quantity;
       this.persist();
-      this.notifyWholesaleIfNeeded(beforeCount);
     },
 
     remove(watchId: string) {
@@ -102,7 +95,7 @@ export const useCartStore = defineStore('cart', {
     },
 
     unitPrice(item: CartItemDto) {
-      return this.orderType === 'MAYORISTA' ? item.wholesalePrice : item.retailPrice;
+      return item.retailPrice;
     },
 
     toCheckoutItems() {

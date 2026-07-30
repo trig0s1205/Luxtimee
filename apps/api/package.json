@@ -16,6 +16,7 @@
     "postinstall": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "prisma db seed",
+    "prisma:studio": "prisma studio",
     "backfill:warranties": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/scripts/backfill-warranty-histories.ts"
   },
   "dependencies": {

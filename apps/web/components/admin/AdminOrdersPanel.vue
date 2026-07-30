@@ -26,6 +26,7 @@ const props = defineProps<{
 
 const api = useApi();
 const toast = useToast();
+const { confirm } = useConfirm();
 
 const PAGE_SIZE = 15;
 
@@ -203,7 +204,14 @@ async function transition(order: OrderDto, status: OrderStatus) {
 
   const label = ORDER_TRANSITION_LABELS[status];
   const sku = orderSku(order);
-  if (status === 'CANCELADO' && !confirm(`¿Cancelar el pedido ${sku}?`)) return;
+  if (status === 'CANCELADO') {
+    const ok = await confirm({
+      title: `¿Cancelar el pedido ${sku}?`,
+      destructive: true,
+      confirmLabel: 'Cancelar pedido',
+    });
+    if (!ok) return;
+  }
 
   updatingId.value = order.id;
   try {
@@ -221,556 +229,217 @@ useSeoMeta({ title: props.seoTitle });
 </script>
 
 <template>
-  <div class="orders-page">
+  <div class="admin-records-page orders-page">
     <UiToastContainer />
     <UiSectionHeader label="Ventas" :title="`${title} (${totalOrders})`" />
-    <p class="orders-period-label">{{ periodLabel }}</p>
+    <p class="admin-records-period-label">{{ periodLabel }}</p>
 
-    <div class="orders-toolbar">
-      <div class="orders-periods">
-        <button
-          v-for="item in periodOptions"
-          :key="item.key"
-          type="button"
-          class="orders-filter-btn"
-          :class="{ 'orders-filter-btn--active': period === item.key }"
-          @click="period = item.key"
-        >
-          {{ item.label }}
-        </button>
-      </div>
-
-      <div class="orders-filters">
-        <button
-          v-for="item in statusFilters"
-          :key="item.key"
-          type="button"
-          class="orders-filter-btn"
-          :class="{ 'orders-filter-btn--active': filter === item.key }"
-          @click="filter = item.key"
-        >
-          {{ item.label }}
-        </button>
-      </div>
+    <div class="admin-records-toolbar">
+      <AdminFilterDropdown
+        v-model="period"
+        label="Periodo"
+        :options="periodOptions.map((item) => ({ key: item.key, label: item.label }))"
+      />
+      <AdminFilterDropdown
+        v-model="filter"
+        label="Estado"
+        :options="statusFilters.map((item) => ({ key: item.key, label: item.label }))"
+      />
     </div>
 
-    <div v-if="pending && !orders.length" class="orders-empty">Cargando pedidos...</div>
+    <div v-if="pending && !orders.length" class="admin-record-empty">Cargando pedidos...</div>
 
-    <div v-else class="orders-list">
+    <div v-else class="admin-records-list">
       <article
         v-for="order in orders"
         :key="order.id"
-        class="orders-row"
-        :class="{ 'orders-row--open': isExpanded(order.id) }"
+        class="admin-record-card"
+        :class="{ 'admin-record-card--open': isExpanded(order.id) }"
       >
         <button
           type="button"
-          class="orders-row-summary"
+          class="admin-record-summary"
           :aria-expanded="isExpanded(order.id)"
           @click="toggleExpanded(order.id)"
         >
-          <svg
-            class="orders-row-chevron"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            aria-hidden="true"
-          >
-            <path d="M6 9l6 6 6-6" />
-          </svg>
+          <div class="admin-record-summary-main">
+            <svg class="admin-record-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+            <div>
+              <span class="admin-record-title">{{ orderSku(order) }}</span>
+              <span class="admin-record-subtitle">{{ order.customerName }}</span>
+            </div>
+          </div>
 
-          <span class="orders-row-sku">{{ orderSku(order) }}</span>
-          <span class="orders-row-customer">{{ order.customerName }}</span>
-          <span class="orders-row-total">{{ formatCop(order.total) }}</span>
-          <span class="orders-row-date">{{ formatDate(order.createdAt) }}</span>
+          <div class="admin-record-meta">
+            <span class="admin-record-amount">{{ formatCop(order.total) }}</span>
+            <span class="admin-record-date">{{ formatDate(order.createdAt) }}</span>
+          </div>
 
-          <span class="orders-row-badges">
-            <UiLuxBadge :tone="statusBadgeTone(order.status ?? undefined)">
-              {{ order.status ? ORDER_STATUS_LABELS[order.status] : 'Sin estado' }}
-            </UiLuxBadge>
-            <UiLuxBadge :tone="isNationalOrder(order) ? 'nacional' : 'local'">
-              {{ shippingLabel(order) }}
-            </UiLuxBadge>
-            <button
-              v-if="hasPendingWarranty(order)"
-              type="button"
-              class="orders-warranty-btn"
-              @click.stop="firstPendingItem(order) && openWarrantyForm(order, firstPendingItem(order)!)"
-            >
-              Registrar garantía
-            </button>
-          </span>
+          <div class="admin-record-summary-actions" @click.stop>
+            <AdminTagMenu :label="order.status ? ORDER_STATUS_LABELS[order.status] : 'Etiquetas'">
+              <UiLuxBadge :tone="statusBadgeTone(order.status ?? undefined)">
+                {{ order.status ? ORDER_STATUS_LABELS[order.status] : 'Sin estado' }}
+              </UiLuxBadge>
+              <UiLuxBadge :tone="isNationalOrder(order) ? 'nacional' : 'local'">
+                {{ shippingLabel(order) }}
+              </UiLuxBadge>
+              <UiLuxBadge :tone="order.type === 'MAYORISTA' ? 'mayorista' : 'detal'">
+                {{ order.type === 'MAYORISTA' ? 'Mayorista' : 'Detal' }}
+              </UiLuxBadge>
+            </AdminTagMenu>
+          </div>
         </button>
 
-        <div v-show="isExpanded(order.id)" class="orders-row-details">
-          <div class="orders-detail-grid">
-            <div>
-              <p class="orders-detail-label">Cliente</p>
+        <div v-show="isExpanded(order.id)" class="admin-record-details">
+          <div class="admin-record-details-inner">
+            <AdminAccordionSection title="Cliente" :subtitle="order.customerName">
               <p>{{ order.customerName }}</p>
-              <p v-if="order.customerPhone" class="orders-muted">{{ order.customerPhone }}</p>
-              <p class="orders-muted">{{ order.customerAddress }}</p>
-            </div>
+              <p v-if="order.customerPhone" class="admin-record-muted">{{ order.customerPhone }}</p>
+              <p class="admin-record-muted">{{ order.customerAddress }}</p>
+            </AdminAccordionSection>
 
-            <div>
-              <p class="orders-detail-label">Envío</p>
+            <AdminAccordionSection title="Envío" :subtitle="shippingLabel(order)">
               <p>{{ shippingLabel(order) }}</p>
-              <p v-if="order.shippingZone" class="orders-muted">
+              <p v-if="order.shippingZone" class="admin-record-muted">
                 {{ order.shippingZone.name }} — {{ formatCop(order.shippingCost) }}
               </p>
-            </div>
+            </AdminAccordionSection>
 
-            <div>
-              <p class="orders-detail-label">Productos</p>
-              <ul class="orders-items">
-                <li v-for="item in order.items" :key="item.id" class="orders-item-row">
+            <AdminAccordionSection
+              title="Productos"
+              :subtitle="`${order.items.length} artículo${order.items.length === 1 ? '' : 's'}`"
+            >
+              <ul class="admin-record-list">
+                <li v-for="item in order.items" :key="item.id" class="admin-record-item-row">
                   <span>
-                    {{ item.productSku }} — {{ item.productName }} x{{ item.quantity }} — {{ formatCop(item.unitPrice * item.quantity) }}
+                    {{ item.productSku }} — {{ item.productName }} ×{{ item.quantity }}
+                    <span class="admin-record-muted"> · {{ formatCop(item.unitPrice * item.quantity) }}</span>
                   </span>
                   <button
                     v-if="order.status === 'ENTREGADO' && !item.warrantyRegistered"
                     type="button"
-                    class="orders-warranty-btn"
+                    class="admin-record-btn admin-record-btn--primary"
                     @click.stop="openWarrantyForm(order, item)"
                   >
-                    Registrar garantía
+                    Garantía
                   </button>
-                  <span v-else-if="item.warrantyRegistered" class="orders-warranty-done">Garantía registrada</span>
+                  <span v-else-if="item.warrantyRegistered" class="admin-record-chip">Garantía ok</span>
                 </li>
               </ul>
-            </div>
-          </div>
+            </AdminAccordionSection>
 
-          <div v-if="order.paidAt || order.shippedAt || order.deliveredAt" class="orders-timeline">
-            <span v-if="order.paidAt">Pagado: {{ formatDate(order.paidAt) }}</span>
-            <span v-if="order.shippedAt">Enviado: {{ formatDate(order.shippedAt) }}</span>
-            <span v-if="order.deliveredAt">Entregado: {{ formatDate(order.deliveredAt) }}</span>
-          </div>
-
-          <div
-            v-if="warrantyItemId && order.items.some((item) => item.id === warrantyItemId)"
-            class="orders-warranty-form"
-          >
-            <p class="orders-detail-label">Registrar garantía</p>
-            <p class="orders-muted">
-              Venta: {{ formatDate(order.deliveredAt) }} · Garantía: {{ formatDate(new Date().toISOString()) }}
-            </p>
-            <label>
-              <span>Daño reportado</span>
-              <textarea v-model="warrantyForm.damageDescription" rows="3" class="orders-warranty-textarea" />
-            </label>
-            <fieldset class="orders-warranty-radios">
-              <legend>Reemplazo</legend>
-              <label>
-                <input v-model="warrantyForm.replacementType" type="radio" value="SAME_WATCH" />
-                Mismo reloj
-              </label>
-              <label>
-                <input v-model="warrantyForm.replacementType" type="radio" value="OTHER_WATCH" />
-                Otro reloj
-              </label>
-            </fieldset>
-            <label v-if="warrantyForm.replacementType === 'OTHER_WATCH'">
-              <span>SKU del reloj entregado</span>
-              <UiLuxInput v-model="warrantyForm.replacementSku" />
-            </label>
-            <label>
-              <span>Notas (opcional)</span>
-              <textarea v-model="warrantyForm.replacementNotes" rows="2" class="orders-warranty-textarea" />
-            </label>
-            <div class="orders-row-actions">
-              <button
-                type="button"
-                class="orders-action-btn orders-action-btn--primary"
-                :disabled="!!savingWarrantyId"
-                @click.stop="submitWarranty(order, order.items.find((item) => item.id === warrantyItemId)!)"
-              >
-                {{ savingWarrantyId ? 'Guardando...' : 'Guardar garantía' }}
-              </button>
-              <button type="button" class="orders-action-btn" @click.stop="closeWarrantyForm">Cancelar</button>
-            </div>
-          </div>
-
-          <footer v-if="nextTransitions(order).length" class="orders-row-actions">
-            <button
-              v-for="status in nextTransitions(order)"
-              :key="status"
-              type="button"
-              class="orders-action-btn"
-              :class="{
-                'orders-action-btn--danger': status === 'CANCELADO',
-                'orders-action-btn--primary': status !== 'CANCELADO',
-              }"
-              :disabled="updatingId === order.id"
-              @click.stop="transition(order, status)"
+            <AdminAccordionSection
+              v-if="order.paidAt || order.shippedAt || order.deliveredAt"
+              title="Historial"
+              subtitle="Fechas del pedido"
             >
-              {{ updatingId === order.id ? 'Actualizando...' : ORDER_TRANSITION_LABELS[status] }}
-            </button>
-          </footer>
+              <p v-if="order.paidAt" class="admin-record-muted">Pagado: {{ formatDate(order.paidAt) }}</p>
+              <p v-if="order.shippedAt" class="admin-record-muted">Enviado: {{ formatDate(order.shippedAt) }}</p>
+              <p v-if="order.deliveredAt" class="admin-record-muted">Entregado: {{ formatDate(order.deliveredAt) }}</p>
+            </AdminAccordionSection>
 
-          <p v-else-if="order.status === 'ENTREGADO' && !hasPendingWarranty(order)" class="orders-done">Pedido completado.</p>
-          <p v-else-if="order.status === 'ENTREGADO' && hasPendingWarranty(order)" class="orders-done">Pedido entregado. Registra la garantía cuando corresponda.</p>
-          <p v-else-if="order.status === 'CANCELADO'" class="orders-done orders-done--cancel">Pedido cancelado.</p>
+            <AdminAccordionSection
+              v-if="warrantyItemId && order.items.some((item) => item.id === warrantyItemId)"
+              title="Registrar garantía"
+              :default-open="true"
+            >
+              <div class="admin-record-warranty-form">
+                <p class="admin-record-muted">
+                  Venta: {{ formatDate(order.deliveredAt) }} · Garantía: {{ formatDate(new Date().toISOString()) }}
+                </p>
+                <label>
+                  <span>Daño reportado</span>
+                  <textarea v-model="warrantyForm.damageDescription" rows="3" class="admin-record-textarea" />
+                </label>
+                <fieldset class="admin-record-warranty-radios">
+                  <legend>Reemplazo</legend>
+                  <label>
+                    <input v-model="warrantyForm.replacementType" type="radio" value="SAME_WATCH" />
+                    Mismo reloj
+                  </label>
+                  <label>
+                    <input v-model="warrantyForm.replacementType" type="radio" value="OTHER_WATCH" />
+                    Otro reloj
+                  </label>
+                </fieldset>
+                <label v-if="warrantyForm.replacementType === 'OTHER_WATCH'">
+                  <span>SKU del reloj entregado</span>
+                  <UiLuxInput v-model="warrantyForm.replacementSku" />
+                </label>
+                <label>
+                  <span>Notas (opcional)</span>
+                  <textarea v-model="warrantyForm.replacementNotes" rows="2" class="admin-record-textarea" />
+                </label>
+                <div class="admin-record-actions">
+                  <button
+                    type="button"
+                    class="admin-record-btn admin-record-btn--primary"
+                    :disabled="!!savingWarrantyId"
+                    @click.stop="submitWarranty(order, order.items.find((item) => item.id === warrantyItemId)!)"
+                  >
+                    {{ savingWarrantyId ? 'Guardando...' : 'Guardar garantía' }}
+                  </button>
+                  <button type="button" class="admin-record-btn admin-record-btn--ghost" @click.stop="closeWarrantyForm">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </AdminAccordionSection>
+
+            <div v-if="nextTransitions(order).length" class="admin-record-actions">
+              <button
+                v-for="status in nextTransitions(order)"
+                :key="status"
+                type="button"
+                class="admin-record-btn"
+                :class="{
+                  'admin-record-btn--danger': status === 'CANCELADO',
+                  'admin-record-btn--primary': status !== 'CANCELADO',
+                }"
+                :disabled="updatingId === order.id"
+                @click.stop="transition(order, status)"
+              >
+                {{ updatingId === order.id ? 'Actualizando...' : ORDER_TRANSITION_LABELS[status] }}
+              </button>
+              <button
+                v-if="hasPendingWarranty(order)"
+                type="button"
+                class="admin-record-btn admin-record-btn--primary"
+                @click.stop="firstPendingItem(order) && openWarrantyForm(order, firstPendingItem(order)!)"
+              >
+                Registrar garantía
+              </button>
+            </div>
+
+            <p v-else-if="order.status === 'ENTREGADO' && !hasPendingWarranty(order)" class="admin-record-status-note">
+              Pedido completado.
+            </p>
+            <p v-else-if="order.status === 'ENTREGADO' && hasPendingWarranty(order)" class="admin-record-status-note">
+              Pedido entregado. Registra la garantía cuando corresponda.
+            </p>
+            <p v-else-if="order.status === 'CANCELADO'" class="admin-record-status-note admin-record-status-note--cancel">
+              Pedido cancelado.
+            </p>
+          </div>
         </div>
       </article>
 
-      <p v-if="!orders.length" class="orders-empty">
+      <p v-if="!orders.length" class="admin-record-empty">
         {{ filter === 'ALL' ? 'No hay pedidos en este periodo.' : 'No hay pedidos con este estado.' }}
       </p>
     </div>
 
-    <nav v-if="totalPages > 1" class="orders-pagination" aria-label="Paginación de pedidos">
-      <button
-        type="button"
-        class="orders-page-btn"
-        :disabled="page <= 1 || pending"
-        @click="goToPage(page - 1)"
-      >
+    <nav v-if="totalPages > 1" class="admin-records-pagination" aria-label="Paginación de pedidos">
+      <button type="button" class="admin-records-page-btn" :disabled="page <= 1 || pending" @click="goToPage(page - 1)">
         Anterior
       </button>
-      <span class="orders-page-info">Página {{ page }} de {{ totalPages }}</span>
-      <button
-        type="button"
-        class="orders-page-btn"
-        :disabled="page >= totalPages || pending"
-        @click="goToPage(page + 1)"
-      >
+      <span class="admin-records-page-info">Página {{ page }} de {{ totalPages }}</span>
+      <button type="button" class="admin-records-page-btn" :disabled="page >= totalPages || pending" @click="goToPage(page + 1)">
         Siguiente
       </button>
     </nav>
   </div>
 </template>
 
-<style scoped>
-.orders-page {
-  max-width: 960px;
-}
-
-.orders-period-label {
-  margin: -16px 0 20px;
-  font-size: 12px;
-  color: var(--lux-white-dim);
-}
-
-.orders-toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.orders-periods,
-.orders-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.orders-filter-btn {
-  padding: 8px 14px;
-  border: var(--border-hairline);
-  background: transparent;
-  color: var(--lux-white-dim);
-  font-family: var(--lux-font-body);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.orders-filter-btn--active {
-  color: var(--lux-gold);
-  border-color: rgba(200, 169, 110, 0.35);
-}
-
-.orders-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.orders-row {
-  border: var(--border-hairline);
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.orders-row-summary {
-  display: grid;
-  grid-template-columns: 16px 1.1fr 1fr auto auto;
-  gap: 12px;
-  align-items: center;
-  width: 100%;
-  padding: 12px 14px;
-  border: none;
-  background: transparent;
-  color: var(--lux-white);
-  font-family: var(--lux-font-body);
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.orders-row-chevron {
-  color: var(--lux-white-dim);
-  transition: transform 0.2s;
-}
-
-.orders-row--open .orders-row-chevron {
-  transform: rotate(180deg);
-}
-
-.orders-row-sku {
-  font-family: var(--lux-font-display);
-  font-size: 14px;
-  color: var(--lux-gold);
-}
-
-.orders-row-customer {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.orders-row-total {
-  font-family: var(--lux-font-display);
-  font-size: 17px;
-  color: var(--lux-white);
-}
-
-.orders-row-date {
-  color: var(--lux-white-dim);
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.orders-row-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-end;
-  grid-column: 2 / -1;
-}
-
-.orders-row-details {
-  padding: 0 14px 14px 42px;
-  border-top: var(--border-hairline);
-}
-
-.orders-detail-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-  padding-top: 14px;
-  font-size: 13px;
-}
-
-.orders-detail-label {
-  margin: 0 0 6px;
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--lux-white-dim);
-}
-
-.orders-muted {
-  margin: 2px 0 0;
-  color: var(--lux-white-dim);
-  font-size: 12px;
-}
-
-.orders-items {
-  margin: 0;
-  padding-left: 0;
-  list-style: none;
-  color: var(--lux-white-dim);
-  font-size: 12px;
-}
-
-.orders-item-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.orders-warranty-btn {
-  padding: 4px 8px;
-  border: 1px solid rgba(200, 169, 110, 0.35);
-  background: transparent;
-  color: var(--lux-gold);
-  font-family: var(--lux-font-body);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.orders-warranty-btn:hover {
-  border-color: var(--lux-gold);
-}
-
-.orders-warranty-done {
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--lux-gold);
-}
-
-.orders-warranty-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: var(--border-hairline);
-}
-
-.orders-warranty-form label,
-.orders-warranty-radios {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 12px;
-}
-
-.orders-warranty-radios {
-  border: none;
-  padding: 0;
-}
-
-.orders-warranty-radios legend {
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--lux-white-dim);
-}
-
-.orders-warranty-radios label {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-}
-
-.orders-warranty-textarea {
-  width: 100%;
-  padding: 10px;
-  border: var(--border-hairline);
-  background: transparent;
-  color: var(--lux-white);
-  font-family: var(--lux-font-body);
-  font-size: 13px;
-  text-transform: uppercase;
-}
-
-.orders-timeline {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 12px;
-  font-size: 11px;
-  color: var(--lux-white-dim);
-}
-
-.orders-row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: var(--border-hairline);
-}
-
-.orders-action-btn {
-  padding: 8px 14px;
-  border: 1px solid rgba(200, 169, 110, 0.3);
-  background: transparent;
-  color: var(--lux-white);
-  font-family: var(--lux-font-body);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.orders-action-btn--primary:hover:not(:disabled) {
-  border-color: var(--lux-gold);
-  color: var(--lux-gold);
-}
-
-.orders-action-btn--danger {
-  border-color: rgba(255, 136, 136, 0.35);
-  color: #ff8888;
-}
-
-.orders-action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.orders-done {
-  margin: 12px 0 0;
-  font-size: 12px;
-  color: var(--lux-gold);
-}
-
-.orders-done--cancel {
-  color: #ff8888;
-}
-
-.orders-empty {
-  color: var(--lux-white-dim);
-  font-size: 13px;
-}
-
-.orders-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 20px;
-}
-
-.orders-page-btn {
-  padding: 8px 14px;
-  border: var(--border-hairline);
-  background: transparent;
-  color: var(--lux-white-dim);
-  font-family: var(--lux-font-body);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.orders-page-btn:hover:not(:disabled) {
-  color: var(--lux-gold);
-  border-color: rgba(200, 169, 110, 0.35);
-}
-
-.orders-page-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.orders-page-info {
-  font-size: 12px;
-  color: var(--lux-white-dim);
-}
-
-@media (max-width: 720px) {
-  .orders-row-summary {
-    grid-template-columns: 16px 1fr auto;
-  }
-
-  .orders-row-date {
-    grid-column: 2;
-  }
-
-  .orders-row-badges {
-    grid-column: 2 / -1;
-  }
-}
-</style>

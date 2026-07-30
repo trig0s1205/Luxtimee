@@ -92,7 +92,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
               </ul>
             </div>
             <NuxtLink :to="`/producto/${product.slug}`" class="detail-full-link" @click="closeProduct">
-              Ver ficha técnica →
+              Ver fotos y video del reloj →
             </NuxtLink>
           </div>
         </div>

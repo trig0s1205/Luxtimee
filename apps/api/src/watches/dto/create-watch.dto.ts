@@ -9,7 +9,9 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
+import { UppercaseOptional } from '../../common/decorators/uppercase.decorator';
+import { sanitizePlainTextOptional } from '../../common/utils/sanitize-text.util';
 
 const WATCH_STATUS_VALUES = ['DISPONIBLE', 'AGOTADO'] as const;
 export type WatchStatusValue = (typeof WATCH_STATUS_VALUES)[number];
@@ -29,6 +31,7 @@ export class CreateWatchDto {
 
   @IsOptional()
   @IsString()
+  @UppercaseOptional()
   reference?: string;
 
   @IsOptional()
@@ -156,6 +159,7 @@ export class CreateWatchDto {
 
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => sanitizePlainTextOptional(value, 8000))
   description?: string;
 
   @IsOptional()

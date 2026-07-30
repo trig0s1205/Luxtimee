@@ -17,11 +17,15 @@ const linksBeforePedidos = [
   { to: '/admin/inventario', label: 'Inventario' },
   { to: '/admin/catalog-settings', label: 'Marcas y clases' },
   { to: '/admin/pending-costs', label: 'Pendientes de costo', superOnly: true },
-  { to: '/admin/importar', label: 'Importar' },
-  { to: '/admin/pre-pedidos', label: 'Pre-pedidos' },
+];
+
+const prePedidosLinks = [
+  { to: '/admin/pre-pedidos/activos', label: 'Activos' },
+  { to: '/admin/pre-pedidos/suspendidos', label: 'Suspendidos' },
 ];
 
 const linksAfterPedidos = [
+  { to: '/admin/socios-mayoristas', label: 'Socios mayoristas' },
   { to: '/admin/garantias', label: 'Garantías' },
   { to: '/admin/envios', label: 'Envíos', superOnly: true },
 ];
@@ -40,6 +44,7 @@ function isActive(path: string) {
 }
 
 const isPedidosActive = computed(() => route.path.startsWith('/admin/pedidos'));
+const isPrePedidosActive = computed(() => route.path.startsWith('/admin/pre-pedidos'));
 
 function visibleLinks(links: typeof linksBeforePedidos) {
   return links.filter((item) => !item.superOnly || auth.isSuperAdmin);
@@ -83,6 +88,27 @@ function visibleLinks(links: typeof linksBeforePedidos) {
           </svg>
           {{ link.label }}
         </NuxtLink>
+
+        <div class="admin-nav-dropdown">
+          <div class="admin-nav-link" :class="{ active: isPrePedidosActive }">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="1" />
+            </svg>
+            Pre-pedidos
+          </div>
+
+          <div class="admin-nav-dropdown-menu">
+            <NuxtLink
+              v-for="link in prePedidosLinks"
+              :key="link.to"
+              :to="link.to"
+              class="admin-nav-link admin-nav-link--sub"
+              :class="{ active: isActive(link.to) }"
+            >
+              {{ link.label }}
+            </NuxtLink>
+          </div>
+        </div>
 
         <div class="admin-nav-dropdown">
           <div class="admin-nav-link" :class="{ active: isPedidosActive }">

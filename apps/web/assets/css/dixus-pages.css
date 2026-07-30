@@ -1611,16 +1611,50 @@ body.cart-scroll-lock {
 
 /* —— Product page —— */
 .product-page {
-  padding: 120px 60px 80px;
+  --product-gallery-width: 358px;
+  padding: 120px 60px 48px;
   background: var(--black);
 }
 
 .product-page-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 60px;
+  grid-template-columns: var(--product-gallery-width) minmax(0, 1fr);
+  gap: 48px;
   max-width: 1200px;
   margin: 0 auto;
+  align-items: start;
+}
+
+.product-gallery-col {
+  align-self: start;
+  width: var(--product-gallery-width);
+}
+
+.product-info-col {
+  text-align: center;
+}
+
+.product-info-head {
+  margin-bottom: 8px;
+}
+
+.product-detail-title {
+  font-size: clamp(28px, 3.5vw, 36px);
+  margin-bottom: 6px;
+}
+
+.product-detail-price {
+  font-size: clamp(24px, 3vw, 30px);
+  margin: 14px 0 18px;
+}
+
+.product-info-col .detail-actions {
+  justify-content: center;
+  margin-bottom: 0;
+}
+
+.product-info-col .watch-tech-sheet--inline {
+  text-align: left;
 }
 
 .product-experience-block {
@@ -1699,6 +1733,73 @@ body.cart-scroll-lock {
 .watch-tech-sheet--inline .watch-tech-sheet__note-text {
   font-size: 12px;
   line-height: 1.65;
+}
+
+.watch-tech-sheet--compact.watch-tech-sheet--inline {
+  margin-top: 20px;
+  padding-top: 18px;
+}
+
+.watch-tech-sheet--compact .watch-tech-sheet__header {
+  margin-bottom: 14px;
+}
+
+.watch-tech-sheet--compact .watch-tech-sheet__block {
+  margin-bottom: 18px;
+}
+
+.watch-tech-sheet--compact .watch-tech-sheet__block-title {
+  margin-bottom: 10px;
+  font-size: 9px;
+}
+
+.watch-tech-sheet--compact .watch-tech-sheet__description {
+  padding: 12px 14px;
+  gap: 10px;
+}
+
+.watch-tech-sheet--compact .watch-tech-sheet__description p {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.watch-tech-sheet--compact .watch-tech-sheet__grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.watch-tech-sheet--compact .watch-tech-sheet__spec {
+  padding: 10px 12px;
+}
+
+.watch-tech-sheet--compact .watch-tech-sheet__spec-label {
+  font-size: 8px;
+}
+
+.watch-tech-sheet--compact .watch-tech-sheet__spec-value {
+  font-size: 11px;
+}
+
+.watch-tech-sheet--compact .watch-tech-sheet__experience {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.watch-tech-sheet--compact .watch-tech-sheet__experience-card {
+  padding: 10px 12px;
+}
+
+.watch-tech-sheet--compact .watch-tech-sheet__experience-card p {
+  font-size: 10px;
+}
+
+.watch-tech-sheet--compact .watch-tech-sheet__note {
+  padding: 12px 14px;
+}
+
+.watch-tech-sheet--compact .watch-tech-sheet__note-text {
+  font-size: 11px;
+  line-height: 1.55;
 }
 
 .product-info-col {
@@ -1984,6 +2085,18 @@ body.cart-scroll-lock {
   .detail-wrapper,
   .product-page-grid {
     grid-template-columns: 1fr;
+  }
+
+  .product-gallery-col {
+    position: static;
+    width: 100%;
+    max-width: 280px;
+    margin: 0 auto 32px;
+  }
+
+  .watch-tech-sheet--compact .watch-tech-sheet__grid,
+  .watch-tech-sheet--compact .watch-tech-sheet__experience {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .detail-title,

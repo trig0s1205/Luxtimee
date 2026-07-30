@@ -7,6 +7,7 @@ definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
 
 const api = useApi();
 const toast = useToast();
+const { confirm } = useConfirm();
 
 const activeTab = ref<'brands' | 'categories'>('brands');
 const brandName = ref('');
@@ -44,7 +45,12 @@ async function createBrand() {
 }
 
 async function deleteBrand(brand: BrandDto) {
-  if (!confirm(`¿Eliminar la marca "${brand.name}"?`)) return;
+  const ok = await confirm({
+    title: `¿Eliminar la marca "${brand.name}"?`,
+    destructive: true,
+    confirmLabel: 'Eliminar',
+  });
+  if (!ok) return;
   try {
     await api.del(`/brands/${brand.id}`);
     toast.success('Marca eliminada');
@@ -74,7 +80,12 @@ async function createCategory() {
 }
 
 async function deleteCategory(category: CategoryDto) {
-  if (!confirm(`¿Eliminar la clase "${category.name}"?`)) return;
+  const ok = await confirm({
+    title: `¿Eliminar la clase "${category.name}"?`,
+    destructive: true,
+    confirmLabel: 'Eliminar',
+  });
+  if (!ok) return;
   try {
     await api.del(`/categories/${category.id}`);
     toast.success('Clase eliminada');

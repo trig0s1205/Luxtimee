@@ -6,8 +6,10 @@ import { buildWatchTechSpecs, splitDescription } from '~/utils/watch-tech-sheet'
 const props = withDefaults(defineProps<{
   watch: WatchPublicDto;
   inline?: boolean;
+  compact?: boolean;
 }>(), {
   inline: false,
+  compact: false,
 });
 
 const descriptionParagraphs = computed(() => splitDescription(props.watch.description));
@@ -18,7 +20,10 @@ const techSpecs = computed(() => buildWatchTechSpecs(props.watch));
   <section
     id="ficha-tecnica"
     class="watch-tech-sheet"
-    :class="{ 'watch-tech-sheet--inline': inline }"
+    :class="{
+      'watch-tech-sheet--inline': inline,
+      'watch-tech-sheet--compact': compact,
+    }"
   >
     <header class="watch-tech-sheet__header">
       <p class="watch-tech-sheet__eyebrow">Luxtime · Ficha técnica</p>

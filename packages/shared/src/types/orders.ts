@@ -60,6 +60,8 @@ export interface OrderDto {
   shippedAt: string | null;
   deliveredAt: string | null;
   canceledAt: string | null;
+  suspendedAt: string | null;
+  preOrderActiveAt: string;
   createdAt: string;
   updatedAt: string;
   items: OrderItemDto[];
@@ -88,6 +90,13 @@ export interface OrdersListDto {
   periodLabel: string;
 }
 
+export interface PreOrdersListDto {
+  items: OrderDto[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface PricingSummary {
   type: OrderType;
   subtotal: number;
@@ -95,4 +104,9 @@ export interface PricingSummary {
   total: number;
   depositExpected: number;
   unitCount: number;
+}
+
+export interface PreOrderCountsDto {
+  active: number;
+  suspended: number;
 }

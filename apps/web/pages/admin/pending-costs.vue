@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { WatchStaffDto } from '@luxtime/shared';
+import type { PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 
 definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
@@ -11,12 +11,32 @@ const toast = useToast();
 if (!auth.loaded) await auth.fetchMe();
 if (!auth.isSuperAdmin) throw createError({ statusCode: 403, message: 'Solo Super Admin' });
 
+const PAGE_SIZE = 10;
+const page = ref(1);
 const costDrafts = reactive<Record<string, string>>({});
 const savingId = ref<string | null>(null);
 
-const { data: watches, refresh, pending } = await useAsyncData('pending-cost-watches', () =>
-  api.get<WatchStaffDto[]>('/watches/pending-cost').catch(() => []),
+const emptyList: PaginatedResponse<WatchStaffDto> = {
+  data: [],
+  total: 0,
+  page: 1,
+  limit: PAGE_SIZE,
+};
+
+const { data: paginated, refresh, pending } = await useAsyncData(
+  'pending-cost-watches',
+  () => api.get<PaginatedResponse<WatchStaffDto>>('/watches/pending-cost', { page: page.value, limit: PAGE_SIZE }).catch(() => emptyList),
+  { watch: [page] },
 );
+
+const watches = computed(() => paginated.value?.data ?? []);
+const total = computed(() => paginated.value?.total ?? 0);
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)));
+
+function goToPage(next: number) {
+  if (next < 1 || next > totalPages.value) return;
+  page.value = next;
+}
 
 async function saveCost(watch: WatchStaffDto) {
   const raw = costDrafts[watch.id];
@@ -46,59 +66,71 @@ useSeoMeta({ title: 'Relojes pendientes de costo — Luxtime Admin' });
 <template>
   <div class="pending-costs">
     <UiToastContainer />
-    <UiSectionHeader label="Finanzas" title="Relojes pendientes de costo" />
+    <UiSectionHeader label="Finanzas" :title="`Relojes pendientes de costo (${total})`" />
     <p class="pending-costs-intro">
       Relojes sin costo asignado (vacío o en 0). Al guardar un costo mayor a 0 se calculan los márgenes automáticamente.
     </p>
 
-    <div v-if="pending" class="pending-costs-empty">Cargando...</div>
-    <div v-else-if="!watches?.length" class="pending-costs-empty">No hay relojes pendientes de costo.</div>
+    <div v-if="pending && !watches.length" class="pending-costs-empty">Cargando...</div>
+    <div v-else-if="!watches.length" class="pending-costs-empty">No hay relojes pendientes de costo.</div>
 
-    <table v-else class="pending-costs-table">
-      <thead>
-        <tr>
-          <th>Foto</th>
-          <th>Reloj</th>
-          <th>Precio público</th>
-          <th>Registrado</th>
-          <th>Costo (COP)</th>
-          <th />
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="watch in watches" :key="watch.id">
-          <td>
-            <img
-              :src="watch.primaryImageUrl || watch.frontImageUrl || watch.images[0] || ''"
-              :alt="watch.model"
-              class="pending-costs-thumb"
-            >
-          </td>
-          <td>
-            <strong>{{ watch.brand.name }} {{ watch.model }}</strong>
-            <span class="pending-costs-sku">{{ watch.sku }}</span>
-          </td>
-          <td>{{ formatCop(watch.retailPrice) }}</td>
-          <td>{{ new Date(watch.createdAt).toLocaleDateString('es-CO') }}</td>
-          <td>
-            <UiLuxInput
-              v-model="costDrafts[watch.id]"
-              type="number"
-              placeholder="0"
-              min="0"
-            />
-          </td>
-          <td>
-            <UiLuxButton
-              :disabled="savingId === watch.id"
-              @click="saveCost(watch)"
-            >
-              {{ savingId === watch.id ? 'Guardando...' : 'Guardar' }}
-            </UiLuxButton>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <template v-else>
+      <table class="pending-costs-table">
+        <thead>
+          <tr>
+            <th>Foto</th>
+            <th>Reloj</th>
+            <th>Precio público</th>
+            <th>Registrado</th>
+            <th>Costo (COP)</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="watch in watches" :key="watch.id">
+            <td>
+              <img
+                :src="watch.primaryImageUrl || watch.frontImageUrl || watch.images[0] || ''"
+                :alt="watch.model"
+                class="pending-costs-thumb"
+              >
+            </td>
+            <td>
+              <strong>{{ watch.brand.name }} {{ watch.model }}</strong>
+              <span class="pending-costs-sku">{{ watch.sku }}</span>
+            </td>
+            <td>{{ formatCop(watch.retailPrice) }}</td>
+            <td>{{ new Date(watch.createdAt).toLocaleDateString('es-CO') }}</td>
+            <td>
+              <UiLuxInput
+                v-model="costDrafts[watch.id]"
+                type="number"
+                placeholder="0"
+                min="0"
+              />
+            </td>
+            <td>
+              <UiLuxButton
+                :disabled="savingId === watch.id"
+                @click="saveCost(watch)"
+              >
+                {{ savingId === watch.id ? 'Guardando...' : 'Guardar' }}
+              </UiLuxButton>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <nav v-if="totalPages > 1" class="pending-costs-pagination" aria-label="Paginación pendientes de costo">
+        <button type="button" class="pending-costs-page-btn" :disabled="page <= 1 || pending" @click="goToPage(page - 1)">
+          Anterior
+        </button>
+        <span class="pending-costs-page-info">Página {{ page }} de {{ totalPages }}</span>
+        <button type="button" class="pending-costs-page-btn" :disabled="page >= totalPages || pending" @click="goToPage(page + 1)">
+          Siguiente
+        </button>
+      </nav>
+    </template>
   </div>
 </template>
 
@@ -153,6 +185,35 @@ useSeoMeta({ title: 'Relojes pendientes de costo — Luxtime Admin' });
   display: block;
   margin-top: 4px;
   font-size: 11px;
+  color: var(--lux-white-dim);
+}
+
+.pending-costs-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.pending-costs-page-btn {
+  padding: 10px 18px;
+  border: 1px solid rgba(200, 169, 110, 0.25);
+  background: transparent;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lux-white);
+  cursor: pointer;
+}
+
+.pending-costs-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pending-costs-page-info {
+  font-size: 12px;
   color: var(--lux-white-dim);
 }
 </style>

@@ -23,7 +23,7 @@ export class ReportsService {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Ganancia');
 
-    sheet.mergeCells('A1:G1');
+    sheet.mergeCells('A1:I1');
     const title = sheet.getCell('A1');
     title.value = 'Luxtime — Reporte de Ganancia';
     title.font = { bold: true, size: 14 };
@@ -33,10 +33,18 @@ export class ReportsService {
     sheet.addRow(['Generado por', owner.name]);
     sheet.addRow(['Correo', owner.email]);
     sheet.addRow(['Teléfono', owner.phone ?? 'No registrado']);
+    sheet.addRow(['Inversión en inventario', data.totalInventoryInvestment]);
+    sheet.addRow(['Ganancia bruta', data.totalGrossProfit]);
+    sheet.addRow(['Comisión secretaría', data.totalCommission]);
+    sheet.addRow(['Ganancia neta', data.totalProfit]);
+    sheet.addRow([`Fondo reinversión (${data.reinvestmentPercent}%)`, data.totalReinvestmentFund]);
+    sheet.addRow([`Ganancia libre dueño (${data.ownerProfitPercent}%)`, data.totalOwnerProfit]);
     sheet.addRow([]);
 
     const headerRow = sheet.addRow([
       'Pedido',
+      'Tipo',
+      'Estado',
       'Producto',
       'Cantidad',
       'Ingreso',
@@ -49,9 +57,22 @@ export class ReportsService {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEDE3C7' } };
     });
 
+    const orderTypeLabels: Record<string, string> = {
+      DETAL: 'Al detal',
+      MAYORISTA: 'Mayorista',
+    };
+    const orderStatusLabels: Record<string, string> = {
+      PENDIENTE: 'Pendiente',
+      PAGADO: 'Pagado',
+      ENVIADO: 'Enviado',
+      ENTREGADO: 'Entregado',
+    };
+
     data.items.forEach((item) => {
       sheet.addRow([
         item.readableId,
+        orderTypeLabels[item.orderType] ?? item.orderType,
+        orderStatusLabels[item.orderStatus] ?? item.orderStatus,
         item.productName,
         item.quantity,
         item.revenue,
@@ -64,6 +85,8 @@ export class ReportsService {
     sheet.addRow([]);
     const totalRow = sheet.addRow([
       '',
+      '',
+      '',
       'TOTAL',
       '',
       data.totalRevenue,
@@ -74,7 +97,7 @@ export class ReportsService {
     totalRow.font = { bold: true };
 
     sheet.columns.forEach((col, index) => {
-      col.width = index === 1 ? 32 : 18;
+      col.width = index === 3 ? 32 : 18;
     });
 
     const arrayBuffer = await workbook.xlsx.writeBuffer();
@@ -100,9 +123,13 @@ export class ReportsService {
 
       doc.fontSize(12).text(`Periodo: ${this.periodLabel(data.period)}`);
       doc.text(`Ingresos: $${data.totalRevenue.toLocaleString('es-CO')}`);
-      doc.text(`Costos: $${data.totalCost.toLocaleString('es-CO')}`);
-      doc.text(`Ganancia: $${data.totalProfit.toLocaleString('es-CO')}`);
+      doc.text(`Costos vendidos: $${data.totalCost.toLocaleString('es-CO')}`);
+      doc.text(`Ganancia bruta: $${data.totalGrossProfit.toLocaleString('es-CO')}`);
       doc.text(`Comisión secretaría: $${data.totalCommission.toLocaleString('es-CO')}`);
+      doc.text(`Ganancia neta: $${data.totalProfit.toLocaleString('es-CO')}`);
+      doc.text(`Fondo reinversión (${data.reinvestmentPercent}%): $${data.totalReinvestmentFund.toLocaleString('es-CO')}`);
+      doc.text(`Ganancia libre dueño (${data.ownerProfitPercent}%): $${data.totalOwnerProfit.toLocaleString('es-CO')}`);
+      doc.text(`Inversión en inventario: $${data.totalInventoryInvestment.toLocaleString('es-CO')}`);
       doc.moveDown();
 
       if (!data.items.length) {

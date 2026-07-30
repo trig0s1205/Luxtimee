@@ -3,9 +3,10 @@ import { PreOrderRemindersService } from './pre-order-reminders.service';
 import { CronController } from './cron.controller';
 import { NotificationsModule } from '../../notifications/notifications.module';
 import { IntegrationsModule } from '../../integrations/integrations.module';
+import { PreOrdersModule } from '../../pre-orders/pre-orders.module';
 
 @Module({
-  imports: [NotificationsModule, IntegrationsModule],
+  imports: [NotificationsModule, IntegrationsModule, PreOrdersModule],
   controllers: [CronController],
   providers: [PreOrderRemindersService],
 })
