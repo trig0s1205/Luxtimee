@@ -19,6 +19,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @luxtime/api exec prisma generate
+      - run: pnpm --filter @luxtime/shared build
       - run: pnpm typecheck
       - run: pnpm --filter @luxtime/api test
       - run: pnpm build
