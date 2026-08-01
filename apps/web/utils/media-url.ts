@@ -1,16 +1,22 @@
+function withAssetsBase(path: string, assetsBaseUrl: string): string {
+  const base = assetsBaseUrl.replace(/\/$/, '');
+  if (!base) return path;
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
 export function resolveMediaUrl(url?: string | null, assetsBaseUrl = 'http://localhost:3001'): string | undefined {
   if (!url) return undefined;
   if (url.startsWith('blob:') || url.startsWith('data:')) return url;
   if (url.startsWith('http://') || url.startsWith('https://')) {
     try {
       const parsed = new URL(url);
-      if (parsed.pathname.startsWith('/uploads')) return parsed.pathname;
+      if (parsed.pathname.startsWith('/uploads')) return withAssetsBase(parsed.pathname, assetsBaseUrl);
     } catch {
       return url;
     }
     return url;
   }
-  if (url.startsWith('/uploads')) return url;
+  if (url.startsWith('/uploads')) return withAssetsBase(url, assetsBaseUrl);
   return `${assetsBaseUrl.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
 }
 
