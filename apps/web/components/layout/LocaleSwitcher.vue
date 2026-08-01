@@ -5,12 +5,12 @@ const { t, locale, setLocale } = useLocale();
 const open = ref(false);
 
 const options: { value: AppLocale; label: string }[] = [
-  { value: 'en', label: 'English' },
   { value: 'es', label: 'Español' },
+  { value: 'en', label: 'English' },
 ];
 
 const currentLabel = computed(() =>
-  options.find((o) => o.value === locale.value)?.label ?? 'English',
+  options.find((o) => o.value === locale.value)?.label ?? 'Español',
 );
 
 const currentShortLabel = computed(() => (locale.value === 'es' ? 'ES' : 'EN'));
