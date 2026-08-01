@@ -16,6 +16,7 @@ import { memoryStorage } from 'multer';
 import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { SettingsService } from './settings.service';
+import { CACHE_TAGS, Cacheable } from '../common/cache/cache.decorator';
 import { Public, Roles, Audit, Financial } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { FinancialGuard } from '../common/guards/financial.guard';
@@ -35,24 +36,28 @@ export class SettingsController {
 
   @Public()
   @Get('legal/public')
+  @Cacheable({ ttlMs: 600_000, tag: CACHE_TAGS.settings, maxAge: 300 })
   getLegalPublic() {
     return this.settingsService.getLegalDocuments();
   }
 
   @Public()
   @Get('whatsapp/public')
+  @Cacheable({ ttlMs: 600_000, tag: CACHE_TAGS.settings, maxAge: 300 })
   getWhatsappPublic() {
     return this.settingsService.getWhatsappLink();
   }
 
   @Public()
   @Get('platform/public')
+  @Cacheable({ ttlMs: 600_000, tag: CACHE_TAGS.settings, maxAge: 300 })
   getPlatformPublic() {
     return this.settingsService.getPlatformConfig();
   }
 
   @Public()
   @Get('homepage/public')
+  @Cacheable({ ttlMs: 300_000, tag: CACHE_TAGS.settings, maxAge: 120 })
   getHomepagePublic() {
     return this.settingsService.getHomepageConfig();
   }

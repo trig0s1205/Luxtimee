@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import type { HomepageConfigDto } from '@luxtime/shared';
+import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 
 const catalog = useCatalogData();
 const { observe } = useRevealObserver();
 const { fetchConfig, DEFAULT_HOMEPAGE_CONFIG } = useHomepageConfig();
 
-const { data: heroWatches } = await useAsyncData('home-best-sellers', () => catalog.getBestSellers(6));
-const { data: homeCms } = await useAsyncData<HomepageConfigDto>(
+const { data: heroWatches } = await useCachedAsyncData(
+  'home-best-sellers',
+  () => catalog.getBestSellers(6),
+  { staleTime: STOREFRONT_CACHE_MS.catalog },
+);
+const { data: homeCms } = await useCachedAsyncData<HomepageConfigDto>(
   'home-cms-config',
   () => fetchConfig(),
-  { default: () => structuredClone(DEFAULT_HOMEPAGE_CONFIG) },
+  { default: (): HomepageConfigDto => structuredClone(DEFAULT_HOMEPAGE_CONFIG), staleTime: STOREFRONT_CACHE_MS.static },
 );
 
 const cms = computed<HomepageConfigDto>(() => homeCms.value ?? DEFAULT_HOMEPAGE_CONFIG);

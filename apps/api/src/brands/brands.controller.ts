@@ -11,6 +11,7 @@ import {
 import { Role } from '@prisma/client';
 import { BrandsService } from './brands.service';
 import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
+import { CACHE_TAGS, Cacheable } from '../common/cache/cache.decorator';
 import { Public, Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 
@@ -20,6 +21,7 @@ export class BrandsController {
 
   @Public()
   @Get('public')
+  @Cacheable({ ttlMs: 600_000, tag: CACHE_TAGS.brands, maxAge: 300 })
   findAllPublic() {
     return this.brandsService.findAllPublic();
   }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CreatePreOrderDto, LegalDocumentsDto, ShippingZoneDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
+import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 
 const cart = useCartStore();
 const api = useApi();
@@ -17,11 +18,13 @@ const form = reactive({
 const loading = ref(false);
 const error = ref('');
 
-const { data: zones } = await useAsyncData('shipping-zones', () =>
+const { data: zones } = await useCachedAsyncData('shipping-zones', () =>
   api.get<ShippingZoneDto[]>('/shipping-zones/public').catch(() => []),
+  { staleTime: STOREFRONT_CACHE_MS.static },
 );
-const { data: legal } = await useAsyncData('legal-docs', () =>
+const { data: legal } = await useCachedAsyncData('legal-docs', () =>
   api.get<LegalDocumentsDto>('/settings/legal/public'),
+  { staleTime: STOREFRONT_CACHE_MS.static },
 );
 
 const shippingCost = computed(() => {

@@ -127,7 +127,14 @@ const props = defineProps<{ config: HomepageValuePropsConfig }>();
 }
 
 @media (max-width: 640px) {
-  .lux-values { padding: 3.5rem 1.25rem; }
-  .lux-values__grid { grid-template-columns: 1fr; }
+  .lux-values { padding: 3.25rem 1.25rem; }
+  .lux-values__grid { grid-template-columns: 1fr; gap: 1rem; }
+  .lux-values__item { padding: 1.75rem 1.5rem; }
+}
+
+@media (max-width: 480px) {
+  .lux-values { padding: 2.75rem 1rem; }
+  .lux-values__item { padding: 1.5rem 1.25rem; }
+  .lux-values__title { font-size: clamp(1.75rem, 8vw, 2.5rem); }
 }
 </style>

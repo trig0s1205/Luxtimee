@@ -13,6 +13,8 @@ import { mkdir, unlink, writeFile } from 'fs/promises';
 import { extname, join } from 'path';
 import { randomUUID } from 'crypto';
 import { assertMediaFile } from '../common/utils/file-magic.util';
+import { CACHE_TAGS } from '../common/cache/cache.decorator';
+import { MemoryCacheService } from '../common/cache/memory-cache.service';
 
 const MAX_CATALOG_FEATURED = 6;
 const CATALOG_LIMIT_MESSAGE =
@@ -25,6 +27,7 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     private watchesRepository: WatchesRepository,
     private settingsService: SettingsService,
     private imageProcessing: ImageProcessingService,
+    private cache: MemoryCacheService,
   ) {}
 
   async findAll(query: WatchQueryDto) {
@@ -161,6 +164,7 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
 
     const watch = await this.watchesRepository.create(data);
     this.logger.log(`[watches:create] ${watch.id} sku=${watch.sku}`);
+    this.cache.invalidateTag(CACHE_TAGS.catalog);
     return watch;
   }
 
@@ -256,6 +260,7 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
 
     const watch = await this.watchesRepository.update(id, data);
     this.logger.log(`[watches:update] ${watch.id} sku=${watch.sku}`);
+    this.cache.invalidateTag(CACHE_TAGS.catalog);
     return watch;
   }
 
@@ -271,6 +276,7 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     await this.watchesRepository.findById(id);
     const watch = await this.watchesRepository.softDelete(id);
     this.logger.log(`[watches:delete] ${watch.id} sku=${watch.sku}`);
+    this.cache.invalidateTag(CACHE_TAGS.catalog);
     return watch;
   }
 

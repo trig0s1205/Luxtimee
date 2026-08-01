@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import type { WatchPublicDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { buildRelatedWatches } from '~/utils/similar-watches';
+import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 
 const RELATED_WATCHES_TOTAL = 20;
 
@@ -11,17 +13,17 @@ const cart = useCartStore();
 const { openChat } = useWhatsApp();
 const analytics = useAnalytics();
 
-const { data: watch, error } = await useAsyncData(
-  'product-detail',
+const { data: watch, error } = await useCachedAsyncData(
+  () => `product-detail-${slug.value}`,
   () => catalog.getBySlug(slug.value),
-  { watch: [slug] },
+  { watch: [slug], staleTime: STOREFRONT_CACHE_MS.product },
 );
 const { watchPrimaryImage, watchSecondaryImage, watchVideoUrl } = useMediaUrl();
 
-const { data: catalogPool } = await useAsyncData(
+const { data: catalogPool } = await useCachedAsyncData<WatchPublicDto[]>(
   'product-related-pool',
   async () => (await catalog.listCatalog({ limit: 100, available: 'true' })).data,
-  { default: () => [] },
+  { default: (): WatchPublicDto[] => [], staleTime: STOREFRONT_CACHE_MS.catalog },
 );
 
 const similarWatches = computed(() => (

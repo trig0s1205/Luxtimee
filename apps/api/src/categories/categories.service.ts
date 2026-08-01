@@ -2,10 +2,15 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
 import { slugify } from '../common/utils/slug.util';
+import { CACHE_TAGS } from '../common/cache/cache.decorator';
+import { MemoryCacheService } from '../common/cache/memory-cache.service';
 
 @Injectable()
 export class CategoriesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cache: MemoryCacheService,
+  ) {}
 
   findAllPublic() {
     return this.prisma.category.findMany({ orderBy: { name: 'asc' } });
@@ -17,17 +22,21 @@ export class CategoriesService {
 
   async create(dto: CreateCategoryDto) {
     const slug = slugify(dto.name);
-    return this.prisma.category.create({
+    const category = await this.prisma.category.create({
       data: { name: dto.name, slug },
     });
+    this.cache.invalidateTags([CACHE_TAGS.categories, CACHE_TAGS.catalog]);
+    return category;
   }
 
   async update(id: string, dto: UpdateCategoryDto) {
     await this.ensureExists(id);
-    return this.prisma.category.update({
+    const category = await this.prisma.category.update({
       where: { id },
       data: { name: dto.name, slug: slugify(dto.name) },
     });
+    this.cache.invalidateTags([CACHE_TAGS.categories, CACHE_TAGS.catalog]);
+    return category;
   }
 
   async remove(id: string) {
@@ -36,7 +45,9 @@ export class CategoriesService {
     if (inUse > 0) {
       throw new BadRequestException('No se puede eliminar: hay relojes asociados a esta clase.');
     }
-    return this.prisma.category.delete({ where: { id } });
+    const category = await this.prisma.category.delete({ where: { id } });
+    this.cache.invalidateTags([CACHE_TAGS.categories, CACHE_TAGS.catalog]);
+    return category;
   }
 
   private async ensureExists(id: string) {

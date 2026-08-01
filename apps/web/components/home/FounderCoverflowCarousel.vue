@@ -236,11 +236,27 @@ onUnmounted(stop);
 
 @media (max-width: 640px) {
   .lux-coverflow__stage {
-    height: 300px;
+    height: 280px;
   }
 
   .lux-coverflow__card {
-    width: min(70%, 240px);
+    width: min(68%, 220px);
+  }
+
+  .lux-coverflow__nav {
+    width: 44px;
+    height: 44px;
+    font-size: 1.4rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .lux-coverflow__stage {
+    height: 250px;
+  }
+
+  .lux-coverflow__card {
+    width: min(72%, 200px);
   }
 }
 </style>

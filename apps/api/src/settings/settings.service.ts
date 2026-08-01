@@ -11,9 +11,18 @@ import type {
   ProfitConfigDto,
   WhatsappSettingDto,
 } from '@luxtime/shared';
+import { CACHE_TAGS } from '../common/cache/cache.decorator';
+import { MemoryCacheService } from '../common/cache/memory-cache.service';
 
 const HOMEPAGE_UPLOAD_DIR = join(process.cwd(), 'uploads', 'homepage');
 const HOMEPAGE_KEY = 'homepage_config';
+
+const PUBLIC_SETTING_KEYS = new Set([
+  'whatsapp_link',
+  'legal_documents',
+  'platform_config',
+  HOMEPAGE_KEY,
+]);
 
 function ensureHomepageDir() {
   if (!existsSync(HOMEPAGE_UPLOAD_DIR)) {
@@ -84,7 +93,10 @@ const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
 
 @Injectable()
 export class SettingsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cache: MemoryCacheService,
+  ) {}
 
   async getJson<T>(key: string, fallback: T): Promise<T> {
     const row = await this.prisma.setting.findUnique({ where: { key } });
@@ -92,11 +104,15 @@ export class SettingsService {
   }
 
   async setJson(key: string, value: unknown) {
-    return this.prisma.setting.upsert({
+    const row = await this.prisma.setting.upsert({
       where: { key },
       update: { value: value as object },
       create: { key, value: value as object },
     });
+    if (PUBLIC_SETTING_KEYS.has(key)) {
+      this.cache.invalidateTag(CACHE_TAGS.settings);
+    }
+    return row;
   }
 
   getWhatsappLink() {

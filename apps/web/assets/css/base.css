@@ -25,6 +25,7 @@ body {
   background: var(--black);
   color: var(--white);
   font-family: var(--font-body);
+  overflow-x: hidden;
 }
 
 section {
@@ -874,15 +875,15 @@ section {
 /* —— Responsive base —— */
 @media (max-width: 768px) {
   section {
-    padding: 80px 24px;
+    padding: 72px 20px;
   }
 
   .site-nav {
-    padding: 20px 24px;
+    padding: 16px 20px;
   }
 
   .site-nav.scrolled {
-    padding: 14px 24px;
+    padding: 12px 20px;
   }
 
   .nav-links,
@@ -892,20 +893,38 @@ section {
 
   .navbar-hamburger {
     display: flex;
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .footer-grid {
     grid-template-columns: 1fr 1fr;
-    gap: 40px;
+    gap: 36px;
   }
 
   .site-footer {
-    padding: 40px 24px;
+    padding: 40px 20px;
   }
 
   .footer-bottom {
     flex-direction: column;
     align-items: flex-start;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  section {
+    padding: 56px 16px;
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .site-footer {
+    padding: 36px 16px;
   }
 }
 

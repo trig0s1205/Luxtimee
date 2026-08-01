@@ -305,7 +305,26 @@ const signatureSrc = computed(() => resolve(props.config.signatureImageUrl));
 
 @media (max-width: 640px) {
   .lux-founder {
-    padding: 4rem 1.25rem;
+    padding: 3.5rem 1.25rem;
+  }
+
+  .lux-founder__title {
+    font-size: clamp(2rem, 8vw, 2.75rem);
+  }
+
+  .lux-founder__quote {
+    padding: 1.25rem 1.25rem;
+    font-size: clamp(1rem, 4.5vw, 1.25rem);
+  }
+}
+
+@media (max-width: 480px) {
+  .lux-founder {
+    padding: 2.75rem 1rem;
+  }
+
+  .lux-founder__inner {
+    gap: 2rem;
   }
 }
 </style>

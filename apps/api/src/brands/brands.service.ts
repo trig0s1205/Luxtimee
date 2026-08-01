@@ -2,10 +2,15 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBrandDto, UpdateBrandDto } from './dto/brand.dto';
 import { slugify } from '../common/utils/slug.util';
+import { CACHE_TAGS } from '../common/cache/cache.decorator';
+import { MemoryCacheService } from '../common/cache/memory-cache.service';
 
 @Injectable()
 export class BrandsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cache: MemoryCacheService,
+  ) {}
 
   findAllPublic() {
     return this.prisma.brand.findMany({ orderBy: { name: 'asc' } });
@@ -17,17 +22,21 @@ export class BrandsService {
 
   async create(dto: CreateBrandDto) {
     const slug = slugify(dto.name);
-    return this.prisma.brand.create({
+    const brand = await this.prisma.brand.create({
       data: { name: dto.name, slug },
     });
+    this.cache.invalidateTags([CACHE_TAGS.brands, CACHE_TAGS.catalog]);
+    return brand;
   }
 
   async update(id: string, dto: UpdateBrandDto) {
     await this.ensureExists(id);
-    return this.prisma.brand.update({
+    const brand = await this.prisma.brand.update({
       where: { id },
       data: { name: dto.name, slug: slugify(dto.name) },
     });
+    this.cache.invalidateTags([CACHE_TAGS.brands, CACHE_TAGS.catalog]);
+    return brand;
   }
 
   async remove(id: string) {
@@ -36,7 +45,9 @@ export class BrandsService {
     if (inUse > 0) {
       throw new BadRequestException('No se puede eliminar: hay relojes asociados a esta marca.');
     }
-    return this.prisma.brand.delete({ where: { id } });
+    const brand = await this.prisma.brand.delete({ where: { id } });
+    this.cache.invalidateTags([CACHE_TAGS.brands, CACHE_TAGS.catalog]);
+    return brand;
   }
 
   private async ensureExists(id: string) {

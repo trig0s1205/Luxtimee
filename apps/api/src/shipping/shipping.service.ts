@@ -1,5 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CACHE_TAGS } from '../common/cache/cache.decorator';
+import { MemoryCacheService } from '../common/cache/memory-cache.service';
 
 export class CreateShippingZoneDto {
   name!: string;
@@ -9,7 +11,10 @@ export class CreateShippingZoneDto {
 
 @Injectable()
 export class ShippingService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cache: MemoryCacheService,
+  ) {}
 
   findAllPublic() {
     return this.prisma.shippingZone.findMany({ orderBy: { cost: 'asc' } });
@@ -29,23 +34,27 @@ export class ShippingService {
     const existing = await this.prisma.shippingZone.findUnique({ where: { name } });
     if (existing) throw new BadRequestException('Ya existe una zona con ese nombre');
 
-    return this.prisma.shippingZone.create({
+    const zone = await this.prisma.shippingZone.create({
       data: {
         name,
         cost: Math.round(dto.cost),
         isNational: dto.isNational ?? false,
       },
     });
+    this.cache.invalidateTag(CACHE_TAGS.shipping);
+    return zone;
   }
 
   async update(id: string, cost: number) {
     if (!Number.isFinite(cost) || cost < 0) {
       throw new BadRequestException('El costo debe ser un número válido');
     }
-    return this.prisma.shippingZone.update({
+    const zone = await this.prisma.shippingZone.update({
       where: { id },
       data: { cost: Math.round(cost) },
     });
+    this.cache.invalidateTag(CACHE_TAGS.shipping);
+    return zone;
   }
 
   async remove(id: string) {
@@ -58,6 +67,7 @@ export class ShippingService {
     }
 
     await this.prisma.shippingZone.delete({ where: { id } });
+    this.cache.invalidateTag(CACHE_TAGS.shipping);
     return { ok: true };
   }
 }

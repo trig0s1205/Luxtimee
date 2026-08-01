@@ -2046,9 +2046,15 @@ body.cart-scroll-lock {
 
   .catalog-hero,
   .catalog-filter-container,
-  .catalog-section {
-    padding-left: 24px;
-    padding-right: 24px;
+  .catalog-section,
+  .product-page {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .product-page {
+    padding-top: 80px;
+    padding-bottom: 32px;
   }
 
   .catalog-filter-container {
@@ -2090,8 +2096,20 @@ body.cart-scroll-lock {
   .product-gallery-col {
     position: static;
     width: 100%;
-    max-width: 280px;
-    margin: 0 auto 32px;
+    max-width: 300px;
+    margin: 0 auto 28px;
+  }
+
+  .detail-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .btn-add-to-cart,
+  .btn-whatsapp {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
   }
 
   .watch-tech-sheet--compact .watch-tech-sheet__grid,
@@ -2143,5 +2161,65 @@ body.cart-scroll-lock {
   .cdown-cell {
     min-width: 58px;
     padding: 12px 8px;
+  }
+
+  .catalog-hero {
+    padding: 64px 16px 28px;
+  }
+
+  .catalog-hero h1 {
+    font-size: clamp(36px, 10vw, 56px);
+  }
+
+  .catalog-filter-container {
+    padding: 0 16px 28px;
+    gap: 10px;
+  }
+
+  .catalog-section {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .product-page {
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-top: 72px;
+  }
+
+  .product-gallery-col {
+    max-width: 260px;
+  }
+
+  .watch-tech-sheet--compact .watch-tech-sheet__grid,
+  .watch-tech-sheet--compact .watch-tech-sheet__experience,
+  .watch-tech-sheet--inline .watch-tech-sheet__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .products-info {
+    padding: 14px 12px;
+  }
+
+  .products-grid,
+  .catalog-grid {
+    gap: 1px;
+  }
+
+  .manifesto-section,
+  .plans-grid,
+  .bespoke-block,
+  .disclaimer-box {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .disclaimer-box {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+
+  .statement-section {
+    padding: 60px 16px;
   }
 }

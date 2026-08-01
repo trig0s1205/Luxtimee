@@ -1,6 +1,7 @@
 import { Controller, Get, Logger, Param, Query, UseGuards, UseInterceptors } from '@nestjs/common';
 import { CatalogService } from './catalog.service';
 import { CatalogQueryDto } from './dto/catalog-query.dto';
+import { CACHE_TAGS, Cacheable } from '../common/cache/cache.decorator';
 import { Public } from '../common/decorators/metadata.decorators';
 import { FinancialStripInterceptor } from '../common/interceptors/financial-strip.interceptor';
 import { WholesaleAccessGuard } from '../common/guards/wholesale-access.guard';
@@ -14,12 +15,14 @@ export class CatalogController {
   constructor(private catalogService: CatalogService) {}
 
   @Get()
+  @Cacheable({ ttlMs: 60_000, tag: CACHE_TAGS.catalog, maxAge: 60 })
   list(@Query() query: CatalogQueryDto) {
     this.logger.log(`[catalog:list] params=${JSON.stringify(query)}`);
     return this.catalogService.list(query);
   }
 
   @Get('best-sellers')
+  @Cacheable({ ttlMs: 120_000, tag: CACHE_TAGS.catalog, maxAge: 120 })
   bestSellers(@Query('limit') limit?: string) {
     const parsed = Number(limit);
     const safeLimit = Number.isFinite(parsed) ? Math.min(12, Math.max(1, parsed)) : 6;
@@ -27,6 +30,7 @@ export class CatalogController {
   }
 
   @Get('featured')
+  @Cacheable({ ttlMs: 120_000, tag: CACHE_TAGS.catalog, maxAge: 120 })
   featured(@Query('limit') limit?: string) {
     const parsed = Number(limit);
     const safeLimit = Number.isFinite(parsed) ? Math.min(24, Math.max(1, parsed)) : 12;
@@ -34,6 +38,7 @@ export class CatalogController {
   }
 
   @Get('new-arrivals')
+  @Cacheable({ ttlMs: 120_000, tag: CACHE_TAGS.catalog, maxAge: 120 })
   newArrivals() {
     return this.catalogService.findNewArrivals();
   }
@@ -51,6 +56,7 @@ export class CatalogController {
   }
 
   @Get(':slug')
+  @Cacheable({ ttlMs: 60_000, tag: CACHE_TAGS.catalog, maxAge: 60 })
   bySlug(@Param('slug') slug: string) {
     return this.catalogService.findBySlug(slug);
   }

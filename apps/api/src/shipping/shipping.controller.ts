@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { ShippingService } from './shipping.service';
+import { CACHE_TAGS, Cacheable } from '../common/cache/cache.decorator';
 import { Public, Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import {
@@ -14,6 +15,7 @@ export class ShippingController {
 
   @Public()
   @Get('public')
+  @Cacheable({ ttlMs: 600_000, tag: CACHE_TAGS.shipping, maxAge: 300 })
   findPublic() {
     return this.shippingService.findAllPublic();
   }

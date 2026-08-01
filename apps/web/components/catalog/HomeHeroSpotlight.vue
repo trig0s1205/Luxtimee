@@ -600,20 +600,21 @@ onBeforeUnmount(() => stopTimer());
   }
 }
 
-/* Móvil: layout compacto, sin romper usabilidad; rediseño mobile en fase aparte */
 @media (max-width: 768px) {
   .lux-hero {
     min-height: auto;
-    padding: 6rem 1.25rem 2rem;
+    padding: 5.5rem 1.25rem 2rem;
   }
 
   .lux-hero__stage {
     grid-template-columns: 1fr;
     text-align: center;
+    gap: 1.5rem;
   }
 
   .lux-hero__copy {
     justify-content: center;
+    order: 1;
   }
 
   .lux-hero__copy-inner {
@@ -631,16 +632,16 @@ onBeforeUnmount(() => stopTimer());
   }
 
   .lux-hero__visual {
-    min-height: 220px;
-    order: -1;
+    min-height: 200px;
+    order: 0;
   }
 
   .lux-hero__watch-wrap {
-    width: min(100%, 235px);
+    width: min(100%, 220px);
   }
 
   .lux-hero__watch {
-    transform: scale(0.7);
+    transform: scale(0.72);
   }
 
   .lux-hero__inset {
@@ -671,6 +672,29 @@ onBeforeUnmount(() => stopTimer());
 
   .lux-hero__footer-cta {
     flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .lux-hero__footer-cta .btn-primary,
+  .lux-hero__footer-cta .btn-ghost {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .lux-hero {
+    padding: 5rem 1rem 1.75rem;
+  }
+
+  .lux-hero__visual {
+    min-height: 170px;
+  }
+
+  .lux-hero__watch-wrap {
+    width: min(100%, 190px);
   }
 }
 

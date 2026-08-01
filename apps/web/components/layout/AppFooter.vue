@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { PlatformConfigDto } from '@luxtime/shared';
+import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 
 const { t } = useLocale();
 const route = useRoute();
 const apiBase = useApiBaseUrl();
 
-const { data: platform } = await useAsyncData('footer-platform', () =>
+const { data: platform } = await useCachedAsyncData('footer-platform', () =>
   $fetch<PlatformConfigDto>(`${apiBase}/settings/platform/public`).catch(() => ({
     supportEmail: 'help@luxtime.co',
     city: 'Piedecuesta, Santander — Colombia',
@@ -13,6 +14,7 @@ const { data: platform } = await useAsyncData('footer-platform', () =>
     tiktokUrl: 'https://www.tiktok.com/',
     facebookUrl: 'https://www.facebook.com/',
   })),
+  { staleTime: STOREFRONT_CACHE_MS.static },
 );
 </script>
 

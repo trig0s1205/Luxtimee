@@ -11,6 +11,7 @@ import {
 import { Role } from '@prisma/client';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
+import { CACHE_TAGS, Cacheable } from '../common/cache/cache.decorator';
 import { Public, Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 
@@ -20,6 +21,7 @@ export class CategoriesController {
 
   @Public()
   @Get('public')
+  @Cacheable({ ttlMs: 600_000, tag: CACHE_TAGS.categories, maxAge: 300 })
   findAllPublic() {
     return this.categoriesService.findAllPublic();
   }

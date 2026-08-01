@@ -320,8 +320,8 @@ watch(() => props.watches, () => {
 }
 
 .similar-watches__slide {
-  flex: 0 0 200px;
-  width: 200px;
+  flex: 0 0 clamp(140px, 36vw, 200px);
+  width: clamp(140px, 36vw, 200px);
   opacity: 0.92;
   transform: scale(0.97);
   transition: opacity 0.45s ease, transform 0.45s ease;
@@ -369,12 +369,28 @@ watch(() => props.watches, () => {
 
 @media (max-width: 768px) {
   .similar-watches {
-    width: 94vw;
-    max-width: 94vw;
+    width: 96vw;
+    max-width: 96vw;
   }
 
   .similar-watches__arrow {
     opacity: 1;
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .similar-watches {
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .similar-watches__slide {
+    flex: 0 0 44vw;
+    width: 44vw;
   }
 }
 </style>

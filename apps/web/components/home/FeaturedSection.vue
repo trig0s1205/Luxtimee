@@ -142,8 +142,14 @@ const props = defineProps<{ config: HomepageFeaturedConfig }>();
 }
 
 @media (max-width: 768px) {
-  .lux-collection { padding: 3.5rem 1.25rem; }
+  .lux-collection { padding: 3.25rem 1.25rem; }
   .lux-collection__inner { padding: 1.5rem 1.25rem; }
   .lux-collection__cta { width: 100%; justify-content: center; }
+}
+
+@media (max-width: 480px) {
+  .lux-collection { padding: 2.75rem 1rem; }
+  .lux-collection__inner { padding: 1.25rem 1rem; gap: 1.5rem; }
+  .lux-collection__title { font-size: clamp(2.25rem, 9vw, 3rem); }
 }
 </style>
