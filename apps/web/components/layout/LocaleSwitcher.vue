@@ -13,6 +13,8 @@ const currentLabel = computed(() =>
   options.find((o) => o.value === locale.value)?.label ?? 'English',
 );
 
+const currentShortLabel = computed(() => (locale.value === 'es' ? 'ES' : 'EN'));
+
 function pick(value: AppLocale) {
   setLocale(value);
   open.value = false;
@@ -39,7 +41,8 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside));
         <circle cx="12" cy="12" r="10" />
         <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
       </svg>
-      {{ currentLabel }}
+      <span class="nav-locale-text nav-locale-text--long">{{ currentLabel }}</span>
+      <span class="nav-locale-text nav-locale-text--short">{{ currentShortLabel }}</span>
       <span class="nav-locale-caret" :class="{ open }">▾</span>
     </button>
     <ul v-if="open" class="nav-locale-menu">

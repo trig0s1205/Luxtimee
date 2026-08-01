@@ -194,17 +194,6 @@ async function handleSubmit(form: WatchFormPayload) {
   }
 }
 
-async function handleToggleVisibility(watch: WatchStaffDto) {
-  try {
-    await api.patch<WatchStaffDto>(`/watches/${watch.id}`, { isPublished: !watch.isPublished });
-    toast.success(watch.isPublished ? 'Reloj ocultado del catálogo' : 'Reloj publicado en el catálogo');
-    await refresh();
-    await refreshInsights();
-  } catch (err: unknown) {
-    toast.error(extractApiErrorMessage(err, 'Error al cambiar visibilidad'));
-  }
-}
-
 async function handleDelete(watch: WatchStaffDto) {
   const ok = await confirm({
     title: `¿Eliminar permanentemente ${watch.brand.name} ${watch.model}?`,
@@ -248,7 +237,6 @@ async function handleDelete(watch: WatchStaffDto) {
       :loading="pending"
       @edit="openEdit"
       @delete="handleDelete"
-      @toggle-visibility="handleToggleVisibility"
     />
 
     <div v-if="hasMore" class="admin-inventory-pagination">

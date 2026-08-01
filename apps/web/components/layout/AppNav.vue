@@ -68,6 +68,7 @@ watch(() => route.fullPath, closeMenu);
         type="button"
         class="nav-cart"
         :class="{ 'has-items': cart.unitCount > 0 }"
+        :aria-label="`${t('nav.bag')} (${cart.unitCount})`"
         @click="openCart"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -76,7 +77,8 @@ watch(() => route.fullPath, closeMenu);
           <circle cx="18" cy="20" r="1" fill="currentColor" stroke="none" />
           <path d="M6 6L5 3H2" />
         </svg>
-        {{ t('nav.bag') }} ({{ cart.unitCount }})
+        <span class="nav-cart__label">{{ t('nav.bag') }} ({{ cart.unitCount }})</span>
+        <span v-if="cart.unitCount > 0" class="nav-cart__badge">{{ cart.unitCount }}</span>
       </button>
     </div>
   </nav>
@@ -90,11 +92,5 @@ watch(() => route.fullPath, closeMenu);
     >
       {{ link.label }}
     </NuxtLink>
-    <div v-if="showSwitcher" class="px-1 py-2">
-      <LayoutLocaleSwitcher />
-    </div>
-    <button type="button" class="w-full text-left" @click="openCart(); closeMenu()">
-      {{ t('nav.bag') }} ({{ cart.unitCount }})
-    </button>
   </div>
 </template>

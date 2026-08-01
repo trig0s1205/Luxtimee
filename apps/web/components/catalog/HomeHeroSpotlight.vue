@@ -30,6 +30,19 @@ const nextWatch = computed(() => {
 
 const primaryUrl = computed(() => (active.value ? watchPrimaryImage(active.value) : null));
 const insetUrl = computed(() => (active.value ? watchSecondaryImage(active.value) : null));
+const swapped = ref(false);
+
+const mainDisplayUrl = computed(() => (swapped.value ? insetUrl.value : primaryUrl.value));
+const insetDisplayUrl = computed(() => (swapped.value ? primaryUrl.value : insetUrl.value));
+const canSwapFaces = computed(() => !!(primaryUrl.value && insetUrl.value));
+const insetAriaLabel = computed(() => (
+  swapped.value ? 'Ver frente del reloj' : 'Ver reverso del reloj'
+));
+
+function toggleSwap() {
+  if (!canSwapFaces.value) return;
+  swapped.value = !swapped.value;
+}
 
 const stockBadge = computed(() => {
   const watch = active.value;
@@ -48,6 +61,7 @@ const glowTone = computed(() => activeIndex.value % 3);
 
 function goTo(index: number) {
   if (!list.value.length) return;
+  swapped.value = false;
   activeIndex.value = ((index % list.value.length) + list.value.length) % list.value.length;
   restartTimer();
 }
@@ -88,7 +102,12 @@ function restartTimer() {
 
 watch(() => props.watches, () => {
   activeIndex.value = 0;
+  swapped.value = false;
   restartTimer();
+});
+
+watch(() => active.value?.id, () => {
+  swapped.value = false;
 });
 
 onMounted(() => startTimer());
@@ -144,20 +163,38 @@ onBeforeUnmount(() => stopTimer());
       <div class="lux-hero__visual">
         <Transition name="hero-fade" mode="out-in">
           <div :key="active.id" class="lux-hero__watch-wrap">
-            <img
-              v-if="primaryUrl"
-              :src="primaryUrl"
-              :alt="`${active.brand.name} ${active.model}`"
-              class="lux-hero__watch"
-              draggable="false"
-            >
-            <div v-else class="lux-hero__watch-placeholder" />
+            <Transition name="hero-swap" mode="out-in">
+              <img
+                v-if="mainDisplayUrl"
+                :key="`${active.id}-${swapped ? 'rear' : 'front'}`"
+                :src="mainDisplayUrl"
+                :alt="`${active.brand.name} ${active.model}`"
+                class="lux-hero__watch"
+                draggable="false"
+              >
+              <div v-else class="lux-hero__watch-placeholder" />
+            </Transition>
           </div>
         </Transition>
 
-        <div v-if="insetUrl" class="lux-hero__inset" aria-hidden="true">
-          <img :src="insetUrl" alt="" loading="lazy">
-        </div>
+        <button
+          v-if="canSwapFaces"
+          type="button"
+          class="lux-hero__inset"
+          :aria-label="insetAriaLabel"
+          @click="toggleSwap"
+        >
+          <Transition name="hero-swap-inset" mode="out-in">
+            <img
+              v-if="insetDisplayUrl"
+              :key="`${active.id}-${swapped ? 'front' : 'rear'}`"
+              :src="insetDisplayUrl"
+              alt=""
+              loading="lazy"
+              draggable="false"
+            >
+          </Transition>
+        </button>
       </div>
     </div>
 
@@ -431,6 +468,7 @@ onBeforeUnmount(() => stopTimer());
   display: flex;
   align-items: center;
   justify-content: center;
+  perspective: 900px;
 }
 
 .lux-hero__watch {
@@ -465,12 +503,61 @@ onBeforeUnmount(() => stopTimer());
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
   z-index: 2;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+}
+
+.lux-hero__inset:hover {
+  transform: scale(1.06);
+  border-color: rgba(200, 169, 110, 0.65);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45), 0 0 0 4px rgba(200, 169, 110, 0.08);
+}
+
+.lux-hero__inset:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
 }
 
 .lux-hero__inset img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
+}
+
+.hero-swap-enter-active,
+.hero-swap-leave-active {
+  transition:
+    opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hero-swap-enter-from {
+  opacity: 0;
+  transform: scale(0.9) rotateY(-14deg);
+}
+
+.hero-swap-leave-to {
+  opacity: 0;
+  transform: scale(1.05) rotateY(14deg);
+}
+
+.hero-swap-inset-enter-active,
+.hero-swap-inset-leave-active {
+  transition:
+    opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hero-swap-inset-enter-from {
+  opacity: 0;
+  transform: scale(0.75) rotate(-10deg);
+}
+
+.hero-swap-inset-leave-to {
+  opacity: 0;
+  transform: scale(1.15) rotate(10deg);
 }
 
 .lux-hero__nav {
@@ -645,7 +732,10 @@ onBeforeUnmount(() => stopTimer());
   }
 
   .lux-hero__inset {
-    display: none;
+    right: 4%;
+    top: 6%;
+    width: clamp(64px, 18vw, 84px);
+    height: clamp(64px, 18vw, 84px);
   }
 
   .lux-hero__nav {
@@ -701,7 +791,12 @@ onBeforeUnmount(() => stopTimer());
 @media (prefers-reduced-motion: reduce) {
   .hero-fade-enter-active,
   .hero-fade-leave-active,
-  .lux-hero__glow {
+  .hero-swap-enter-active,
+  .hero-swap-leave-active,
+  .hero-swap-inset-enter-active,
+  .hero-swap-inset-leave-active,
+  .lux-hero__glow,
+  .lux-hero__inset {
     transition: none;
   }
 }

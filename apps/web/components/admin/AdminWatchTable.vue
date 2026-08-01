@@ -8,7 +8,7 @@ const props = defineProps<{
   loading?: boolean;
 }>();
 
-const emit = defineEmits(['edit', 'delete', 'toggleVisibility']);
+const emit = defineEmits(['edit', 'delete']);
 
 const statusLabels: Record<string, string> = {
   DISPONIBLE: 'Disponible',
@@ -71,14 +71,6 @@ function statusClass(status: string) {
             </span>
           </td>
           <td class="admin-table-actions">
-            <button
-              type="button"
-              class="admin-action-btn"
-              :title="watch.isPublished ? 'Ocultar del catálogo' : 'Publicar en catálogo'"
-              @click="emit('toggleVisibility', watch)"
-            >
-              {{ watch.isPublished ? '👁' : '👁‍🗨' }}
-            </button>
             <button type="button" class="admin-action-btn" title="Editar" @click="emit('edit', watch)">
               ✎
             </button>
