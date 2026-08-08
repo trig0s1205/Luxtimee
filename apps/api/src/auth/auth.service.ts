@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Role } from '@prisma/client';
@@ -16,6 +16,8 @@ const STAFF_ROLES = new Set<Role>([Role.ADMIN, Role.SUPER_ADMIN]);
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -55,17 +57,26 @@ export class AuthService {
     });
   }
 
-  async loginWithPassword(email: string, password: string) {
+  async loginWithPassword(email: string, password: string, clientIp?: string) {
     const user = await this.prisma.user.findUnique({
       where: { email: email.trim().toLowerCase() },
     });
 
     if (!user?.passwordHash || !verifyPassword(password, user.passwordHash)) {
+      this.logFailedLogin(email, clientIp);
       throw new UnauthorizedException('Correo o contraseña incorrectos');
     }
 
     this.assertStaffRole(user.role);
     return user;
+  }
+
+  logFailedLogin(email: string, clientIp?: string) {
+    const normalized = email.trim().toLowerCase();
+    const masked = normalized.includes('@')
+      ? `${normalized[0]}***@${normalized.split('@')[1]}`
+      : '***';
+    this.logger.warn(`Login fallido ip=${clientIp ?? 'unknown'} email=${masked}`);
   }
 
   async updateProfile(userId: string, data: { name?: string; phone?: string }) {

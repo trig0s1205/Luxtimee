@@ -26,18 +26,19 @@ gcloud run deploy $Service `
     --allow-unauthenticated `
     --port 8001 `
     --memory 2Gi `
-    --cpu 1 `
+    --cpu 2 `
     --timeout 300 `
     --concurrency 1 `
-    --min-instances 0 `
-    --max-instances 3
+    --min-instances 1 `
+    --max-instances 3 `
+    --set-env-vars "REMBG_MODEL=u2netp" `
+    --update-secrets "IMAGE_SERVICE_API_KEY=IMAGE_SERVICE_API_KEY:latest" `
+    --project $ProjectId
 
 if ($LASTEXITCODE -ne 0) { Write-Host "Deploy fallido." -ForegroundColor Red; exit 1 }
 
-$Url = gcloud run services describe $Service --region $Region --format 'value(status.url)'
+$Url = gcloud run services describe $Service --region $Region --project $ProjectId --format 'value(status.url)'
 Write-Host ""
 Write-Host "Image-service desplegado en: $Url" -ForegroundColor Green
 Write-Host "Health check:" -ForegroundColor Cyan
 curl "$Url/health"
-Write-Host ""
-Write-Host "Anota esta URL como IMAGE_SERVICE_URL para usarla en el deploy de la API."

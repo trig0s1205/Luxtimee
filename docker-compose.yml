@@ -5,10 +5,10 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: luxtime
-      POSTGRES_PASSWORD: luxtime_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-luxtime_dev}
       POSTGRES_DB: luxtime
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - luxtime_pg_data:/var/lib/postgresql/data
     healthcheck:
@@ -23,8 +23,11 @@ services:
       dockerfile: Dockerfile
     container_name: luxtime-image-service
     restart: unless-stopped
+    environment:
+      IMAGE_SERVICE_API_KEY: ${IMAGE_SERVICE_API_KEY:-dev-image-service-key}
+      REMBG_MODEL: u2netp
     ports:
-      - "8001:8001"
+      - "127.0.0.1:8001:8001"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
       interval: 30s

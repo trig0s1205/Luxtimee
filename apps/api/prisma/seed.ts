@@ -2,7 +2,14 @@ import { PrismaClient, Role } from '@prisma/client';
 import { hashPassword } from '../src/auth/password.util';
 
 const prisma = new PrismaClient();
-const defaultStaffPassword = hashPassword('LUXTIMEE');
+const seedPassword = process.env.SEED_ADMIN_PASSWORD?.trim();
+
+if (!seedPassword) {
+  console.error('SEED_ADMIN_PASSWORD es obligatoria. Ejemplo: SEED_ADMIN_PASSWORD=LUXTIMEE pnpm exec prisma db seed');
+  process.exit(1);
+}
+
+const defaultStaffPassword = hashPassword(seedPassword);
 
 async function main() {
   const shippingZones = [

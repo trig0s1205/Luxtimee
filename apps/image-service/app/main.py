@@ -1,16 +1,17 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
-from rembg import remove
-from PIL import Image
 import io
 import logging
 import os
+import secrets
+from contextlib import asynccontextmanager
+
+from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from PIL import Image
+from rembg import new_session, remove
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("luxtime-image-service")
-
-app = FastAPI(title="Luxtime Image Service", version="1.0.0")
 
 _default_origins = [
     "http://localhost:3000",
@@ -25,6 +26,29 @@ allow_origins = (
     else _default_origins
 )
 
+CANVAS_WIDTH = 1200
+CANVAS_HEIGHT = 1800
+MAX_WATCH_WIDTH = int(CANVAS_WIDTH * 0.84)
+MAX_WATCH_HEIGHT = int(CANVAS_HEIGHT * 0.84)
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+ALLOWED_FORMATS = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+REMBG_MODEL = os.getenv("REMBG_MODEL", "u2netp")
+API_KEY = os.getenv("IMAGE_SERVICE_API_KEY", "").strip()
+
+_rembg_session = None
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    global _rembg_session
+    logger.info("Preloading rembg model: %s", REMBG_MODEL)
+    _rembg_session = new_session(REMBG_MODEL)
+    logger.info("Model ready")
+    yield
+
+
+app = FastAPI(title="Luxtime Image Service", version="1.0.0", lifespan=lifespan)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allow_origins,
@@ -33,12 +57,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-CANVAS_WIDTH = 1200
-CANVAS_HEIGHT = 1800
-MAX_WATCH_WIDTH = int(CANVAS_WIDTH * 0.84)
-MAX_WATCH_HEIGHT = int(CANVAS_HEIGHT * 0.84)
-MAX_UPLOAD_BYTES = 10 * 1024 * 1024
-ALLOWED_FORMATS = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+
+def verify_api_key(x_api_key: str | None = Header(default=None, alias="X-API-Key")) -> None:
+    if not API_KEY:
+        if os.getenv("NODE_ENV") == "production" or os.getenv("K_SERVICE"):
+            raise HTTPException(status_code=503, detail="IMAGE_SERVICE_API_KEY no configurada")
+        return
+    if not x_api_key or not secrets.compare_digest(x_api_key, API_KEY):
+        raise HTTPException(status_code=401, detail="API key inválida")
 
 
 def _detect_image_mime(data: bytes) -> str | None:
@@ -54,7 +80,6 @@ def _detect_image_mime(data: bytes) -> str | None:
 
 
 def _scale_to_fill(img: Image.Image, max_w: int, max_h: int) -> Image.Image:
-    """Escala proporcionalmente (up o down) hasta ocupar el máximo del lienzo."""
     w, h = img.size
     if w <= 0 or h <= 0:
         return img
@@ -68,7 +93,7 @@ def _scale_to_fill(img: Image.Image, max_w: int, max_h: int) -> Image.Image:
 
 def process_watch_image(data: bytes) -> bytes:
     try:
-        no_bg = remove(data)
+        no_bg = remove(data, session=_rembg_session)
         watch = Image.open(io.BytesIO(no_bg)).convert("RGBA")
 
         bbox = watch.getbbox()
@@ -86,7 +111,7 @@ def process_watch_image(data: bytes) -> bytes:
         canvas.paste(watch, (x, y), watch)
 
         buffer = io.BytesIO()
-        canvas.save(buffer, format="WEBP", quality=90, method=6)
+        canvas.save(buffer, format="WEBP", quality=88, method=4)
         return buffer.getvalue()
 
     except HTTPException:
@@ -106,7 +131,10 @@ def health() -> dict[str, str]:
 
 @app.post("/api/v1/process-watch")
 @app.post("/process")
-async def process_watch(file: UploadFile = File(...)) -> Response:
+async def process_watch(
+    file: UploadFile = File(...),
+    _: None = Depends(verify_api_key),
+) -> Response:
     if not file.content_type or file.content_type not in ALLOWED_FORMATS:
         raise HTTPException(
             status_code=400,

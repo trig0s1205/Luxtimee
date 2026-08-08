@@ -1,26 +1,9 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ReviewStatus, Role } from '@prisma/client';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { ReviewsService } from './reviews.service';
+import { CreateReviewDto } from './dto/create-review.dto';
 import { Public, Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
-
-class CreateReviewDto {
-  @IsString()
-  customerName!: string;
-
-  @IsOptional()
-  @IsString()
-  watchId?: string;
-
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  rating!: number;
-
-  @IsString()
-  body!: string;
-}
 
 @Controller({ path: 'reviews', version: '1' })
 export class ReviewsController {

@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { Response } from 'express';
 
 @Catch()
@@ -17,7 +18,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const isProd = process.env.NODE_ENV === 'production';
 
-    const status =
+    const isPrisma =
+      exception instanceof Prisma.PrismaClientKnownRequestError
+      || exception instanceof Prisma.PrismaClientValidationError
+      || exception instanceof Prisma.PrismaClientInitializationError;
+
+    let status =
       exception instanceof HttpException
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
@@ -27,12 +33,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getResponse()
         : 'Error interno del servidor';
 
-    if (status >= 500) {
+    if (isProd && (status >= 500 || isPrisma)) {
       this.logger.error(exception);
-      if (isProd) {
-        message = 'Error interno del servidor';
-      } else if (typeof message === 'object' && message !== null && 'message' in message) {
-        // keep Nest shape in non-prod for debugging, but never attach stack
+      status = status >= 500 || isPrisma ? HttpStatus.INTERNAL_SERVER_ERROR : status;
+      message = 'Error interno del servidor';
+    } else if (status >= 500) {
+      this.logger.error(exception);
+      if (typeof message === 'object' && message !== null && 'message' in message) {
         const safe = { ...(message as Record<string, unknown>) };
         delete safe.stack;
         message = safe;

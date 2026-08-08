@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { AuthConfigDto, AuthUserDto } from '@luxtime/shared';
 import { Role } from '@luxtime/shared';
-import { DEV_ACCOUNT_HINTS, LOCAL_AUTH_ENABLED } from '~/utils/local-auth';
 import { isSafeRedirect, storeAuthRedirect } from '~/utils/auth-redirect';
 
 const props = defineProps<{
@@ -82,19 +81,10 @@ async function submitLogin(preset?: { email: string; password: string }) {
     let user = null;
 
     if (config.value.mockEnabled) {
-      const name = DEV_ACCOUNT_HINTS.find((a) => a.email === email.value.trim().toLowerCase())?.name
-        ?? email.value.split('@')[0];
+      const name = email.value.split('@')[0] ?? 'Admin';
       user = await mockLogin(email.value, name);
     } else {
-      try {
-        user = await credentialLogin(email.value, password.value);
-      } catch (loginErr) {
-        if (LOCAL_AUTH_ENABLED) {
-          user = auth.localLogin(email.value, password.value);
-        } else {
-          throw loginErr;
-        }
-      }
+      user = await credentialLogin(email.value, password.value);
     }
 
     if (!user || !STAFF_ROLES.has(user.role)) {
@@ -154,29 +144,6 @@ async function submitLogin(preset?: { email: string; password: string }) {
         {{ loading ? 'Ingresando…' : 'Entrar' }}
       </button>
     </form>
-
-    <div v-if="LOCAL_AUTH_ENABLED" class="auth-quick">
-      <p class="auth-quick-label">Acceso rápido (desarrollo)</p>
-      <div class="auth-quick-row">
-        <button
-          type="button"
-          class="btn-ghost"
-          :disabled="loading"
-          @click="submitLogin({ email: 'alvaro@luxtime.co', password: 'luxtime' })"
-        >
-          Super Admin
-        </button>
-        <button
-          type="button"
-          class="btn-ghost"
-          :disabled="loading"
-          @click="submitLogin({ email: 'lidia@luxtime.co', password: 'luxtime' })"
-        >
-          Admin
-        </button>
-      </div>
-      <p class="auth-dev-hint">Contraseña dev: <strong>LUXTIMEE</strong></p>
-    </div>
 
     <template v-if="config.googleEnabled">
       <div class="auth-divider"><span>o</span></div>

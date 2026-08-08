@@ -1,25 +1,11 @@
-import { Role, type AuthUserDto } from '@luxtime/shared';
+import type { AuthUserDto } from '@luxtime/shared';
 
 const STORAGE_KEY = 'LUXTIMEE-dev-auth';
 
-const DEV_ACCOUNTS: Record<string, { password: string; name: string; role: Role }> = {
-  'alvaro@luxtime.co': { password: 'luxtime', name: 'Álvaro', role: Role.SUPER_ADMIN },
-  'lidia@luxtime.co': { password: 'luxtime', name: 'Lidia', role: Role.ADMIN },
-};
+export const LOCAL_AUTH_ENABLED = false;
 
-export const LOCAL_AUTH_ENABLED = import.meta.dev;
-
-export function validateLocalLogin(email: string, password: string): AuthUserDto | null {
-  const key = email.trim().toLowerCase();
-  const account = DEV_ACCOUNTS[key];
-  if (!account || account.password !== password) return null;
-
-  return {
-    id: `local-${key}`,
-    email: key,
-    name: account.name,
-    role: account.role,
-  };
+export function validateLocalLogin(_email: string, _password: string): AuthUserDto | null {
+  return null;
 }
 
 export function saveLocalSession(user: AuthUserDto) {
@@ -43,10 +29,3 @@ export function clearLocalSession() {
   if (!import.meta.client) return;
   localStorage.removeItem(STORAGE_KEY);
 }
-
-export const DEV_ACCOUNT_HINTS = Object.entries(DEV_ACCOUNTS).map(([email, data]) => ({
-  email,
-  name: data.name,
-  role: data.role,
-  password: data.password,
-}));

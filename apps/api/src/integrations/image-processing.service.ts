@@ -36,9 +36,14 @@ export class ImageProcessingService {
 
           this.logger.log(`Procesando imagen en ${endpoint} (intento ${attempt})`);
 
+          const headers: Record<string, string> = {};
+          const apiKey = this.config.get<string>('IMAGE_SERVICE_API_KEY')?.trim();
+          if (apiKey) headers['X-API-Key'] = apiKey;
+
           const response = await fetch(endpoint, {
             method: 'POST',
             body: formData,
+            headers,
             signal: AbortSignal.timeout(240_000),
           });
 

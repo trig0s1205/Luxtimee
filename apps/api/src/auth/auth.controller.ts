@@ -79,9 +79,13 @@ export class AuthController {
   @Post('login')
   async loginWithCredentials(
     @Body() dto: LoginCredentialsDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const user = await this.authService.loginWithPassword(dto.email, dto.password);
+    const clientIp = typeof req.headers['x-forwarded-for'] === 'string'
+      ? req.headers['x-forwarded-for'].split(',')[0]?.trim()
+      : req.ip;
+    const user = await this.authService.loginWithPassword(dto.email, dto.password, clientIp);
     const tokens = await this.authService.issueTokens(user);
     this.authService.setAuthCookies(res, tokens);
     return {
