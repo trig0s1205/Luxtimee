@@ -7,17 +7,23 @@ param(
 function Set-GcpSecret {
     param([string]$Name, [string]$Value)
 
-    if ([string]::IsNullOrWhiteSpace($Value)) {
+    $trimmed = $Value.Trim()
+    if ([string]::IsNullOrWhiteSpace($trimmed)) {
         Write-Host "  SKIP $Name (vacío)" -ForegroundColor DarkGray
         return
+    }
+
+    $minLen = if ($Name -eq 'CLOUDINARY_CLOUD_NAME') { 3 } else { 10 }
+    if ($trimmed.Length -lt $minLen) {
+        throw "Valor inválido para $Name (muy corto). Copia el valor completo desde el dashboard de Cloudinary."
     }
 
     $prev = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
     try {
-        $Value | gcloud secrets create $Name --data-file=- --project=$ProjectId 2>&1 | Out-Null
+        $trimmed | gcloud secrets create $Name --data-file=- --project=$ProjectId 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) {
-            $Value | gcloud secrets versions add $Name --data-file=- --project=$ProjectId 2>&1 | Out-Null
+            $trimmed | gcloud secrets versions add $Name --data-file=- --project=$ProjectId 2>&1 | Out-Null
             if ($LASTEXITCODE -ne 0) {
                 throw "No se pudo guardar el secreto $Name"
             }
@@ -29,9 +35,9 @@ function Set-GcpSecret {
 }
 
 Write-Host "=== Cloudinary -> Secret Manager ===" -ForegroundColor Cyan
-$cloudName = Read-Host "CLOUDINARY_CLOUD_NAME"
-$apiKey    = Read-Host "CLOUDINARY_API_KEY"
-$apiSecret = Read-Host "CLOUDINARY_API_SECRET"
+$cloudName = (Read-Host "CLOUDINARY_CLOUD_NAME").Trim()
+$apiKey    = (Read-Host "CLOUDINARY_API_KEY").Trim()
+$apiSecret = (Read-Host "CLOUDINARY_API_SECRET").Trim()
 
 $secrets = [ordered]@{
     CLOUDINARY_CLOUD_NAME = $cloudName
