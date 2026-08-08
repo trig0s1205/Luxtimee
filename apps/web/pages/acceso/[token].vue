@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ middleware: ['guest'] });
+definePageMeta({ middleware: ['staff-login-token', 'guest'] });
 
 useHead({ htmlAttrs: { lang: 'es' } });
 

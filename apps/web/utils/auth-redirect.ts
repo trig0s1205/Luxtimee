@@ -1,5 +1,6 @@
 import type { AuthUserDto } from '@luxtime/shared';
 import { Role } from '@luxtime/shared';
+import { isStaffLoginRoute, staffLoginPath } from '~/utils/staff-login';
 
 const STAFF_ROLES = new Set<Role>([Role.ADMIN, Role.SUPER_ADMIN]);
 
@@ -11,12 +12,14 @@ export function isSafeRedirect(path: string | undefined | null): path is string 
 }
 
 export function resolvePostLoginRedirect(user: AuthUserDto, requested?: string | null): string {
+  const slug = useRuntimeConfig().public.staffLoginSlug as string;
+
   if (!STAFF_ROLES.has(user.role)) {
-    return '/ingresar?error=forbidden';
+    return staffLoginPath(slug, { error: 'forbidden' });
   }
 
   const path = requested?.trim();
-  if (isSafeRedirect(path) && path.startsWith('/admin') && !path.startsWith('/ingresar')) {
+  if (isSafeRedirect(path) && path.startsWith('/admin') && !isStaffLoginRoute(path, slug)) {
     return path;
   }
 

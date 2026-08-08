@@ -68,7 +68,7 @@ jobs:
             --timeout 300 \
             --min-instances 0 \
             --max-instances 5 \
-            --set-env-vars "NODE_ENV=production,USE_MOCKS=false,JWT_ACCESS_EXPIRES=15m,JWT_REFRESH_EXPIRES=7d,CLOUDINARY_FOLDER=luxtime/watches" \
+            --set-env-vars "NODE_ENV=production,USE_MOCKS=false,JWT_ACCESS_EXPIRES=15m,JWT_REFRESH_EXPIRES=7d,CLOUDINARY_FOLDER=luxtime/watches,STAFF_LOGIN_SLUG=${{ vars.STAFF_LOGIN_SLUG || 'dev-portal-lx9k2' }}" \
             --update-secrets "DATABASE_URL=DATABASE_URL:latest,DIRECT_URL=DIRECT_URL:latest,JWT_SECRET=JWT_SECRET:latest,CRON_SECRET=CRON_SECRET:latest,FRONTEND_URL=FRONTEND_URL:latest,IMAGE_SERVICE_URL=IMAGE_SERVICE_URL:latest,IMAGE_SERVICE_API_KEY=IMAGE_SERVICE_API_KEY:latest,CLOUDINARY_CLOUD_NAME=CLOUDINARY_CLOUD_NAME:latest,CLOUDINARY_API_KEY=CLOUDINARY_API_KEY:latest,CLOUDINARY_API_SECRET=CLOUDINARY_API_SECRET:latest" \
             --project "$PROJECT_ID"
 

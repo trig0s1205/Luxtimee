@@ -22,6 +22,7 @@ export default defineNuxtConfig({
       apiAssetsUrl: process.env.NUXT_PUBLIC_API_ASSETS_URL
         ?? (process.env.NUXT_LAN === 'true' ? '' : 'http://localhost:3001'),
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+      staffLoginSlug: process.env.NUXT_PUBLIC_STAFF_LOGIN_SLUG || 'dev-portal-lx9k2',
     },
   },
   devServer: {

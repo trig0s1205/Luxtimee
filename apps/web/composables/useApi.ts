@@ -59,7 +59,8 @@ export function useApi() {
         } catch {
           await auth.logout();
           if (import.meta.client) {
-            await navigateTo({ path: '/ingresar', query: { redirect: useRoute().fullPath } });
+            const { loginPath } = useStaffLoginPath();
+            await navigateTo(loginPath({ redirect: useRoute().fullPath }));
           }
         }
       }

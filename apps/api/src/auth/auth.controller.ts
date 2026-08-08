@@ -60,7 +60,8 @@ export class AuthController {
     this.authService.setAuthCookies(res, tokens);
 
     const frontend = this.config.get<string>('FRONTEND_URL', 'http://localhost:3000');
-    res.redirect(`${frontend}/ingresar/exito`);
+    const slug = this.config.get<string>('STAFF_LOGIN_SLUG', 'dev-portal-lx9k2');
+    res.redirect(`${frontend}/acceso/${slug}/exito`);
   }
 
   @Public()

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-definePageMeta({ layout: false });
+definePageMeta({ layout: false, middleware: ['staff-login-token'] });
 
 useHead({ htmlAttrs: { lang: 'es' } });
 
 const { completeLogin } = useAuth();
+const { loginPath } = useStaffLoginPath();
 const error = ref('');
 const loading = ref(true);
 
@@ -36,7 +37,7 @@ onMounted(async () => {
 
     <div v-else class="auth-card auth-card--center reveal visible">
       <p class="auth-alert auth-alert--error">{{ error }}</p>
-      <NuxtLink to="/ingresar" class="btn-primary auth-submit">Volver a ingresar</NuxtLink>
+      <NuxtLink :to="loginPath()" class="btn-primary auth-submit">Volver a ingresar</NuxtLink>
     </div>
   </div>
 </template>

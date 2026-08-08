@@ -122,7 +122,6 @@ async function submitLogin(preset?: { email: string; password: string }) {
           id="login-email"
           v-model="email"
           type="email"
-          placeholder="alvaro@luxtime.co"
           autocomplete="email"
         />
         <p v-if="fieldErrors.email" class="auth-field-error">{{ fieldErrors.email }}</p>
@@ -134,7 +133,6 @@ async function submitLogin(preset?: { email: string; password: string }) {
           id="login-password"
           v-model="password"
           type="password"
-          placeholder="••••••••"
           autocomplete="current-password"
         />
         <p v-if="fieldErrors.password" class="auth-field-error">{{ fieldErrors.password }}</p>

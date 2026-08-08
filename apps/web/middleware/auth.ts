@@ -5,6 +5,6 @@ export default defineNuxtRouteMiddleware(async () => {
     await auth.fetchMe();
   }
   if (!auth.isAuthenticated) {
-    return navigateTo('/ingresar');
+    return navigateTo('/');
   }
 });
