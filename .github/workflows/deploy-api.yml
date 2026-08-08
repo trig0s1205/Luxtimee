@@ -46,10 +46,14 @@ jobs:
       - name: Build and push Docker image
         run: |
           IMAGE_LATEST="${{ env.REGION }}-docker.pkg.dev/${PROJECT_ID}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:latest"
-          gcloud builds submit . \
+          BUILD_ID=$(gcloud builds submit . \
             --config apps/api/cloudbuild.yaml \
             --substitutions=_IMAGE="$IMAGE_LATEST" \
-            --project "$PROJECT_ID"
+            --project "$PROJECT_ID" \
+            --async \
+            --format='value(id)')
+          echo "Cloud Build ID: $BUILD_ID"
+          gcloud builds wait "$BUILD_ID" --project "$PROJECT_ID"
           echo "IMAGE_TAG=$IMAGE_LATEST" >> $GITHUB_ENV
 
       - name: Deploy to Cloud Run
