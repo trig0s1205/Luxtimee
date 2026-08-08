@@ -126,7 +126,13 @@ async function main() {
 
   await prisma.watch.upsert({
     where: { slug: 'rolex-submariner-date' },
-    update: {},
+    update: {
+      isActive: true,
+      isPublished: true,
+      showInCatalog: true,
+      deletedAt: null,
+      stock: 3,
+    },
     create: {
       sku: 'LUX-ROL-SUB-DATE',
       brand: { connect: { id: rolex.id } },
@@ -143,6 +149,8 @@ async function main() {
       cost: 12000000,
       profitPercent: 35,
       stock: 3,
+      isPublished: true,
+      showInCatalog: true,
       warrantyTemplate: { connect: { id: warranty.id } },
       careTemplate: { connect: { id: care.id } },
     },
