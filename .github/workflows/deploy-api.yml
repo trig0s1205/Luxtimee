@@ -7,6 +7,11 @@ on:
       - 'apps/api/**'
       - 'packages/shared/**'
       - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -18,29 +23,27 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-
+    if: ${{ vars.GCP_DEPLOY_ENABLED == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SA_EMAIL }}
 
-      - name: Configure Docker
-        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
 
       - name: Build and push Docker image
         run: |
-          IMAGE_TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }}"
           IMAGE_LATEST="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:latest"
-          docker build -f apps/api/Dockerfile -t "$IMAGE_TAG" -t "$IMAGE_LATEST" .
-          docker push "$IMAGE_TAG"
-          docker push "$IMAGE_LATEST"
-          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          gcloud builds submit . \
+            --config apps/api/cloudbuild.yaml \
+            --substitutions=_IMAGE="$IMAGE_LATEST" \
+            --project "${{ env.PROJECT_ID }}"
+          echo "IMAGE_TAG=$IMAGE_LATEST" >> $GITHUB_ENV
 
       - name: Deploy to Cloud Run
         run: |
@@ -56,9 +59,16 @@ jobs:
             --min-instances 0 \
             --max-instances 5 \
             --set-env-vars "NODE_ENV=production,USE_MOCKS=false,JWT_ACCESS_EXPIRES=15m,JWT_REFRESH_EXPIRES=7d,CLOUDINARY_FOLDER=luxtime/watches" \
-            --update-secrets "DATABASE_URL=DATABASE_URL:latest,DIRECT_URL=DIRECT_URL:latest,JWT_SECRET=JWT_SECRET:latest,CRON_SECRET=CRON_SECRET:latest,FRONTEND_URL=FRONTEND_URL:latest,IMAGE_SERVICE_URL=IMAGE_SERVICE_URL:latest,CLOUDINARY_CLOUD_NAME=CLOUDINARY_CLOUD_NAME:latest,CLOUDINARY_API_KEY=CLOUDINARY_API_KEY:latest,CLOUDINARY_API_SECRET=CLOUDINARY_API_SECRET:latest"
+            --update-secrets "DATABASE_URL=DATABASE_URL:latest,DIRECT_URL=DIRECT_URL:latest,JWT_SECRET=JWT_SECRET:latest,CRON_SECRET=CRON_SECRET:latest,FRONTEND_URL=FRONTEND_URL:latest,IMAGE_SERVICE_URL=IMAGE_SERVICE_URL:latest" \
+            --project "${{ env.PROJECT_ID }}"
 
       - name: Verify health
         run: |
-          URL=$(gcloud run services describe ${{ env.SERVICE }} --region ${{ env.REGION }} --format 'value(status.url)')
-          curl --fail "$URL/api/v1/health" || exit 1
+          URL=$(gcloud run services describe ${{ env.SERVICE }} --region ${{ env.REGION }} --project "${{ env.PROJECT_ID }}" --format 'value(status.url)')
+          curl --fail "$URL/api/v1/health"
+
+  deploy-disabled:
+    runs-on: ubuntu-latest
+    if: ${{ vars.GCP_DEPLOY_ENABLED != 'true' }}
+    steps:
+      - run: echo "::notice::Deploy omitido. Configura secrets/variables GCP y GCP_DEPLOY_ENABLED=true"
