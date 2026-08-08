@@ -43,17 +43,16 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
       - name: Build and push Docker image
         run: |
+          IMAGE_TAG="${{ env.REGION }}-docker.pkg.dev/${PROJECT_ID}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }}"
           IMAGE_LATEST="${{ env.REGION }}-docker.pkg.dev/${PROJECT_ID}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:latest"
-          BUILD_ID=$(gcloud builds submit . \
-            --config apps/api/cloudbuild.yaml \
-            --substitutions=_IMAGE="$IMAGE_LATEST" \
-            --project "$PROJECT_ID" \
-            --async \
-            --format='value(id)')
-          echo "Cloud Build ID: $BUILD_ID"
-          gcloud builds wait "$BUILD_ID" --project "$PROJECT_ID"
+          docker build -f apps/api/Dockerfile -t "$IMAGE_TAG" -t "$IMAGE_LATEST" .
+          docker push "$IMAGE_TAG"
+          docker push "$IMAGE_LATEST"
           echo "IMAGE_TAG=$IMAGE_LATEST" >> $GITHUB_ENV
 
       - name: Deploy to Cloud Run
