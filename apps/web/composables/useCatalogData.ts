@@ -165,9 +165,17 @@ export function useCatalogData() {
         seen.add(watch.id);
         if (merged.length >= limit) break;
       }
+      if (merged.length === 0) {
+        try {
+          return await api.get<WatchPublicDto[]>('/catalog/new-arrivals', { limit });
+        } catch {
+          if (import.meta.dev) return MOCK_CATALOG.slice(0, limit);
+        }
+      }
       return merged;
     } catch {
-      return MOCK_CATALOG.slice(0, limit);
+      if (import.meta.dev) return MOCK_CATALOG.slice(0, limit);
+      return [];
     }
   }
 

@@ -14,7 +14,7 @@
 const visible = ref(false);
 
 onMounted(() => {
-  if (!localStorage.getItem('luxtime-cookies')) {
+  if (!localStorage.getItem('LUXTIMEE-cookies')) {
     requestAnimationFrame(() => {
       visible.value = true;
     });
@@ -22,7 +22,7 @@ onMounted(() => {
 });
 
 function accept() {
-  localStorage.setItem('luxtime-cookies', '1');
+  localStorage.setItem('LUXTIMEE-cookies', '1');
   visible.value = false;
 }
 </script>

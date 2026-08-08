@@ -77,6 +77,8 @@ export interface ShippingZoneDto {
   name: string;
   cost: number;
   isNational: boolean;
+  /** true solo para Piedecuesta — envío siempre gratis. */
+  alwaysFree?: boolean;
 }
 
 export interface CreateShippingZoneDto {

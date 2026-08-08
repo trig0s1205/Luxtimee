@@ -60,7 +60,7 @@ async function saveCost(watch: WatchStaffDto) {
   }
 }
 
-useSeoMeta({ title: 'Relojes pendientes de costo — Luxtime Admin' });
+useSeoMeta({ title: 'Relojes pendientes de costo — LUXTIMEE Admin' });
 </script>
 
 <template>

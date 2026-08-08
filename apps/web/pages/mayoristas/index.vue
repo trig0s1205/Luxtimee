@@ -6,7 +6,7 @@ onMounted(async () => {
   await fetchSession();
 });
 
-useSeoMeta({ title: 'Socios Mayoristas — Luxtime' });
+useSeoMeta({ title: 'Socios Mayoristas — LUXTIMEE' });
 </script>
 
 <template>
@@ -45,7 +45,7 @@ useSeoMeta({ title: 'Socios Mayoristas — Luxtime' });
       <p class="section-body" style="max-width:560px;margin:1rem auto 0">
         Escríbenos con tu nombre, ciudad y volumen estimado. Si calificas, te enviaremos tu enlace privado de acceso al catálogo completo.
       </p>
-      <button type="button" class="btn-primary mt-6" @click="openChat('Hola Luxtime, deseo solicitar acceso al catálogo mayorista.')">
+      <button type="button" class="btn-primary mt-6" @click="openChat('Hola LUXTIMEE, deseo solicitar acceso al catálogo mayorista.')">
         Solicitar acceso →
       </button>
     </section>

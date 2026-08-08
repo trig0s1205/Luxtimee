@@ -42,7 +42,7 @@ export class WarrantyHistoriesController {
     const buffer = await this.reportsService.buildWarrantyExcel(data, this.toReportOwner(user));
     await this.warrantyHistoriesService.purgeTodayRegistered();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="luxtime-garantias-hoy.xlsx"');
+    res.setHeader('Content-Disposition', 'attachment; filename="LUXTIMEE-garantias-hoy.xlsx"');
     res.send(buffer);
   }
 
@@ -55,7 +55,7 @@ export class WarrantyHistoriesController {
     const buffer = await this.reportsService.buildWarrantyPdf(data, this.toReportOwner(user));
     await this.warrantyHistoriesService.purgeTodayRegistered();
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename="luxtime-garantias-hoy.pdf"');
+    res.setHeader('Content-Disposition', 'attachment; filename="LUXTIMEE-garantias-hoy.pdf"');
     res.send(buffer);
   }
 

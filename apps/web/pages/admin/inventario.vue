@@ -33,7 +33,7 @@ type WatchFormPayload = {
   videoFile?: File | null;
 };
 
-useHead({ title: 'Inventario — Luxtime Admin' });
+useHead({ title: 'Inventario — LUXTIMEE Admin' });
 definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
 
 const api = useApi();

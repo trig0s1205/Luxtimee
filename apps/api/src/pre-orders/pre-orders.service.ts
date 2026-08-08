@@ -4,13 +4,13 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { OrderStage, OrderType, Prisma, Role } from '@prisma/client';
-import { PRE_ORDER_RESPONSE_HOURS } from '@luxtime/shared';
+import { OrderStage, OrderSource, OrderType, Prisma, Role } from '@prisma/client';
+import { isAlwaysFreeShippingZone, PRE_ORDER_RESPONSE_HOURS } from '@luxtime/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
 import { WhatsappService } from '../integrations/whatsapp.service';
-import { CreatePreOrderDto, UpdatePreOrderDto } from './dto/pre-order.dto';
+import { CreateManualPreOrderDto, CreatePreOrderDto, UpdatePreOrderDto } from './dto/pre-order.dto';
 import {
   assertCanConfirmDeposit,
   assertPreOrderEditable,
@@ -34,6 +34,17 @@ const suspendedPreOrderWhere = {
   depositConfirmed: false,
 } as const;
 
+const orderInclude = {
+  items: {
+    include: {
+      watch: { select: { sku: true } },
+    },
+  },
+  shippingZone: true,
+} as const;
+
+type OrderWithRelations = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
+
 @Injectable()
 export class PreOrdersService {
   constructor(
@@ -44,9 +55,10 @@ export class PreOrdersService {
     private wholesaleAccessService: WholesaleAccessService,
   ) {}
 
-  private mapOrder(order: Prisma.OrderGetPayload<{ include: { items: true } }>) {
+  private mapOrder(order: OrderWithRelations) {
+    const { items, shippingZone, ...rest } = order;
     return {
-      ...order,
+      ...rest,
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
       preOrderActiveAt: order.preOrderActiveAt.toISOString(),
@@ -55,6 +67,26 @@ export class PreOrdersService {
       deliveredAt: order.deliveredAt?.toISOString() ?? null,
       canceledAt: order.canceledAt?.toISOString() ?? null,
       suspendedAt: order.suspendedAt?.toISOString() ?? null,
+      items: items.map((item) => ({
+        id: item.id,
+        watchId: item.watchId,
+        productSku: item.watch.sku,
+        productName: item.productName,
+        productRef: item.productRef,
+        productImage: item.productImage,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        priceType: item.priceType,
+        deliveryNote: item.deliveryNote,
+        warrantyRegistered: false,
+      })),
+      shippingZone: shippingZone
+        ? {
+            id: shippingZone.id,
+            name: shippingZone.name,
+            isNational: shippingZone.isNational,
+          }
+        : null,
     };
   }
 
@@ -62,7 +94,7 @@ export class PreOrdersService {
     return new Date(Date.now() - PRE_ORDER_RESPONSE_HOURS * 60 * 60 * 1000);
   }
 
-  private async buildLines(items: { watchId: string; quantity: number }[]) {
+  private async buildLines(items: { watchId: string; quantity: number; deliveryNote?: string | null }[]) {
     if (!items.length) throw new BadRequestException('El carrito está vacío');
     const watches = await this.prisma.watch.findMany({
       where: { id: { in: items.map((i) => i.watchId) }, isActive: true },
@@ -84,6 +116,7 @@ export class PreOrdersService {
         whatsappLabel,
         productRef: watch.slug,
         productImage: watch.frontImageUrl,
+        deliveryNote: item.deliveryNote?.trim() || null,
       };
     });
     return lines;
@@ -100,6 +133,7 @@ export class PreOrdersService {
     }
     let channel: 'retail' | 'wholesale' = 'retail';
     let wholesaleAccessId: string | undefined;
+    let source: OrderSource = OrderSource.WEB;
     if (wholesaleToken) {
       const session = await this.wholesaleAccessService.getSessionFromToken(wholesaleToken);
       if (!session) {
@@ -107,14 +141,77 @@ export class PreOrdersService {
       }
       channel = 'wholesale';
       wholesaleAccessId = session.id;
+      source = OrderSource.MAYORISTA;
     }
+    return this.createOrder({
+      dto,
+      userId,
+      wholesaleAccessId,
+      channel,
+      source,
+      includeWhatsappUrl: true,
+    });
+  }
+
+  async createManual(dto: CreateManualPreOrderDto) {
+    return this.createOrder({
+      dto,
+      channel: 'retail',
+      source: OrderSource.WHATSAPP,
+      includeWhatsappUrl: false,
+    });
+  }
+
+  async findCustomerHint(phone: string) {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 7) {
+      throw new BadRequestException('Teléfono inválido');
+    }
+    const orders = await this.prisma.order.findMany({
+      where: {
+        customerPhone: { not: null },
+        canceledAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 25,
+      select: {
+        customerName: true,
+        customerAddress: true,
+        customerPhone: true,
+        shippingZoneId: true,
+      },
+    });
+    const suffix = digits.slice(-10);
+    const match = orders.find((order) => {
+      const orderDigits = order.customerPhone?.replace(/\D/g, '') ?? '';
+      if (!orderDigits) return false;
+      return orderDigits.endsWith(suffix) || suffix.endsWith(orderDigits.slice(-10));
+    });
+    if (!match) return null;
+    return {
+      customerName: match.customerName,
+      customerAddress: match.customerAddress,
+      customerPhone: match.customerPhone,
+      shippingZoneId: match.shippingZoneId,
+    };
+  }
+
+  private async createOrder(options: {
+    dto: CreatePreOrderDto | CreateManualPreOrderDto;
+    userId?: string;
+    wholesaleAccessId?: string;
+    channel: 'retail' | 'wholesale';
+    source: OrderSource;
+    includeWhatsappUrl: boolean;
+  }) {
+    const { dto, userId, wholesaleAccessId, channel, source, includeWhatsappUrl } = options;
     const lineInputs = await this.buildLines(dto.items);
     let shippingCost = 0;
     let shippingZoneName: string | undefined;
     if (dto.shippingZoneId) {
       const zone = await this.prisma.shippingZone.findUnique({ where: { id: dto.shippingZoneId } });
       if (!zone) throw new BadRequestException('Zona de envío inválida');
-      shippingCost = zone.cost;
+      shippingCost = isAlwaysFreeShippingZone(zone.name) ? 0 : zone.cost;
       shippingZoneName = zone.name;
     }
     const priced = priceOrderLines(lineInputs, shippingCost, channel);
@@ -130,6 +227,7 @@ export class PreOrdersService {
         label: line.whatsappLabel ?? line.productName,
         qty: line.quantity,
         price: line.unitPrice,
+        deliveryNote: line.deliveryNote,
       })),
       total: priced.total,
       type: priced.type,
@@ -141,6 +239,7 @@ export class PreOrdersService {
         readableId: await this.nextReadableId(),
         stage: OrderStage.PRE_ORDER,
         type: priced.type,
+        source,
         customerName: dto.customerName,
         customerAddress: dto.customerAddress,
         customerEmail: '',
@@ -163,10 +262,11 @@ export class PreOrdersService {
             quantity: line.quantity,
             unitPrice: line.unitPrice,
             priceType: line.priceType,
+            deliveryNote: line.deliveryNote,
           })),
         },
       },
-      include: { items: true },
+      include: orderInclude,
     });
 
     await this.notificationsService.emit({
@@ -175,8 +275,12 @@ export class PreOrdersService {
       payload: { orderId: order.id, readableId: order.readableId },
     });
 
+    const mapped = this.mapOrder(order);
+    if (!includeWhatsappUrl) {
+      return { order: mapped };
+    }
     const whatsappUrl = this.whatsappService.buildRedirectUrl(whatsapp.url, message);
-    return { order: this.mapOrder({ ...order, whatsappMessage: message }), whatsappUrl };
+    return { order: mapped, whatsappUrl };
   }
 
   async findActivePreOrders(page = 1, limit = 10) {
@@ -188,7 +292,7 @@ export class PreOrdersService {
       this.prisma.order.count({ where }),
       this.prisma.order.findMany({
         where,
-        include: { items: true },
+        include: orderInclude,
         orderBy: { preOrderActiveAt: 'desc' },
         skip: (safePage - 1) * safeLimit,
         take: safeLimit,
@@ -211,7 +315,7 @@ export class PreOrdersService {
       this.prisma.order.count({ where }),
       this.prisma.order.findMany({
         where,
-        include: { items: true },
+        include: orderInclude,
         orderBy: { suspendedAt: 'desc' },
         skip: (safePage - 1) * safeLimit,
         take: safeLimit,
@@ -226,13 +330,13 @@ export class PreOrdersService {
   }
 
   async findOne(id: string) {
-    const order = await this.prisma.order.findUnique({ where: { id }, include: { items: true } });
+    const order = await this.prisma.order.findUnique({ where: { id }, include: orderInclude });
     if (!order) throw new NotFoundException('Pedido no encontrado');
     return this.mapOrder(order);
   }
 
   async updatePreOrder(id: string, dto: UpdatePreOrderDto) {
-    const existing = await this.prisma.order.findUnique({ where: { id }, include: { items: true } });
+    const existing = await this.prisma.order.findUnique({ where: { id }, include: orderInclude });
     if (!existing) throw new NotFoundException('Pre-pedido no encontrado');
     assertPreOrderEditable(existing.stage, existing.canceledAt);
     if (existing.suspendedAt) {
@@ -242,9 +346,13 @@ export class PreOrdersService {
     let pricingPatch: Record<string, unknown> = {};
     if (dto.items) {
       const lineInputs = await this.buildLines(dto.items);
-      const shippingCost = dto.shippingZoneId
-        ? (await this.prisma.shippingZone.findUnique({ where: { id: dto.shippingZoneId } }))?.cost ?? existing.shippingCost
-        : existing.shippingCost;
+      let shippingCost = existing.shippingCost;
+      if (dto.shippingZoneId) {
+        const zone = await this.prisma.shippingZone.findUnique({ where: { id: dto.shippingZoneId } });
+        shippingCost = zone
+          ? (isAlwaysFreeShippingZone(zone.name) ? 0 : zone.cost)
+          : existing.shippingCost;
+      }
       const channel = existing.type === OrderType.MAYORISTA ? 'wholesale' : 'retail';
       const priced = priceOrderLines(lineInputs, shippingCost, channel);
       pricingPatch = {
@@ -263,6 +371,7 @@ export class PreOrdersService {
             quantity: line.quantity,
             unitPrice: line.unitPrice,
             priceType: line.priceType,
+            deliveryNote: line.deliveryNote,
           })),
         },
       };
@@ -277,13 +386,13 @@ export class PreOrdersService {
         ...(dto.shippingZoneId !== undefined ? { shippingZoneId: dto.shippingZoneId } : {}),
         ...pricingPatch,
       },
-      include: { items: true },
+      include: orderInclude,
     });
     return this.mapOrder(order);
   }
 
   async confirmDeposit(id: string) {
-    const existing = await this.prisma.order.findUnique({ where: { id }, include: { items: true } });
+    const existing = await this.prisma.order.findUnique({ where: { id }, include: orderInclude });
     if (!existing) throw new NotFoundException('Pre-pedido no encontrado');
     assertCanConfirmDeposit(existing.stage, existing.depositConfirmed, existing.canceledAt);
     if (existing.suspendedAt) {
@@ -298,7 +407,7 @@ export class PreOrdersService {
         depositConfirmed: true,
         suspendedAt: null,
       },
-      include: { items: true },
+      include: orderInclude,
     });
 
     await this.notificationsService.emit({
@@ -327,7 +436,7 @@ export class PreOrdersService {
         suspendedAt: null,
         preOrderActiveAt: now,
       },
-      include: { items: true },
+      include: orderInclude,
     });
 
     await this.notificationsService.emit({
@@ -346,7 +455,7 @@ export class PreOrdersService {
     const order = await this.prisma.order.update({
       where: { id },
       data: { canceledAt: new Date() },
-      include: { items: true },
+      include: orderInclude,
     });
     return this.mapOrder(order);
   }

@@ -22,7 +22,7 @@ const { data: platform } = await useCachedAsyncData('footer-platform', () =>
   <footer class="site-footer">
     <div class="footer-grid">
       <div class="footer-brand">
-        <p class="brand-name">LUXTIME</p>
+        <p class="brand-name">LUXTIMEE</p>
         <p class="brand-tagline">Luxury Timepieces</p>
         <p>{{ t('footer.brandText') }}</p>
       </div>

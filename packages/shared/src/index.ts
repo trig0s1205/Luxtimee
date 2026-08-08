@@ -22,6 +22,12 @@ export enum OrderType {
   MAYORISTA = 'MAYORISTA',
 }
 
+export enum OrderSource {
+  WEB = 'WEB',
+  WHATSAPP = 'WHATSAPP',
+  MAYORISTA = 'MAYORISTA',
+}
+
 export enum MarketingContactStatus {
   PENDING_VALIDATION = 'PENDING_VALIDATION',
   VALIDATED = 'VALIDATED',

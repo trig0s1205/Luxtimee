@@ -537,6 +537,34 @@
   color: #ff8888;
 }
 
+.admin-delivery-note-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f5d08a;
+  border: 1px solid rgba(245, 208, 138, 0.35);
+  background: rgba(245, 208, 138, 0.08);
+}
+
+.admin-delivery-note {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border-left: 2px solid rgba(245, 208, 138, 0.55);
+  background: rgba(245, 208, 138, 0.06);
+  color: #f5d08a;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.admin-delivery-note-item + .admin-delivery-note-item {
+  margin-top: 8px;
+}
+
 @media (max-width: 720px) {
   .admin-record-summary {
     grid-template-columns: 1fr;

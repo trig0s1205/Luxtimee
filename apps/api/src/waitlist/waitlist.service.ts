@@ -28,8 +28,8 @@ export class WaitlistService {
     for (const entry of entries) {
       await this.resend.send({
         to: entry.email,
-        subject: `${entry.watch.brand.name} ${entry.watch.model} vuelve a stock — Luxtime`,
-        html: `<p>El modelo que esperabas ya está disponible en Luxtime.</p>`,
+        subject: `${entry.watch.brand.name} ${entry.watch.model} vuelve a stock — LUXTIMEE`,
+        html: `<p>El modelo que esperabas ya está disponible en LUXTIMEE.</p>`,
       });
       await this.prisma.waitlistEntry.update({
         where: { id: entry.id },

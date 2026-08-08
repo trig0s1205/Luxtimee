@@ -24,7 +24,7 @@ watch([loaded, isAuthed], ([ready, authed]) => {
   if (ready && authed) refresh();
 });
 
-useSeoMeta({ title: 'Catálogo mayorista — Luxtime' });
+useSeoMeta({ title: 'Catálogo mayorista — LUXTIMEE' });
 </script>
 
 <template>

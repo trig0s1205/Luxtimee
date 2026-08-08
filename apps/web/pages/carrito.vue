@@ -6,7 +6,7 @@ const cart = useCartStore();
 
 onMounted(() => cart.hydrate());
 
-useSeoMeta({ title: 'Carrito — Luxtime' });
+useSeoMeta({ title: 'Carrito — LUXTIMEE' });
 </script>
 
 <template>

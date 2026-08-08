@@ -20,6 +20,7 @@ const linksBeforePedidos = [
 ];
 
 const prePedidosLinks = [
+  { to: '/admin/pre-pedidos/nuevo', label: 'Nuevo manual' },
   { to: '/admin/pre-pedidos/activos', label: 'Activos' },
   { to: '/admin/pre-pedidos/suspendidos', label: 'Suspendidos' },
 ];
@@ -54,7 +55,7 @@ function visibleLinks(links: typeof linksBeforePedidos) {
 <template>
   <aside class="admin-sidebar hidden lg:flex flex-col w-64 p-6 shrink-0 admin-shell">
     <div class="admin-sidebar-brand">
-      <h2>LUXTIME</h2>
+      <h2>LUXTIMEE</h2>
       <p>Administración de relojería de lujo</p>
     </div>
 

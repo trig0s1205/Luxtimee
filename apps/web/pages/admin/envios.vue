@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CreateShippingZoneDto, ShippingZoneDto } from '@luxtime/shared';
+import { isAlwaysFreeShippingZone } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 
 definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
@@ -106,13 +107,18 @@ async function removeZone(zone: ShippingZoneDto) {
           <p class="shipping-zone-type">{{ zone.isNational ? 'Nacional' : 'Metropolitana' }}</p>
         </div>
         <input
+          v-if="!zone.alwaysFree && !isAlwaysFreeShippingZone(zone.name)"
           type="number"
           class="shipping-zone-input"
           :value="zone.cost"
           @change="save(zone, Number(($event.target as HTMLInputElement).value))"
         >
-        <span class="shipping-zone-price">{{ formatCop(zone.cost) }}</span>
+        <span v-else class="shipping-zone-free">Gratis (fijo)</span>
+        <span class="shipping-zone-price">
+          {{ zone.alwaysFree || isAlwaysFreeShippingZone(zone.name) ? 'Gratis' : formatCop(zone.cost) }}
+        </span>
         <button
+          v-if="!zone.alwaysFree && !isAlwaysFreeShippingZone(zone.name)"
           type="button"
           class="shipping-zone-delete"
           :disabled="deletingId === zone.id"
@@ -193,6 +199,14 @@ async function removeZone(zone: ShippingZoneDto) {
 
 .shipping-zone-input:focus {
   border-color: rgba(200, 169, 110, 0.22);
+}
+
+.shipping-zone-free {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lux-white);
+  min-width: 8rem;
 }
 
 .shipping-zone-price {

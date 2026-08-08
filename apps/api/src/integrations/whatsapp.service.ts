@@ -14,7 +14,7 @@ export class WhatsappService {
     customerPhone?: string;
     shippingZoneName?: string;
     shippingCost?: number;
-    items: Array<{ label: string; qty: number; price: number }>;
+    items: Array<{ label: string; qty: number; price: number; deliveryNote?: string | null }>;
     total: number;
     type: string;
   }) {
@@ -26,6 +26,7 @@ export class WhatsappService {
           `*${index + 1}.* ${item.label}`,
           `   _Cantidad:_ x${item.qty}  ·  _Precio unit.:_ $${item.price.toLocaleString('es-CO')}`,
           lineTotal !== item.price ? `   _Subtotal:_ $${lineTotal.toLocaleString('es-CO')}` : null,
+          item.deliveryNote?.trim() ? `   _Nota entrega:_ ${item.deliveryNote.trim()}` : null,
         ]
           .filter(Boolean)
           .join('\n');
@@ -45,7 +46,7 @@ export class WhatsappService {
       .join('\n');
 
     return [
-      `*✨ LUXTIME — Intención de compra*`,
+      `*✨ LUXTIMEE — Intención de compra*`,
       '',
       input.prefix,
       '',

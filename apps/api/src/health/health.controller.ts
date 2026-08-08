@@ -10,7 +10,7 @@ export class HealthController {
   check() {
     return {
       status: 'ok',
-      service: 'luxtime-api',
+      service: 'LUXTIMEE-api',
       timestamp: new Date().toISOString(),
     };
   }

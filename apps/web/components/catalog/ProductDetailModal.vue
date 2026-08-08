@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { WatchPublicDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
-import { LUXTIME_EXPERIENCE_ITEMS } from '~/constants/luxtime-experience';
+import { LUXTIMEE_EXPERIENCE_ITEMS } from '~/constants/luxtime-experience';
 
 const { open, slug, closeProduct } = useProductModal();
 const catalog = useCatalogData();
@@ -86,9 +86,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
               </button>
             </div>
             <div class="detail-experience">
-              <p class="detail-experience-title">Tu Experiencia Luxtime incluye:</p>
+              <p class="detail-experience-title">Tu Experiencia LUXTIMEE incluye:</p>
               <ul>
-                <li v-for="item in LUXTIME_EXPERIENCE_ITEMS" :key="item.label">{{ item.label }}</li>
+                <li v-for="item in LUXTIMEE_EXPERIENCE_ITEMS" :key="item.label">{{ item.label }}</li>
               </ul>
             </div>
             <NuxtLink :to="`/producto/${product.slug}`" class="detail-full-link" @click="closeProduct">

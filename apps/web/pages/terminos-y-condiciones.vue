@@ -2,8 +2,8 @@
 import { termsSections } from '~/constants/legal-content';
 
 useSeoMeta({
-  title: 'Términos y Condiciones — Luxtime',
-  description: 'Términos y condiciones de compra de relojes de lujo en Luxtime. Envíos nacionales en Colombia.',
+  title: 'Términos y Condiciones — LUXTIMEE',
+  description: 'Términos y condiciones de compra de relojes de lujo en LUXTIMEE. Envíos nacionales en Colombia.',
 });
 </script>
 
@@ -12,9 +12,9 @@ useSeoMeta({
     <p class="legal-updated">Última actualización: julio 2026</p>
     <h1>Términos y Condiciones</h1>
     <p>
-      Bienvenido a Luxtime. Al acceder a nuestro sitio web o adquirir nuestros productos, usted acepta
+      Bienvenido a LUXTIMEE. Al acceder a nuestro sitio web o adquirir nuestros productos, usted acepta
       los presentes Términos y Condiciones, los cuales regulan la relación comercial entre usted y
-      Luxtime Luxury Timepieces.
+      LUXTIMEE Luxury Timepieces.
     </p>
 
     <section v-for="section in termsSections" :key="section.title">

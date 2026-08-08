@@ -192,7 +192,7 @@ async function exportReport(type: 'pdf' | 'excel') {
   }
 }
 
-useSeoMeta({ title: 'Dashboard de Ganancia — Luxtime Admin' });
+useSeoMeta({ title: 'Dashboard de Ganancia — LUXTIMEE Admin' });
 </script>
 
 <template>

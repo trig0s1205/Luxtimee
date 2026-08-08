@@ -124,7 +124,7 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('refresh')
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const refreshToken = req.cookies?.luxtime_refresh;
+    const refreshToken = req.cookies?.LUXTIMEE_refresh;
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token no encontrado');
     }

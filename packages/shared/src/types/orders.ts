@@ -1,4 +1,4 @@
-import type { OrderStage, OrderStatus, OrderType, PriceType } from '../index.js';
+import type { OrderSource, OrderStage, OrderStatus, OrderType, PriceType } from '../index.js';
 
 export interface CartItemDto {
   watchId: string;
@@ -10,6 +10,13 @@ export interface CartItemDto {
   retailPrice: number;
   wholesalePrice: number;
   stock: number;
+  deliveryNote?: string;
+}
+
+export interface PreOrderItemInput {
+  watchId: string;
+  quantity: number;
+  deliveryNote?: string;
 }
 
 export interface CreatePreOrderDto {
@@ -18,7 +25,22 @@ export interface CreatePreOrderDto {
   customerPhone?: string;
   shippingZoneId?: string;
   consentAccepted: boolean;
-  items: Array<{ watchId: string; quantity: number }>;
+  items: PreOrderItemInput[];
+}
+
+export interface CreateManualPreOrderDto {
+  customerName: string;
+  customerAddress: string;
+  customerPhone?: string;
+  shippingZoneId?: string;
+  items: PreOrderItemInput[];
+}
+
+export interface CustomerOrderHintDto {
+  customerName: string;
+  customerAddress: string;
+  customerPhone: string | null;
+  shippingZoneId: string | null;
 }
 
 export interface OrderItemDto {
@@ -31,6 +53,7 @@ export interface OrderItemDto {
   quantity: number;
   unitPrice: number;
   priceType: PriceType;
+  deliveryNote: string | null;
   warrantyRegistered: boolean;
 }
 
@@ -40,6 +63,7 @@ export interface OrderDto {
   stage: OrderStage;
   status: OrderStatus | null;
   type: OrderType;
+  source: OrderSource;
   customerName: string;
   customerAddress: string;
   customerEmail: string;
@@ -72,7 +96,7 @@ export interface UpdatePreOrderDto {
   customerAddress?: string;
   customerPhone?: string;
   shippingZoneId?: string;
-  items?: Array<{ watchId: string; quantity: number }>;
+  items?: PreOrderItemInput[];
 }
 
 export interface TransitionOrderDto {

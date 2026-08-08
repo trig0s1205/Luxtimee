@@ -49,7 +49,7 @@ export class DashboardsController {
     const data = await this.dashboardsService.getProfitDashboard(safePeriod);
     const buffer = await this.reportsService.buildProfitExcel(data, this.toReportOwner(user));
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="luxtime-ganancia-${safePeriod}.xlsx"`);
+    res.setHeader('Content-Disposition', `attachment; filename="LUXTIMEE-ganancia-${safePeriod}.xlsx"`);
     res.send(buffer);
   }
 
@@ -65,7 +65,7 @@ export class DashboardsController {
     const data = await this.dashboardsService.getProfitDashboard(safePeriod);
     const buffer = await this.reportsService.buildProfitPdf(data, this.toReportOwner(user));
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="luxtime-ganancia-${safePeriod}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="LUXTIMEE-ganancia-${safePeriod}.pdf"`);
     res.send(buffer);
   }
 

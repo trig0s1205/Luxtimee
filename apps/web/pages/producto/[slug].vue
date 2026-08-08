@@ -37,7 +37,7 @@ if (error.value) {
 watchEffect(() => {
   if (!watch.value) return;
   useSeoMeta({
-    title: `${watch.value.brand.name} ${watch.value.model} — Luxtime`,
+    title: `${watch.value.brand.name} ${watch.value.model} — LUXTIMEE`,
     description: watch.value.description?.trim()
       || `${watch.value.movementType}. ${watch.value.stock > 0 ? 'Disponible' : 'Agotado'}.`,
     ogImage: watch.value.frontImageUrl ?? undefined,

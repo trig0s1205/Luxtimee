@@ -1,0 +1,6 @@
+{
+  "installCommand": "cd ../.. && pnpm install",
+  "buildCommand": "cd ../.. && pnpm --filter @luxtime/shared build && pnpm --filter @luxtime/web build",
+  "outputDirectory": ".output/public",
+  "framework": "nuxtjs"
+}

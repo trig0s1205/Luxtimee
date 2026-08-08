@@ -3,10 +3,11 @@
   --black-2: #111111;
   --black-3: #1A1A1A;
   --gold: #C8A96E;
-  --gold-light: #E2C98A;
+  --gold-light: #D4B87E;
   --gold-dark: #9A7A45;
-  --white: #F5F0E8;
-  --white-dim: #B8B0A0;
+  --white: #FFFFFF;
+  --white-dim: #B8B8B8;
+  --white-muted: #7A7A7A;
 
   --font-display: 'Cormorant Garamond', serif;
   --font-body: 'Montserrat', sans-serif;
@@ -29,6 +30,8 @@
   --lux-font-display: var(--font-display);
   --lux-font-body: var(--font-body);
 
-  --border-hairline: 0.5px solid rgba(200, 169, 110, 0.05);
-  --border-hairline-white: 0.5px solid rgba(255, 255, 255, 0.04);
+  --border-hairline: 0.5px solid rgba(255, 255, 255, 0.08);
+  --border-hairline-white: 0.5px solid rgba(255, 255, 255, 0.12);
+  --border-accent-gold: 0.5px solid rgba(255, 255, 255, 0.14);
+  --border-accent-subtle-gold: 0.5px solid rgba(200, 169, 110, 0.18);
 }

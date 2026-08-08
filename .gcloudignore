@@ -1,0 +1,15 @@
+.git
+.gitignore
+node_modules
+**/node_modules
+**/.output
+**/.nuxt
+**/dist
+apps/web
+apps/image-service
+docs
+scripts
+.cursor
+.env
+**/.env
+*.log

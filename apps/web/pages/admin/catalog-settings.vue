@@ -2,7 +2,7 @@
 import type { BrandDto, CategoryDto } from '@luxtime/shared';
 import { extractApiErrorMessage } from '~/utils/api-error';
 
-useHead({ title: 'Catálogo — Marcas y clases — Luxtime Admin' });
+useHead({ title: 'Catálogo — Marcas y clases — LUXTIMEE Admin' });
 definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
 
 const api = useApi();

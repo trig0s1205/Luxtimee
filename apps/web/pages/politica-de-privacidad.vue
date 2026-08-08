@@ -2,8 +2,8 @@
 import { privacySections } from '~/constants/legal-content';
 
 useSeoMeta({
-  title: 'Política de Privacidad — Luxtime',
-  description: 'Política de tratamiento de datos personales de Luxtime. Ley 1581 de 2012 — Habeas Data Colombia.',
+  title: 'Política de Privacidad — LUXTIMEE',
+  description: 'Política de tratamiento de datos personales de LUXTIMEE. Ley 1581 de 2012 — Habeas Data Colombia.',
 });
 </script>
 
@@ -12,7 +12,7 @@ useSeoMeta({
     <p class="legal-updated">Última actualización: julio 2026</p>
     <h1>Política de Privacidad</h1>
     <p>
-      En Luxtime valoramos su confianza. Esta Política de Privacidad describe cómo recolectamos,
+      En LUXTIMEE valoramos su confianza. Esta Política de Privacidad describe cómo recolectamos,
       usamos, almacenamos y protegemos sus datos personales cuando interactúa con nuestro sitio web,
       realiza compras o se comunica con nuestro equipo.
     </p>

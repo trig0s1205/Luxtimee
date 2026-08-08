@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -91,5 +92,13 @@ export class WholesaleAccessController {
   @Audit('REGENERATE', 'WholesaleAccess')
   regenerate(@Param('id') id: string) {
     return this.wholesaleAccessService.regenerateToken(id);
+  }
+
+  @Delete(':id')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  @Audit('DELETE', 'WholesaleAccess')
+  remove(@Param('id') id: string) {
+    return this.wholesaleAccessService.remove(id);
   }
 }

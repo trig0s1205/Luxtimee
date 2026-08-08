@@ -8,6 +8,6 @@ definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
   <AdminOrdersPanel
     :order-type="OrderType.MAYORISTA"
     title="Pedidos al mayor"
-    seo-title="Pedidos al mayor — Luxtime Admin"
+    seo-title="Pedidos al mayor — LUXTIMEE Admin"
   />
 </template>

@@ -25,7 +25,7 @@ export class ReportsService {
 
     sheet.mergeCells('A1:I1');
     const title = sheet.getCell('A1');
-    title.value = 'Luxtime — Reporte de Ganancia';
+    title.value = 'LUXTIMEE — Reporte de Ganancia';
     title.font = { bold: true, size: 14 };
 
     sheet.addRow(['Periodo', this.periodLabel(data.period)]);
@@ -112,7 +112,7 @@ export class ReportsService {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      doc.fontSize(18).fillColor('#000000').text('Luxtime — Reporte de Ganancia', { underline: true });
+      doc.fontSize(18).fillColor('#000000').text('LUXTIMEE — Reporte de Ganancia', { underline: true });
       doc.moveDown(0.5);
 
       doc.fontSize(9).fillColor('#666666');
@@ -153,7 +153,7 @@ export class ReportsService {
 
     sheet.mergeCells('A1:J1');
     const title = sheet.getCell('A1');
-    title.value = 'Luxtime — Historias de garantías';
+    title.value = 'LUXTIMEE — Historias de garantías';
     title.font = { bold: true, size: 14 };
 
     sheet.addRow(['Periodo', data.periodLabel]);
@@ -215,7 +215,7 @@ export class ReportsService {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      doc.fontSize(18).fillColor('#000000').text('Luxtime — Historias de garantías', { underline: true });
+      doc.fontSize(18).fillColor('#000000').text('LUXTIMEE — Historias de garantías', { underline: true });
       doc.moveDown(0.5);
       doc.fontSize(9).fillColor('#666666');
       doc.text(`Generado el ${new Date().toLocaleString('es-CO')}`);

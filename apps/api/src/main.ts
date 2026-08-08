@@ -10,6 +10,7 @@ import { AbuseGuardMiddleware } from './common/middleware/abuse-guard.middleware
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const isProd = process.env.NODE_ENV === 'production';
+  const frontendUrl = process.env.FRONTEND_URL?.trim() || undefined;
 
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
   app.use(cookieParser());
@@ -30,7 +31,7 @@ async function bootstrap() {
               scriptSrc: ["'self'"],
               styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
               fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
-              connectSrc: ["'self'", process.env.FRONTEND_URL ?? "'self'"],
+              connectSrc: ["'self'", frontendUrl ?? "'self'"],
               frameAncestors: ["'none'"],
             },
           }
@@ -52,7 +53,7 @@ async function bootstrap() {
 
   app.enableCors({
     origin: isProd
-      ? process.env.FRONTEND_URL ?? false
+      ? frontendUrl ?? false
       : true,
     credentials: true,
   });
@@ -61,7 +62,7 @@ async function bootstrap() {
   const host = process.env.HOST ?? '0.0.0.0';
   await app.listen(port, host);
   // eslint-disable-next-line no-console
-  console.log(`Luxtime API escuchando en http://${host}:${port}/api/v1/health`);
+  console.log(`LUXTIMEE API escuchando en http://${host}:${port}/api/v1/health`);
 }
 
 bootstrap();

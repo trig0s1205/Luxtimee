@@ -41,7 +41,15 @@ watch(() => route.fullPath, closeMenu);
 <template>
   <nav id="navbar" class="site-nav" :class="{ scrolled }">
     <NuxtLink to="/" class="nav-logo" @click="closeMenu">
-      LUX<span class="gold">TIME</span> ·
+      <span class="nav-logo__frame">
+        <img
+          src="/images/logo-luxtimee.png"
+          alt="LuxTimee"
+          class="nav-logo__img"
+          width="140"
+          height="40"
+        >
+      </span>
     </NuxtLink>
 
     <button

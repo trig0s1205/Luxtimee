@@ -18,6 +18,7 @@ import {
 } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { extractApiErrorMessage } from '~/utils/api-error';
+import { orderDeliveryNotes, orderHasDeliveryNotes } from '~/utils/order-delivery-notes';
 
 const props = defineProps<{
   orderType: OrderType;
@@ -276,6 +277,7 @@ useSeoMeta({ title: props.seoTitle });
           <div class="admin-record-meta">
             <span class="admin-record-amount">{{ formatCop(order.total) }}</span>
             <span class="admin-record-date">{{ formatDate(order.createdAt) }}</span>
+            <span v-if="orderHasDeliveryNotes(order)" class="admin-delivery-note-badge">Nota entrega</span>
           </div>
 
           <div class="admin-record-summary-actions" @click.stop>
@@ -317,6 +319,7 @@ useSeoMeta({ title: props.seoTitle });
                   <span>
                     {{ item.productSku }} — {{ item.productName }} ×{{ item.quantity }}
                     <span class="admin-record-muted"> · {{ formatCop(item.unitPrice * item.quantity) }}</span>
+                    <p v-if="item.deliveryNote?.trim()" class="admin-delivery-note">{{ item.deliveryNote }}</p>
                   </span>
                   <button
                     v-if="order.status === 'ENTREGADO' && !item.warrantyRegistered"
@@ -327,6 +330,20 @@ useSeoMeta({ title: props.seoTitle });
                     Garantía
                   </button>
                   <span v-else-if="item.warrantyRegistered" class="admin-record-chip">Garantía ok</span>
+                </li>
+              </ul>
+            </AdminAccordionSection>
+
+            <AdminAccordionSection
+              v-if="orderHasDeliveryNotes(order)"
+              title="Notas de entrega"
+              subtitle="Ruta y horarios"
+              :default-open="true"
+            >
+              <ul class="admin-record-list">
+                <li v-for="entry in orderDeliveryNotes(order)" :key="entry.id" class="admin-delivery-note-item">
+                  <strong>{{ entry.label }}</strong>
+                  <p class="admin-delivery-note">{{ entry.note }}</p>
                 </li>
               </ul>
             </AdminAccordionSection>

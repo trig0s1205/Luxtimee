@@ -7,7 +7,7 @@ const cart = useWholesaleCartStore();
 
 onMounted(() => cart.hydrate());
 
-useSeoMeta({ title: 'Carrito mayorista — Luxtime' });
+useSeoMeta({ title: 'Carrito mayorista — LUXTIMEE' });
 </script>
 
 <template>

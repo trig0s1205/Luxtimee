@@ -1,6 +1,6 @@
 import { Role, type AuthUserDto } from '@luxtime/shared';
 
-const STORAGE_KEY = 'luxtime-dev-auth';
+const STORAGE_KEY = 'LUXTIMEE-dev-auth';
 
 const DEV_ACCOUNTS: Record<string, { password: string; name: string; role: Role }> = {
   'alvaro@luxtime.co': { password: 'luxtime', name: 'Álvaro', role: Role.SUPER_ADMIN },

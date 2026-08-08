@@ -21,7 +21,7 @@ onMounted(async () => {
   }
 });
 
-useSeoMeta({ title: 'Acceso mayorista — Luxtime' });
+useSeoMeta({ title: 'Acceso mayorista — LUXTIMEE' });
 </script>
 
 <template>

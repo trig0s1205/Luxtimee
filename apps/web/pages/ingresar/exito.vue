@@ -8,7 +8,7 @@ const error = ref('');
 const loading = ref(true);
 
 useSeoMeta({
-  title: 'Sesión iniciada — Luxtime',
+  title: 'Sesión iniciada — LUXTIMEE',
   robots: 'noindex, nofollow',
 });
 
@@ -29,7 +29,7 @@ onMounted(async () => {
 <template>
   <div class="auth-page">
     <div v-if="loading" class="auth-card auth-card--center reveal visible">
-      <p class="auth-eyebrow">Luxtime</p>
+      <p class="auth-eyebrow">LUXTIMEE</p>
       <h1 class="auth-title">Validando <em>acceso</em></h1>
       <div class="auth-loader" />
     </div>

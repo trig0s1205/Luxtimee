@@ -8,7 +8,7 @@ export const privacySections: LegalSection[] = [
   {
     title: '1. Responsable del tratamiento',
     paragraphs: [
-      'Luxtime Luxury Timepieces (en adelante, «Luxtime»), con domicilio en Piedecuesta, Colombia, es el responsable del tratamiento de los datos personales recolectados a través de este sitio web, canales de WhatsApp, formularios de contacto, checkout y demás medios digitales asociados a la marca.',
+      'LUXTIMEE Luxury Timepieces (en adelante, «LUXTIMEE»), con domicilio en Piedecuesta, Colombia, es el responsable del tratamiento de los datos personales recolectados a través de este sitio web, canales de WhatsApp, formularios de contacto, checkout y demás medios digitales asociados a la marca.',
       'Para cualquier solicitud relacionada con el tratamiento de datos personales puede escribirnos a: privacidad@luxtime.co',
     ],
   },
@@ -56,13 +56,13 @@ export const privacySections: LegalSection[] = [
   {
     title: '6. Procedimiento para ejercer sus derechos',
     paragraphs: [
-      'Para ejercer sus derechos de Habeas Data, envíe una solicitud a privacidad@luxtime.co indicando su nombre completo, medio de contacto, descripción de la solicitud y copia de su documento de identidad. Luxtime responderá en los términos establecidos por la normativa vigente.',
+      'Para ejercer sus derechos de Habeas Data, envíe una solicitud a privacidad@luxtime.co indicando su nombre completo, medio de contacto, descripción de la solicitud y copia de su documento de identidad. LUXTIMEE responderá en los términos establecidos por la normativa vigente.',
     ],
   },
   {
     title: '7. Transferencia y transmisión de datos',
     paragraphs: [
-      'Luxtime podrá compartir datos con proveedores de logística, pasarelas de pago, servicios de mensajería, hosting, analítica web y herramientas de comunicación, únicamente para cumplir las finalidades descritas y bajo estándares razonables de confidencialidad y seguridad.',
+      'LUXTIMEE podrá compartir datos con proveedores de logística, pasarelas de pago, servicios de mensajería, hosting, analítica web y herramientas de comunicación, únicamente para cumplir las finalidades descritas y bajo estándares razonables de confidencialidad y seguridad.',
       'No vendemos ni comercializamos datos personales a terceros.',
     ],
   },
@@ -90,7 +90,7 @@ export const termsSections: LegalSection[] = [
   {
     title: '1. Objeto y aceptación',
     paragraphs: [
-      'Los presentes Términos y Condiciones regulan el acceso, navegación y compra de productos ofrecidos por Luxtime Luxury Timepieces a través de su sitio web y canales digitales autorizados. Al utilizar el sitio o confirmar un pedido, usted declara haber leído y aceptado estas condiciones.',
+      'Los presentes Términos y Condiciones regulan el acceso, navegación y compra de productos ofrecidos por LUXTIMEE Luxury Timepieces a través de su sitio web y canales digitales autorizados. Al utilizar el sitio o confirmar un pedido, usted declara haber leído y aceptado estas condiciones.',
     ],
   },
   {
@@ -102,7 +102,7 @@ export const termsSections: LegalSection[] = [
   {
     title: '3. Productos, precios y disponibilidad',
     paragraphs: [
-      'Las imágenes, descripciones, referencias y precios publicados tienen carácter informativo y pueden actualizarse sin previo aviso. La disponibilidad de cada pieza se confirma al momento de validar el pedido. Luxtime se reserva el derecho de corregir errores tipográficos o de precio antes de la confirmación definitiva de la compra.',
+      'Las imágenes, descripciones, referencias y precios publicados tienen carácter informativo y pueden actualizarse sin previo aviso. La disponibilidad de cada pieza se confirma al momento de validar el pedido. LUXTIMEE se reserva el derecho de corregir errores tipográficos o de precio antes de la confirmación definitiva de la compra.',
     ],
   },
   {
@@ -113,7 +113,7 @@ export const termsSections: LegalSection[] = [
   },
   {
     title: '5. Envíos a nivel nacional en Colombia',
-    paragraphs: ['Luxtime realiza envíos a nivel nacional conforme a las siguientes condiciones generales:'],
+    paragraphs: ['LUXTIMEE realiza envíos a nivel nacional conforme a las siguientes condiciones generales:'],
     list: [
       'Los tiempos de entrega se informan al confirmar el pedido y pueden variar según ciudad, transportadora y disponibilidad del producto.',
       'El costo de envío se calcula según la zona de destino y será informado antes del pago final.',
@@ -124,7 +124,7 @@ export const termsSections: LegalSection[] = [
   {
     title: '6. Garantías',
     paragraphs: [
-      'Los productos comercializados por Luxtime pueden incluir garantía del fabricante, garantía comercial o certificación de autenticidad, según se indique en la ficha del producto o documentación entregada con la compra. La cobertura, plazo y exclusiones dependerán del tipo de pieza adquirida y de las condiciones específicas comunicadas al momento de la venta.',
+      'Los productos comercializados por LUXTIMEE pueden incluir garantía del fabricante, garantía comercial o certificación de autenticidad, según se indique en la ficha del producto o documentación entregada con la compra. La cobertura, plazo y exclusiones dependerán del tipo de pieza adquirida y de las condiciones específicas comunicadas al momento de la venta.',
     ],
   },
   {
@@ -136,25 +136,25 @@ export const termsSections: LegalSection[] = [
   {
     title: '8. Propiedad intelectual',
     paragraphs: [
-      'Todo el contenido del sitio, incluyendo marcas, logotipos, textos, fotografías, diseño y software, es propiedad de Luxtime o de sus respectivos titulares y está protegido por la legislación aplicable. Queda prohibida su reproducción sin autorización previa y por escrito.',
+      'Todo el contenido del sitio, incluyendo marcas, logotipos, textos, fotografías, diseño y software, es propiedad de LUXTIMEE o de sus respectivos titulares y está protegido por la legislación aplicable. Queda prohibida su reproducción sin autorización previa y por escrito.',
     ],
   },
   {
     title: '9. Limitación de responsabilidad',
     paragraphs: [
-      'Luxtime no será responsable por interrupciones temporales del sitio, fallas de terceros proveedores, fuerza mayor o uso indebido de la plataforma por parte del usuario. La responsabilidad de Luxtime, cuando proceda, se limitará al valor efectivamente pagado por el producto objeto de la reclamación, salvo disposición legal en contrario.',
+      'LUXTIMEE no será responsable por interrupciones temporales del sitio, fallas de terceros proveedores, fuerza mayor o uso indebido de la plataforma por parte del usuario. La responsabilidad de LUXTIMEE, cuando proceda, se limitará al valor efectivamente pagado por el producto objeto de la reclamación, salvo disposición legal en contrario.',
     ],
   },
   {
     title: '10. Ley aplicable y jurisdicción',
     paragraphs: [
-      'Estos Términos y Condiciones se rigen por las leyes de la República de Colombia. Cualquier controversia será sometida a los jueces competentes del domicilio de Luxtime en Piedecuesta, salvo norma imperativa en contrario.',
+      'Estos Términos y Condiciones se rigen por las leyes de la República de Colombia. Cualquier controversia será sometida a los jueces competentes del domicilio de LUXTIMEE en Piedecuesta, salvo norma imperativa en contrario.',
     ],
   },
   {
     title: '11. Modificaciones',
     paragraphs: [
-      'Luxtime podrá modificar estos Términos y Condiciones en cualquier momento. Las modificaciones entrarán en vigor desde su publicación en esta página. Se recomienda revisar periódicamente este documento.',
+      'LUXTIMEE podrá modificar estos Términos y Condiciones en cualquier momento. Las modificaciones entrarán en vigor desde su publicación en esta página. Se recomienda revisar periódicamente este documento.',
     ],
   },
 ];

@@ -188,7 +188,7 @@ watch(products, () => {
 onMounted(() => nextTick(() => observe()));
 
 useSeoMeta({
-  title: 'Colección — Luxtime Luxury Timepieces',
+  title: 'Colección — LUXTIMEE Luxury Timepieces',
   description: 'Explora nuestra colección de relojes de lujo. Filtra por marca, mecanismo y disponibilidad.',
 });
 </script>

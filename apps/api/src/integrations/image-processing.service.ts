@@ -75,7 +75,7 @@ export class ImageProcessingService {
       return `https://res.cloudinary.com/mock/image/upload/${publicId}.png`;
     }
 
-    const folder = this.config.get<string>('CLOUDINARY_FOLDER', 'luxtime/watches');
+    const folder = this.config.get<string>('CLOUDINARY_FOLDER', 'LUXTIMEE/watches');
     const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         { folder, public_id: publicId, resource_type: 'image', format: 'png' },

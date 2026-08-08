@@ -28,7 +28,7 @@ const { openChat } = useWhatsApp();
           <NuxtLink :to="props.config.ctaLink || '/catalogo'" class="btn-primary">
             {{ props.config.ctaText || 'Ver colección' }}
           </NuxtLink>
-          <button type="button" class="btn-ghost" @click="openChat('Hola Luxtime, me gustaría saber más sobre la colección.')">
+          <button type="button" class="btn-ghost" @click="openChat('Hola LUXTIMEE, me gustaría saber más sobre la colección.')">
             Contactar
           </button>
         </div>

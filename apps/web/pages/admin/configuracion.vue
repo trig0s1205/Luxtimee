@@ -331,7 +331,7 @@ async function clearSignatureImage() {
   }
 }
 
-useSeoMeta({ title: 'Configuración — Luxtime Admin' });
+useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
 </script>
 
 <template>
@@ -438,7 +438,7 @@ useSeoMeta({ title: 'Configuración — Luxtime Admin' });
           </label>
           <label>
             <span>Prefijo del mensaje</span>
-            <UiLuxInput v-model="whatsapp.messagePrefix" placeholder="Hola Luxtime, deseo comprar:" />
+            <UiLuxInput v-model="whatsapp.messagePrefix" placeholder="Hola LUXTIMEE, deseo comprar:" />
           </label>
         </div>
       </section>
@@ -456,15 +456,15 @@ useSeoMeta({ title: 'Configuración — Luxtime Admin' });
           </label>
           <label>
             <span>Instagram</span>
-            <UiLuxInput v-model="platform.instagramUrl" placeholder="https://www.instagram.com/luxtime" />
+            <UiLuxInput v-model="platform.instagramUrl" placeholder="https://www.instagram.com/LUXTIMEE" />
           </label>
           <label>
             <span>TikTok</span>
-            <UiLuxInput v-model="platform.tiktokUrl" placeholder="https://www.tiktok.com/@luxtime" />
+            <UiLuxInput v-model="platform.tiktokUrl" placeholder="https://www.tiktok.com/@LUXTIMEE" />
           </label>
           <label>
             <span>Facebook</span>
-            <UiLuxInput v-model="platform.facebookUrl" placeholder="https://www.facebook.com/luxtime" />
+            <UiLuxInput v-model="platform.facebookUrl" placeholder="https://www.facebook.com/LUXTIMEE" />
           </label>
         </div>
       </section>
@@ -546,7 +546,7 @@ useSeoMeta({ title: 'Configuración — Luxtime Admin' });
       <template v-if="indexSubTab === 'founder'">
         <section class="admin-config-card">
           <div class="admin-card-head">
-            <h2>Quién es Luxtime</h2>
+            <h2>Quién es LUXTIMEE</h2>
             <label class="admin-toggle-label">
               <input v-model="home.founder.enabled" type="checkbox" />
               Activo

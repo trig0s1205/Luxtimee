@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -28,6 +29,12 @@ enum OrderStatus {
 
 enum OrderType {
   DETAL
+  MAYORISTA
+}
+
+enum OrderSource {
+  WEB
+  WHATSAPP
   MAYORISTA
 }
 
@@ -247,6 +254,7 @@ model Order {
   stage            OrderStage   @default(PRE_ORDER)
   status           OrderStatus?
   type             OrderType    @default(DETAL)
+  source           OrderSource  @default(WEB)
   customerName     String
   customerAddress  String
   customerEmail    String
@@ -292,6 +300,7 @@ model OrderItem {
   quantity     Int
   unitPrice    Int
   priceType    PriceType
+  deliveryNote String?   @db.Text
   createdAt    DateTime  @default(now())
 
   order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -424,7 +433,7 @@ model AuditLog {
 model WholesaleAccess {
   id           String    @id @default(cuid())
   name         String
-  email        String
+  email        String?
   phone        String?
   accessToken  String    @unique @default(cuid())
   isActive     Boolean   @default(true)

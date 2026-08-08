@@ -80,7 +80,7 @@ const kpis = computed<KpiCard[]>(() => {
   ];
 });
 
-useSeoMeta({ title: 'Panel de salud del negocio — Luxtime Admin' });
+useSeoMeta({ title: 'Panel de salud del negocio — LUXTIMEE Admin' });
 </script>
 
 <template>

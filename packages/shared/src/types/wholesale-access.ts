@@ -1,7 +1,7 @@
 export interface WholesaleAccessDto {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   phone: string | null;
   accessToken: string;
   isActive: boolean;
@@ -21,13 +21,13 @@ export interface WholesaleAccessListDto {
 export interface WholesaleSessionDto {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   phone: string | null;
 }
 
 export interface CreateWholesaleAccessDto {
   name: string;
-  email: string;
+  email?: string;
   phone?: string;
   notes?: string;
   cookieDurationDays?: number;

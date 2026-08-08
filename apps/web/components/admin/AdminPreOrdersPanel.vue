@@ -2,6 +2,7 @@
 import type { OrderDto, PreOrdersListDto } from '@luxtime/shared';
 import { PRE_ORDER_RESPONSE_HOURS } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
+import { orderDeliveryNotes, orderHasDeliveryNotes } from '~/utils/order-delivery-notes';
 
 const props = defineProps<{
   bucket: 'active' | 'suspended';
@@ -106,6 +107,12 @@ useSeoMeta({ title: props.seoTitle });
       Clientes que dejaron de responder por más de {{ PRE_ORDER_RESPONSE_HOURS }} horas. Puedes reactivarlos si vuelven a escribir.
     </p>
 
+    <div class="admin-records-actions mb-4">
+      <NuxtLink to="/admin/pre-pedidos/nuevo" class="admin-record-btn admin-record-btn--primary">
+        Nuevo pre-pedido manual
+      </NuxtLink>
+    </div>
+
     <div v-if="pending && !preOrders.length" class="admin-record-empty">Cargando...</div>
 
     <div v-else class="admin-records-list">
@@ -136,6 +143,7 @@ useSeoMeta({ title: props.seoTitle });
             <span class="admin-record-date">
               {{ bucket === 'active' ? `${hoursRemaining(order)}h restantes` : `Suspendido ${waitHoursSince(order.suspendedAt ?? order.preOrderActiveAt)}h` }}
             </span>
+            <span v-if="orderHasDeliveryNotes(order)" class="admin-delivery-note-badge">Nota entrega</span>
           </div>
 
           <div class="admin-record-summary-actions" @click.stop>
@@ -146,6 +154,7 @@ useSeoMeta({ title: props.seoTitle });
               <UiLuxBadge :tone="bucket === 'suspended' ? 'cancelado' : 'pendiente'">
                 {{ bucket === 'active' ? 'Activo' : 'Suspendido' }}
               </UiLuxBadge>
+              <UiLuxBadge v-if="order.source === 'WHATSAPP'" tone="mayorista">WhatsApp</UiLuxBadge>
             </AdminTagMenu>
           </div>
         </button>
@@ -170,6 +179,23 @@ useSeoMeta({ title: props.seoTitle });
               <ul class="admin-record-list">
                 <li v-for="item in order.items" :key="item.id">
                   {{ item.productName }} ×{{ item.quantity }}
+                  <p v-if="item.deliveryNote?.trim()" class="admin-delivery-note">
+                    {{ item.deliveryNote }}
+                  </p>
+                </li>
+              </ul>
+            </AdminAccordionSection>
+
+            <AdminAccordionSection
+              v-if="orderHasDeliveryNotes(order)"
+              title="Notas de entrega"
+              subtitle="Ruta y horarios"
+              :default-open="true"
+            >
+              <ul class="admin-record-list">
+                <li v-for="entry in orderDeliveryNotes(order)" :key="entry.id" class="admin-delivery-note-item">
+                  <strong>{{ entry.label }}</strong>
+                  <p class="admin-delivery-note">{{ entry.note }}</p>
                 </li>
               </ul>
             </AdminAccordionSection>

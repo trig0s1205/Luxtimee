@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { WatchPublicDto } from '@luxtime/shared';
-import { LUXTIME_EXPERIENCE_ITEMS } from '~/constants/luxtime-experience';
+import { LUXTIMEE_EXPERIENCE_ITEMS } from '~/constants/luxtime-experience';
 import { buildWatchTechSpecs, splitDescription } from '~/utils/watch-tech-sheet';
 
 const props = withDefaults(defineProps<{
@@ -26,7 +26,7 @@ const techSpecs = computed(() => buildWatchTechSpecs(props.watch));
     }"
   >
     <header class="watch-tech-sheet__header">
-      <p class="watch-tech-sheet__eyebrow">Luxtime · Ficha técnica</p>
+      <p class="watch-tech-sheet__eyebrow">LUXTIMEE · Ficha técnica</p>
       <h2 v-if="!inline" class="watch-tech-sheet__title">{{ watch.brand.name }} {{ watch.model }}</h2>
     </header>
 
@@ -48,9 +48,9 @@ const techSpecs = computed(() => buildWatchTechSpecs(props.watch));
     </div>
 
     <div class="watch-tech-sheet__block">
-      <h3 class="watch-tech-sheet__block-title">Tu experiencia Luxtime</h3>
+      <h3 class="watch-tech-sheet__block-title">Tu experiencia LUXTIMEE</h3>
       <div class="watch-tech-sheet__experience">
-        <article v-for="item in LUXTIME_EXPERIENCE_ITEMS" :key="item.label" class="watch-tech-sheet__experience-card">
+        <article v-for="item in LUXTIMEE_EXPERIENCE_ITEMS" :key="item.label" class="watch-tech-sheet__experience-card">
           <span class="watch-tech-sheet__experience-icon" aria-hidden="true">{{ item.icon }}</span>
           <p>{{ item.label }}</p>
         </article>

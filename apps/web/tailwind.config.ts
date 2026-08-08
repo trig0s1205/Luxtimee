@@ -22,7 +22,8 @@ export default {
         lux: '0.2em',
       },
       boxShadow: {
-        lux: '0 12px 40px rgba(200,169,110,0.25)',
+        lux: '0 12px 40px rgba(255,255,255,0.08)',
+        'lux-gold': '0 12px 40px rgba(200,169,110,0.18)',
       },
     },
   },

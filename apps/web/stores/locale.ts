@@ -1,7 +1,7 @@
 export type AppLocale = 'en' | 'es';
 
-const STOREFRONT_STORAGE_KEY = 'luxtime-storefront-locale';
-const LEGACY_STORAGE_KEY = 'luxtime-locale';
+const STOREFRONT_STORAGE_KEY = 'LUXTIMEE-storefront-locale';
+const LEGACY_STORAGE_KEY = 'LUXTIMEE-locale';
 
 export const useLocaleStore = defineStore('locale', {
   state: () => ({

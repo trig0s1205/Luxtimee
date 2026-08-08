@@ -18,8 +18,16 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @luxtime/api exec prisma generate
+      - name: Generate Prisma client
+        run: pnpm --filter @luxtime/api exec prisma generate
+        env:
+          DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+          DIRECT_URL: "postgresql://ci:ci@localhost:5432/ci"
       - run: pnpm --filter @luxtime/shared build
       - run: pnpm typecheck
       - run: pnpm --filter @luxtime/api test
-      - run: pnpm build
+      - name: Build (skip web SSR in CI)
+        run: pnpm --filter @luxtime/shared build && pnpm --filter @luxtime/api build
+        env:
+          DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+          DIRECT_URL: "postgresql://ci:ci@localhost:5432/ci"

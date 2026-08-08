@@ -20,9 +20,9 @@ const { data: homeCms } = await useCachedAsyncData<HomepageConfigDto>(
 const cms = computed<HomepageConfigDto>(() => homeCms.value ?? DEFAULT_HOMEPAGE_CONFIG);
 
 useSeoMeta({
-  title: 'Luxtime — Luxury Timepieces',
-  description: 'Catálogo premium de relojes de lujo. Luxtime Luxury Timepieces.',
-  ogTitle: 'Luxtime — Luxury Timepieces',
+  title: 'LUXTIMEE — Luxury Timepieces',
+  description: 'Catálogo premium de relojes de lujo. LUXTIMEE Luxury Timepieces.',
+  ogTitle: 'LUXTIMEE — Luxury Timepieces',
   ogDescription: 'Catálogo premium de relojes de lujo. Compra asesorada por WhatsApp.',
 });
 

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-useSeoMeta({ title: 'Sorteos Luxtime | Detalles Exclusivos' });
+useSeoMeta({ title: 'Sorteos LUXTIMEE | Detalles Exclusivos' });
 </script>
 
 <template>
   <div class="sorteos-section" style="min-height:80vh">
     <div class="sorteos-content reveal" style="max-width:700px;margin:0 auto;padding:120px 24px;text-align:center">
       <p class="section-label">Edición Limitada</p>
-      <h1 class="sorteos-title">Sorteos Exclusivos <em>Luxtime</em></h1>
+      <h1 class="sorteos-title">Sorteos Exclusivos <em>LUXTIMEE</em></h1>
       <p class="section-body" style="max-width:480px;margin:0 auto 40px">
         Forma parte de nuestra comunidad exclusiva. Al adquirir una pieza participas automáticamente.
       </p>

@@ -128,7 +128,7 @@ onBeforeUnmount(() => stopTimer());
     <div class="lux-hero__brand">
       <p class="lux-hero__eyebrow">{{ t('home.heroEyebrow') }}</p>
       <h1 class="lux-hero__logo">
-        LU<span class="lux-hero__logo-gold">X</span>TIME
+        LU<span class="lux-hero__logo-accent">X</span>TIMEE
       </h1>
       <p class="lux-hero__tagline">{{ t('home.heroTagline') }}</p>
     </div>
@@ -304,7 +304,7 @@ onBeforeUnmount(() => stopTimer());
   font-size: 10px;
   letter-spacing: 0.38em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--white-dim);
 }
 
 .lux-hero__logo {
@@ -317,8 +317,8 @@ onBeforeUnmount(() => stopTimer());
   color: var(--white);
 }
 
-.lux-hero__logo-gold {
-  color: var(--gold);
+.lux-hero__logo-accent {
+  color: var(--white);
 }
 
 .lux-hero__tagline {
@@ -372,13 +372,18 @@ onBeforeUnmount(() => stopTimer());
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(200, 169, 110, 0.28);
-  color: var(--gold-light);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--white-dim);
 }
 
 .lux-hero__badge--limited {
-  border-color: rgba(200, 169, 110, 0.55);
-  color: var(--gold);
+  border-color: rgba(200, 169, 110, 0.35);
+  color: var(--gold-light);
+}
+
+.lux-hero__badge--ok {
+  border-color: rgba(255, 255, 255, 0.22);
+  color: var(--white);
 }
 
 .lux-hero__badge--sold {
@@ -410,7 +415,7 @@ onBeforeUnmount(() => stopTimer());
   display: block;
   margin-top: 0.2rem;
   font-weight: 400;
-  color: var(--gold-light);
+  color: var(--white-dim);
 }
 
 .lux-hero__meta {
@@ -427,7 +432,7 @@ onBeforeUnmount(() => stopTimer());
   font-family: var(--font-display);
   font-size: clamp(1.6rem, 2.2vw, 2.15rem);
   font-weight: 300;
-  color: var(--gold);
+  color: var(--white);
 }
 
 .lux-hero__cta {
@@ -435,7 +440,7 @@ onBeforeUnmount(() => stopTimer());
   padding: 0.85rem 1.6rem;
   border: none;
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--gold-light), var(--gold-dark));
+  background: var(--white);
   color: var(--black);
   font-family: var(--font-body);
   font-size: 10px;
@@ -444,13 +449,13 @@ onBeforeUnmount(() => stopTimer());
   text-transform: uppercase;
   cursor: pointer;
   transition: transform 0.35s ease, box-shadow 0.35s ease, filter 0.35s ease;
-  box-shadow: 0 10px 30px rgba(200, 169, 110, 0.18);
+  box-shadow: 0 10px 30px rgba(255, 255, 255, 0.1);
 }
 
 .lux-hero__cta:hover {
   transform: translateY(-2px);
-  filter: brightness(1.05);
-  box-shadow: 0 14px 36px rgba(200, 169, 110, 0.28);
+  filter: brightness(0.96);
+  box-shadow: 0 14px 36px rgba(255, 255, 255, 0.16);
 }
 
 .lux-hero__visual {

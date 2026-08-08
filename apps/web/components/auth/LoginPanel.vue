@@ -88,11 +88,11 @@ async function submitLogin(preset?: { email: string; password: string }) {
     } else {
       try {
         user = await credentialLogin(email.value, password.value);
-      } catch {
+      } catch (loginErr) {
         if (LOCAL_AUTH_ENABLED) {
           user = auth.localLogin(email.value, password.value);
         } else {
-          throw new Error('Correo o contraseña incorrectos.');
+          throw loginErr;
         }
       }
     }
@@ -119,7 +119,7 @@ async function submitLogin(preset?: { email: string; password: string }) {
     <p class="auth-eyebrow">Acceso seguro</p>
     <h1 class="auth-title">Iniciar <em>sesión</em></h1>
     <p class="auth-subtitle">
-      Acceso exclusivo para el equipo administrativo de Luxtime.
+      Acceso exclusivo para el equipo administrativo de LUXTIMEE.
     </p>
 
     <p v-if="queryError" class="auth-alert auth-alert--warning">{{ queryError }}</p>
@@ -175,7 +175,7 @@ async function submitLogin(preset?: { email: string; password: string }) {
           Admin
         </button>
       </div>
-      <p class="auth-dev-hint">Contraseña dev: <strong>luxtime</strong></p>
+      <p class="auth-dev-hint">Contraseña dev: <strong>LUXTIMEE</strong></p>
     </div>
 
     <template v-if="config.googleEnabled">

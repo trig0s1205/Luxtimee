@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -63,7 +64,7 @@ export class WholesaleAccessService {
   }
 
   async create(dto: CreateWholesaleAccessDto, grantedById?: string) {
-    const email = dto.email.trim().toLowerCase();
+    const email = dto.email?.trim().toLowerCase() || null;
     const token = randomBytes(24).toString('hex');
     const record = await this.prisma.wholesaleAccess.create({
       data: {
@@ -87,7 +88,9 @@ export class WholesaleAccessService {
       where: { id },
       data: {
         ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
-        ...(dto.email !== undefined ? { email: dto.email.trim().toLowerCase() } : {}),
+        ...(dto.email !== undefined
+          ? { email: dto.email.trim() ? dto.email.trim().toLowerCase() : null }
+          : {}),
         ...(dto.phone !== undefined ? { phone: dto.phone.trim() || null } : {}),
         ...(dto.notes !== undefined ? { notes: dto.notes.trim() || null } : {}),
         ...(dto.isActive !== undefined
@@ -174,5 +177,23 @@ export class WholesaleAccessService {
       data: { accessToken: token, isActive: true, revokedAt: null },
     });
     return this.mapRecord(record);
+  }
+
+  async remove(id: string) {
+    const existing = await this.prisma.wholesaleAccess.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Acceso mayorista no encontrado');
+    if (existing.isActive) {
+      throw new BadRequestException('Revoca el acceso antes de eliminarlo.');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.order.updateMany({
+        where: { wholesaleAccessId: id },
+        data: { wholesaleAccessId: null },
+      }),
+      this.prisma.wholesaleAccess.delete({ where: { id } }),
+    ]);
+
+    return { ok: true };
   }
 }

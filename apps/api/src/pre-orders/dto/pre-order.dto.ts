@@ -4,11 +4,14 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Uppercase, UppercaseOptional } from '../../common/decorators/uppercase.decorator';
+import { sanitizePlainTextOptional } from '../../common/utils/sanitize-text.util';
+import { Transform } from 'class-transformer';
 
 export class PreOrderItemDto {
   @IsString()
@@ -17,6 +20,12 @@ export class PreOrderItemDto {
   @IsInt()
   @Min(1)
   quantity!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  @Transform(({ value }) => sanitizePlainTextOptional(value, 500))
+  deliveryNote?: string;
 }
 
 export class CreatePreOrderDto {
@@ -39,6 +48,30 @@ export class CreatePreOrderDto {
 
   @IsBoolean()
   consentAccepted!: boolean;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PreOrderItemDto)
+  items!: PreOrderItemDto[];
+}
+
+export class CreateManualPreOrderDto {
+  @IsString()
+  @Uppercase()
+  customerName!: string;
+
+  @IsString()
+  @Uppercase()
+  customerAddress!: string;
+
+  @IsOptional()
+  @IsString()
+  @UppercaseOptional()
+  customerPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  shippingZoneId?: string;
 
   @IsArray()
   @ValidateNested({ each: true })

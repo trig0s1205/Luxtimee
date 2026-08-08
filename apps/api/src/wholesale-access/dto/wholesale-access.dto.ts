@@ -12,8 +12,9 @@ export class CreateWholesaleAccessBodyDto {
   @Uppercase()
   name!: string;
 
+  @IsOptional()
   @IsEmail()
-  email!: string;
+  email?: string;
 
   @IsOptional()
   @IsString()

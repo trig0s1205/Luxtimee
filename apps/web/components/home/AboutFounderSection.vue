@@ -70,7 +70,7 @@ const signatureSrc = computed(() => resolve(props.config.signatureImageUrl));
         <div v-else class="lux-founder__no-images">
           <div class="lux-founder__no-images-emblem">
             <span>LX</span>
-            <p>Luxtime</p>
+            <p>LUXTIMEE</p>
             <small>Carga 5 fotos en Configuración → Index</small>
           </div>
         </div>

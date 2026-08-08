@@ -13,7 +13,9 @@ export default defineNuxtConfig({
     '@luxtime/shared': fileURLToPath(new URL('../../packages/shared/src/index.ts', import.meta.url)),
   },
   runtimeConfig: {
-    apiInternalUrl: process.env.NUXT_API_INTERNAL_URL || 'http://127.0.0.1:3001/api/v1',
+    apiInternalUrl: process.env.NUXT_API_INTERNAL_URL
+      || process.env.NUXT_PUBLIC_API_BASE_URL
+      || 'http://127.0.0.1:3001/api/v1',
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL
         || (process.env.NUXT_LAN === 'true' ? '/api/v1' : 'http://localhost:3001/api/v1'),
@@ -46,7 +48,7 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
-      title: 'Luxtime — Luxury Watches',
+      title: 'LuxTimee — Luxury Watches',
       link: [
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },

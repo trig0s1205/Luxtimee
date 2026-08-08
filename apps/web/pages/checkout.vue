@@ -38,7 +38,7 @@ onMounted(() => {
   cart.hydrate();
 });
 
-useSeoMeta({ title: 'Checkout — Luxtime' });
+useSeoMeta({ title: 'Checkout — LUXTIMEE' });
 
 async function submit() {
   error.value = '';
@@ -105,6 +105,24 @@ async function submit() {
         placeholder="Teléfono / WhatsApp"
         required
       />
+
+      <div class="space-y-4 border border-lux-gold/10 p-4">
+        <p class="text-xs uppercase tracking-widest text-lux-white-dim">Notas de entrega (opcional)</p>
+        <div v-for="item in cart.items" :key="item.watchId" class="space-y-2">
+          <label class="text-sm text-lux-white-dim" :for="`checkout-note-${item.watchId}`">
+            {{ item.productName }}
+          </label>
+          <textarea
+            :id="`checkout-note-${item.watchId}`"
+            :value="item.deliveryNote ?? ''"
+            rows="2"
+            maxlength="500"
+            placeholder="Ej: recoger a las 6pm, dejar en portería..."
+            class="w-full bg-lux-black-2 border border-lux-gold/20 px-4 py-3 text-sm resize-y"
+            @input="cart.setDeliveryNote(item.watchId, ($event.target as HTMLTextAreaElement).value)"
+          />
+        </div>
+      </div>
 
       <label class="block text-xs uppercase tracking-widest text-lux-white-dim" for="checkout-shipping">Zona de envío</label>
       <select

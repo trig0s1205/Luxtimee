@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import type { CartItemDto, WatchPublicDto } from '@luxtime/shared';
 
-const STORAGE_KEY = 'luxtime-cart';
+const STORAGE_KEY = 'LUXTIMEE-cart';
 
 export const useCartStore = defineStore('cart', {
   state: () => ({
@@ -102,7 +102,16 @@ export const useCartStore = defineStore('cart', {
       return this.items.map((item) => ({
         watchId: item.watchId,
         quantity: item.quantity,
+        deliveryNote: item.deliveryNote?.trim() || undefined,
       }));
+    },
+
+    setDeliveryNote(watchId: string, deliveryNote: string) {
+      this.hydrate();
+      const item = this.items.find((i) => i.watchId === watchId);
+      if (!item) return;
+      item.deliveryNote = deliveryNote;
+      this.persist();
     },
   },
 });

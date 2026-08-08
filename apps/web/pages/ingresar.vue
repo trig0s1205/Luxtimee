@@ -9,7 +9,7 @@ const redirect = computed(() =>
 );
 
 useSeoMeta({
-  title: 'Iniciar sesión — Luxtime',
+  title: 'Iniciar sesión — LUXTIMEE',
   robots: 'noindex, nofollow',
 });
 </script>

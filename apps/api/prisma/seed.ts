@@ -2,10 +2,11 @@ import { PrismaClient, Role } from '@prisma/client';
 import { hashPassword } from '../src/auth/password.util';
 
 const prisma = new PrismaClient();
-const defaultStaffPassword = hashPassword('luxtime');
+const defaultStaffPassword = hashPassword('LUXTIMEE');
 
 async function main() {
   const shippingZones = [
+    { name: 'Piedecuesta', cost: 0, isNational: false },
     { name: 'Bucaramanga', cost: 10000, isNational: false },
     { name: 'Floridablanca', cost: 10000, isNational: false },
     { name: 'La Cumbre', cost: 12000, isNational: false },
@@ -47,7 +48,7 @@ async function main() {
   const settings = [
     {
       key: 'whatsapp_link',
-      value: { url: 'https://wa.me/573000000000', messagePrefix: 'Hola Luxtime, deseo comprar:' },
+      value: { url: 'https://wa.me/573000000000', messagePrefix: 'Hola LUXTIMEE, deseo comprar:' },
     },
     {
       key: 'commission_percent',
@@ -107,7 +108,7 @@ async function main() {
     update: {},
     create: {
       id: 'seed-warranty-lux',
-      name: 'Garantía Luxtime Estándar',
+      name: 'Garantía LUXTIMEE Estándar',
       durationMonths: 12,
       terms: 'Cobertura por defectos de fabricación durante 12 meses desde la fecha de pago completo.',
     },

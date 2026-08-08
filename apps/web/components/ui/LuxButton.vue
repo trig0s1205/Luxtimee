@@ -16,8 +16,8 @@ withDefaults(
     class="inline-flex items-center justify-center px-10 py-4 text-[11px] font-semibold uppercase tracking-lux transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
     :class="
       variant === 'primary'
-        ? 'bg-lux-gold text-lux-black hover:bg-lux-gold-light hover:-translate-y-0.5 hover:shadow-lux'
-        : 'border border-lux-white/25 text-lux-white hover:border-lux-gold hover:text-lux-gold hover:-translate-y-0.5'
+        ? 'bg-lux-white text-lux-black hover:bg-white/90 hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(255,255,255,0.12)]'
+        : 'border border-lux-white/25 text-lux-white hover:border-lux-white hover:text-lux-white hover:-translate-y-0.5'
     "
   >
     <slot />

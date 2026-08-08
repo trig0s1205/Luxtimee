@@ -102,7 +102,7 @@ onUnmounted(stop);
         :aria-current="relativeOffset(i) === 0 ? 'true' : undefined"
         @click="goTo(i)"
       >
-        <img :src="src" :alt="`Luxtime ${i + 1}`" loading="lazy" draggable="false" />
+        <img :src="src" :alt="`LUXTIMEE ${i + 1}`" loading="lazy" draggable="false" />
         <span v-if="i === 0 && relativeOffset(i) === 0" class="lux-coverflow__badge">Principal</span>
       </button>
     </div>

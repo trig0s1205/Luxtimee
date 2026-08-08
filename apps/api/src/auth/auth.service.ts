@@ -159,27 +159,32 @@ export class AuthService {
 
   setAuthCookies(res: Response, tokens: { accessToken: string; refreshToken: string }) {
     const isProd = this.config.get('NODE_ENV') === 'production';
-    const cookieOptions = {
+    const cookieOptions: {
+      httpOnly: boolean;
+      secure: boolean;
+      sameSite: 'lax' | 'none';
+      path: string;
+    } = {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax' as const,
+      sameSite: isProd ? 'none' : 'lax',
       path: '/',
     };
 
-    res.cookie('luxtime_access', tokens.accessToken, {
+    res.cookie('LUXTIMEE_access', tokens.accessToken, {
       ...cookieOptions,
       maxAge: 15 * 60 * 1000,
     });
 
-    res.cookie('luxtime_refresh', tokens.refreshToken, {
+    res.cookie('LUXTIMEE_refresh', tokens.refreshToken, {
       ...cookieOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
   }
 
   clearAuthCookies(res: Response) {
-    res.clearCookie('luxtime_access', { path: '/' });
-    res.clearCookie('luxtime_refresh', { path: '/' });
+    res.clearCookie('LUXTIMEE_access', { path: '/' });
+    res.clearCookie('LUXTIMEE_refresh', { path: '/' });
   }
 
   async getUserById(id: string) {

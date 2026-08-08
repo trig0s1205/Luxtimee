@@ -1,4 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  FREE_SHIPPING_ZONE_NAME,
+  isAlwaysFreeShippingZone,
+} from '@luxtime/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
@@ -9,6 +13,15 @@ export class CreateShippingZoneDto {
   isNational?: boolean;
 }
 
+type ShippingZoneRecord = {
+  id: string;
+  name: string;
+  cost: number;
+  isNational: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 @Injectable()
 export class ShippingService {
   constructor(
@@ -16,8 +29,24 @@ export class ShippingService {
     private cache: MemoryCacheService,
   ) {}
 
+  private mapZone(zone: ShippingZoneRecord) {
+    const alwaysFree = isAlwaysFreeShippingZone(zone.name);
+    return {
+      ...zone,
+      cost: alwaysFree ? 0 : zone.cost,
+      alwaysFree,
+    };
+  }
+
+  private resolveCost(name: string, cost: number): number {
+    if (isAlwaysFreeShippingZone(name)) return 0;
+    return Math.round(cost);
+  }
+
   findAllPublic() {
-    return this.prisma.shippingZone.findMany({ orderBy: { cost: 'asc' } });
+    return this.prisma.shippingZone
+      .findMany({ orderBy: { cost: 'asc' } })
+      .then((zones) => zones.map((zone) => this.mapZone(zone)));
   }
 
   findAll() {
@@ -27,6 +56,11 @@ export class ShippingService {
   async create(dto: CreateShippingZoneDto) {
     const name = dto.name.trim();
     if (!name) throw new BadRequestException('El nombre de la zona es obligatorio');
+    if (isAlwaysFreeShippingZone(name)) {
+      throw new BadRequestException(
+        `La zona ${FREE_SHIPPING_ZONE_NAME} ya existe con envío gratuito fijo.`,
+      );
+    }
     if (!Number.isFinite(dto.cost) || dto.cost < 0) {
       throw new BadRequestException('El costo debe ser un número válido');
     }
@@ -37,29 +71,48 @@ export class ShippingService {
     const zone = await this.prisma.shippingZone.create({
       data: {
         name,
-        cost: Math.round(dto.cost),
+        cost: this.resolveCost(name, dto.cost),
         isNational: dto.isNational ?? false,
       },
     });
     this.cache.invalidateTag(CACHE_TAGS.shipping);
-    return zone;
+    return this.mapZone(zone);
   }
 
   async update(id: string, cost: number) {
+    const existing = await this.prisma.shippingZone.findUnique({ where: { id } });
+    if (!existing) throw new BadRequestException('Zona no encontrada');
+
+    if (isAlwaysFreeShippingZone(existing.name)) {
+      if (cost !== 0) {
+        throw new BadRequestException(
+          `El envío a ${FREE_SHIPPING_ZONE_NAME} es siempre gratuito y no se puede modificar.`,
+        );
+      }
+      return this.mapZone(existing);
+    }
+
     if (!Number.isFinite(cost) || cost < 0) {
       throw new BadRequestException('El costo debe ser un número válido');
     }
+
     const zone = await this.prisma.shippingZone.update({
       where: { id },
       data: { cost: Math.round(cost) },
     });
     this.cache.invalidateTag(CACHE_TAGS.shipping);
-    return zone;
+    return this.mapZone(zone);
   }
 
   async remove(id: string) {
     const zone = await this.prisma.shippingZone.findUnique({ where: { id } });
     if (!zone) throw new BadRequestException('Zona no encontrada');
+
+    if (isAlwaysFreeShippingZone(zone.name)) {
+      throw new BadRequestException(
+        `No se puede eliminar la zona de ${FREE_SHIPPING_ZONE_NAME}.`,
+      );
+    }
 
     const ordersCount = await this.prisma.order.count({ where: { shippingZoneId: id } });
     if (ordersCount > 0) {

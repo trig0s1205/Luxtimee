@@ -3,7 +3,7 @@ import { Role } from '@luxtime/shared';
 
 const STAFF_ROLES = new Set<Role>([Role.ADMIN, Role.SUPER_ADMIN]);
 
-export const AUTH_REDIRECT_KEY = 'luxtime_auth_redirect';
+export const AUTH_REDIRECT_KEY = 'LUXTIMEE_auth_redirect';
 
 export function isSafeRedirect(path: string | undefined | null): path is string {
   if (!path) return false;

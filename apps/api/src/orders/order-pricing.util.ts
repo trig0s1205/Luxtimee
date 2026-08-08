@@ -13,6 +13,7 @@ export interface PricedLineInput {
   productRef: string;
   productImage?: string | null;
   whatsappLabel?: string;
+  deliveryNote?: string | null;
 }
 
 export interface PricedLine extends PricedLineInput {

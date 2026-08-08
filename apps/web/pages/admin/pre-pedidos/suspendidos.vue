@@ -6,6 +6,6 @@ definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
   <AdminPreOrdersPanel
     bucket="suspended"
     title="Pre-pedidos suspendidos"
-    seo-title="Pre-pedidos suspendidos — Luxtime Admin"
+    seo-title="Pre-pedidos suspendidos — LUXTIMEE Admin"
   />
 </template>

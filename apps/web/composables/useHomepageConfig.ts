@@ -21,15 +21,15 @@ export const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
   },
   founder: {
     enabled: true,
-    badge: 'Quién es Luxtime',
+    badge: 'Quién es LUXTIMEE',
     title: 'Más que un reloj.',
     titleEm: 'Una declaración.',
     quote: '"Elegir un reloj es elegir quién eres."',
     storyParagraphs: [
-      'En Luxtime creemos que el tiempo merece ser vivido con intensidad. Cada pieza que seleccionamos lleva consigo una historia, un propósito y una presencia que va más allá de la función.',
+      'En LuxTimee creemos que el tiempo merece ser vivido con intensidad. Cada pieza que seleccionamos lleva consigo una historia, un propósito y una presencia que va más allá de la función.',
       'Desde Piedecuesta, Santander, curaduramos relojes para quienes no se conforman con lo ordinario. Personas que entienden que el estilo no se impone — se vive.',
     ],
-    signatureName: 'Luxtime',
+    signatureName: 'LUXTIMEE',
     signatureRole: 'Fundador · Piedecuesta, Santander — Colombia',
     signatureImageUrl: '',
     carouselImages: ['', '', '', '', ''],
@@ -37,7 +37,7 @@ export const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
   valueProps: {
     enabled: true,
     label: 'Por qué elegirnos',
-    title: 'La diferencia Luxtime',
+    title: 'La diferencia LUXTIMEE',
     items: [
       { icon: '✦', title: 'Selección curada', description: 'Cada pieza pasa por un riguroso proceso de curaduría antes de llegar a ti.' },
       { icon: '✦', title: 'Asesoría directa', description: 'Atención personalizada por WhatsApp sin intermediarios, desde el primer mensaje.' },
@@ -48,7 +48,7 @@ export const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
     enabled: true,
     text: 'Un reloj no solo mide el tiempo.',
     textEm: 'Demuestra quién eres.',
-    sub: 'Luxtime · Luxury Timepieces · PTA · Colombia',
+    sub: 'LUXTIMEE · Luxury Timepieces · PTA · Colombia',
   },
   contact: {
     enabled: true,
@@ -57,7 +57,7 @@ export const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
     titleEm: 'Asesoría personalizada.',
     body: 'Cuéntanos qué buscas, un modelo específico o un encargo a medida. Nuestro equipo te responde por WhatsApp con atención directa desde Piedecuesta.',
     ctaText: 'Escribir por WhatsApp',
-    whatsappMessage: 'Hola Luxtime, me gustaría recibir asesoría sobre la colección.',
+    whatsappMessage: 'Hola LUXTIMEE, me gustaría recibir asesoría sobre la colección.',
   },
 };
 

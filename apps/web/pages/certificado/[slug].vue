@@ -40,7 +40,7 @@ const issueDate = computed(() => {
   return d ? new Date(d).toLocaleDateString('es-CO') : '—';
 });
 
-useSeoMeta({ title: `Certificado ${cert.value?.watch.model} — Luxtime`, robots: 'index,follow' });
+useSeoMeta({ title: `Certificado ${cert.value?.watch.model} — LUXTIMEE`, robots: 'index,follow' });
 
 definePageMeta({ layout: false });
 
@@ -55,7 +55,7 @@ onMounted(() => {
 <template>
   <div class="min-h-screen bg-lux-black">
     <div v-if="!loaded" class="vault-loader">
-      <p class="font-display text-2xl tracking-[0.3em] text-lux-gold uppercase">Luxtime Vault</p>
+      <p class="font-display text-2xl tracking-[0.3em] text-lux-gold uppercase">LUXTIMEE Vault</p>
       <div class="vault-loader-bar" />
     </div>
 
@@ -77,7 +77,7 @@ onMounted(() => {
             </tr>
             <tr>
               <td>Colección</td>
-              <td>Luxtime</td>
+              <td>LUXTIMEE</td>
             </tr>
             <tr>
               <td>Referencia</td>

@@ -39,7 +39,7 @@ const total = computed(() => cart.subtotal + shippingCost.value);
 
 onMounted(() => cart.hydrate());
 
-useSeoMeta({ title: 'Checkout mayorista — Luxtime' });
+useSeoMeta({ title: 'Checkout mayorista — LUXTIMEE' });
 
 async function submit() {
   error.value = '';
@@ -84,6 +84,24 @@ async function submit() {
       <UiLuxInput id="wholesale-checkout-name" v-model="form.customerName" placeholder="Nombre completo" required />
       <UiLuxInput id="wholesale-checkout-address" v-model="form.customerAddress" placeholder="Dirección de entrega" required />
       <UiLuxInput id="wholesale-checkout-phone" v-model="form.customerPhone" type="tel" placeholder="Teléfono / WhatsApp" required />
+
+      <div class="space-y-4 border border-lux-gold/10 p-4">
+        <p class="text-xs uppercase tracking-widest text-lux-white-dim">Notas de entrega (opcional)</p>
+        <div v-for="item in cart.items" :key="item.watchId" class="space-y-2">
+          <label class="text-sm text-lux-white-dim" :for="`wholesale-note-${item.watchId}`">
+            {{ item.productName }}
+          </label>
+          <textarea
+            :id="`wholesale-note-${item.watchId}`"
+            :value="item.deliveryNote ?? ''"
+            rows="2"
+            maxlength="500"
+            placeholder="Ej: recoger a las 6pm, dejar en portería..."
+            class="w-full bg-lux-black-2 border border-lux-gold/20 px-4 py-3 text-sm resize-y"
+            @input="cart.setDeliveryNote(item.watchId, ($event.target as HTMLTextAreaElement).value)"
+          />
+        </div>
+      </div>
 
       <label class="block text-xs uppercase tracking-widest text-lux-white-dim" for="wholesale-checkout-shipping">Zona de envío</label>
       <select

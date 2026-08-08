@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('home carga y muestra marca Luxtime', async ({ page }) => {
+test('home carga y muestra marca LUXTIMEE', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /LUX/i })).toBeVisible();
 });
