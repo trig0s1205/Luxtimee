@@ -13,7 +13,6 @@ permissions:
   id-token: write
 
 env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: southamerica-east1
   REPOSITORY: luxtime
   IMAGE: image-service
@@ -25,6 +24,14 @@ jobs:
     if: ${{ vars.GCP_DEPLOY_ENABLED == 'true' }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Normalize GCP config
+        shell: bash
+        run: |
+          trim() { printf '%s' "$1" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'; }
+          echo "PROJECT_ID=$(trim "$GCP_PROJECT_ID")" >> "$GITHUB_ENV"
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -40,8 +47,8 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          IMAGE_TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }}"
-          IMAGE_LATEST="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:latest"
+          IMAGE_TAG="${{ env.REGION }}-docker.pkg.dev/${PROJECT_ID}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }}"
+          IMAGE_LATEST="${{ env.REGION }}-docker.pkg.dev/${PROJECT_ID}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:latest"
           docker build -f apps/image-service/Dockerfile -t "$IMAGE_TAG" -t "$IMAGE_LATEST" apps/image-service
           docker push "$IMAGE_TAG"
           docker push "$IMAGE_LATEST"
@@ -61,11 +68,11 @@ jobs:
             --concurrency 1 \
             --min-instances 0 \
             --max-instances 3 \
-            --project "${{ env.PROJECT_ID }}"
+            --project "$PROJECT_ID"
 
       - name: Verify health
         run: |
-          URL=$(gcloud run services describe ${{ env.SERVICE }} --region ${{ env.REGION }} --project "${{ env.PROJECT_ID }}" --format 'value(status.url)')
+          URL=$(gcloud run services describe ${{ env.SERVICE }} --region ${{ env.REGION }} --project "$PROJECT_ID" --format 'value(status.url)')
           curl --fail "$URL/health"
 
   deploy-disabled:

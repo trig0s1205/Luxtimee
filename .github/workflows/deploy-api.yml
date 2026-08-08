@@ -14,7 +14,6 @@ permissions:
   id-token: write
 
 env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: southamerica-east1
   REPOSITORY: luxtime
   IMAGE: api
@@ -27,6 +26,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Normalize GCP config
+        shell: bash
+        run: |
+          trim() { printf '%s' "$1" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'; }
+          echo "PROJECT_ID=$(trim "$GCP_PROJECT_ID")" >> "$GITHUB_ENV"
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -38,11 +45,11 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          IMAGE_LATEST="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:latest"
+          IMAGE_LATEST="${{ env.REGION }}-docker.pkg.dev/${PROJECT_ID}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:latest"
           gcloud builds submit . \
             --config apps/api/cloudbuild.yaml \
             --substitutions=_IMAGE="$IMAGE_LATEST" \
-            --project "${{ env.PROJECT_ID }}"
+            --project "$PROJECT_ID"
           echo "IMAGE_TAG=$IMAGE_LATEST" >> $GITHUB_ENV
 
       - name: Deploy to Cloud Run
@@ -60,11 +67,11 @@ jobs:
             --max-instances 5 \
             --set-env-vars "NODE_ENV=production,USE_MOCKS=false,JWT_ACCESS_EXPIRES=15m,JWT_REFRESH_EXPIRES=7d,CLOUDINARY_FOLDER=luxtime/watches" \
             --update-secrets "DATABASE_URL=DATABASE_URL:latest,DIRECT_URL=DIRECT_URL:latest,JWT_SECRET=JWT_SECRET:latest,CRON_SECRET=CRON_SECRET:latest,FRONTEND_URL=FRONTEND_URL:latest,IMAGE_SERVICE_URL=IMAGE_SERVICE_URL:latest" \
-            --project "${{ env.PROJECT_ID }}"
+            --project "$PROJECT_ID"
 
       - name: Verify health
         run: |
-          URL=$(gcloud run services describe ${{ env.SERVICE }} --region ${{ env.REGION }} --project "${{ env.PROJECT_ID }}" --format 'value(status.url)')
+          URL=$(gcloud run services describe ${{ env.SERVICE }} --region ${{ env.REGION }} --project "$PROJECT_ID" --format 'value(status.url)')
           curl --fail "$URL/api/v1/health"
 
   deploy-disabled:
