@@ -10,7 +10,11 @@ import { AbuseGuardMiddleware } from './common/middleware/abuse-guard.middleware
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const isProd = process.env.NODE_ENV === 'production';
-  const frontendUrl = process.env.FRONTEND_URL?.trim() || undefined;
+  const frontendOrigins = (process.env.FRONTEND_URL ?? '')
+    .split(',')
+    .map((url) => url.trim())
+    .filter(Boolean);
+  const frontendUrl = frontendOrigins[0];
 
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
   app.use(cookieParser());
@@ -31,7 +35,7 @@ async function bootstrap() {
               scriptSrc: ["'self'"],
               styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
               fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
-              connectSrc: ["'self'", frontendUrl ?? "'self'"],
+              connectSrc: ["'self'", ...frontendOrigins],
               frameAncestors: ["'none'"],
             },
           }
@@ -53,7 +57,13 @@ async function bootstrap() {
 
   app.enableCors({
     origin: isProd
-      ? frontendUrl ?? false
+      ? frontendOrigins.length === 0
+        ? false
+        : frontendOrigins.length === 1
+          ? frontendOrigins[0]
+          : (origin, callback) => {
+              callback(null, !origin || frontendOrigins.includes(origin));
+            }
       : true,
     credentials: true,
   });
