@@ -291,14 +291,37 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     assertMediaFile(files.image2, 'image');
     assertMediaFile(files.video, 'video');
 
-    const uploadsDir = join(process.cwd(), 'uploads', 'watches');
-    const videosDir = join(uploadsDir, 'videos');
-    await mkdir(videosDir, { recursive: true });
-
     const [primaryBuffer, secondaryBuffer] = await Promise.all([
       this.imageProcessing.processWithMicroservice(files.image1),
       this.imageProcessing.processWithMicroservice(files.image2),
     ]);
+
+    const isProd = process.env.NODE_ENV === 'production';
+
+    if (isProd) {
+      const [primaryImageUrl, secondaryImageUrl, videoUrl] = await Promise.all([
+        this.imageProcessing.uploadToCloudinary(primaryBuffer, `watch-${randomUUID()}`),
+        this.imageProcessing.uploadToCloudinary(secondaryBuffer, `watch-${randomUUID()}`),
+        this.imageProcessing.uploadVideoToCloudinary(files.video.buffer, `watch-video-${randomUUID()}`),
+      ]);
+
+      const updated = await this.watchesRepository.update(id, {
+        primaryImageUrl,
+        secondaryImageUrl,
+        videoUrl,
+        images: [primaryImageUrl, secondaryImageUrl],
+        mainImageIndex: 0,
+        frontImageUrl: primaryImageUrl,
+        backImageUrl: secondaryImageUrl,
+      });
+
+      this.cache.invalidateTag(CACHE_TAGS.catalog);
+      return updated;
+    }
+
+    const uploadsDir = join(process.cwd(), 'uploads', 'watches');
+    const videosDir = join(uploadsDir, 'videos');
+    await mkdir(videosDir, { recursive: true });
 
     const primaryName = `watch-${randomUUID()}.webp`;
     const secondaryName = `watch-${randomUUID()}.webp`;

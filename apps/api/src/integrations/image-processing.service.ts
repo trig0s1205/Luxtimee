@@ -39,6 +39,7 @@ export class ImageProcessingService {
           const response = await fetch(endpoint, {
             method: 'POST',
             body: formData,
+            signal: AbortSignal.timeout(240_000),
           });
 
           if (response.status === 404) {
@@ -72,15 +73,35 @@ export class ImageProcessingService {
 
   async uploadToCloudinary(buffer: Buffer, publicId: string): Promise<string> {
     if (this.config.get('USE_MOCKS') === 'true') {
-      return `https://res.cloudinary.com/mock/image/upload/${publicId}.png`;
+      return `https://res.cloudinary.com/mock/image/upload/${publicId}.webp`;
     }
 
     const folder = this.config.get<string>('CLOUDINARY_FOLDER', 'LUXTIMEE/watches');
     const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
-        { folder, public_id: publicId, resource_type: 'image', format: 'png' },
+        { folder, public_id: publicId, resource_type: 'image', format: 'webp' },
         (error, uploadResult) => {
           if (error || !uploadResult) reject(error ?? new Error('Upload fallido'));
+          else resolve(uploadResult);
+        },
+      );
+      stream.end(buffer);
+    });
+
+    return result.secure_url;
+  }
+
+  async uploadVideoToCloudinary(buffer: Buffer, publicId: string): Promise<string> {
+    if (this.config.get('USE_MOCKS') === 'true') {
+      return `https://res.cloudinary.com/mock/video/upload/${publicId}.mp4`;
+    }
+
+    const folder = this.config.get<string>('CLOUDINARY_FOLDER', 'LUXTIMEE/watches');
+    const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder, public_id: publicId, resource_type: 'video' },
+        (error, uploadResult) => {
+          if (error || !uploadResult) reject(error ?? new Error('Upload de video fallido'));
           else resolve(uploadResult);
         },
       );

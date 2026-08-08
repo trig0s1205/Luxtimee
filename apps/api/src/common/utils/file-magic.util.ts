@@ -3,7 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 const IMAGE_JPEG = Buffer.from([0xff, 0xd8, 0xff]);
 const IMAGE_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 28 * 1024 * 1024;
 
 export type MediaKind = 'image' | 'video';
 

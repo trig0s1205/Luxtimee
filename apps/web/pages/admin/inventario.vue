@@ -171,6 +171,7 @@ async function handleSubmit(form: WatchFormPayload) {
         method: 'POST',
         body: fd,
         credentials: 'include',
+        timeout: 300_000,
       });
       toast.success('Multimedia subida correctamente');
     }

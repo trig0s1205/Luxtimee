@@ -28,9 +28,9 @@ gcloud run deploy $Service `
     --platform managed `
     --allow-unauthenticated `
     --port 3001 `
-    --memory 512Mi `
+    --memory 1Gi `
     --cpu 1 `
-    --timeout 60 `
+    --timeout 300 `
     --min-instances 0 `
     --max-instances 5 `
     --set-env-vars "NODE_ENV=production,USE_MOCKS=false,JWT_ACCESS_EXPIRES=15m,JWT_REFRESH_EXPIRES=7d,CLOUDINARY_FOLDER=luxtime/watches" `
