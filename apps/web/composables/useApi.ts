@@ -59,8 +59,13 @@ export function useApi() {
         } catch {
           await auth.logout();
           if (import.meta.client) {
-            const { loginPath } = useStaffLoginPath();
-            await navigateTo(loginPath({ redirect: useRoute().fullPath }));
+            const route = useRoute();
+            if (route.path.startsWith('/admin')) {
+              await navigateTo('/vigilancia', { replace: true });
+            } else {
+              const { loginPath } = useStaffLoginPath();
+              await navigateTo(loginPath({ redirect: route.fullPath }));
+            }
           }
         }
       }

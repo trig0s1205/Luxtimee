@@ -122,6 +122,7 @@ export const useAuthStore = defineStore('auth', {
         } catch { /* */ }
       }
       this.setUser(null, false);
+      this.loaded = false;
     },
   },
 });
