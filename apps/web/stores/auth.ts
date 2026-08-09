@@ -34,7 +34,8 @@ export const useAuthStore = defineStore('auth', {
         this.setUser(local, true);
       }
     },
-    async fetchMe() {
+    async fetchMe(options: { allowRefresh?: boolean } = {}) {
+      const { allowRefresh = true } = options;
       const baseUrl = useApiBaseUrl();
       try {
         const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, {
@@ -48,20 +49,22 @@ export const useAuthStore = defineStore('auth', {
         }
         return;
       } catch {
-        try {
-          await $fetch(`${baseUrl}/auth/refresh`, {
-            method: 'POST',
-            credentials: 'include',
-          });
-          const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, {
-            credentials: 'include',
-          });
-          if (data.user.role === Role.ADMIN || data.user.role === Role.SUPER_ADMIN) {
-            clearLocalSession();
-            this.setUser(data.user, false);
-            return;
-          }
-        } catch { /* refresh falló */ }
+        if (allowRefresh) {
+          try {
+            await $fetch(`${baseUrl}/auth/refresh`, {
+              method: 'POST',
+              credentials: 'include',
+            });
+            const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, {
+              credentials: 'include',
+            });
+            if (data.user.role === Role.ADMIN || data.user.role === Role.SUPER_ADMIN) {
+              clearLocalSession();
+              this.setUser(data.user, false);
+              return;
+            }
+          } catch { /* refresh falló */ }
+        }
 
         if (LOCAL_AUTH_ENABLED) {
           const local = loadLocalSession();
@@ -112,15 +115,13 @@ export const useAuthStore = defineStore('auth', {
       if (import.meta.client) {
         sessionStorage.removeItem(AUTH_REDIRECT_KEY);
       }
-      if (!this.isLocalSession) {
-        const baseUrl = useApiBaseUrl();
-        try {
-          await $fetch(`${baseUrl}/auth/logout`, {
-            method: 'POST',
-            credentials: 'include',
-          });
-        } catch { /* */ }
-      }
+      const baseUrl = useApiBaseUrl();
+      try {
+        await $fetch(`${baseUrl}/auth/logout`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+      } catch { /* */ }
       this.setUser(null, false);
       this.loaded = false;
     },

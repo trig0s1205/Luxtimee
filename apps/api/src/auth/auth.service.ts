@@ -194,8 +194,21 @@ export class AuthService {
   }
 
   clearAuthCookies(res: Response) {
-    res.clearCookie('LUXTIMEE_access', { path: '/' });
-    res.clearCookie('LUXTIMEE_refresh', { path: '/' });
+    const isProd = this.config.get('NODE_ENV') === 'production';
+    const cookieOptions: {
+      httpOnly: boolean;
+      secure: boolean;
+      sameSite: 'lax' | 'none';
+      path: string;
+    } = {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
+      path: '/',
+    };
+
+    res.clearCookie('LUXTIMEE_access', cookieOptions);
+    res.clearCookie('LUXTIMEE_refresh', cookieOptions);
   }
 
   async getUserById(id: string) {
