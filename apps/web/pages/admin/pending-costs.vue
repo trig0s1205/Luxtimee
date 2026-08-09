@@ -8,7 +8,6 @@ const auth = useAuthStore();
 const api = useApi();
 const toast = useToast();
 
-if (!auth.loaded) await auth.fetchMe();
 if (!auth.isSuperAdmin) throw createError({ statusCode: 403, message: 'Solo Super Admin' });
 
 const PAGE_SIZE = 10;

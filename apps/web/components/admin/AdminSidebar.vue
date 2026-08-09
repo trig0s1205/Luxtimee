@@ -66,6 +66,7 @@ function visibleLinks(links: typeof linksBeforePedidos) {
           v-for="link in visibleDashboardLinks"
           :key="link.to"
           :to="link.to"
+          prefetch
           class="admin-nav-link"
           :class="{ active: isActive(link.to) }"
         >
@@ -81,6 +82,7 @@ function visibleLinks(links: typeof linksBeforePedidos) {
           v-for="link in visibleLinks(linksBeforePedidos)"
           :key="`${link.to}-${link.label}`"
           :to="link.to"
+          prefetch
           class="admin-nav-link"
           :class="{ active: isActive(link.to) }"
         >
@@ -103,6 +105,7 @@ function visibleLinks(links: typeof linksBeforePedidos) {
               v-for="link in prePedidosLinks"
               :key="link.to"
               :to="link.to"
+              prefetch
               class="admin-nav-link admin-nav-link--sub"
               :class="{ active: isActive(link.to) }"
             >
@@ -124,6 +127,7 @@ function visibleLinks(links: typeof linksBeforePedidos) {
               v-for="link in pedidosLinks"
               :key="link.to"
               :to="link.to"
+              prefetch
               class="admin-nav-link admin-nav-link--sub"
               :class="{ active: isActive(link.to) }"
             >
@@ -136,6 +140,7 @@ function visibleLinks(links: typeof linksBeforePedidos) {
           v-for="link in visibleLinks(linksAfterPedidos)"
           :key="`${link.to}-${link.label}`"
           :to="link.to"
+          prefetch
           class="admin-nav-link"
           :class="{ active: isActive(link.to) }"
         >

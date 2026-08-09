@@ -3,14 +3,13 @@ import type { ProfitDashboardDto } from '@luxtime/shared';
 import type { ChartGranularity, ChartOrderInput } from '~/utils/chart-series';
 import { formatCop } from '~/utils/format';
 
+const AdminRevenueTrendChartLazy = defineAsyncComponent(() => import('~/components/admin/RevenueTrendChart.vue'));
+
 definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
 
 const auth = useAuthStore();
 const api = useApi();
 
-if (!auth.loaded) {
-  await auth.fetchMe();
-}
 if (!auth.isSuperAdmin) {
   throw createError({ statusCode: 403, message: 'Solo Super Admin' });
 }
@@ -249,7 +248,7 @@ useSeoMeta({ title: 'Dashboard de Ganancia — LUXTIMEE Admin' });
     </div>
 
     <div class="health-main-grid health-main-grid--single">
-      <AdminRevenueTrendChart
+      <AdminRevenueTrendChartLazy
         :title="chartTitle"
         :ranges="chartPeriods"
         :range="chartPeriod"

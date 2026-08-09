@@ -8,7 +8,10 @@ export default defineNuxtConfig({
     appManifest: false,
   },
   modules: ['@pinia/nuxt', '@nuxtjs/tailwindcss'],
-  css: ['~/assets/css/tokens.css', '~/assets/css/base.css', '~/assets/css/dixus-pages.css', '~/assets/css/admin-dashboard.css', '~/assets/css/admin-tables.css', '~/assets/css/admin-records.css', '~/assets/css/variants.css'],
+  css: ['~/assets/css/tokens.css', '~/assets/css/base.css', '~/assets/css/dixus-pages.css', '~/assets/css/variants.css'],
+  routeRules: {
+    '/admin/**': { ssr: false },
+  },
   alias: {
     '@luxtime/shared': fileURLToPath(new URL('../../packages/shared/src/index.ts', import.meta.url)),
   },

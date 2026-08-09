@@ -3,15 +3,13 @@ import type { HealthDashboardDto } from '@luxtime/shared';
 import { GLOBAL_INVENTORY_LOW_THRESHOLD } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 
+const AdminDashboardChartLazy = defineAsyncComponent(() => import('~/components/admin/DashboardChart.vue'));
+
 definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
 
 const auth = useAuthStore();
 const api = useApi();
 const { waitHoursSince } = useLiveWaitHours();
-
-if (!auth.loaded) {
-  await auth.fetchMe();
-}
 
 const { data: health, pending, refresh } = await useAsyncData(
   'health-dashboard',
@@ -119,7 +117,7 @@ useSeoMeta({ title: 'Panel de salud del negocio — LUXTIMEE Admin' });
     </div>
 
     <div class="health-main-grid">
-      <AdminDashboardChart />
+      <AdminDashboardChartLazy />
 
       <aside class="health-alerts-card">
         <h3 class="health-alerts-title">

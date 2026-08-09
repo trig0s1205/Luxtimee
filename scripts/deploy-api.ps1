@@ -31,7 +31,7 @@ gcloud run deploy $Service `
     --memory 1Gi `
     --cpu 1 `
     --timeout 300 `
-    --min-instances 0 `
+    --min-instances 1 `
     --max-instances 5 `
     --set-env-vars "NODE_ENV=production,USE_MOCKS=false,JWT_ACCESS_EXPIRES=15m,JWT_REFRESH_EXPIRES=7d,CLOUDINARY_FOLDER=luxtime/watches" `
     --update-secrets "DATABASE_URL=DATABASE_URL:latest,DIRECT_URL=DIRECT_URL:latest,JWT_SECRET=JWT_SECRET:latest,CRON_SECRET=CRON_SECRET:latest,FRONTEND_URL=FRONTEND_URL:latest,IMAGE_SERVICE_URL=IMAGE_SERVICE_URL:latest"

@@ -17,8 +17,6 @@ const baseUrl = useApiBaseUrl();
 const toast = useToast();
 const { resolve: resolveMedia } = useMediaUrl();
 
-if (!auth.loaded) await auth.fetchMe();
-
 const activeTab = ref<'cuenta' | 'plataforma' | 'index'>('cuenta');
 
 const profile = reactive({

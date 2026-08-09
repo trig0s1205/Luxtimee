@@ -8,6 +8,7 @@ definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
 const api = useApi();
 const toast = useToast();
 const { confirm } = useConfirm();
+const catalogStore = useAdminCatalogStore();
 
 const activeTab = ref<'brands' | 'categories'>('brands');
 const brandName = ref('');
@@ -15,15 +16,15 @@ const categoryName = ref('');
 const savingBrand = ref(false);
 const savingCategory = ref(false);
 
-const { data: brands, refresh: refreshBrands, pending: brandsPending } = await useAsyncData(
-  'admin-catalog-brands',
-  () => api.get<BrandDto[]>('/brands').catch(() => []),
-);
+const brands = computed(() => catalogStore.brands);
+const categories = computed(() => catalogStore.categories);
+const brandsPending = computed(() => catalogStore.loadingBrands);
+const categoriesPending = computed(() => catalogStore.loadingCategories);
 
-const { data: categories, refresh: refreshCategories, pending: categoriesPending } = await useAsyncData(
-  'admin-catalog-categories',
-  () => api.get<CategoryDto[]>('/categories').catch(() => []),
-);
+await catalogStore.ensureAll({
+  brands: () => api.get<BrandDto[]>('/brands').catch(() => []),
+  categories: () => api.get<CategoryDto[]>('/categories').catch(() => []),
+});
 
 async function createBrand() {
   const name = brandName.value.trim();
@@ -33,10 +34,10 @@ async function createBrand() {
   }
   savingBrand.value = true;
   try {
-    await api.post<BrandDto>('/brands', { name });
+    const created = await api.post<BrandDto>('/brands', { name });
     brandName.value = '';
+    catalogStore.addBrand(created);
     toast.success('Marca creada correctamente');
-    await refreshBrands();
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'No se pudo crear la marca'));
   } finally {
@@ -53,8 +54,8 @@ async function deleteBrand(brand: BrandDto) {
   if (!ok) return;
   try {
     await api.del(`/brands/${brand.id}`);
+    catalogStore.removeBrand(brand.id);
     toast.success('Marca eliminada');
-    await refreshBrands();
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'No se pudo eliminar la marca'));
   }
@@ -68,10 +69,10 @@ async function createCategory() {
   }
   savingCategory.value = true;
   try {
-    await api.post<CategoryDto>('/categories', { name });
+    const created = await api.post<CategoryDto>('/categories', { name });
     categoryName.value = '';
+    catalogStore.addCategory(created);
     toast.success('Clase creada correctamente');
-    await refreshCategories();
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'No se pudo crear la clase'));
   } finally {
@@ -88,8 +89,8 @@ async function deleteCategory(category: CategoryDto) {
   if (!ok) return;
   try {
     await api.del(`/categories/${category.id}`);
+    catalogStore.removeCategory(category.id);
     toast.success('Clase eliminada');
-    await refreshCategories();
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'No se pudo eliminar la clase'));
   }

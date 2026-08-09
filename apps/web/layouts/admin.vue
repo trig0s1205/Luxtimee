@@ -5,12 +5,9 @@ useHead({
   htmlAttrs: { lang: 'es' },
 });
 
-onMounted(() => {
-
+await callOnce('admin-auth', async () => {
   auth.hydrateLocal();
-
-  if (!auth.loaded) auth.fetchMe();
-
+  if (!auth.loaded) await auth.fetchMe();
 });
 
 
@@ -28,20 +25,22 @@ async function logout() {
 
 
 <template>
+  <NuxtLoadingIndicator color="var(--lux-gold, #C8A96E)" :height="2" />
 
   <div class="admin-layout admin-shell">
-
     <AdminSidebar @logout="logout" />
 
     <main class="admin-main">
-
       <slot />
-
     </main>
 
     <UiConfirmDialog />
-
   </div>
-
 </template>
+
+<style>
+@import '~/assets/css/admin-dashboard.css';
+@import '~/assets/css/admin-tables.css';
+@import '~/assets/css/admin-records.css';
+</style>
 

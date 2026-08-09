@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import type { BrandDto, CategoryDto, InventoryInsightsDto, PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
+import type { BrandDto, InventoryInsightsDto, PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
 import { WatchStatus } from '@luxtime/shared';
 import { extractApiErrorMessage, isBadRequest } from '~/utils/api-error';
+
+const AdminWatchFormLazy = defineAsyncComponent(() => import('~/components/admin/AdminWatchForm.vue'));
 
 type WatchFormPayload = {
   brandId: string;
@@ -39,13 +41,8 @@ definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
 const api = useApi();
 const toast = useToast();
 const { confirm } = useConfirm();
-
 const auth = useAuthStore();
-
-const { data: insights, pending: insightsPending, refresh: refreshInsights } = await useAsyncData(
-  'inventory-insights',
-  () => api.get<InventoryInsightsDto>('/watches/inventory-insights'),
-);
+const catalogStore = useAdminCatalogStore();
 
 const PAGE_SIZE = 30;
 const loadPages = ref(1);
@@ -68,19 +65,27 @@ const saving = ref(false);
 const uploading = ref(false);
 const submitError = ref('');
 
-const { data: brands } = await useAsyncData('admin-brands', () =>
-  api.get<BrandDto[]>('/brands').catch(() => []),
-);
+const brands = computed(() => catalogStore.brands);
+const categories = computed(() => catalogStore.categories);
 
-const { data: categories } = await useAsyncData('admin-categories', () =>
-  api.get<CategoryDto[]>('/categories').catch(() => []),
-);
+// Brands/categories desde cache Pinia + watches en paralelo sin bloquear UI
+const [{ data: paginated, refresh, pending }, { data: insights, pending: insightsPending, refresh: refreshInsights }] = await Promise.all([
+  useAsyncData(
+    'admin-watches',
+    () => api.get<PaginatedResponse<WatchStaffDto>>('/watches', fetchQuery.value as Record<string, string | number | boolean | undefined>).catch(() => ({ data: [], total: 0, page: 1, limit: PAGE_SIZE })),
+    { watch: [() => query.search, () => query.brand, () => loadPages.value] },
+  ),
+  useAsyncData(
+    'inventory-insights',
+    () => api.get<InventoryInsightsDto>('/watches/inventory-insights').catch(() => null),
+  ),
+]);
 
-const { data: paginated, refresh, pending } = await useAsyncData(
-  'admin-watches',
-  () => api.get<PaginatedResponse<WatchStaffDto>>('/watches', fetchQuery.value as Record<string, string | number | boolean | undefined>).catch(() => ({ data: [], total: 0, page: 1, limit: PAGE_SIZE })),
-  { watch: [() => query.search, () => query.brand, () => loadPages.value] },
-);
+// Brands/categories en paralelo con watches (no bloquean)
+catalogStore.ensureAll({
+  brands: () => api.get<BrandDto[]>('/brands').catch(() => []),
+  categories: () => api.get<BrandDto[]>('/categories').catch(() => []) as Promise<BrandDto[]>,
+});
 
 const watches = computed(() => paginated.value?.data ?? []);
 const total = computed(() => paginated.value?.total ?? 0);
@@ -257,7 +262,7 @@ async function handleDelete(watch: WatchStaffDto) {
     <Teleport to="body">
       <div v-if="showForm" class="admin-modal-backdrop" @click.self="showForm = false">
         <div class="admin-modal admin-modal--wide">
-          <AdminWatchForm
+          <AdminWatchFormLazy
             :watch="editingWatch"
             :brands="brands ?? []"
             :categories="categories ?? []"
