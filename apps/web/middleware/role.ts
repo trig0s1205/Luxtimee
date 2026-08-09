@@ -5,6 +5,6 @@ export default defineNuxtRouteMiddleware(async () => {
     await auth.fetchMe();
   }
   if (!auth.isStaff) {
-    return navigateTo('/');
+    return navigateTo('/vigilancia', { replace: true });
   }
 });

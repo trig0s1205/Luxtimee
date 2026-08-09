@@ -25,6 +25,16 @@ function closeMenu() {
   menuOpen.value = false;
 }
 
+async function onLogoClick(event: MouseEvent) {
+  event.preventDefault();
+  closeMenu();
+  if (route.path !== '/' || route.hash) {
+    await navigateTo('/');
+  }
+  await nextTick();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 onMounted(() => {
   cart.hydrate();
   window.addEventListener('scroll', onScroll, { passive: true });
@@ -40,7 +50,7 @@ watch(() => route.fullPath, closeMenu);
 
 <template>
   <nav id="navbar" class="site-nav" :class="{ scrolled }">
-    <NuxtLink to="/" class="nav-logo" @click="closeMenu">
+    <NuxtLink to="/" class="nav-logo" @click="onLogoClick">
       <span class="nav-logo__frame">
         <img
           src="/images/logo-luxtimee.png"

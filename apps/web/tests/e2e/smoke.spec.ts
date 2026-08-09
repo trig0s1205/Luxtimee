@@ -21,9 +21,11 @@ test('token de acceso inválido responde 404', async ({ page }) => {
   expect(response?.status()).toBe(404);
 });
 
-test('/admin sin sesión redirige al inicio sin revelar login', async ({ page }) => {
+test('/admin sin sesión muestra página de vigilancia', async ({ page }) => {
   await page.goto('/admin/inventario');
-  await expect(page).not.toHaveURL(/\/admin/);
+  await expect(page).toHaveURL(/\/vigilancia/);
+  await expect(page.getByText(/Estás intentando/i)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Volver al inicio' })).toBeVisible();
 });
 
 test('login staff con credenciales válidas', async ({ page, baseURL }) => {
