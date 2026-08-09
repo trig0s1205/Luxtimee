@@ -1,8 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
 
-const auth = useAuthStore();
-await navigateTo(auth.isSuperAdmin ? '/admin/dashboards/ganancia' : '/admin/dashboards/salud');
+await navigateTo('/admin/inventario', { replace: true });
 </script>
 
 <template><div /></template>
