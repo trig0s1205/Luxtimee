@@ -74,7 +74,7 @@ export class OrdersService {
 
     const where: Prisma.OrderWhereInput = {
       stage: OrderStage.ORDER,
-      ...(since ? { createdAt: { gte: since } } : {}),
+      ...(since ? this.buildPeriodFilter(since) : {}),
       ...(options.status ? { status: options.status } : {}),
       ...(options.type ? { type: options.type } : {}),
     };
@@ -97,6 +97,16 @@ export class OrdersService {
       limit,
       period,
       periodLabel: this.periodLabel(period),
+    };
+  }
+
+  private buildPeriodFilter(since: Date): Prisma.OrderWhereInput {
+    return {
+      OR: [
+        { createdAt: { gte: since } },
+        { updatedAt: { gte: since } },
+        { paidAt: { gte: since } },
+      ],
     };
   }
 
@@ -133,7 +143,15 @@ export class OrdersService {
     }
     if (next === OrderStatus.ENVIADO) data.shippedAt = new Date();
     if (next === OrderStatus.ENTREGADO) data.deliveredAt = new Date();
-    if (next === OrderStatus.CANCELADO) data.canceledAt = new Date();
+    if (next === OrderStatus.CANCELADO) {
+      await this.prisma.order.delete({ where: { id } });
+      await this.notificationsService.emit({
+        type: 'ORDER_STATUS_CHANGED',
+        targetRole: Role.ADMIN,
+        payload: { orderId: id, status: next, readableId: order.readableId },
+      });
+      return { id, deleted: true };
+    }
 
     const updated = await this.prisma.order.update({
       where: { id },

@@ -1856,6 +1856,28 @@ body.cart-scroll-lock {
   color: var(--white-dim);
 }
 
+.watch-tech-sheet__care {
+  margin-top: 8px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(200, 169, 110, 0.12);
+}
+
+.watch-tech-sheet__care-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 10px;
+}
+
+.watch-tech-sheet__care-text {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--white-dim);
+}
+
 .watch-tech-sheet__grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

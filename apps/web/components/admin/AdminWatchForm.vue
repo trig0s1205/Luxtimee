@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BrandDto, CategoryDto, WatchStaffDto } from '@luxtime/shared';
+import type { BrandDto, CareTemplateDto, CategoryDto, WatchStaffDto } from '@luxtime/shared';
 import { WatchStatus } from '@luxtime/shared';
 import { calcMarginPercent } from '~/utils/margin';
 
@@ -11,7 +11,7 @@ type WatchFormPayload = {
   description?: string;
   gender?: string;
   warrantyMonths: number;
-  waterResistance?: string;
+  careTemplateId?: string;
   retailPrice: number;
   wholesalePrice: number;
   cost?: number;
@@ -37,6 +37,7 @@ const props = defineProps<{
   watch?: WatchStaffDto | null;
   brands: BrandDto[];
   categories: CategoryDto[];
+  careTemplates: CareTemplateDto[];
   saving: boolean;
   submitError?: string;
 }>();
@@ -89,7 +90,7 @@ const form = reactive<WatchFormPayload>({
   description: props.watch?.description ?? undefined,
   gender: props.watch?.gender ?? undefined,
   warrantyMonths: props.watch?.warrantyMonths ?? 1,
-  waterResistance: props.watch?.waterResistance ?? '',
+  careTemplateId: props.watch?.careTemplate?.id ?? '',
   retailPrice: props.watch?.retailPrice ?? 0,
   wholesalePrice: props.watch?.wholesalePrice ?? 0,
   cost: props.watch?.cost ?? undefined,
@@ -216,6 +217,10 @@ function onSubmit() {
 
 const isEdit = computed(() => !!props.watch?.id);
 const skuPreview = computed(() => props.watch?.sku ?? 'Se generará automáticamente al guardar');
+
+const selectedCareTemplate = computed(() =>
+  props.careTemplates.find((t) => t.id === form.careTemplateId) ?? null,
+);
 </script>
 
 <template>
@@ -288,8 +293,14 @@ const skuPreview = computed(() => props.watch?.sku ?? 'Se generará automáticam
           </div>
 
           <div class="admin-form-field">
-            <label>Resistencia al agua</label>
-            <UiLuxInput v-model="form.waterResistance" />
+            <label>Cuidados</label>
+            <select v-model="form.careTemplateId">
+              <option value="">Seleccionar plantilla</option>
+              <option v-for="template in careTemplates" :key="template.id" :value="template.id">
+                {{ template.name }}
+              </option>
+            </select>
+            <p v-if="selectedCareTemplate" class="admin-form-hint">{{ selectedCareTemplate.instructions }}</p>
           </div>
 
           <div class="admin-form-field admin-form-field--full">

@@ -14,6 +14,11 @@ const props = withDefaults(defineProps<{
 
 const descriptionParagraphs = computed(() => splitDescription(props.watch.description));
 const techSpecs = computed(() => buildWatchTechSpecs(props.watch));
+const careDescription = computed(() => {
+  const care = props.watch.careTemplate;
+  if (!care) return null;
+  return { title: care.name, text: care.instructions };
+});
 </script>
 
 <template>
@@ -30,10 +35,14 @@ const techSpecs = computed(() => buildWatchTechSpecs(props.watch));
       <h2 v-if="!inline" class="watch-tech-sheet__title">{{ watch.brand.name }} {{ watch.model }}</h2>
     </header>
 
-    <div v-if="descriptionParagraphs.length" class="watch-tech-sheet__block">
+    <div v-if="descriptionParagraphs.length || careDescription" class="watch-tech-sheet__block">
       <h3 class="watch-tech-sheet__block-title">Descripción</h3>
       <div class="watch-tech-sheet__description">
         <p v-for="(paragraph, index) in descriptionParagraphs" :key="index">{{ paragraph }}</p>
+        <div v-if="careDescription" class="watch-tech-sheet__care">
+          <p class="watch-tech-sheet__care-title">{{ careDescription.title }}</p>
+          <p class="watch-tech-sheet__care-text">{{ careDescription.text }}</p>
+        </div>
       </div>
     </div>
 
@@ -60,11 +69,6 @@ const techSpecs = computed(() => buildWatchTechSpecs(props.watch));
     <div v-if="watch.warrantyTemplate" class="watch-tech-sheet__block watch-tech-sheet__note">
       <h3 class="watch-tech-sheet__block-title">Garantía</h3>
       <p class="watch-tech-sheet__note-text">{{ watch.warrantyTemplate.terms }}</p>
-    </div>
-
-    <div v-if="watch.careTemplate" class="watch-tech-sheet__block watch-tech-sheet__note">
-      <h3 class="watch-tech-sheet__block-title">Cuidados</h3>
-      <p class="watch-tech-sheet__note-text">{{ watch.careTemplate.instructions }}</p>
     </div>
   </section>
 </template>

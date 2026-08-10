@@ -26,6 +26,12 @@ export function invalidateAdminCache(key: string) {
   adminMemCache.delete(key);
 }
 
+export function invalidateAdminCachePrefix(prefix: string) {
+  for (const key of adminMemCache.keys()) {
+    if (key.startsWith(prefix)) adminMemCache.delete(key);
+  }
+}
+
 const SESSION_PREFIX = 'lx-admin-';
 
 export function readSessionAdminCache<T>(key: string, staleTime: number): T | undefined {

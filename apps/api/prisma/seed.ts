@@ -121,13 +121,16 @@ async function main() {
     },
   });
 
+  const careInstructions =
+    'Resiste salpicaduras de agua. Evite contacto con químicos, agua salada y campos magnéticos intensos. Limpie con paño suave.';
+
   const care = await prisma.careTemplate.upsert({
     where: { id: 'seed-care-lux' },
-    update: {},
+    update: { instructions: careInstructions },
     create: {
       id: 'seed-care-lux',
       name: 'Cuidados Premium',
-      instructions: 'Evite contacto con químicos, agua salada y campos magnéticos intensos. Limpie con paño suave.',
+      instructions: careInstructions,
     },
   });
 

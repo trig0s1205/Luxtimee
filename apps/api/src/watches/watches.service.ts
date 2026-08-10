@@ -229,7 +229,11 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
       data.frontImageUrl = images[dto.mainImageIndex] ?? null;
     }
     if (dto.warrantyTemplateId) data.warrantyTemplate = { connect: { id: dto.warrantyTemplateId } };
-    if (dto.careTemplateId) data.careTemplate = { connect: { id: dto.careTemplateId } };
+    if (dto.careTemplateId !== undefined) {
+      data.careTemplate = dto.careTemplateId
+        ? { connect: { id: dto.careTemplateId } }
+        : { disconnect: true };
+    }
 
     if (role === Role.SUPER_ADMIN) {
       const retailPrice = dto.retailPrice ?? existing.retailPrice;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BrandDto, InventoryInsightsDto, PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
+import type { BrandDto, CareTemplateDto, InventoryInsightsDto, PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
 import { WatchStatus } from '@luxtime/shared';
 import { extractApiErrorMessage, isBadRequest } from '~/utils/api-error';
 import { invalidateAdminCache } from '~/utils/admin-cache';
@@ -14,7 +14,7 @@ type WatchFormPayload = {
   description?: string;
   gender?: string;
   warrantyMonths: number;
-  waterResistance?: string;
+  careTemplateId?: string;
   retailPrice: number;
   wholesalePrice: number;
   cost?: number;
@@ -91,6 +91,10 @@ catalogStore.ensureAll({
   categories: () => api.get<BrandDto[]>('/categories').catch(() => []) as Promise<BrandDto[]>,
 });
 
+const { data: careTemplates } = useAdminCachedData('care', () =>
+  api.get<CareTemplateDto[]>('/care').catch(() => []),
+);
+
 const watches = computed(() => paginated.value?.data ?? []);
 const total = computed(() => paginated.value?.total ?? 0);
 const hasMore = computed(() => watches.value.length < total.value);
@@ -142,7 +146,6 @@ async function handleSubmit(form: WatchFormPayload) {
       description: form.description,
       gender: form.gender,
       warrantyMonths: Number(form.warrantyMonths),
-      waterResistance: form.waterResistance,
       retailPrice: Number(form.retailPrice),
       wholesalePrice: Number(form.wholesalePrice),
       stock: Number(form.stock),
@@ -153,6 +156,11 @@ async function handleSubmit(form: WatchFormPayload) {
       limitedEditionNumber: form.limitedEditionNumber,
       images: form.images,
       mainImageIndex: form.mainImageIndex,
+      ...(watchId
+        ? { careTemplateId: form.careTemplateId || '' }
+        : form.careTemplateId
+          ? { careTemplateId: form.careTemplateId }
+          : {}),
     };
 
     if (auth.isSuperAdmin && form.cost !== undefined) {
@@ -274,6 +282,7 @@ async function handleDelete(watch: WatchStaffDto) {
             :watch="editingWatch"
             :brands="brands ?? []"
             :categories="categories ?? []"
+            :care-templates="careTemplates ?? []"
             :saving="saving"
             :submit-error="submitError"
             @submit="handleSubmit"

@@ -19,7 +19,7 @@ import {
 import { formatCop } from '~/utils/format';
 import { extractApiErrorMessage } from '~/utils/api-error';
 import { orderDeliveryNotes, orderHasDeliveryNotes } from '~/utils/order-delivery-notes';
-import { invalidateAdminCache } from '~/utils/admin-cache';
+import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
 
 const props = defineProps<{
   orderType: OrderType;
@@ -61,7 +61,6 @@ const statusFilters: Array<{ key: OrderStatus | 'ALL'; label: string }> = [
   { key: OrderStatus.PAGADO, label: 'Pagados' },
   { key: OrderStatus.ENVIADO, label: 'Enviados' },
   { key: OrderStatus.ENTREGADO, label: 'Entregados' },
-  { key: OrderStatus.CANCELADO, label: 'Cancelados' },
 ];
 
 function buildOrdersUrl() {
@@ -91,6 +90,7 @@ const dataKey = computed(() =>
 const { data: ordersData, refresh, pending } = useAdminCachedData(
   dataKey,
   () => api.get<OrdersListDto>(buildOrdersUrl()).catch(() => emptyList),
+  { watch: [dataKey] },
 );
 
 watch([period, filter], () => {
@@ -101,7 +101,9 @@ watch([period, filter], () => {
 const orders = computed(() => ordersData.value?.items ?? []);
 const totalOrders = computed(() => ordersData.value?.total ?? 0);
 const totalPages = computed(() => Math.max(1, Math.ceil(totalOrders.value / PAGE_SIZE)));
-const periodLabel = computed(() => ordersData.value?.periodLabel ?? 'Hoy');
+const periodLabel = computed(
+  () => periodOptions.find((item) => item.key === period.value)?.label ?? 'Hoy',
+);
 
 function orderSku(order: OrderDto) {
   const skus = order.items.map((item) => item.productSku).filter(Boolean);
@@ -221,8 +223,10 @@ async function transition(order: OrderDto, status: OrderStatusValue) {
   updatingId.value = order.id;
   try {
     await api.patch(`/orders/${order.id}/status`, { status });
-    toast.success(`${label} — ${sku}`);
+    toast.success(status === 'CANCELADO' ? `Pedido eliminado — ${sku}` : `${label} — ${sku}`);
     invalidateAdminCache(dataKey.value);
+    invalidateAdminCachePrefix('admin-orders-');
+    invalidateAdminCachePrefix('profit-dashboard-');
     await refresh();
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'No se pudo actualizar el pedido.'));
@@ -440,9 +444,6 @@ useSeoMeta({ title: props.seoTitle });
             </p>
             <p v-else-if="order.status === 'ENTREGADO' && hasPendingWarranty(order)" class="admin-record-status-note">
               Pedido entregado. Registra la garantía cuando corresponda.
-            </p>
-            <p v-else-if="order.status === 'CANCELADO'" class="admin-record-status-note admin-record-status-note--cancel">
-              Pedido cancelado.
             </p>
           </div>
         </div>

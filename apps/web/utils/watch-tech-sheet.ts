@@ -49,7 +49,6 @@ export function buildWatchTechSpecs(watch: WatchPublicDto): TechSpecRow[] {
   add('Color de esfera', watch.dialColor ?? undefined);
   add('Cristal', watch.crystalType ?? undefined);
   add('Correa / Brazalete', watch.strapMaterial ?? undefined);
-  add('Resistencia al agua', watch.waterResistance ?? undefined);
 
   if (watch.functions?.length) {
     add('Funciones', watch.functions.join(' · '));

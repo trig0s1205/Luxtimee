@@ -3,7 +3,7 @@ import type { OrderDto, PreOrdersListDto } from '@luxtime/shared';
 import { PRE_ORDER_RESPONSE_HOURS } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { orderDeliveryNotes, orderHasDeliveryNotes } from '~/utils/order-delivery-notes';
-import { invalidateAdminCache } from '~/utils/admin-cache';
+import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
 
 const props = defineProps<{
   bucket: 'active' | 'suspended';
@@ -71,6 +71,8 @@ async function confirmDeposit(id: string) {
   if (!ok) return;
   await api.post(`/pre-orders/${id}/confirm-deposit`);
   invalidateAdminCache(cacheKey.value);
+  invalidateAdminCachePrefix('admin-orders-');
+  invalidateAdminCachePrefix('profit-dashboard-');
   await refresh();
 }
 

@@ -43,8 +43,10 @@ const chartTitle = computed(() =>
   chartMetric.value === 'commission' ? 'COMISIÓN SECRETARÍA' : 'GANANCIA NETA',
 );
 
+const profitCacheKey = computed(() => `profit-dashboard-${chartPeriod.value}`);
+
 const { data: dashboard, refresh, pending } = useAdminCachedData(
-  'profit-dashboard',
+  profitCacheKey,
   () => api.get<ProfitDashboardDto>(`/dashboards/profit?period=${chartPeriod.value}`),
   { staleTime: ADMIN_CACHE_MS.dashboards, watch: [chartPeriod] },
 );

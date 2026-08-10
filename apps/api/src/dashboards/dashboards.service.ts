@@ -40,7 +40,8 @@ export class DashboardsService {
             ? {
                 OR: [
                   { paidAt: { gte: since } },
-                  { paidAt: null, createdAt: { gte: since } },
+                  { createdAt: { gte: since } },
+                  { updatedAt: { gte: since } },
                 ],
               }
             : {}),
@@ -60,7 +61,7 @@ export class DashboardsService {
     );
 
     const items = orders.flatMap((order) => {
-      const saleAt = order.paidAt ?? order.createdAt;
+      const saleAt = order.paidAt ?? order.updatedAt ?? order.createdAt;
       if (since && saleAt < since) return [];
 
       return order.items.map((item) => {
