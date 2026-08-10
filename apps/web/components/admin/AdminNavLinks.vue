@@ -1,10 +1,4 @@
 <script setup lang="ts">
-const props = defineProps<{
-  mobile?: boolean;
-}>();
-
-const emit = defineEmits<{ navigate: [] }>();
-
 const route = useRoute();
 const auth = useAuthStore();
 const mediaQueue = useMediaUploadStore();
@@ -41,10 +35,6 @@ const pedidosLinks = [
   { to: '/admin/pedidos/mayor', label: 'Al mayor' },
 ];
 
-const bottomLinks = [
-  { to: '/admin/configuracion', label: 'Configuración' },
-];
-
 function isActive(path: string) {
   return route.path === path || route.path.startsWith(`${path}/`);
 }
@@ -55,14 +45,10 @@ const isPrePedidosActive = computed(() => route.path.startsWith('/admin/pre-pedi
 function visibleLinks(links: typeof linksBeforePedidos) {
   return links.filter((item) => !item.superOnly || auth.isSuperAdmin);
 }
-
-function onNavigate() {
-  emit('navigate');
-}
 </script>
 
 <template>
-  <nav class="admin-sidebar-nav" :class="{ 'admin-sidebar-nav--mobile': mobile }">
+  <nav class="admin-sidebar-nav">
     <div class="admin-nav-section">
       <p class="admin-nav-section-label">Panel</p>
       <NuxtLink
@@ -72,7 +58,6 @@ function onNavigate() {
         prefetch
         class="admin-nav-link"
         :class="{ active: isActive(link.to) }"
-        @click="onNavigate"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <path d="M3 12h4l2-7 4 14 2-7h6" />
@@ -89,7 +74,6 @@ function onNavigate() {
         prefetch
         class="admin-nav-link"
         :class="{ active: isActive(link.to) }"
-        @click="onNavigate"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <rect x="3" y="3" width="18" height="18" rx="1" />
@@ -97,7 +81,7 @@ function onNavigate() {
         {{ link.label }}
       </NuxtLink>
 
-      <div class="admin-nav-dropdown" :class="{ 'admin-nav-dropdown--expanded': mobile }">
+      <div class="admin-nav-dropdown">
         <div class="admin-nav-link" :class="{ active: isPrePedidosActive }">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="1" />
@@ -113,14 +97,13 @@ function onNavigate() {
             prefetch
             class="admin-nav-link admin-nav-link--sub"
             :class="{ active: isActive(link.to) }"
-            @click="onNavigate"
           >
             {{ link.label }}
           </NuxtLink>
         </div>
       </div>
 
-      <div class="admin-nav-dropdown" :class="{ 'admin-nav-dropdown--expanded': mobile }">
+      <div class="admin-nav-dropdown">
         <div class="admin-nav-link" :class="{ active: isPedidosActive }">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="1" />
@@ -136,7 +119,6 @@ function onNavigate() {
             prefetch
             class="admin-nav-link admin-nav-link--sub"
             :class="{ active: isActive(link.to) }"
-            @click="onNavigate"
           >
             {{ link.label }}
           </NuxtLink>
@@ -150,23 +132,18 @@ function onNavigate() {
         prefetch
         class="admin-nav-link"
         :class="{ active: isActive(link.to) }"
-        @click="onNavigate"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <rect x="3" y="3" width="18" height="18" rx="1" />
         </svg>
         {{ link.label }}
       </NuxtLink>
-    </div>
 
-    <div class="admin-nav-section">
-      <p class="admin-nav-section-label">Procesos</p>
       <NuxtLink
         to="/admin/multimedia"
         prefetch
-        class="admin-nav-link admin-nav-link--multimedia"
+        class="admin-nav-link"
         :class="{ active: isActive('/admin/multimedia') }"
-        @click="onNavigate"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
@@ -176,7 +153,7 @@ function onNavigate() {
         <span
           v-if="mediaQueue.pendingCount > 0"
           class="admin-nav-badge"
-          aria-label="`${mediaQueue.pendingCount} procesos activos`"
+          :aria-label="`${mediaQueue.pendingCount} procesos activos`"
         >{{ mediaQueue.pendingCount }}</span>
       </NuxtLink>
     </div>
