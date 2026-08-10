@@ -1,10 +1,15 @@
+import { initGa4, trackGa4Event } from '~/utils/ga4.client';
+
 export function useAnalytics() {
+  const config = useRuntimeConfig();
+
   const track = (event: string, payload?: Record<string, unknown>) => {
     if (!import.meta.client) return;
     if (import.meta.dev) {
       console.debug('[analytics]', event, payload);
     }
-    // GA4 client plugin se cableará en Fase 14
+    initGa4(config.public.ga4MeasurementId as string);
+    trackGa4Event(event, payload);
   };
 
   return { track };

@@ -26,6 +26,8 @@ export default defineNuxtConfig({
         ?? (process.env.NUXT_LAN === 'true' ? '' : 'http://localhost:3001'),
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000',
       staffLoginSlug: process.env.NUXT_PUBLIC_STAFF_LOGIN_SLUG || 'dev-portal-lx9k2',
+      ga4MeasurementId: process.env.NUXT_PUBLIC_GA4_MEASUREMENT_ID || '',
+      googleSiteVerification: process.env.NUXT_PUBLIC_GOOGLE_SITE_VERIFICATION || '',
     },
   },
   devServer: {
