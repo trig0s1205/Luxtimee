@@ -144,15 +144,15 @@ export class ImageProcessingService {
     );
   }
 
-  async uploadToCloudinary(buffer: Buffer, publicId: string): Promise<string> {
+  async uploadToCloudinary(buffer: Buffer, publicId: string, folder?: string): Promise<string> {
     if (this.config.get('USE_MOCKS') === 'true') {
       return `https://res.cloudinary.com/mock/image/upload/${publicId}.webp`;
     }
 
-    const folder = this.config.get<string>('CLOUDINARY_FOLDER', 'LUXTIMEE/watches');
+    const targetFolder = folder ?? this.config.get<string>('CLOUDINARY_FOLDER', 'LUXTIMEE/watches');
     const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
-        { folder, public_id: publicId, resource_type: 'image', format: 'webp' },
+        { folder: targetFolder, public_id: publicId, resource_type: 'image', format: 'webp' },
         (error, uploadResult) => {
           if (error || !uploadResult) reject(error ?? new Error('Upload fallido'));
           else resolve(uploadResult);
@@ -162,6 +162,31 @@ export class ImageProcessingService {
     });
 
     return result.secure_url;
+  }
+
+  async deleteCloudinaryAsset(url: string, resourceType: 'image' | 'video' = 'image'): Promise<void> {
+    if (this.config.get('USE_MOCKS') === 'true') return;
+    const publicId = this.extractCloudinaryPublicId(url, resourceType);
+    if (!publicId) return;
+    await cloudinary.uploader.destroy(publicId, { resource_type: resourceType }).catch(() => undefined);
+  }
+
+  private extractCloudinaryPublicId(url: string, resourceType: 'image' | 'video'): string | null {
+    if (!url.includes('res.cloudinary.com')) return null;
+    const type = resourceType === 'video' ? 'video' : 'image';
+    const match = url.match(new RegExp(`\\/${type}\\/upload\\/(?:v\\d+\\/)?(.+)\\.[a-z0-9]+$`, 'i'));
+    return match?.[1] ?? null;
+  }
+
+  homepageFolder(): string {
+    const base = this.config.get<string>('CLOUDINARY_FOLDER', 'luxtime/watches');
+    if (base.endsWith('/watches')) return base.replace(/\/watches$/, '/homepage');
+    return `${base.replace(/\/$/, '')}/homepage`;
+  }
+
+  async uploadHomepageImage(file: Express.Multer.File): Promise<string> {
+    const { randomUUID } = await import('crypto');
+    return this.uploadToCloudinary(file.buffer, `founder-${randomUUID()}`, this.homepageFolder());
   }
 
   async uploadVideoToCloudinary(buffer: Buffer, publicId: string): Promise<string> {

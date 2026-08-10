@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { existsSync, mkdirSync, unlinkSync } from 'fs';
+import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
+import { ImageProcessingService } from '../integrations/image-processing.service';
 import type {
   CommissionConfigDto,
   CommissionUpdateResultDto,
@@ -14,7 +15,6 @@ import type {
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
 
-const HOMEPAGE_UPLOAD_DIR = join(process.cwd(), 'uploads', 'homepage');
 const HOMEPAGE_KEY = 'homepage_config';
 
 const PUBLIC_SETTING_KEYS = new Set([
@@ -23,12 +23,6 @@ const PUBLIC_SETTING_KEYS = new Set([
   'platform_config',
   HOMEPAGE_KEY,
 ]);
-
-function ensureHomepageDir() {
-  if (!existsSync(HOMEPAGE_UPLOAD_DIR)) {
-    mkdirSync(HOMEPAGE_UPLOAD_DIR, { recursive: true });
-  }
-}
 
 const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
   hero: {
@@ -96,6 +90,7 @@ export class SettingsService {
   constructor(
     private prisma: PrismaService,
     private cache: MemoryCacheService,
+    private imageProcessing: ImageProcessingService,
   ) {}
 
   async getJson<T>(key: string, fallback: T): Promise<T> {
@@ -280,22 +275,21 @@ export class SettingsService {
   }
 
   async uploadFounderImage(file: Express.Multer.File): Promise<{ url: string }> {
-    ensureHomepageDir();
-    const { randomUUID } = await import('crypto');
-    const ext = file.mimetype === 'image/png' ? '.png' : file.mimetype === 'image/webp' ? '.webp' : '.jpg';
-    const filename = `founder-${randomUUID()}${ext}`;
-    const dest = join(HOMEPAGE_UPLOAD_DIR, filename);
-    const { writeFileSync } = await import('fs');
-    writeFileSync(dest, file.buffer);
-    return { url: `/uploads/homepage/${filename}` };
+    const url = await this.imageProcessing.uploadHomepageImage(file);
+    return { url };
   }
 
   async deleteFounderImage(url: string): Promise<void> {
+    if (url.includes('res.cloudinary.com')) {
+      await this.imageProcessing.deleteCloudinaryAsset(url, 'image');
+      return;
+    }
+
     const filename = url.replace(/^\/uploads\/homepage\//, '');
     if (!filename || filename.includes('..') || filename.includes('/')) {
       throw new BadRequestException('URL de imagen inválida');
     }
-    const dest = join(HOMEPAGE_UPLOAD_DIR, filename);
+    const dest = join(process.cwd(), 'uploads', 'homepage', filename);
     if (existsSync(dest)) {
       unlinkSync(dest);
     }
