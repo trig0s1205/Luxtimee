@@ -12,7 +12,8 @@
     "typecheck": "pnpm --filter @luxtime/shared build && pnpm -r typecheck",
     "db:migrate": "pnpm --filter @luxtime/api prisma:migrate",
     "db:seed": "pnpm --filter @luxtime/api prisma:seed",
-    "prisma:studio": "pnpm --filter @luxtime/api prisma:studio"
+    "prisma:studio": "pnpm --filter @luxtime/api prisma:studio",
+    "migrate:videos": "pnpm --filter @luxtime/api migrate:videos"
   },
   "engines": {
     "node": ">=20"

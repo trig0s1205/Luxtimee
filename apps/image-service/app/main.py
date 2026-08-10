@@ -10,6 +10,8 @@ from fastapi.responses import Response
 from PIL import Image
 from rembg import new_session, remove
 
+from app.video_processor import ALLOWED_VIDEO_MIMES, process_watch_video
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("luxtime-image-service")
 
@@ -169,3 +171,21 @@ async def process_watch(
 
     processed = process_watch_image(raw)
     return Response(content=processed, media_type="image/webp")
+
+
+@app.post("/api/v1/process-video")
+@app.post("/process-video")
+async def process_video(
+    file: UploadFile = File(...),
+    _: None = Depends(verify_api_key),
+) -> Response:
+    declared = file.content_type
+    if declared and declared not in ALLOWED_VIDEO_MIMES:
+        raise HTTPException(
+            status_code=400,
+            detail="Formato no válido. Formatos aceptados: MP4, MOV, WEBM",
+        )
+
+    raw = await file.read()
+    processed = process_watch_video(raw, declared_mime=declared)
+    return Response(content=processed, media_type="video/mp4")

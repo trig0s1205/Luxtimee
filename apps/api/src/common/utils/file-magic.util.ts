@@ -1,9 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
+import { MAX_VIDEO_INPUT_BYTES } from '@luxtime/shared';
 
 const IMAGE_JPEG = Buffer.from([0xff, 0xd8, 0xff]);
 const IMAGE_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-const MAX_VIDEO_BYTES = 28 * 1024 * 1024;
+const MAX_VIDEO_BYTES = MAX_VIDEO_INPUT_BYTES;
 
 export type MediaKind = 'image' | 'video';
 
@@ -64,18 +65,19 @@ export function assertVideoBuffer(buffer: Buffer, declaredMime?: string) {
     throw new BadRequestException('Video vacío');
   }
   if (buffer.length > MAX_VIDEO_BYTES) {
-    throw new BadRequestException('El video supera el tamaño máximo de 50MB');
+    throw new BadRequestException('El video supera el tamaño máximo de entrada (120MB)');
   }
   const detected = detectVideoMime(buffer);
   if (!detected) {
     throw new BadRequestException('El archivo no es un video MP4 o WEBM válido');
   }
   if (declaredMime && declaredMime !== detected) {
-    // mp4 containers sometimes report video/quicktime — reject non allowlist
-    if (!['video/mp4', 'video/webm'].includes(declaredMime)) {
+    const allowedDeclared = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'];
+    if (!allowedDeclared.includes(declaredMime)) {
       throw new BadRequestException('El tipo MIME del video no es permitido');
     }
-    if (declaredMime !== detected) {
+    // MOV/QuickTime comparte contenedor ISO BMFF con MP4
+    if (!(declaredMime === 'video/quicktime' && detected === 'video/mp4')) {
       throw new BadRequestException('El tipo MIME del video no coincide con su contenido');
     }
   }

@@ -17,3 +17,14 @@ export const FREE_SHIPPING_ZONE_NAME = 'Piedecuesta';
 export function isAlwaysFreeShippingZone(name: string): boolean {
   return name.trim().toLowerCase() === FREE_SHIPPING_ZONE_NAME.toLowerCase();
 }
+
+/** Duración máxima de video de producto (segundos). */
+export const MAX_VIDEO_DURATION_SEC = 10;
+/** Tolerancia de lectura de metadata en el navegador (segundos). */
+export const MAX_VIDEO_DURATION_TOLERANCE_SEC = 0.35;
+/** Peso máximo del video ya optimizado para Cloudinary. */
+export const MAX_VIDEO_OUTPUT_BYTES = 10 * 1024 * 1024;
+/** Peso máximo aceptado en subida cruda (iPhone); se comprime en servidor. */
+export const MAX_VIDEO_INPUT_BYTES = 120 * 1024 * 1024;
+/** Resolución máxima de altura del video optimizado. */
+export const MAX_VIDEO_HEIGHT_PX = 1080;

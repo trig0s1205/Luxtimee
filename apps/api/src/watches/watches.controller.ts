@@ -53,8 +53,8 @@ function mediaFileFilter(
   cb: (error: Error | null, acceptFile: boolean) => void,
 ) {
   if (file.fieldname === 'video') {
-    if (!['video/mp4', 'video/webm'].includes(file.mimetype)) {
-      cb(new BadRequestException('El video debe ser MP4 o WEBM'), false);
+    if (!['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'].includes(file.mimetype)) {
+      cb(new BadRequestException('El video debe ser MP4, MOV o WEBM'), false);
       return;
     }
     cb(null, true);

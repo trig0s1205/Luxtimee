@@ -2,6 +2,8 @@
 import type { BrandDto, CareTemplateDto, CategoryDto, WatchStaffDto } from '@luxtime/shared';
 import { WatchStatus } from '@luxtime/shared';
 import { calcMarginPercent } from '~/utils/margin';
+import { validateWatchVideoFile } from '~/utils/video-validation';
+import { MAX_VIDEO_DURATION_SEC } from '@luxtime/shared';
 
 type WatchFormPayload = {
   brandId: string;
@@ -49,6 +51,7 @@ const emit = defineEmits<{
 
 const auth = useAuthStore();
 const api = useApi();
+const toast = useToast();
 
 const MAX_CATALOG_FEATURED = 6;
 const featuredCount = ref(0);
@@ -169,9 +172,26 @@ function onImageSelect(slot: 'primary' | 'secondary', event: Event) {
 }
 
 function onVideoSelect(event: Event) {
+  void onVideoSelectAsync(event);
+}
+
+async function onVideoSelectAsync(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0] ?? null;
-  if (file && (file.type === 'video/mp4' || file.type === 'video/webm')) setVideoFile(file);
   (event.target as HTMLInputElement).value = '';
+
+  if (!file) return;
+
+  mediaError.value = '';
+  const validationError = await validateWatchVideoFile(file);
+  if (validationError) {
+    mediaError.value = validationError;
+    toast.warning(validationError);
+    activeTab.value = 2;
+    return;
+  }
+
+  setVideoFile(file);
+  toast.info('Video válido. Se optimizará al guardar (máx. 1080p, ~10 MB).');
 }
 
 function clearImageSlot(slot: 'primary' | 'secondary') {
@@ -204,7 +224,7 @@ function hasRequiredMedia() {
 
 const isBusy = computed(() => props.saving);
 
-function onSubmit() {
+async function onSubmit() {
   if (isBusy.value) return;
 
   if (!hasRequiredMedia()) {
@@ -212,6 +232,17 @@ function onSubmit() {
     activeTab.value = 2;
     return;
   }
+
+  if (form.videoFile) {
+    const validationError = await validateWatchVideoFile(form.videoFile);
+    if (validationError) {
+      mediaError.value = validationError;
+      toast.warning(validationError);
+      activeTab.value = 2;
+      return;
+    }
+  }
+
   emit('submit', { ...form });
 }
 
@@ -418,11 +449,14 @@ const selectedCareTemplate = computed(() =>
 
           <div class="admin-media-slot admin-media-slot--video">
             <label>Video del reloj <span class="admin-form-required">*</span></label>
+            <p class="admin-form-hint admin-form-hint--media">
+              Máx. {{ MAX_VIDEO_DURATION_SEC }} s · MP4, MOV o WEBM · Se optimiza a 1080p (~10 MB)
+            </p>
             <div class="admin-media-preview admin-media-preview--video" @click="videoInput?.click()">
               <video v-if="videoPreview || form.videoUrl" :src="videoPreview || form.videoUrl" controls muted />
-              <span v-else>MP4 / WEBM</span>
+              <span v-else>MP4 / MOV / WEBM</span>
             </div>
-            <input ref="videoInput" type="file" accept="video/mp4,video/webm" class="hidden" @change="onVideoSelect">
+            <input ref="videoInput" type="file" accept="video/mp4,video/webm,video/quicktime,.mov,.mp4,.webm" class="hidden" @change="onVideoSelect">
             <button v-if="videoPreview || form.videoUrl" type="button" class="admin-media-clear" @click="clearVideoSlot">Quitar</button>
           </div>
         </div>
@@ -591,6 +625,11 @@ const selectedCareTemplate = computed(() =>
   font-family: var(--lux-font-body);
   font-size: 11px;
   color: var(--lux-white-dim);
+}
+
+.admin-form-hint--media {
+  margin-bottom: 8px;
+  line-height: 1.5;
 }
 
 .admin-form-field select option {

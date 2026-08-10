@@ -3,6 +3,7 @@ import type { BrandDto, CareTemplateDto, InventoryInsightsDto, PaginatedResponse
 import { WatchStatus } from '@luxtime/shared';
 import { extractApiErrorMessage, isBadRequest } from '~/utils/api-error';
 import { invalidateAdminCache } from '~/utils/admin-cache';
+import { validateWatchVideoFile } from '~/utils/video-validation';
 
 const AdminWatchFormLazy = defineAsyncComponent(() => import('~/components/admin/AdminWatchForm.vue'));
 
@@ -129,6 +130,15 @@ async function handleSubmit(form: WatchFormPayload) {
     submitError.value = 'Debes subir foto principal, foto secundaria y video.';
     toast.warning(submitError.value);
     return;
+  }
+
+  if (form.videoFile) {
+    const videoError = await validateWatchVideoFile(form.videoFile);
+    if (videoError) {
+      submitError.value = videoError;
+      toast.warning(videoError);
+      return;
+    }
   }
 
   saving.value = true;

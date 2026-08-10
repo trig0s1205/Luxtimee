@@ -295,9 +295,10 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     assertMediaFile(files.image2, 'image');
     assertMediaFile(files.video, 'video');
 
-    const [primaryBuffer, secondaryBuffer] = await Promise.all([
+    const [primaryBuffer, secondaryBuffer, videoBuffer] = await Promise.all([
       this.imageProcessing.processWithMicroservice(files.image1),
       this.imageProcessing.processWithMicroservice(files.image2),
+      this.imageProcessing.processVideoWithMicroservice(files.video),
     ]);
 
     const isProd = process.env.NODE_ENV === 'production';
@@ -306,7 +307,7 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
       const [primaryImageUrl, secondaryImageUrl, videoUrl] = await Promise.all([
         this.imageProcessing.uploadToCloudinary(primaryBuffer, `watch-${randomUUID()}`),
         this.imageProcessing.uploadToCloudinary(secondaryBuffer, `watch-${randomUUID()}`),
-        this.imageProcessing.uploadVideoToCloudinary(files.video.buffer, `watch-video-${randomUUID()}`),
+        this.imageProcessing.uploadVideoToCloudinary(videoBuffer, `watch-video-${randomUUID()}`),
       ]);
 
       const updated = await this.watchesRepository.update(id, {
@@ -329,9 +330,7 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
 
     const primaryName = `watch-${randomUUID()}.webp`;
     const secondaryName = `watch-${randomUUID()}.webp`;
-    const videoExt = extname(files.video.originalname).toLowerCase() || '.mp4';
-    const safeVideoExt = ['.mp4', '.webm'].includes(videoExt) ? videoExt : '.mp4';
-    const videoName = `watch-${randomUUID()}${safeVideoExt}`;
+    const videoName = `watch-${randomUUID()}.mp4`;
 
     const primaryPath = join(uploadsDir, primaryName);
     const secondaryPath = join(uploadsDir, secondaryName);
@@ -342,7 +341,7 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
       await Promise.all([
         writeFile(primaryPath, primaryBuffer),
         writeFile(secondaryPath, secondaryBuffer),
-        writeFile(videoPath, files.video.buffer),
+        writeFile(videoPath, videoBuffer),
       ]);
 
       const primaryImageUrl = `/uploads/watches/${primaryName}`;

@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { validateWatchVideoFile } from '~/utils/video-validation';
 
 export type MediaFileStatus = 'queue' | 'uploading' | 'done' | 'error';
 
@@ -46,6 +47,17 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
       this._processing = true;
       job.status = 'uploading';
       job.fileStatuses = { image1: 'uploading', image2: 'uploading', video: 'uploading' };
+
+      const videoError = await validateWatchVideoFile(job.files.video);
+      if (videoError) {
+        job.fileStatuses = { image1: 'error', image2: 'error', video: 'error' };
+        job.status = 'error';
+        job.errorMessage = videoError;
+        useToast().error(`Video inválido — ${job.brandName} ${job.model}`);
+        this._processing = false;
+        void this._processNext();
+        return;
+      }
 
       try {
         const config = useRuntimeConfig();
