@@ -1,26 +1,11 @@
-const SESSION_TTL_MS = 60_000;
-
-export default defineNuxtRouteMiddleware(async (to, from) => {
-  // Navegación interna admin → cero checks, cero API
-  if (import.meta.client && from.path.startsWith('/admin') && to.path.startsWith('/admin')) {
-    return;
-  }
-
+export default defineNuxtRouteMiddleware(async () => {
   const auth = useAuthStore();
-  auth.hydrateLocal();
 
-  const sessionFresh = auth.loaded
-    && auth.isAuthenticated
-    && auth.isStaff
-    && Date.now() - auth.sessionCheckedAt <= SESSION_TTL_MS;
+  // SIEMPRE verificar con el API - sin excepciones
+  await auth.fetchMe({ allowRefresh: true });
 
-  if (sessionFresh) return;
-
-  if (!auth.loaded || Date.now() - auth.sessionCheckedAt > SESSION_TTL_MS) {
-    await auth.fetchMe({ allowRefresh: false });
-  }
-
-  if (!auth.isAuthenticated || !auth.isStaff) {
+  // Si no hay usuario autenticado o no es staff → fuera
+  if (!auth.user || (auth.user.role !== 'ADMIN' && auth.user.role !== 'SUPER_ADMIN')) {
     return navigateTo('/vigilancia', { replace: true });
   }
 });

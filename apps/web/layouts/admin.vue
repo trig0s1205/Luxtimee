@@ -3,6 +3,13 @@ import type { BrandDto, CategoryDto, ShippingZoneDto } from '@luxtime/shared';
 import { preloadRouteComponents } from '#app';
 import { warmupAdminModules } from '~/utils/admin-warmup';
 
+const auth = useAuthStore();
+
+// Doble verificación: si no hay usuario staff, no renderizar nada
+if (!auth.user || (auth.user.role !== 'ADMIN' && auth.user.role !== 'SUPER_ADMIN')) {
+  throw createError({ statusCode: 403, statusMessage: 'Acceso denegado' });
+}
+
 const api = useApi();
 
 const ADMIN_ROUTES = [
