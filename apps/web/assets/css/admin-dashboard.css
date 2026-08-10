@@ -46,7 +46,151 @@
 @media (max-width: 1023px) {
   .admin-main {
     min-height: 100vh;
-    padding: 1.5rem;
+    padding: calc(3.5rem + 1rem) 1rem 1.5rem;
+  }
+}
+
+/* —— Mobile admin nav —— */
+.admin-mobile-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 3.5rem;
+  padding: 0 1rem;
+  background: #0d0d0d;
+  border-bottom: 1px solid rgba(200, 169, 110, 0.08);
+}
+
+.admin-mobile-menu-btn,
+.admin-mobile-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(200, 169, 110, 0.15);
+  background: transparent;
+  color: var(--gold);
+  cursor: pointer;
+}
+
+.admin-mobile-menu-btn svg,
+.admin-mobile-close-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.admin-mobile-header-brand {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.admin-mobile-header-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.28em;
+  color: var(--gold);
+}
+
+.admin-mobile-header-sub {
+  font-family: var(--font-body);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--white-dim);
+}
+
+.admin-mobile-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.admin-mobile-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 56;
+  display: flex;
+  flex-direction: column;
+  width: min(18rem, 88vw);
+  height: 100vh;
+  padding: 1rem 1rem 1.5rem;
+  background: #0d0d0d;
+  border-right: 1px solid rgba(200, 169, 110, 0.08);
+  overflow-y: auto;
+}
+
+.admin-mobile-drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.admin-sidebar-brand--compact {
+  margin-bottom: 0;
+}
+
+.admin-sidebar-nav--mobile {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.admin-nav-dropdown--expanded .admin-nav-dropdown-menu {
+  display: block;
+}
+
+.admin-nav-dropdown--expanded .admin-nav-link--sub {
+  padding-left: 38px;
+}
+
+.admin-catalog-table-wrap,
+.health-table-card,
+.admin-records-list {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 1023px) {
+  .admin-inventory-header,
+  .health-dashboard-header,
+  .health-export-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-config-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-config-tab {
+    flex-shrink: 0;
+  }
+
+  .health-kpi-grid--six {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .health-kpi-grid--six {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-modal-backdrop {
+    padding: 12px;
   }
 }
 

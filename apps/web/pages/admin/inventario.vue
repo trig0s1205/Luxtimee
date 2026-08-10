@@ -296,6 +296,7 @@ async function handleDelete(watch: WatchStaffDto) {
   align-items: flex-start;
   gap: 16px;
   margin-bottom: 24px;
+  flex-wrap: wrap;
 }
 
 .admin-inventory-toolbar {

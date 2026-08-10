@@ -387,7 +387,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
           </label>
           <label>
             <span>Contraseña actual</span>
-            <UiLuxInput v-model="emailForm.currentPassword" type="password" placeholder="••••••••" />
+            <UiLuxInput v-model="emailForm.currentPassword" type="password" />
           </label>
         </div>
         <UiLuxButton :disabled="savingEmail" @click="saveEmail">
@@ -401,15 +401,15 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
         <div class="admin-config-fields">
           <label>
             <span>Contraseña actual</span>
-            <UiLuxInput v-model="passwordForm.currentPassword" type="password" placeholder="••••••••" />
+            <UiLuxInput v-model="passwordForm.currentPassword" type="password" />
           </label>
           <label>
             <span>Nueva contraseña</span>
-            <UiLuxInput v-model="passwordForm.newPassword" type="password" placeholder="••••••••" />
+            <UiLuxInput v-model="passwordForm.newPassword" type="password" />
           </label>
           <label>
             <span>Confirmar contraseña</span>
-            <UiLuxInput v-model="passwordForm.confirmPassword" type="password" placeholder="••••••••" />
+            <UiLuxInput v-model="passwordForm.confirmPassword" type="password" />
           </label>
         </div>
         <UiLuxButton :disabled="savingPassword" @click="savePassword">
