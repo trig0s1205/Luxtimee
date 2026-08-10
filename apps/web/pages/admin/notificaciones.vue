@@ -1,8 +1,8 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const api = useApi();
-const { data: notifications, refresh } = await useAsyncData('notifications', () =>
+const { data: notifications, refresh } = useAdminCachedData('notifications', () =>
   api.get<Array<{ id: string; type: string; payload: Record<string, unknown>; createdAt: string; readAt: string | null }>>('/notifications').catch(() => []),
 );
 
@@ -35,3 +35,6 @@ async function markRead(id: string) {
     </div>
   </div>
 </template>
+
+
+

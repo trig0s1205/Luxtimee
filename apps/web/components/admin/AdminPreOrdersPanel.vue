@@ -3,6 +3,7 @@ import type { OrderDto, PreOrdersListDto } from '@luxtime/shared';
 import { PRE_ORDER_RESPONSE_HOURS } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { orderDeliveryNotes, orderHasDeliveryNotes } from '~/utils/order-delivery-notes';
+import { invalidateAdminCache } from '~/utils/admin-cache';
 
 const props = defineProps<{
   bucket: 'active' | 'suspended';
@@ -28,10 +29,12 @@ const emptyList: PreOrdersListDto = {
   limit: PAGE_SIZE,
 };
 
-const { data: list, refresh, pending } = await useAsyncData(
-  () => `admin-pre-orders-${props.bucket}-${page.value}`,
+const cacheKey = computed(() => `admin-pre-orders-${props.bucket}-${page.value}`);
+
+const { data: list, refresh, pending } = useAdminCachedData(
+  cacheKey,
   () => api.get<PreOrdersListDto>(endpoint.value, { page: page.value, limit: PAGE_SIZE }).catch(() => emptyList),
-  { watch: [endpoint, page] },
+  { watch: [cacheKey] },
 );
 
 const preOrders = computed(() => list.value?.items ?? []);
@@ -67,6 +70,7 @@ async function confirmDeposit(id: string) {
   });
   if (!ok) return;
   await api.post(`/pre-orders/${id}/confirm-deposit`);
+  invalidateAdminCache(cacheKey.value);
   await refresh();
 }
 
@@ -78,6 +82,7 @@ async function reactivate(id: string) {
   });
   if (!ok) return;
   await api.post(`/pre-orders/${id}/reactivate`);
+  invalidateAdminCache(cacheKey.value);
   await refresh();
 }
 
@@ -90,6 +95,7 @@ async function cancelOrder(id: string) {
   });
   if (!ok) return;
   await api.post(`/pre-orders/${id}/cancel`);
+  invalidateAdminCache(cacheKey.value);
   await refresh();
 }
 

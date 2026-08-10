@@ -2,6 +2,7 @@
 import type { BrandDto, InventoryInsightsDto, PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
 import { WatchStatus } from '@luxtime/shared';
 import { extractApiErrorMessage, isBadRequest } from '~/utils/api-error';
+import { invalidateAdminCache } from '~/utils/admin-cache';
 
 const AdminWatchFormLazy = defineAsyncComponent(() => import('~/components/admin/AdminWatchForm.vue'));
 
@@ -36,7 +37,7 @@ type WatchFormPayload = {
 };
 
 useHead({ title: 'Inventario — LUXTIMEE Admin' });
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const api = useApi();
 const toast = useToast();
@@ -69,17 +70,19 @@ const brands = computed(() => catalogStore.brands);
 const categories = computed(() => catalogStore.categories);
 
 // Brands/categories desde cache Pinia + watches en paralelo sin bloquear UI
-const [{ data: paginated, refresh, pending }, { data: insights, pending: insightsPending, refresh: refreshInsights }] = await Promise.all([
-  useAsyncData(
-    'admin-watches',
-    () => api.get<PaginatedResponse<WatchStaffDto>>('/watches', fetchQuery.value as Record<string, string | number | boolean | undefined>).catch(() => ({ data: [], total: 0, page: 1, limit: PAGE_SIZE })),
-    { watch: [() => query.search, () => query.brand, () => loadPages.value] },
-  ),
-  useAsyncData(
-    'inventory-insights',
-    () => api.get<InventoryInsightsDto>('/watches/inventory-insights').catch(() => null),
-  ),
-]);
+const watchesKey = computed(() =>
+  `admin-watches-${query.search}-${query.brand}-${loadPages.value}`,
+);
+
+const { data: paginated, refresh, pending } = useAdminCachedData(
+  watchesKey,
+  () => api.get<PaginatedResponse<WatchStaffDto>>('/watches', fetchQuery.value as Record<string, string | number | boolean | undefined>).catch(() => ({ data: [], total: 0, page: 1, limit: PAGE_SIZE })),
+);
+
+const { data: insights, pending: insightsPending, refresh: refreshInsights } = useAdminCachedData(
+  'inventory-insights',
+  () => api.get<InventoryInsightsDto>('/watches/inventory-insights').catch(() => null),
+);
 
 // Brands/categories en paralelo con watches (no bloquean)
 catalogStore.ensureAll({
@@ -183,6 +186,8 @@ async function handleSubmit(form: WatchFormPayload) {
 
     showForm.value = false;
     editingWatch.value = null;
+    invalidateAdminCache(watchesKey.value);
+    invalidateAdminCache('inventory-insights');
     await refresh();
     await refreshInsights();
   } catch (err: unknown) {
@@ -210,6 +215,8 @@ async function handleDelete(watch: WatchStaffDto) {
   try {
     await api.del(`/watches/${watch.id}`);
     toast.success('Reloj eliminado correctamente');
+    invalidateAdminCache(watchesKey.value);
+    invalidateAdminCache('inventory-insights');
     await refresh();
     await refreshInsights();
   } catch (err: unknown) {
@@ -390,3 +397,6 @@ async function handleDelete(watch: WatchStaffDto) {
   }
 }
 </style>
+
+
+

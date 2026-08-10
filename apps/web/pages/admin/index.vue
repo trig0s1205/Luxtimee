@@ -1,7 +1,10 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+definePageMeta({ middleware: ['admin'], keepalive: true });
 
 await navigateTo('/admin/inventario', { replace: true });
 </script>
 
 <template><div /></template>
+
+
+

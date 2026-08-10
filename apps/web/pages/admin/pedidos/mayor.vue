@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { OrderType } from '@luxtime/shared';
 
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+definePageMeta({ middleware: ['admin'], keepalive: true });
 </script>
 
 <template>
@@ -11,3 +11,6 @@ definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
     seo-title="Pedidos al mayor — LUXTIMEE Admin"
   />
 </template>
+
+
+

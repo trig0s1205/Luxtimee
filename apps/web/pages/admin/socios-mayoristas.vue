@@ -2,7 +2,7 @@
 import type { CreateWholesaleAccessDto, WholesaleAccessDto, WholesaleAccessListDto } from '@luxtime/shared';
 import { DEFAULT_WHOLESALE_COOKIE_DAYS } from '@luxtime/shared';
 
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const api = useApi();
 const toast = useToast();
@@ -30,7 +30,7 @@ const form = reactive<CreateWholesaleAccessDto>({
 const creating = ref(false);
 const deletingId = ref<string | null>(null);
 
-const { data, refresh, pending } = await useAsyncData('wholesale-access-list', () =>
+const { data, refresh, pending } = useAdminCachedData('wholesale-access-list', () =>
   api.get<WholesaleAccessListDto>('/wholesale-access'),
 );
 
@@ -221,3 +221,6 @@ useSeoMeta({ title: 'Socios mayoristas — LUXTIMEE Admin' });
   font-size: 14px;
 }
 </style>
+
+
+

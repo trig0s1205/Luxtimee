@@ -2,10 +2,11 @@
 import type { ProfitDashboardDto } from '@luxtime/shared';
 import type { ChartGranularity, ChartOrderInput } from '~/utils/chart-series';
 import { formatCop } from '~/utils/format';
+import { ADMIN_CACHE_MS } from '~/utils/admin-cache';
 
 const AdminRevenueTrendChartLazy = defineAsyncComponent(() => import('~/components/admin/RevenueTrendChart.vue'));
 
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const auth = useAuthStore();
 const api = useApi();
@@ -42,10 +43,10 @@ const chartTitle = computed(() =>
   chartMetric.value === 'commission' ? 'COMISIÓN SECRETARÍA' : 'GANANCIA NETA',
 );
 
-const { data: dashboard, refresh, pending } = await useAsyncData(
+const { data: dashboard, refresh, pending } = useAdminCachedData(
   'profit-dashboard',
   () => api.get<ProfitDashboardDto>(`/dashboards/profit?period=${chartPeriod.value}`),
-  { watch: [chartPeriod] },
+  { staleTime: ADMIN_CACHE_MS.dashboards, watch: [chartPeriod] },
 );
 
 const kpis = computed(() => {
@@ -306,3 +307,6 @@ useSeoMeta({ title: 'Dashboard de Ganancia — LUXTIMEE Admin' });
     </section>
   </div>
 </template>
+
+
+

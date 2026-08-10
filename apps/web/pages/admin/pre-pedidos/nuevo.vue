@@ -9,7 +9,7 @@ import type {
 import { formatCop } from '~/utils/format';
 import { extractApiErrorMessage } from '~/utils/api-error';
 
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+definePageMeta({ middleware: ['admin'], keepalive: true });
 useSeoMeta({ title: 'Nuevo pre-pedido — LUXTIMEE Admin' });
 
 const api = useApi();
@@ -38,7 +38,7 @@ const loading = ref(false);
 const hintLoading = ref(false);
 const error = ref('');
 
-const { data: zones } = await useAsyncData('admin-shipping-zones', () =>
+const { data: zones } = useAdminCachedData('admin-zones', () =>
   api.get<ShippingZoneDto[]>('/shipping-zones').catch(() => []),
 );
 
@@ -265,3 +265,6 @@ async function submit() {
     </form>
   </div>
 </template>
+
+
+

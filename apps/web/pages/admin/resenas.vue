@@ -1,5 +1,7 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+import { invalidateAdminCache } from '~/utils/admin-cache';
+
+definePageMeta({ middleware: ['admin'], keepalive: true });
 
 interface ReviewDto {
   id: string;
@@ -9,12 +11,13 @@ interface ReviewDto {
 }
 
 const api = useApi();
-const { data: reviews, refresh } = await useAsyncData('admin-reviews', () =>
+const { data: reviews, refresh } = useAdminCachedData('admin-reviews', () =>
   api.get<ReviewDto[]>('/reviews/pending'),
 );
 
 async function moderate(id: string, approve: boolean) {
   await api.patch(`/reviews/${id}/status`, { status: approve ? 'PUBLISHED' : 'REJECTED' });
+  invalidateAdminCache('admin-reviews');
   await refresh();
 }
 </script>
@@ -34,3 +37,6 @@ async function moderate(id: string, approve: boolean) {
     </div>
   </div>
 </template>
+
+
+

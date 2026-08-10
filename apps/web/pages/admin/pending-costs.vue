@@ -2,7 +2,7 @@
 import type { PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const auth = useAuthStore();
 const api = useApi();
@@ -22,7 +22,7 @@ const emptyList: PaginatedResponse<WatchStaffDto> = {
   limit: PAGE_SIZE,
 };
 
-const { data: paginated, refresh, pending } = await useAsyncData(
+const { data: paginated, refresh, pending } = useAdminCachedData(
   'pending-cost-watches',
   () => api.get<PaginatedResponse<WatchStaffDto>>('/watches/pending-cost', { page: page.value, limit: PAGE_SIZE }).catch(() => emptyList),
   { watch: [page] },
@@ -216,3 +216,6 @@ useSeoMeta({ title: 'Relojes pendientes de costo — LUXTIMEE Admin' });
   color: var(--lux-white-dim);
 }
 </style>
+
+
+

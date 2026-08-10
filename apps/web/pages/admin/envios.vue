@@ -2,14 +2,15 @@
 import type { CreateShippingZoneDto, ShippingZoneDto } from '@luxtime/shared';
 import { isAlwaysFreeShippingZone } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
+import { invalidateAdminCache } from '~/utils/admin-cache';
 
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const api = useApi();
 const toast = useToast();
 const { confirm } = useConfirm();
 
-const { data: zones, refresh } = await useAsyncData('admin-zones', () =>
+const { data: zones, refresh } = useAdminCachedData('admin-zones', () =>
   api.get<ShippingZoneDto[]>('/shipping-zones').catch(() => []),
 );
 
@@ -24,6 +25,7 @@ const deletingId = ref<string | null>(null);
 
 async function save(zone: ShippingZoneDto, cost: number) {
   await api.patch(`/shipping-zones/${zone.id}`, { cost });
+  invalidateAdminCache('admin-zones');
   await refresh();
 }
 
@@ -48,6 +50,7 @@ async function createZone() {
     newZone.cost = 0;
     newZone.isNational = false;
     toast.success('Zona de envío creada.');
+    invalidateAdminCache('admin-zones');
     await refresh();
   } catch (err: unknown) {
     const message = err && typeof err === 'object' && 'message' in err ? String(err.message) : 'No se pudo crear la zona.';
@@ -70,6 +73,7 @@ async function removeZone(zone: ShippingZoneDto) {
   try {
     await api.del(`/shipping-zones/${zone.id}`);
     toast.success('Zona eliminada.');
+    invalidateAdminCache('admin-zones');
     await refresh();
   } catch (err: unknown) {
     const message = err && typeof err === 'object' && 'message' in err ? String(err.message) : 'No se pudo eliminar la zona.';
@@ -236,3 +240,6 @@ async function removeZone(zone: ShippingZoneDto) {
   font-size: 13px;
 }
 </style>
+
+
+

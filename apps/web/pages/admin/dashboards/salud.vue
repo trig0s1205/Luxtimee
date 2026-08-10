@@ -2,18 +2,20 @@
 import type { HealthDashboardDto } from '@luxtime/shared';
 import { GLOBAL_INVENTORY_LOW_THRESHOLD } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
+import { ADMIN_CACHE_MS } from '~/utils/admin-cache';
 
 const AdminDashboardChartLazy = defineAsyncComponent(() => import('~/components/admin/DashboardChart.vue'));
 
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const auth = useAuthStore();
 const api = useApi();
 const { waitHoursSince } = useLiveWaitHours();
 
-const { data: health, pending, refresh } = await useAsyncData(
+const { data: health, pending, refresh } = useAdminCachedData(
   'health-dashboard',
   () => api.get<HealthDashboardDto>('/dashboards/health?period=month'),
+  { staleTime: ADMIN_CACHE_MS.dashboards },
 );
 
 type KpiCard = {
@@ -252,3 +254,6 @@ useSeoMeta({ title: 'Panel de salud del negocio — LUXTIMEE Admin' });
     </section>
   </div>
 </template>
+
+
+

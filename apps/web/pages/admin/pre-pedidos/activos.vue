@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+definePageMeta({ middleware: ['admin'], keepalive: true });
 </script>
 
 <template>
@@ -9,3 +9,6 @@ definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
     seo-title="Pre-pedidos activos — LUXTIMEE Admin"
   />
 </template>
+
+
+

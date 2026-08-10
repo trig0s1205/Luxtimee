@@ -19,6 +19,7 @@ import {
 import { formatCop } from '~/utils/format';
 import { extractApiErrorMessage } from '~/utils/api-error';
 import { orderDeliveryNotes, orderHasDeliveryNotes } from '~/utils/order-delivery-notes';
+import { invalidateAdminCache } from '~/utils/admin-cache';
 
 const props = defineProps<{
   orderType: OrderType;
@@ -83,12 +84,13 @@ const emptyList: OrdersListDto = {
   periodLabel: 'Hoy',
 };
 
-const dataKey = computed(() => `admin-orders-${props.orderType.toLowerCase()}`);
+const dataKey = computed(() =>
+  `admin-orders-${props.orderType.toLowerCase()}-${period.value}-${filter.value}-${page.value}`,
+);
 
-const { data: ordersData, refresh, pending } = await useAsyncData(
+const { data: ordersData, refresh, pending } = useAdminCachedData(
   dataKey,
   () => api.get<OrdersListDto>(buildOrdersUrl()).catch(() => emptyList),
-  { watch: [period, filter, page, () => props.orderType] },
 );
 
 watch([period, filter], () => {
@@ -152,6 +154,7 @@ async function submitWarranty(order: OrderDto, item: OrderItemDto) {
     await api.post('/warranty-histories', payload);
     toast.success(`Garantía registrada — ${item.productSku}`);
     closeWarrantyForm();
+    invalidateAdminCache(dataKey.value);
     await refresh();
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'No se pudo registrar la garantía.'));
@@ -219,6 +222,7 @@ async function transition(order: OrderDto, status: OrderStatusValue) {
   try {
     await api.patch(`/orders/${order.id}/status`, { status });
     toast.success(`${label} — ${sku}`);
+    invalidateAdminCache(dataKey.value);
     await refresh();
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'No se pudo actualizar el pedido.'));

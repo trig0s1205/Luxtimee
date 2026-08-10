@@ -157,6 +157,7 @@ function visibleLinks(links: typeof linksBeforePedidos) {
       v-for="link in bottomLinks"
       :key="link.to"
       :to="link.to"
+      prefetch
       class="admin-nav-link"
       :class="{ active: isActive(link.to) }"
     >

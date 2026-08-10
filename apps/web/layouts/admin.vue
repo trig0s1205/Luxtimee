@@ -1,25 +1,55 @@
 <script setup lang="ts">
-const auth = useAuthStore();
+import type { BrandDto, CategoryDto, ShippingZoneDto } from '@luxtime/shared';
+import { preloadRouteComponents } from '#app';
+import { warmupAdminModules } from '~/utils/admin-warmup';
+
+const api = useApi();
+
+const ADMIN_ROUTES = [
+  '/admin/inventario',
+  '/admin/catalog-settings',
+  '/admin/pre-pedidos/activos',
+  '/admin/pre-pedidos/suspendidos',
+  '/admin/pre-pedidos/nuevo',
+  '/admin/pedidos/detal',
+  '/admin/pedidos/mayor',
+  '/admin/garantias',
+  '/admin/envios',
+  '/admin/socios-mayoristas',
+  '/admin/configuracion',
+  '/admin/dashboards/salud',
+  '/admin/dashboards/ganancia',
+  '/admin/notificaciones',
+];
 
 useHead({
   htmlAttrs: { lang: 'es' },
 });
 
-await callOnce('admin-auth', async () => {
-  auth.hydrateLocal();
-  if (!auth.loaded) await auth.fetchMe();
+onMounted(() => {
+  if (!import.meta.client) return;
+
+  for (const route of ADMIN_ROUTES) {
+    void preloadRouteComponents(route);
+  }
+
+  const catalog = useAdminCatalogStore();
+  const adminData = useAdminDataStore();
+
+  void catalog.ensureAll({
+    brands: () => api.get<BrandDto[]>('/brands').catch(() => []),
+    categories: () => api.get<CategoryDto[]>('/categories').catch(() => []),
+  });
+  void adminData.ensureZones(() => api.get<ShippingZoneDto[]>('/shipping-zones').catch(() => []));
+
+  warmupAdminModules(api);
 });
 
-
-
 async function logout() {
-
+  const auth = useAuthStore();
   await auth.logout();
-
   await navigateTo('/');
-
 }
-
 </script>
 
 

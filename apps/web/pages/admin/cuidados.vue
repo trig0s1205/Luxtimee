@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { CareTemplateDto } from '@luxtime/shared';
 
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const api = useApi();
-const { data: templates } = await useAsyncData('care', () =>
+const { data: templates } = useAdminCachedData('care', () =>
   api.get<CareTemplateDto[]>('/care').catch(() => []),
 );
 </script>
@@ -20,3 +20,6 @@ const { data: templates } = await useAsyncData('care', () =>
     </div>
   </div>
 </template>
+
+
+

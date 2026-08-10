@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { WarrantyHistoriesListDto, WarrantyHistoryDto } from '@luxtime/shared';
 
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const api = useApi();
 const config = useRuntimeConfig();
@@ -18,7 +18,7 @@ const emptyList: WarrantyHistoriesListDto = {
   periodLabel: 'Hoy',
 };
 
-const { data, pending, refresh } = await useAsyncData(
+const { data, pending, refresh } = useAdminCachedData(
   'warranty-histories',
   () => api.get<WarrantyHistoriesListDto>('/warranty-histories').catch(() => emptyList),
 );
@@ -164,4 +164,7 @@ useSeoMeta({ title: 'Historias de garantías — LUXTIMEE Admin' });
     </div>
   </div>
 </template>
+
+
+
 

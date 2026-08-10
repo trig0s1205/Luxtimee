@@ -9,7 +9,7 @@ import type {
 import { extractApiErrorMessage } from '~/utils/api-error';
 import { DEFAULT_HOMEPAGE_CONFIG } from '~/composables/useHomepageConfig';
 
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const auth = useAuthStore();
 const api = useApi();
@@ -21,7 +21,6 @@ const activeTab = ref<'cuenta' | 'plataforma' | 'index'>('cuenta');
 
 const profile = reactive({
   name: auth.user?.name ?? '',
-  phone: auth.user?.phone ?? '',
 });
 
 const emailForm = reactive({
@@ -79,9 +78,8 @@ const carouselFilled = computed(
   () => home.founder.carouselImages.filter((u) => Boolean(u?.trim())).length,
 );
 
-await useAsyncData('admin-config', async () => {
+useAsyncData('admin-config', async () => {
   profile.name = auth.user?.name ?? '';
-  profile.phone = auth.user?.phone ?? '';
   emailForm.email = auth.user?.email ?? '';
 
   const whatsappRes = await api.get<WhatsappSettingDto>('/settings/whatsapp').catch(() => null);
@@ -121,14 +119,13 @@ await useAsyncData('admin-config', async () => {
   }
 
   return true;
-});
+}, { lazy: true });
 
 async function saveProfile() {
   savingProfile.value = true;
   try {
     const res = await api.patch<{ user: typeof auth.user }>('/auth/me', {
       name: profile.name.trim(),
-      phone: profile.phone.trim() || undefined,
     });
     if (res.user) auth.setUser(res.user, auth.isLocalSession);
     toast.success('Perfil actualizado.');
@@ -373,10 +370,6 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
           <label>
             <span>Nombre</span>
             <UiLuxInput v-model="profile.name" placeholder="Tu nombre" />
-          </label>
-          <label>
-            <span>Teléfono</span>
-            <UiLuxInput v-model="profile.phone" placeholder="+57 300 000 0000" />
           </label>
         </div>
         <UiLuxButton :disabled="savingProfile" @click="saveProfile">
@@ -1099,3 +1092,6 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
   }
 }
 </style>
+
+
+

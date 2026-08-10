@@ -15,6 +15,7 @@ export const useAuthStore = defineStore('auth', {
     user: null as AuthUserDto | null,
     loaded: false,
     isLocalSession: false,
+    sessionCheckedAt: 0,
   }),
   getters: {
     isAuthenticated: (state) => !!state.user,
@@ -26,6 +27,7 @@ export const useAuthStore = defineStore('auth', {
       this.user = user;
       this.isLocalSession = isLocalSession;
       this.loaded = true;
+      if (user) this.sessionCheckedAt = Date.now();
     },
     hydrateLocal() {
       if (!LOCAL_AUTH_ENABLED) return;

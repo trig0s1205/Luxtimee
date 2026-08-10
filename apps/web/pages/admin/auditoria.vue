@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+definePageMeta({ middleware: ['admin'], keepalive: true });
 
 interface AuditLogDto {
   id: string;
@@ -13,7 +13,7 @@ const auth = useAuthStore();
 if (!auth.isSuperAdmin) throw createError({ statusCode: 403 });
 
 const api = useApi();
-const { data: logs } = await useAsyncData('audit-logs', () =>
+const { data: logs } = useAdminCachedData('audit-logs', () =>
   api.get<AuditLogDto[]>('/audit/logs'),
 );
 </script>
@@ -29,3 +29,6 @@ const { data: logs } = await useAsyncData('audit-logs', () =>
     </div>
   </div>
 </template>
+
+
+

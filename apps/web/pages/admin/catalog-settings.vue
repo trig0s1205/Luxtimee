@@ -3,7 +3,7 @@ import type { BrandDto, CategoryDto } from '@luxtime/shared';
 import { extractApiErrorMessage } from '~/utils/api-error';
 
 useHead({ title: 'Catálogo — Marcas y clases — LUXTIMEE Admin' });
-definePageMeta({ layout: 'admin', middleware: ['auth', 'role'] });
+definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const api = useApi();
 const toast = useToast();
@@ -21,7 +21,7 @@ const categories = computed(() => catalogStore.categories);
 const brandsPending = computed(() => catalogStore.loadingBrands);
 const categoriesPending = computed(() => catalogStore.loadingCategories);
 
-await catalogStore.ensureAll({
+catalogStore.ensureAll({
   brands: () => api.get<BrandDto[]>('/brands').catch(() => []),
   categories: () => api.get<CategoryDto[]>('/categories').catch(() => []),
 });
@@ -242,3 +242,6 @@ async function deleteCategory(category: CategoryDto) {
   to { opacity: 1; transform: translateY(0); }
 }
 </style>
+
+
+

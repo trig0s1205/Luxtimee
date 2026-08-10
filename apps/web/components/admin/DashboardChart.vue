@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { RevenueDashboardDto } from '@luxtime/shared';
 import type { ChartGranularity, ChartOrderInput } from '~/utils/chart-series';
+import { ADMIN_CACHE_MS } from '~/utils/admin-cache';
 
 export type ChartRange = 'today' | '1_week' | '1_month' | 'historical';
 
@@ -20,10 +21,10 @@ const granularity = computed<ChartGranularity>(() => {
   return 'day';
 });
 
-const { data: revenue, pending, error, refresh } = await useAsyncData(
+const { data: revenue, pending, error, refresh } = useAdminCachedData(
   'admin-revenue-chart',
   () => api.get<RevenueDashboardDto>('/dashboards/revenue', { range: range.value }),
-  { watch: [range], default: () => ({ range: '1_month' as ChartRange, orders: [], total: 0 }) },
+  { staleTime: ADMIN_CACHE_MS.dashboards, watch: [range], default: () => ({ range: '1_month' as ChartRange, orders: [], total: 0 }) },
 );
 
 const orders = computed<ChartOrderInput[]>(() =>
