@@ -52,7 +52,11 @@ function statusClass(status: string) {
           <td>
             <div class="admin-table-thumb">
               <img v-if="watchPrimaryImage(watch)" :src="watchPrimaryImage(watch)" :alt="watch.model">
-              <div v-else class="admin-table-thumb-placeholder" />
+              <div v-else class="admin-table-thumb-placeholder">
+                <span class="admin-table-thumb-pending" title="Multimedia en proceso">
+                  <span class="admin-spinner admin-spinner--xs" />
+                </span>
+              </div>
             </div>
           </td>
           <td class="admin-table-sku">{{ watch.sku }}</td>
@@ -139,6 +143,23 @@ function statusClass(status: string) {
   width: 100%;
   height: 100%;
   background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-table-thumb-pending {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-spinner--xs {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+  border-color: rgba(200, 169, 110, 0.2);
+  border-top-color: #c8a96e;
 }
 
 .admin-table-sku {

@@ -63,8 +63,9 @@ const fetchQuery = computed(() => ({
 const showForm = ref(false);
 const editingWatch = ref<WatchStaffDto | null>(null);
 const saving = ref(false);
-const uploading = ref(false);
 const submitError = ref('');
+
+const mediaQueue = useMediaUploadStore();
 
 const brands = computed(() => catalogStore.brands);
 const categories = computed(() => catalogStore.categories);
@@ -115,11 +116,12 @@ function openEdit(watch: WatchStaffDto) {
 }
 
 async function handleSubmit(form: WatchFormPayload) {
-  if (saving.value || uploading.value) return;
+  if (saving.value) return;
 
   const isCreate = !editingWatch.value;
+  const hasNewFiles = !!(form.primaryImageFile && form.secondaryImageFile && form.videoFile);
 
-  if (isCreate && (!form.primaryImageFile || !form.secondaryImageFile || !form.videoFile)) {
+  if (isCreate && !hasNewFiles) {
     submitError.value = 'Debes subir foto principal, foto secundaria y video.';
     toast.warning(submitError.value);
     return;
@@ -127,10 +129,11 @@ async function handleSubmit(form: WatchFormPayload) {
 
   saving.value = true;
   submitError.value = '';
-  let createdWatchId: string | undefined;
 
   try {
     let watchId = editingWatch.value?.id;
+    const intendedShowInCatalog = form.showInCatalog;
+
     const payload: Record<string, unknown> = {
       brandId: form.brandId,
       categoryId: form.categoryId || undefined,
@@ -144,7 +147,8 @@ async function handleSubmit(form: WatchFormPayload) {
       wholesalePrice: Number(form.wholesalePrice),
       stock: Number(form.stock),
       status: form.status,
-      showInCatalog: form.showInCatalog,
+      // Forzar false hasta que multimedia termine; la cola lo restaura después
+      showInCatalog: hasNewFiles ? false : form.showInCatalog,
       isLimitedEdition: form.isLimitedEdition,
       limitedEditionNumber: form.limitedEditionNumber,
       images: form.images,
@@ -157,51 +161,48 @@ async function handleSubmit(form: WatchFormPayload) {
       payload.cost = 0;
     }
 
+    let brandName = brands.value?.find((b) => b.id === form.brandId)?.name ?? '';
+
     if (watchId) {
       await api.patch<WatchStaffDto>(`/watches/${watchId}`, payload);
-      toast.success('Reloj actualizado correctamente');
+      toast.success(hasNewFiles ? 'Reloj actualizado — multimedia en proceso...' : 'Reloj actualizado correctamente');
     } else {
       const created = await api.post<WatchStaffDto>('/watches', payload);
       watchId = created.id;
-      createdWatchId = created.id;
-      editingWatch.value = created;
-      toast.success('Reloj creado correctamente');
+      brandName = created.brand?.name ?? brandName;
+      toast.success('Reloj creado — multimedia en cola...');
     }
 
-    if (watchId && form.primaryImageFile && form.secondaryImageFile && form.videoFile) {
-      uploading.value = true;
-      const fd = new FormData();
-      fd.append('image1', form.primaryImageFile);
-      fd.append('image2', form.secondaryImageFile);
-      fd.append('video', form.videoFile);
-      const config = useRuntimeConfig();
-      await $fetch(`${config.public.apiBaseUrl}/watches/${watchId}/upload-media`, {
-        method: 'POST',
-        body: fd,
-        credentials: 'include',
-        timeout: 300_000,
-      });
-      toast.success('Multimedia subida correctamente');
-    }
-
+    // Cerrar modal INMEDIATAMENTE
     showForm.value = false;
     editingWatch.value = null;
+
+    if (hasNewFiles && watchId) {
+      mediaQueue.enqueue({
+        watchId,
+        model: form.model,
+        brandName,
+        intendedShowInCatalog,
+        files: {
+          image1: form.primaryImageFile!,
+          image2: form.secondaryImageFile!,
+          video: form.videoFile!,
+        },
+      });
+    }
+
     invalidateAdminCache(watchesKey.value);
     invalidateAdminCache('inventory-insights');
-    await refresh();
-    await refreshInsights();
+    // Refresh en background sin await para no bloquear el cierre
+    void refresh();
+    void refreshInsights();
   } catch (err: unknown) {
     const message = extractApiErrorMessage(err, 'Error al guardar el reloj');
     submitError.value = message;
     if (isBadRequest(err)) toast.warning(message);
     else toast.error(message);
-
-    if (createdWatchId) {
-      toast.info('El reloj fue creado pero falló la subida de multimedia. Corrige los archivos y vuelve a guardar.');
-    }
   } finally {
     saving.value = false;
-    uploading.value = false;
   }
 }
 
@@ -274,7 +275,6 @@ async function handleDelete(watch: WatchStaffDto) {
             :brands="brands ?? []"
             :categories="categories ?? []"
             :saving="saving"
-            :uploading="uploading"
             :submit-error="submitError"
             @submit="handleSubmit"
             @cancel="showForm = false"

@@ -38,7 +38,6 @@ const props = defineProps<{
   brands: BrandDto[];
   categories: CategoryDto[];
   saving: boolean;
-  uploading: boolean;
   submitError?: string;
 }>();
 
@@ -202,7 +201,7 @@ function hasRequiredMedia() {
   return hasPrimary && hasSecondary && hasVideo;
 }
 
-const isBusy = computed(() => props.saving || props.uploading);
+const isBusy = computed(() => props.saving);
 
 function onSubmit() {
   if (isBusy.value) return;
@@ -417,17 +416,13 @@ const skuPreview = computed(() => props.watch?.sku ?? 'Se generará automáticam
           </div>
         </div>
 
-        <div v-if="uploading" class="admin-upload-indicator">
-          <span class="admin-spinner" />
-          Subiendo multimedia...
-        </div>
       </div>
     </div>
 
     <div class="admin-watch-form-footer">
       <UiLuxButton variant="ghost" type="button" :disabled="isBusy" @click="emit('cancel')">Cancelar</UiLuxButton>
       <UiLuxButton type="submit" :disabled="isBusy">
-        {{ uploading ? 'Subiendo multimedia...' : saving ? 'Guardando...' : (isEdit ? 'Guardar cambios' : 'Crear reloj') }}
+        {{ saving ? 'Guardando...' : (isEdit ? 'Guardar cambios' : 'Crear reloj') }}
       </UiLuxButton>
     </div>
   </form>

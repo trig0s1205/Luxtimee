@@ -7,6 +7,7 @@ const emit = defineEmits<{ navigate: [] }>();
 
 const route = useRoute();
 const auth = useAuthStore();
+const mediaQueue = useMediaUploadStore();
 
 const dashboardLinks = [
   { to: '/admin/dashboards/ganancia', label: 'Ganancia', superOnly: true },
@@ -155,6 +156,28 @@ function onNavigate() {
           <rect x="3" y="3" width="18" height="18" rx="1" />
         </svg>
         {{ link.label }}
+      </NuxtLink>
+    </div>
+
+    <div class="admin-nav-section">
+      <p class="admin-nav-section-label">Procesos</p>
+      <NuxtLink
+        to="/admin/multimedia"
+        prefetch
+        class="admin-nav-link admin-nav-link--multimedia"
+        :class="{ active: isActive('/admin/multimedia') }"
+        @click="onNavigate"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+          <circle cx="12" cy="13" r="3" />
+        </svg>
+        Multimedia
+        <span
+          v-if="mediaQueue.pendingCount > 0"
+          class="admin-nav-badge"
+          aria-label="`${mediaQueue.pendingCount} procesos activos`"
+        >{{ mediaQueue.pendingCount }}</span>
       </NuxtLink>
     </div>
   </nav>
