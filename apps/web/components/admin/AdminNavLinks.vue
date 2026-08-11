@@ -6,6 +6,7 @@ const mediaQueue = useMediaUploadStore();
 const dashboardLinks = [
   { to: '/admin/dashboards/ganancia', label: 'Ganancia', superOnly: true },
   { to: '/admin/dashboards/salud', label: 'Panel de salud' },
+  { to: '/admin/dashboards/analytics', label: 'Tráfico web' },
 ];
 
 const visibleDashboardLinks = computed(() =>

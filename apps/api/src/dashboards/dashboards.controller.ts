@@ -4,6 +4,7 @@ import type { Response } from 'express';
 import type { ProfitReportPeriod, ReportOwnerDto } from '@luxtime/shared';
 import { DashboardsService } from './dashboards.service';
 import { ReportsService } from '../integrations/reports.service';
+import { Ga4Service } from '../integrations/ga4.service';
 import { Roles, Financial } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { FinancialGuard } from '../common/guards/financial.guard';
@@ -18,6 +19,7 @@ export class DashboardsController {
   constructor(
     private dashboardsService: DashboardsService,
     private reportsService: ReportsService,
+    private ga4Service: Ga4Service,
   ) {}
 
   @Get('profit')
@@ -30,6 +32,16 @@ export class DashboardsController {
   @Get('health')
   health(@Query('period') period?: 'day' | '2weeks' | 'week' | 'month' | '3months' | 'all') {
     return this.dashboardsService.getHealthDashboard(period ?? 'month');
+  }
+
+  @Get('analytics/status')
+  analyticsStatus() {
+    return this.ga4Service.getStatus();
+  }
+
+  @Get('analytics')
+  analytics() {
+    return this.ga4Service.getEngagementMetrics();
   }
 
   @Get('revenue')

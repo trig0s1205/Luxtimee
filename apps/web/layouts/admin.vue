@@ -25,6 +25,7 @@ const ADMIN_ROUTES = [
   '/admin/socios-mayoristas',
   '/admin/configuracion',
   '/admin/dashboards/salud',
+  '/admin/dashboards/analytics',
   '/admin/dashboards/ganancia',
   '/admin/notificaciones',
 ];

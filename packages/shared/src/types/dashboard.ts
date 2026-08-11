@@ -49,6 +49,16 @@ export interface HealthMetricDto {
 export interface Ga4EngagementDto {
   periodLabel: string;
   metrics: HealthMetricDto[];
+  source: 'live' | 'mock';
+  error?: string | null;
+}
+
+export interface Ga4StatusDto {
+  configured: boolean;
+  connected: boolean;
+  propertyId: string | null;
+  clientEmail: string | null;
+  error: string | null;
 }
 
 export interface HealthBusinessDto {
