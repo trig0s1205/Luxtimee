@@ -1,15 +1,32 @@
 <script setup lang="ts">
 const emit = defineEmits<{ logout: [] }>();
+
+const route = useRoute();
+const { open, close } = useAdminSidebar();
+
+watch(() => route.path, () => close());
+
+function onLogout() {
+  close();
+  emit('logout');
+}
 </script>
 
 <template>
-  <aside class="admin-sidebar flex flex-col w-64 p-6 shrink-0 admin-shell">
-    <div class="admin-sidebar-brand">
-      <h2>LUXTIMEE</h2>
-      <p>Administración de relojería de lujo</p>
+  <aside class="admin-sidebar flex flex-col shrink-0 admin-shell" :class="{ 'is-open': open }">
+    <div class="admin-sidebar-head">
+      <div class="admin-sidebar-brand">
+        <h2>LUXTIMEE</h2>
+        <p>Administración de relojería de lujo</p>
+      </div>
+      <button type="button" class="admin-sidebar-close" aria-label="Cerrar menú" @click="close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
     </div>
 
-    <AdminNavLinks />
+    <AdminNavLinks @navigate="close" />
 
     <div class="admin-sidebar-footer">
       <NuxtLink
@@ -17,6 +34,7 @@ const emit = defineEmits<{ logout: [] }>();
         prefetch
         class="admin-nav-link"
         :class="{ active: $route.path.startsWith('/admin/configuracion') }"
+        @click="close"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <circle cx="12" cy="12" r="3" />
@@ -25,7 +43,7 @@ const emit = defineEmits<{ logout: [] }>();
         Configuración
       </NuxtLink>
 
-      <button type="button" class="admin-nav-link admin-logout-btn--sidebar !border-0 !bg-transparent" @click="emit('logout')">
+      <button type="button" class="admin-nav-link admin-logout-btn--sidebar !border-0 !bg-transparent" @click="onLogout">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
         </svg>

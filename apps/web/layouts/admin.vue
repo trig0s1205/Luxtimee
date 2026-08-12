@@ -53,6 +53,17 @@ onMounted(() => {
   warmupAdminModules(api);
 });
 
+const { open: sidebarOpen, close: closeSidebar } = useAdminSidebar();
+
+watch(sidebarOpen, (isOpen) => {
+  if (!import.meta.client) return;
+  document.body.style.overflow = isOpen ? 'hidden' : '';
+});
+
+onBeforeUnmount(() => {
+  if (import.meta.client) document.body.style.overflow = '';
+});
+
 async function logout() {
   const auth = useAuthStore();
   await auth.logout();
@@ -66,11 +77,21 @@ async function logout() {
   <NuxtLoadingIndicator color="var(--lux-gold, #C8A96E)" :height="2" />
 
   <div class="admin-layout admin-shell">
+    <div
+      class="admin-sidebar-backdrop"
+      :class="{ 'is-open': sidebarOpen }"
+      aria-hidden="true"
+      @click="closeSidebar"
+    />
+
     <AdminSidebar @logout="logout" />
 
-    <main class="admin-main">
-      <slot />
-    </main>
+    <div class="admin-content-column">
+      <AdminTopBar />
+      <main class="admin-main">
+        <slot />
+      </main>
+    </div>
 
     <UiConfirmDialog />
   </div>

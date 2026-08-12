@@ -3,6 +3,11 @@ const route = useRoute();
 const auth = useAuthStore();
 const mediaQueue = useMediaUploadStore();
 
+const emit = defineEmits<{ navigate: [] }>();
+
+const prePedidosOpen = ref(false);
+const pedidosOpen = ref(false);
+
 const dashboardLinks = [
   { to: '/admin/dashboards/ganancia', label: 'Ganancia', superOnly: true },
   { to: '/admin/dashboards/salud', label: 'Panel de salud' },
@@ -43,8 +48,20 @@ function isActive(path: string) {
 const isPedidosActive = computed(() => route.path.startsWith('/admin/pedidos'));
 const isPrePedidosActive = computed(() => route.path.startsWith('/admin/pre-pedidos'));
 
+watch(isPrePedidosActive, (active) => {
+  if (active) prePedidosOpen.value = true;
+}, { immediate: true });
+
+watch(isPedidosActive, (active) => {
+  if (active) pedidosOpen.value = true;
+}, { immediate: true });
+
 function visibleLinks(links: typeof linksBeforePedidos) {
   return links.filter((item) => !item.superOnly || auth.isSuperAdmin);
+}
+
+function onNavigate() {
+  emit('navigate');
 }
 </script>
 
@@ -59,6 +76,7 @@ function visibleLinks(links: typeof linksBeforePedidos) {
         prefetch
         class="admin-nav-link"
         :class="{ active: isActive(link.to) }"
+        @click="onNavigate"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <path d="M3 12h4l2-7 4 14 2-7h6" />
@@ -75,6 +93,7 @@ function visibleLinks(links: typeof linksBeforePedidos) {
         prefetch
         class="admin-nav-link"
         :class="{ active: isActive(link.to) }"
+        @click="onNavigate"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <rect x="3" y="3" width="18" height="18" rx="1" />
@@ -82,15 +101,24 @@ function visibleLinks(links: typeof linksBeforePedidos) {
         {{ link.label }}
       </NuxtLink>
 
-      <div class="admin-nav-dropdown">
-        <div class="admin-nav-link" :class="{ active: isPrePedidosActive }">
+      <div class="admin-nav-dropdown" :class="{ 'is-open': prePedidosOpen }">
+        <button
+          type="button"
+          class="admin-nav-link admin-nav-link--toggle"
+          :class="{ active: isPrePedidosActive }"
+          :aria-expanded="prePedidosOpen"
+          @click="prePedidosOpen = !prePedidosOpen"
+        >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="1" />
           </svg>
           Pre-pedidos
-        </div>
+          <svg class="admin-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
 
-        <div class="admin-nav-dropdown-menu">
+        <div v-show="prePedidosOpen" class="admin-nav-dropdown-menu">
           <NuxtLink
             v-for="link in prePedidosLinks"
             :key="link.to"
@@ -98,21 +126,31 @@ function visibleLinks(links: typeof linksBeforePedidos) {
             prefetch
             class="admin-nav-link admin-nav-link--sub"
             :class="{ active: isActive(link.to) }"
+            @click="onNavigate"
           >
             {{ link.label }}
           </NuxtLink>
         </div>
       </div>
 
-      <div class="admin-nav-dropdown">
-        <div class="admin-nav-link" :class="{ active: isPedidosActive }">
+      <div class="admin-nav-dropdown" :class="{ 'is-open': pedidosOpen }">
+        <button
+          type="button"
+          class="admin-nav-link admin-nav-link--toggle"
+          :class="{ active: isPedidosActive }"
+          :aria-expanded="pedidosOpen"
+          @click="pedidosOpen = !pedidosOpen"
+        >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="1" />
           </svg>
           Pedidos
-        </div>
+          <svg class="admin-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
 
-        <div class="admin-nav-dropdown-menu">
+        <div v-show="pedidosOpen" class="admin-nav-dropdown-menu">
           <NuxtLink
             v-for="link in pedidosLinks"
             :key="link.to"
@@ -120,6 +158,7 @@ function visibleLinks(links: typeof linksBeforePedidos) {
             prefetch
             class="admin-nav-link admin-nav-link--sub"
             :class="{ active: isActive(link.to) }"
+            @click="onNavigate"
           >
             {{ link.label }}
           </NuxtLink>
@@ -133,6 +172,7 @@ function visibleLinks(links: typeof linksBeforePedidos) {
         prefetch
         class="admin-nav-link"
         :class="{ active: isActive(link.to) }"
+        @click="onNavigate"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <rect x="3" y="3" width="18" height="18" rx="1" />
@@ -145,6 +185,7 @@ function visibleLinks(links: typeof linksBeforePedidos) {
         prefetch
         class="admin-nav-link"
         :class="{ active: isActive('/admin/multimedia') }"
+        @click="onNavigate"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
