@@ -1,9 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { acceptCookies } from './helpers/setup';
+import { fetchFirstCatalogSlug } from './helpers/catalog';
 
 test.describe('Catálogo y carrito', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test.beforeEach(async ({ page }) => {
     await acceptCookies(page);
+    await page.addInitScript(() => localStorage.removeItem('LUXTIMEE-cart'));
   });
 
   test('catálogo muestra encabezado y grid', async ({ page }) => {
@@ -30,12 +34,16 @@ test.describe('Catálogo y carrito', () => {
     await expect(page.getByRole('link', { name: /Ver mayoristas/i })).toBeVisible();
   });
 
-  test('añadir producto desde catálogo abre bolsa', async ({ page }) => {
+  test('añadir producto desde catálogo abre bolsa', async ({ page, baseURL }) => {
     await page.goto('/catalogo');
-    const addButton = page.locator('.catalog-grid .add-btn').first();
-    await expect(addButton).toBeVisible({ timeout: 20_000 });
-    await addButton.click();
-    await expect(page.locator('#cart-drawer.open')).toBeVisible({ timeout: 20_000 });
-    await expect(page.locator('#cart-footer a[href="/checkout"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('.catalog-grid .products-card').first()).toBeVisible({ timeout: 20_000 });
+
+    const slug = await fetchFirstCatalogSlug(page, baseURL!);
+    await page.goto(`/producto/${slug}`);
+    await page.getByRole('button', { name: 'Agregar al carrito' }).click();
+
+    await expect(page.locator('#cart-drawer')).toHaveAttribute('aria-hidden', 'false', { timeout: 20_000 });
+    await expect(page.getByRole('button', { name: /Bolsa \(1\)/ })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#cart-footer a[href="/checkout"]')).toBeVisible();
   });
 });
