@@ -12,7 +12,7 @@ const { data: platform } = await useCachedAsyncData('footer-platform', () =>
     city: 'Piedecuesta, Santander — Colombia',
     instagramUrl: 'https://www.instagram.com/',
     tiktokUrl: 'https://www.tiktok.com/',
-    facebookUrl: 'https://www.facebook.com/',
+    facebookUrl: '',
   })),
   { staleTime: STOREFRONT_CACHE_MS.static },
 );
@@ -69,7 +69,6 @@ const { data: platform } = await useCachedAsyncData('footer-platform', () =>
       <div class="socials">
         <a :href="platform?.instagramUrl || 'https://www.instagram.com/'" target="_blank" rel="noopener noreferrer">Instagram</a>
         <a :href="platform?.tiktokUrl || 'https://www.tiktok.com/'" target="_blank" rel="noopener noreferrer">TikTok</a>
-        <a :href="platform?.facebookUrl || 'https://www.facebook.com/'" target="_blank" rel="noopener noreferrer">Facebook</a>
       </div>
     </div>
   </footer>
