@@ -15,6 +15,11 @@ export default defineConfig({
     baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    launchOptions: {
+      args: [
+        '--disable-features=ThirdPartyCookiePhaseout,ThirdPartyStoragePartitioning,CookieDeprecationFacilitatedTesting',
+      ],
+    },
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 });

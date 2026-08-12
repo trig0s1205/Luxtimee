@@ -1,3 +1,5 @@
+import { expect } from '@playwright/test';
+
 let cachedSlug: string | null = null;
 
 function slugFromEnv() {
@@ -31,4 +33,41 @@ export async function staffLoginUrl(baseURL: string) {
 
 export async function gotoStaffLogin(page: import('@playwright/test').Page, baseURL: string) {
   await page.goto(await staffLoginUrl(baseURL));
+}
+
+async function fillLuxInput(page: import('@playwright/test').Page, selector: string, value: string) {
+  const input = page.locator(selector);
+  await input.click();
+  await input.fill('');
+  await input.pressSequentially(value, { delay: 15 });
+  await expect(input).toHaveValue(value);
+}
+
+export async function staffCredentialLogin(
+  page: import('@playwright/test').Page,
+  baseURL: string,
+  email: string,
+  password: string,
+) {
+  await page.addInitScript(() => {
+    localStorage.setItem('LUXTIMEE-cookies', '1');
+  });
+  await gotoStaffLogin(page, baseURL);
+  await page.waitForLoadState('networkidle');
+
+  await fillLuxInput(page, '#login-email', email);
+  await fillLuxInput(page, '#login-password', password);
+
+  const loginWait = page.waitForResponse(
+    (res) => res.url().includes('/auth/login') && res.request().method() === 'POST',
+    { timeout: 30_000 },
+  );
+
+  await page.locator('form.auth-form button[type="submit"]').click();
+  const response = await loginWait;
+
+  if (!response.ok()) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`Login API ${response.status()}: ${body.slice(0, 240)}`);
+  }
 }

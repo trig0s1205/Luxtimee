@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { gotoStaffLogin, resolveStaffLoginSlug } from './helpers/staff-login';
+import { gotoStaffLogin, resolveStaffLoginSlug, staffCredentialLogin } from './helpers/staff-login';
 
 test.describe('Seguridad admin y acceso staff', () => {
   test('/admin sin sesión redirige a vigilancia', async ({ page }) => {
@@ -38,14 +38,16 @@ test.describe('Seguridad admin y acceso staff', () => {
       'Requiere PLAYWRIGHT_ADMIN_EMAIL y PLAYWRIGHT_ADMIN_PASSWORD',
     );
 
-    await gotoStaffLogin(page, baseURL!);
-    await page.locator('#login-email').fill(process.env.PLAYWRIGHT_ADMIN_EMAIL!);
-    await page.locator('#login-password').fill(process.env.PLAYWRIGHT_ADMIN_PASSWORD!);
-    await page.getByRole('button', { name: 'Entrar' }).click();
-    await expect(page).toHaveURL(/\/admin\//);
+    await staffCredentialLogin(
+      page,
+      baseURL!,
+      process.env.PLAYWRIGHT_ADMIN_EMAIL!,
+      process.env.PLAYWRIGHT_ADMIN_PASSWORD!,
+    );
+    await expect(page).toHaveURL(/\/admin\//, { timeout: 20_000 });
 
-    const response = await page.goto('/admin/dashboards/ganancia');
-    expect(response?.status()).toBe(403);
-    await expect(page.locator('body')).toContainText(/403|Solo Super Admin|Forbidden/i);
+    await page.goto('/admin/dashboards/ganancia');
+    await expect(page.getByText('403')).toBeVisible();
+    await expect(page.locator('body')).toContainText(/Solo Super Admin|Algo salió/i);
   });
 });

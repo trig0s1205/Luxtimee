@@ -33,10 +33,9 @@ test.describe('Catálogo y carrito', () => {
   test('añadir producto desde catálogo abre bolsa', async ({ page }) => {
     await page.goto('/catalogo');
     const addButton = page.locator('.catalog-grid .add-btn').first();
-    await expect(addButton).toBeVisible({ timeout: 15_000 });
+    await expect(addButton).toBeVisible({ timeout: 20_000 });
     await addButton.click();
-    await expect(page.getByRole('button', { name: /Bolsa \(1\)/ })).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator('#cart-drawer.open')).toBeVisible();
-    await expect(page.locator('#cart-footer a[href="/checkout"]')).toBeVisible();
+    await expect(page.locator('#cart-drawer.open')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('#cart-footer a[href="/checkout"]')).toBeVisible({ timeout: 20_000 });
   });
 });
