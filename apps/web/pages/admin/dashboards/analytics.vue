@@ -1,18 +1,29 @@
 <script setup lang="ts">
 import type { Ga4EngagementDto, Ga4StatusDto } from '@luxtime/shared';
 import { ADMIN_CACHE_MS } from '~/utils/admin-cache';
+import { extractApiErrorMessage } from '~/utils/api-error';
 
 definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const api = useApi();
 
-const { data: status, pending: statusPending, refresh: refreshStatus } = useAdminCachedData(
+const {
+  data: status,
+  pending: statusPending,
+  error: statusError,
+  refresh: refreshStatus,
+} = useAdminCachedData(
   'analytics-status',
   () => api.get<Ga4StatusDto>('/dashboards/analytics/status'),
   { staleTime: ADMIN_CACHE_MS.dashboards },
 );
 
-const { data: analytics, pending: analyticsPending, refresh: refreshAnalytics } = useAdminCachedData(
+const {
+  data: analytics,
+  pending: analyticsPending,
+  error: analyticsError,
+  refresh: refreshAnalytics,
+} = useAdminCachedData(
   'analytics-dashboard',
   () => api.get<Ga4EngagementDto>('/dashboards/analytics'),
   { staleTime: ADMIN_CACHE_MS.dashboards },
@@ -20,10 +31,26 @@ const { data: analytics, pending: analyticsPending, refresh: refreshAnalytics } 
 
 const pending = computed(() => statusPending.value || analyticsPending.value);
 
+const loadError = computed(() => {
+  if (statusError.value) {
+    return extractApiErrorMessage(statusError.value, 'No se pudo consultar el estado de GA4.');
+  }
+  if (analyticsError.value) {
+    return extractApiErrorMessage(analyticsError.value, 'No se pudieron cargar las métricas.');
+  }
+  return null;
+});
+
 function refresh() {
   void refreshStatus();
   void refreshAnalytics();
 }
+
+onMounted(() => {
+  if (!status.value && !analytics.value) {
+    refresh();
+  }
+});
 
 useSeoMeta({ title: 'Tráfico web — LUXTIMEE Admin' });
 </script>
@@ -40,21 +67,28 @@ useSeoMeta({ title: 'Tráfico web — LUXTIMEE Admin' });
       </button>
     </header>
 
-    <section v-if="status" class="analytics-status" :class="status.connected ? 'analytics-status--ok' : 'analytics-status--error'">
+    <section v-if="loadError" class="analytics-status analytics-status--error">
+      <p class="analytics-status-title">No se pudo cargar el panel</p>
+      <p class="analytics-status-error">{{ loadError }}</p>
+      <p class="analytics-status-meta">Verifica que la API esté desplegada y que los secrets GA4 existan en Cloud Run.</p>
+    </section>
+
+    <section v-else-if="status" class="analytics-status" :class="status.connected ? 'analytics-status--ok' : 'analytics-status--error'">
       <p class="analytics-status-title">
-        {{ status.connected ? 'GA4 conectado' : status.configured ? 'GA4 configurado pero sin conexión' : 'GA4 no configurado' }}
+        {{ status.connected ? 'GA4 conectado' : status.configured ? 'GA4 configurado pero sin conexión' : 'GA4 no configurado en la API' }}
       </p>
       <p v-if="status.propertyId" class="analytics-status-meta">Propiedad: {{ status.propertyId }}</p>
       <p v-if="status.clientEmail" class="analytics-status-meta">{{ status.clientEmail }}</p>
       <p v-if="status.error" class="analytics-status-error">{{ status.error }}</p>
-      <p v-else-if="analytics?.source === 'mock'" class="analytics-status-meta">Mostrando datos de ejemplo hasta conectar credenciales reales.</p>
+      <p v-else-if="analytics?.source === 'mock'" class="analytics-status-meta">Datos de ejemplo — faltan credenciales GA4 en Cloud Run.</p>
+      <p v-else-if="analytics?.source === 'live'" class="analytics-status-meta">Datos reales de Google Analytics.</p>
     </section>
 
     <div v-if="pending && !analytics" class="health-kpi-grid">
       <article v-for="i in 4" :key="i" class="health-kpi-card">Cargando...</article>
     </div>
 
-    <div v-else-if="analytics" class="health-kpi-grid">
+    <div v-else-if="analytics?.metrics?.length" class="health-kpi-grid">
       <article v-for="metric in analytics.metrics" :key="metric.key" class="health-kpi-card">
         <p class="health-kpi-label">{{ metric.label }}</p>
         <p class="health-kpi-value">{{ metric.current.toLocaleString('es-CO') }}</p>
