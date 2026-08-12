@@ -24,7 +24,6 @@ onMounted(() => {
 });
 
 function accept() {
-  localStorage.setItem('LUXTIMEE-cookies', '1');
   visible.value = false;
   notifyAnalyticsConsent();
 }
