@@ -55,6 +55,7 @@
   .admin-sidebar-footer {
     margin-top: auto;
     flex-shrink: 0;
+    padding: 0 1.5rem 1.5rem;
   }
 
   .admin-main {
