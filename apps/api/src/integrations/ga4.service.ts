@@ -1,4 +1,4 @@
-import { createSign } from 'crypto';
+import { createPrivateKey, createSign } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Ga4EngagementDto, Ga4StatusDto, HealthMetricDto } from '@luxtime/shared';
@@ -127,8 +127,38 @@ export class Ga4Service {
   }
 
   private getPrivateKey(): string {
-    const raw = this.config.get<string>('GA4_PRIVATE_KEY', '');
-    return raw.replace(/\\n/g, '\n').trim();
+    let raw = this.config.get<string>('GA4_PRIVATE_KEY', '').trim();
+    if (!raw) return '';
+
+    if (raw.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(raw) as { private_key?: string };
+        if (parsed.private_key) raw = parsed.private_key;
+      } catch {
+        // no es JSON completo
+      }
+    }
+
+    raw = raw.replace(/^["']|["']$/g, '');
+    raw = raw.replace(/\\n/g, '\n');
+
+    if (!raw.includes('\n') && raw.includes('-----BEGIN')) {
+      raw = raw
+        .replace('-----BEGIN PRIVATE KEY-----', '-----BEGIN PRIVATE KEY-----\n')
+        .replace('-----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----')
+        .replace('-----BEGIN RSA PRIVATE KEY-----', '-----BEGIN RSA PRIVATE KEY-----\n')
+        .replace('-----END RSA PRIVATE KEY-----', '\n-----END RSA PRIVATE KEY-----');
+    }
+
+    try {
+      createPrivateKey(raw);
+    } catch {
+      throw new Error(
+        'GA4_PRIVATE_KEY inválida en Secret Manager. Pega solo el campo private_key del JSON (con saltos de línea).',
+      );
+    }
+
+    return raw;
   }
 
   private async getAccessToken(): Promise<string> {
