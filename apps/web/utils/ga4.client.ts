@@ -1,7 +1,7 @@
 const CONSENT_KEY = 'LUXTIMEE-cookies';
+export const GA4_CONSENT_EVENT = 'luxtimee:analytics-consent';
 
-let loaded = false;
-let loading = false;
+let scriptPromise: Promise<void> | null = null;
 
 declare global {
   interface Window {
@@ -15,56 +15,71 @@ export function hasAnalyticsConsent(): boolean {
   return localStorage.getItem(CONSENT_KEY) === '1';
 }
 
-function flushQueuedPageView(measurementId: string, path?: string) {
-  window.gtag?.('event', 'page_view', {
-    page_path: path ?? window.location.pathname + window.location.search,
-    page_location: window.location.href,
-    page_title: document.title,
-  });
-}
-
-export function initGa4(measurementId?: string | null, path?: string): boolean {
-  if (!import.meta.client || !measurementId?.trim()) return false;
-  if (!hasAnalyticsConsent()) return false;
-  if (loaded) {
-    if (path) flushQueuedPageView(measurementId, path);
-    return true;
-  }
-  if (loading) return false;
-
-  loading = true;
-
+function ensureGtagStub() {
   window.dataLayer = window.dataLayer ?? [];
-  window.gtag = function gtag(...args: unknown[]) {
+  window.gtag = window.gtag ?? function gtag(...args: unknown[]) {
     window.dataLayer!.push(args);
   };
+}
 
-  window.gtag('js', new Date());
-  window.gtag('config', measurementId, { send_page_view: false });
+function loadGtagScript(measurementId: string): Promise<void> {
+  if (scriptPromise) return scriptPromise;
 
-  const script = document.createElement('script');
-  script.async = true;
-  script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`;
-  script.onload = () => {
-    loaded = true;
-    loading = false;
-    flushQueuedPageView(measurementId, path);
-  };
-  script.onerror = () => {
-    loaded = false;
-    loading = false;
-  };
-  document.head.appendChild(script);
+  scriptPromise = new Promise<void>((resolve, reject) => {
+    ensureGtagStub();
+    window.gtag!('js', new Date());
 
-  return true;
+    const existing = document.querySelector<HTMLScriptElement>(
+      `script[src*="googletagmanager.com/gtag/js?id=${measurementId}"]`,
+    );
+    if (existing) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`;
+    script.onload = () => {
+      script.dataset.loaded = '1';
+      resolve();
+    };
+    script.onerror = () => {
+      scriptPromise = null;
+      reject(new Error('No se pudo cargar gtag.js'));
+    };
+    document.head.appendChild(script);
+  });
+
+  return scriptPromise;
+}
+
+export async function bootGa4(measurementId?: string | null, path?: string): Promise<boolean> {
+  if (!import.meta.client || !measurementId?.trim() || !hasAnalyticsConsent()) return false;
+
+  try {
+    await loadGtagScript(measurementId);
+    window.gtag!('config', measurementId, {
+      page_path: path ?? `${window.location.pathname}${window.location.search}`,
+      page_location: window.location.href,
+      page_title: document.title,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function trackGa4PageView(path: string, measurementId?: string | null) {
-  if (!import.meta.client || !measurementId?.trim()) return;
-  initGa4(measurementId, path);
+  void bootGa4(measurementId, path);
 }
 
 export function trackGa4Event(event: string, payload?: Record<string, unknown>) {
-  if (!import.meta.client || !window.gtag) return;
+  if (!import.meta.client || !window.gtag || !hasAnalyticsConsent()) return;
   window.gtag('event', event, payload);
+}
+
+export function notifyAnalyticsConsent() {
+  if (!import.meta.client) return;
+  window.dispatchEvent(new CustomEvent(GA4_CONSENT_EVENT));
 }

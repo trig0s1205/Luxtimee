@@ -11,33 +11,21 @@
 </template>
 
 <script setup lang="ts">
-import { initGa4, trackGa4PageView } from '~/utils/ga4.client';
+import { notifyAnalyticsConsent } from '~/utils/ga4.client';
 
 const visible = ref(false);
-const config = useRuntimeConfig();
-const route = useRoute();
 
 onMounted(() => {
   if (!localStorage.getItem('LUXTIMEE-cookies')) {
     requestAnimationFrame(() => {
       visible.value = true;
     });
-    return;
-  }
-
-  const measurementId = config.public.ga4MeasurementId as string;
-  if (initGa4(measurementId)) {
-    trackGa4PageView(route.fullPath, measurementId);
   }
 });
 
 function accept() {
   localStorage.setItem('LUXTIMEE-cookies', '1');
   visible.value = false;
-
-  const measurementId = config.public.ga4MeasurementId as string;
-  if (initGa4(measurementId)) {
-    trackGa4PageView(route.fullPath, measurementId);
-  }
+  notifyAnalyticsConsent();
 }
 </script>
