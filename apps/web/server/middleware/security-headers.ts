@@ -21,7 +21,7 @@ export default defineEventHandler((event) => {
         "media-src 'self' blob: https:",
         "font-src 'self' https://fonts.gstatic.com data:",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-        "script-src 'self' 'unsafe-inline'",
+        "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com",
         "connect-src 'self' https:",
       ].join('; '),
     );

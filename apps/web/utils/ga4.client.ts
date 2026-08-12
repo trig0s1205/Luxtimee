@@ -18,28 +18,37 @@ export function initGa4(measurementId?: string | null): boolean {
   if (!import.meta.client || !measurementId?.trim() || loaded) return loaded;
   if (!hasAnalyticsConsent()) return false;
 
-  loaded = true;
-
   window.dataLayer = window.dataLayer ?? [];
   window.gtag = function gtag(...args: unknown[]) {
     window.dataLayer!.push(args);
   };
 
-  const script = document.createElement('script');
-  script.async = true;
-  script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`;
-  document.head.appendChild(script);
-
   window.gtag('js', new Date());
   window.gtag('config', measurementId, { send_page_view: false });
 
+  const script = document.createElement('script');
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`;
+  script.onload = () => {
+    loaded = true;
+  };
+  script.onerror = () => {
+    loaded = false;
+  };
+  document.head.appendChild(script);
+
+  loaded = true;
   return true;
 }
 
 export function trackGa4PageView(path: string, measurementId?: string | null) {
   if (!import.meta.client || !measurementId?.trim()) return;
-  if (!loaded && !initGa4(measurementId)) return;
-  window.gtag?.('event', 'page_view', { page_path: path });
+  if (!initGa4(measurementId)) return;
+  window.gtag?.('event', 'page_view', {
+    page_path: path,
+    page_location: window.location.href,
+    page_title: document.title,
+  });
 }
 
 export function trackGa4Event(event: string, payload?: Record<string, unknown>) {
