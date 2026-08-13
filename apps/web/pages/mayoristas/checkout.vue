@@ -84,7 +84,6 @@ async function submit() {
       whatsappUrl: res.whatsappUrl,
       orderId: res.order?.readableId,
     };
-    launchWhatsAppCheckout(res.whatsappUrl);
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'No se pudo crear el pre-pedido';
   } finally {

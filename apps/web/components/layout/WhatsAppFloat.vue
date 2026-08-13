@@ -18,11 +18,7 @@ onMounted(async () => {
 function onClick(event: MouseEvent) {
   if (!waUrl.value) return;
   event.preventDefault();
-  if (isMobileBrowser()) {
-    launchWhatsAppCheckout(waUrl.value);
-  } else {
-    openWhatsAppInNewTab(waUrl.value);
-  }
+  openWhatsAppChat(waUrl.value);
 }
 </script>
 

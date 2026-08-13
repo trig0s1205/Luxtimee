@@ -3,13 +3,6 @@ export type ParsedWhatsAppLink = {
   text: string;
 };
 
-export type WhatsAppLaunchResult = {
-  /** Desktop: pestaña nueva abierta. Móvil: redirección en la misma pestaña. */
-  launched: boolean;
-  /** Desktop: el navegador bloqueó el popup. */
-  blocked?: boolean;
-};
-
 function isAndroidBrowser() {
   if (!import.meta.client) return false;
   return /Android/i.test(navigator.userAgent);
@@ -45,84 +38,63 @@ export function buildWaMeLink(phone: string, text: string): string {
   return `https://wa.me/${digits}${query}`;
 }
 
-export function buildWhatsAppWebLink(phone: string, text: string): string {
-  const digits = phone.replace(/\D/g, '');
-  const params = new URLSearchParams();
-  params.set('phone', digits);
-  if (text.trim()) params.set('text', text);
-  return `https://web.whatsapp.com/send?${params.toString()}`;
-}
-
 export function buildAndroidIntentLink(phone: string, text: string): string {
   const digits = phone.replace(/\D/g, '');
   const encoded = encodeURIComponent(text);
   return `intent://send?phone=${digits}&text=${encoded}#Intent;scheme=whatsapp;package=com.whatsapp;end`;
 }
 
-/** URL para móvil (app nativa). */
-export function buildMobileLaunchUrl(phone: string, text: string): string {
-  if (isAndroidBrowser()) return buildAndroidIntentLink(phone, text);
-  return buildWaMeLink(phone, text);
-}
-
-/** URL para desktop (WhatsApp Web). */
-export function buildDesktopLaunchUrl(phone: string, text: string): string {
-  return buildWhatsAppWebLink(phone, text);
-}
-
-export function resolveWhatsAppLaunchUrl(webUrl: string): string {
-  const data = parseWhatsAppUrl(webUrl);
-  if (!data) return webUrl;
-  if (isMobileBrowser()) return buildMobileLaunchUrl(data.phone, data.text);
-  return buildDesktopLaunchUrl(data.phone, data.text);
-}
-
-/** Desktop: abre WhatsApp Web en pestaña nueva. */
-export function openWhatsAppInNewTab(webUrl: string): WhatsAppLaunchResult {
-  if (!import.meta.client || !webUrl.trim()) {
-    return { launched: false, blocked: true };
-  }
-
-  const data = parseWhatsAppUrl(webUrl);
-  const url = data
-    ? buildDesktopLaunchUrl(data.phone, data.text)
-    : webUrl;
-
-  const popup = window.open(url, '_blank', 'noopener,noreferrer');
-  if (!popup) return { launched: false, blocked: true };
-  popup.opener = null;
-  return { launched: true };
-}
-
-/**
- * Checkout post-compra:
- * - Móvil → misma pestaña (app WA)
- * - Desktop → pestaña nueva (web.whatsapp.com), la tienda queda abierta
- */
-export function launchWhatsAppCheckout(webUrl: string): WhatsAppLaunchResult {
-  if (!import.meta.client || !webUrl.trim()) {
-    return { launched: false, blocked: true };
-  }
-
-  if (isMobileBrowser()) {
-    const data = parseWhatsAppUrl(webUrl);
-    const url = data
-      ? buildMobileLaunchUrl(data.phone, data.text)
-      : webUrl;
-    window.location.assign(url);
-    return { launched: true };
-  }
-
-  return openWhatsAppInNewTab(webUrl);
-}
-
-/** Botón flotante / contacto */
-export function openWhatsAppChat(webUrl: string): WhatsAppLaunchResult {
-  return launchWhatsAppCheckout(webUrl);
-}
-
-export function normalizeWhatsAppWebUrl(webUrl: string): string {
+/** Enlace wa.me — abre la app en el celular con el mensaje precargado. */
+export function buildMobileHandoffUrl(webUrl: string): string {
   const data = parseWhatsAppUrl(webUrl);
   if (!data) return webUrl;
   return buildWaMeLink(data.phone, data.text);
+}
+
+/**
+ * Checkout móvil: redirige a la app de WhatsApp.
+ * Desktop: no redirige (la UI muestra QR / enlace).
+ */
+export function launchWhatsAppCheckout(webUrl: string): boolean {
+  if (!import.meta.client || !webUrl.trim() || !isMobileBrowser()) return false;
+
+  const data = parseWhatsAppUrl(webUrl);
+  const url = isAndroidBrowser() && data
+    ? buildAndroidIntentLink(data.phone, data.text)
+    : buildMobileHandoffUrl(webUrl);
+
+  window.location.assign(url);
+  return true;
+}
+
+/** WhatsApp Desktop instalado en PC (opcional). */
+export function openWhatsAppDesktopApp(webUrl: string): void {
+  if (!import.meta.client || !webUrl.trim()) return;
+
+  const data = parseWhatsAppUrl(webUrl);
+  if (!data) {
+    window.location.assign(webUrl);
+    return;
+  }
+
+  const params = new URLSearchParams();
+  params.set('phone', data.phone.replace(/\D/g, ''));
+  if (data.text.trim()) params.set('text', data.text);
+  window.location.assign(`whatsapp://send?${params.toString()}`);
+}
+
+/** Botón flotante — móvil: app; PC: wa.me en pestaña nueva. */
+export function openWhatsAppChat(webUrl: string): void {
+  if (!import.meta.client || !webUrl.trim()) return;
+
+  if (isMobileBrowser()) {
+    launchWhatsAppCheckout(webUrl);
+    return;
+  }
+
+  window.open(buildMobileHandoffUrl(webUrl), '_blank', 'noopener,noreferrer');
+}
+
+export function normalizeWhatsAppWebUrl(webUrl: string): string {
+  return buildMobileHandoffUrl(webUrl);
 }

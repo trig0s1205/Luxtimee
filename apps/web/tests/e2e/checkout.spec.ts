@@ -32,18 +32,10 @@ test.describe('Checkout retail', () => {
     await expect(page.getByText('Debe aceptar términos y política de datos')).toBeVisible();
   });
 
-  test('checkout exitoso en desktop abre WA en pestaña nueva y muestra fallback', async ({ page }) => {
+  test('checkout exitoso en desktop muestra QR y fallback', async ({ page }) => {
     await seedRetailCart(page);
     await mockPreOrderSubmit(page);
     await page.goto('/checkout');
-
-    await page.evaluate(() => {
-      (window as unknown as { __waPopup?: string }).__waPopup = '';
-      window.open = (url?: string | URL) => {
-        (window as unknown as { __waPopup?: string }).__waPopup = String(url ?? '');
-        return { opener: null, focus: () => undefined } as Window;
-      };
-    });
 
     await expect(page.locator('#checkout-name')).toBeVisible({ timeout: 15_000 });
     await page.locator('#checkout-name').fill('Cliente E2E');
@@ -59,10 +51,8 @@ test.describe('Checkout retail', () => {
     await page.getByRole('button', { name: 'Comprar por WhatsApp' }).click();
 
     await expect(page.getByText('Pedido registrado')).toBeVisible({ timeout: 10_000 });
-    await expect.poll(async () =>
-      page.evaluate(() => (window as unknown as { __waPopup?: string }).__waPopup ?? ''),
-    ).toMatch(/web\.whatsapp\.com/);
-    await expect(page.getByRole('button', { name: 'Abrir WhatsApp' })).toBeVisible();
+    await expect(page.getByAltText('QR para abrir WhatsApp en el celular')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Copiar enlace/i })).toBeVisible();
 
     const cartRaw = await page.evaluate(() => localStorage.getItem('LUXTIMEE-cart'));
     expect(cartRaw === '[]' || cartRaw === null).toBeTruthy();
