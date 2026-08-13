@@ -5,12 +5,20 @@ const props = defineProps<{
 }>();
 
 const copied = ref(false);
+const popupBlocked = ref(false);
 
 const launchUrl = computed(() => resolveWhatsAppLaunchUrl(props.whatsappUrl));
 
 function openWhatsApp() {
   if (!import.meta.client || !props.whatsappUrl) return;
-  launchWhatsAppCheckout(props.whatsappUrl);
+
+  if (isMobileBrowser()) {
+    launchWhatsAppCheckout(props.whatsappUrl);
+    return;
+  }
+
+  const result = openWhatsAppInNewTab(props.whatsappUrl);
+  popupBlocked.value = !!result.blocked;
 }
 
 async function copyLink() {
@@ -31,17 +39,23 @@ async function copyLink() {
     <h2 class="checkout-success__title">Ya tenemos tu intención de compra</h2>
     <p v-if="orderId" class="checkout-success__id">Referencia: {{ orderId }}</p>
     <p class="checkout-success__body">
-      Si WhatsApp no se abrió solo, usa el botón de abajo para continuar con tu pedido.
+      {{ isMobileBrowser()
+        ? 'Si WhatsApp no se abrió, usa el botón de abajo.'
+        : 'WhatsApp Web debería haberse abierto en otra pestaña. Si la cerraste o el navegador la bloqueó, usa el botón de abajo.' }}
     </p>
 
     <div class="checkout-success__actions">
       <UiLuxButton type="button" class="w-full" @click="openWhatsApp">
-        Continuar en WhatsApp
+        Abrir WhatsApp
       </UiLuxButton>
       <button type="button" class="checkout-success__copy" @click="copyLink">
         {{ copied ? 'Enlace copiado' : 'Copiar enlace' }}
       </button>
     </div>
+
+    <p v-if="popupBlocked" class="checkout-success__hint">
+      El navegador bloqueó la ventana. Permite popups para este sitio o pulsa «Abrir WhatsApp».
+    </p>
 
     <NuxtLink to="/catalogo" class="checkout-success__back">← Seguir explorando</NuxtLink>
   </div>
@@ -106,6 +120,13 @@ async function copyLink() {
 
 .checkout-success__copy:hover {
   color: var(--gold);
+}
+
+.checkout-success__hint {
+  margin-top: 1rem;
+  font-size: 13px;
+  color: var(--gold);
+  line-height: 1.5;
 }
 
 .checkout-success__back {

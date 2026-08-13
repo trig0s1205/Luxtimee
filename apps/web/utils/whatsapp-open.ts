@@ -3,6 +3,13 @@ export type ParsedWhatsAppLink = {
   text: string;
 };
 
+export type WhatsAppLaunchResult = {
+  /** Desktop: pestaña nueva abierta. Móvil: redirección en la misma pestaña. */
+  launched: boolean;
+  /** Desktop: el navegador bloqueó el popup. */
+  blocked?: boolean;
+};
+
 function isAndroidBrowser() {
   if (!import.meta.client) return false;
   return /Android/i.test(navigator.userAgent);
@@ -38,7 +45,6 @@ export function buildWaMeLink(phone: string, text: string): string {
   return `https://wa.me/${digits}${query}`;
 }
 
-/** WhatsApp Web: chat listo para enviar, sin alert de abrir app nativa (desktop). */
 export function buildWhatsAppWebLink(phone: string, text: string): string {
   const digits = phone.replace(/\D/g, '');
   const params = new URLSearchParams();
@@ -47,43 +53,71 @@ export function buildWhatsAppWebLink(phone: string, text: string): string {
   return `https://web.whatsapp.com/send?${params.toString()}`;
 }
 
-/** Intent de Android: abre la app directo sin landing de api.whatsapp.com */
 export function buildAndroidIntentLink(phone: string, text: string): string {
   const digits = phone.replace(/\D/g, '');
   const encoded = encodeURIComponent(text);
   return `intent://send?phone=${digits}&text=${encoded}#Intent;scheme=whatsapp;package=com.whatsapp;end`;
 }
 
-/**
- * URL óptima según dispositivo:
- * - Android → intent nativo
- * - iOS / móvil → wa.me (universal link a la app)
- * - Desktop → web.whatsapp.com (sin popup "abrir aplicación")
- */
-export function buildWhatsAppLaunchUrl(phone: string, text: string): string {
+/** URL para móvil (app nativa). */
+export function buildMobileLaunchUrl(phone: string, text: string): string {
   if (isAndroidBrowser()) return buildAndroidIntentLink(phone, text);
-  if (isMobileBrowser()) return buildWaMeLink(phone, text);
+  return buildWaMeLink(phone, text);
+}
+
+/** URL para desktop (WhatsApp Web). */
+export function buildDesktopLaunchUrl(phone: string, text: string): string {
   return buildWhatsAppWebLink(phone, text);
 }
 
 export function resolveWhatsAppLaunchUrl(webUrl: string): string {
   const data = parseWhatsAppUrl(webUrl);
   if (!data) return webUrl;
-  return buildWhatsAppLaunchUrl(data.phone, data.text);
+  if (isMobileBrowser()) return buildMobileLaunchUrl(data.phone, data.text);
+  return buildDesktopLaunchUrl(data.phone, data.text);
+}
+
+/** Desktop: abre WhatsApp Web en pestaña nueva. */
+export function openWhatsAppInNewTab(webUrl: string): WhatsAppLaunchResult {
+  if (!import.meta.client || !webUrl.trim()) {
+    return { launched: false, blocked: true };
+  }
+
+  const data = parseWhatsAppUrl(webUrl);
+  const url = data
+    ? buildDesktopLaunchUrl(data.phone, data.text)
+    : webUrl;
+
+  const popup = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!popup) return { launched: false, blocked: true };
+  popup.opener = null;
+  return { launched: true };
 }
 
 /**
- * Redirige al checkout de WhatsApp en la misma pestaña, justo tras el click de comprar.
- * Debe llamarse en la misma cadena del gesto del usuario (submit).
+ * Checkout post-compra:
+ * - Móvil → misma pestaña (app WA)
+ * - Desktop → pestaña nueva (web.whatsapp.com), la tienda queda abierta
  */
-export function launchWhatsAppCheckout(webUrl: string): boolean {
-  if (!import.meta.client || !webUrl.trim()) return false;
-  window.location.assign(resolveWhatsAppLaunchUrl(webUrl));
-  return true;
+export function launchWhatsAppCheckout(webUrl: string): WhatsAppLaunchResult {
+  if (!import.meta.client || !webUrl.trim()) {
+    return { launched: false, blocked: true };
+  }
+
+  if (isMobileBrowser()) {
+    const data = parseWhatsAppUrl(webUrl);
+    const url = data
+      ? buildMobileLaunchUrl(data.phone, data.text)
+      : webUrl;
+    window.location.assign(url);
+    return { launched: true };
+  }
+
+  return openWhatsAppInNewTab(webUrl);
 }
 
-/** Botón flotante / contacto general */
-export function openWhatsAppChat(webUrl: string): boolean {
+/** Botón flotante / contacto */
+export function openWhatsAppChat(webUrl: string): WhatsAppLaunchResult {
   return launchWhatsAppCheckout(webUrl);
 }
 

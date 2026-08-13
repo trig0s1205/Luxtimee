@@ -67,7 +67,15 @@ async function submit() {
     analytics.track('checkout_complete', { total: total.value, channel: 'wholesale' });
     cart.clear();
 
-    if (import.meta.client && res.whatsappUrl) {
+    if (!import.meta.client || !res.whatsappUrl) {
+      success.value = {
+        whatsappUrl: res.whatsappUrl,
+        orderId: res.order?.readableId,
+      };
+      return;
+    }
+
+    if (isMobileBrowser()) {
       launchWhatsAppCheckout(res.whatsappUrl);
       return;
     }
@@ -76,6 +84,7 @@ async function submit() {
       whatsappUrl: res.whatsappUrl,
       orderId: res.order?.readableId,
     };
+    launchWhatsAppCheckout(res.whatsappUrl);
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'No se pudo crear el pre-pedido';
   } finally {
