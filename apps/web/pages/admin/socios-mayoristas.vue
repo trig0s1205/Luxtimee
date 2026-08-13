@@ -124,7 +124,7 @@ useSeoMeta({ title: 'Socios mayoristas — LUXTIMEE Admin' });
     <UiSectionHeader
       label="Ventas"
       title="Socios mayoristas"
-      refreshable
+      :refreshable="true"
       :refreshing="pending"
       @refresh="refresh()"
     />

@@ -90,7 +90,7 @@ async function removeZone(zone: ShippingZoneDto) {
     <UiSectionHeader
       label="Operaciones"
       title="Tarifas de envío"
-      refreshable
+      :refreshable="true"
       :refreshing="pending"
       @refresh="refresh()"
     />

@@ -244,13 +244,11 @@ useSeoMeta({ title: props.seoTitle });
     <UiSectionHeader
       label="Ventas"
       :title="`${title} (${totalOrders})`"
-      refreshable
-      :refreshing="pending"
-      @refresh="refresh()"
     />
     <p class="admin-records-period-label">{{ periodLabel }}</p>
 
     <div class="admin-records-toolbar">
+      <UiAdminRefreshButton :loading="pending" @click="refresh()" />
       <AdminFilterDropdown
         v-model="period"
         label="Periodo"

@@ -23,7 +23,7 @@ const { data: logs, refresh, pending } = useAdminCachedData('audit-logs', () =>
     <UiSectionHeader
       label="Cumplimiento"
       title="Log de auditoría"
-      refreshable
+      :refreshable="true"
       :refreshing="pending"
       @refresh="refresh()"
     />

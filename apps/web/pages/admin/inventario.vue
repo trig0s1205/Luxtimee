@@ -257,9 +257,6 @@ async function handleDelete(watch: WatchStaffDto) {
       <UiSectionHeader
         label="Operaciones"
         title="Inventario de relojes"
-        refreshable
-        :refreshing="inventoryRefreshing"
-        @refresh="reloadInventory()"
       />
       <UiLuxButton @click="openCreate">+ Nuevo Reloj</UiLuxButton>
     </div>
@@ -267,6 +264,7 @@ async function handleDelete(watch: WatchStaffDto) {
     <AdminInventoryInsights :insights="insights" :loading="insightsPending" />
 
     <div class="admin-inventory-toolbar">
+      <UiAdminRefreshButton :loading="inventoryRefreshing" @click="reloadInventory()" />
       <UiLuxInput v-model="query.search" placeholder="Buscar por SKU, referencia o modelo..." />
 
       <select v-model="query.brand" class="admin-filter-select">

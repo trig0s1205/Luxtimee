@@ -77,7 +77,7 @@ useSeoMeta({ title: 'Historias de garantías — LUXTIMEE Admin' });
     <UiSectionHeader
       label="Ventas"
       :title="`Garantías de hoy (${total})`"
-      refreshable
+      :refreshable="true"
       :refreshing="pending"
       @refresh="refresh()"
     />

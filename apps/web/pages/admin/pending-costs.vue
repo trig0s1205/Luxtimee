@@ -68,7 +68,7 @@ useSeoMeta({ title: 'Relojes pendientes de costo — LUXTIMEE Admin' });
     <UiSectionHeader
       label="Finanzas"
       :title="`Relojes pendientes de costo (${total})`"
-      refreshable
+      :refreshable="true"
       :refreshing="pending"
       @refresh="refresh()"
     />

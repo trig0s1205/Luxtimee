@@ -17,7 +17,7 @@ async function markRead(id: string) {
     <UiSectionHeader
       label="Alertas"
       title="Centro de notificaciones"
-      refreshable
+      :refreshable="true"
       :refreshing="pending"
       @refresh="refresh()"
     />

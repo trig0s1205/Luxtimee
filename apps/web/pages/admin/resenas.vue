@@ -27,7 +27,7 @@ async function moderate(id: string, approve: boolean) {
     <UiSectionHeader
       label="Marketing"
       title="Moderar reseñas"
-      refreshable
+      :refreshable="true"
       :refreshing="pending"
       @refresh="refresh()"
     />

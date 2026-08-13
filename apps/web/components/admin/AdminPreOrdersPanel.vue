@@ -109,9 +109,6 @@ useSeoMeta({ title: props.seoTitle });
     <UiSectionHeader
       label="Ventas"
       :title="`${title} (${total})`"
-      refreshable
-      :refreshing="pending"
-      @refresh="refresh()"
     />
 
     <p v-if="bucket === 'active'" class="admin-records-hint">
@@ -122,6 +119,7 @@ useSeoMeta({ title: props.seoTitle });
     </p>
 
     <div class="admin-records-actions mb-4">
+      <UiAdminRefreshButton :loading="pending" @click="refresh()" />
       <NuxtLink to="/admin/pre-pedidos/nuevo" class="admin-record-btn admin-record-btn--primary">
         Nuevo pre-pedido manual
       </NuxtLink>

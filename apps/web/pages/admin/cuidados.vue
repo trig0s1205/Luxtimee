@@ -14,7 +14,7 @@ const { data: templates, refresh, pending } = useAdminCachedData('care', () =>
     <UiSectionHeader
       label="Catálogo"
       title="Plantillas de cuidado"
-      refreshable
+      :refreshable="true"
       :refreshing="pending"
       @refresh="refresh()"
     />

@@ -2,6 +2,67 @@
   max-width: 960px;
 }
 
+.admin-records-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border: 1px solid rgba(200, 169, 110, 0.45);
+  border-radius: 2px;
+  background: rgba(200, 169, 110, 0.08);
+  color: var(--lux-gold);
+  font-family: var(--lux-font-body);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.admin-refresh-btn:hover:not(:disabled) {
+  border-color: var(--lux-gold);
+  background: rgba(200, 169, 110, 0.14);
+  color: var(--lux-white);
+}
+
+.admin-refresh-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.admin-refresh-btn__icon--spin {
+  animation: admin-refresh-spin 0.85s linear infinite;
+}
+
+@keyframes admin-refresh-spin {
+  to { transform: rotate(360deg); }
+}
+
+.lux-section-header__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.lux-section-header__text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.lux-section-header__actions {
+  flex: 0 0 auto;
+  padding-top: 2px;
+}
+
 .admin-records-period-label,
 .admin-records-hint {
   margin: -12px 0 20px;
