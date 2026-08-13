@@ -1079,6 +1079,8 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
 
 .admin-carousel-slot-actions {
   display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
 .admin-proof-row {
@@ -1093,9 +1095,6 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
   font-size: 11px;
   color: var(--lux-white-dim);
   text-align: center;
-}
-  gap: 6px;
-  align-items: center;
 }
 
 .admin-file-btn {
@@ -1114,20 +1113,6 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
 
 .admin-file-btn input {
   display: none;
-}
-
-.admin-proof-row {
-  display: grid;
-  grid-template-columns: 28px 1fr 1fr;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.admin-proof-row__index {
-  font-size: 11px;
-  color: var(--lux-white-dim);
-  text-align: center;
 }
 
 .admin-index-save {
