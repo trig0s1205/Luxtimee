@@ -2,25 +2,31 @@
 import type { WatchPublicDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { LUXTIMEE_EXPERIENCE_ITEMS } from '~/constants/luxtime-experience';
+import { pickRandomWatches } from '~/utils/similar-watches';
 
 const { open, slug, closeProduct } = useProductModal();
 const catalog = useCatalogData();
 const cart = useCartStore();
-const { openChat } = useWhatsApp();
 
 const product = ref<WatchPublicDto | null>(null);
 const loading = ref(false);
+const randomWatches = ref<WatchPublicDto[]>([]);
 const { watchPrimaryImage } = useMediaUrl();
+
 watch(slug, async (s) => {
   if (!s) {
     product.value = null;
+    randomWatches.value = [];
     return;
   }
   loading.value = true;
   try {
     product.value = await catalog.getBySlug(s);
+    const pool = (await catalog.listCatalog({ limit: 80, available: 'true' })).data;
+    randomWatches.value = pickRandomWatches(product.value, pool, 12, `modal-${s}`);
   } catch {
     product.value = null;
+    randomWatches.value = [];
     closeProduct();
   } finally {
     loading.value = false;
@@ -31,11 +37,6 @@ function addToCart() {
   if (!product.value) return;
   cart.addFromWatch(product.value);
   closeProduct();
-}
-
-async function consultWhatsApp() {
-  if (!product.value) return;
-  await openChat(`Me interesa: ${product.value.brand.name} ${product.value.model} (Ref. ${product.value.slug})`);
 }
 
 function onOverlayClick(e: MouseEvent) {
@@ -57,7 +58,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
       class="product-detail-modal"
       @click="onOverlayClick"
     >
-      <div class="product-detail-content">
+      <div class="product-detail-content product-detail-content--scroll">
         <button type="button" class="detail-close-btn" aria-label="Cerrar" @click="closeProduct">×</button>
         <div v-if="loading" class="detail-loading">Cargando…</div>
         <div v-else-if="product" class="detail-wrapper">
@@ -81,21 +82,31 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
               <button type="button" class="btn-add-to-cart" :disabled="product.stock === 0" @click="addToCart">
                 Agregar al carrito
               </button>
-              <button type="button" class="btn-whatsapp" @click="consultWhatsApp">
-                💬 Consultar por WhatsApp
-              </button>
+              <NuxtLink
+                :to="`/producto/${product.slug}`"
+                class="btn-gallery-link"
+                @click="closeProduct"
+              >
+                Ver fotos y video del reloj →
+              </NuxtLink>
             </div>
-            <div class="detail-experience">
+            <div class="detail-experience detail-experience--gold">
               <p class="detail-experience-title">Tu Experiencia LUXTIMEE incluye:</p>
               <ul>
                 <li v-for="item in LUXTIMEE_EXPERIENCE_ITEMS" :key="item.label">{{ item.label }}</li>
               </ul>
             </div>
-            <NuxtLink :to="`/producto/${product.slug}`" class="detail-full-link" @click="closeProduct">
-              Ver fotos y video del reloj →
-            </NuxtLink>
           </div>
         </div>
+
+        <CatalogSimilarWatchesCarousel
+          v-if="randomWatches.length"
+          class="product-detail-modal__carousel"
+          :watches="randomWatches"
+          eyebrow="Descubre más"
+          title="Otros relojes del catálogo"
+          :compact="true"
+        />
       </div>
     </div>
   </Teleport>

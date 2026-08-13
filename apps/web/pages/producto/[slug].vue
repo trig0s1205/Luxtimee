@@ -1,24 +1,24 @@
 <script setup lang="ts">
 import type { WatchPublicDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
-import { buildRelatedWatches } from '~/utils/similar-watches';
+import { buildRelatedWatches, pickRandomWatches } from '~/utils/similar-watches';
 import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 
-const RELATED_WATCHES_TOTAL = 20;
+const RELATED_WATCHES_TOTAL = 16;
+const RANDOM_WATCHES_TOTAL = 14;
 
 const route = useRoute();
 const slug = computed(() => String(route.params.slug));
 const catalog = useCatalogData();
 const cart = useCartStore();
-const { openChat } = useWhatsApp();
 const analytics = useAnalytics();
+const { watchPrimaryImage, watchSecondaryImage, watchVideoUrl } = useMediaUrl();
 
 const { data: watch, error } = await useCachedAsyncData(
   () => `product-detail-${slug.value}`,
   () => catalog.getBySlug(slug.value),
   { watch: [slug], staleTime: STOREFRONT_CACHE_MS.product },
 );
-const { watchPrimaryImage, watchSecondaryImage, watchVideoUrl } = useMediaUrl();
 
 const { data: catalogPool } = await useCachedAsyncData<WatchPublicDto[]>(
   'product-related-pool',
@@ -28,6 +28,10 @@ const { data: catalogPool } = await useCachedAsyncData<WatchPublicDto[]>(
 
 const similarWatches = computed(() => (
   watch.value ? buildRelatedWatches(watch.value, catalogPool.value ?? [], RELATED_WATCHES_TOTAL) : []
+));
+
+const randomWatches = computed(() => (
+  watch.value ? pickRandomWatches(watch.value, catalogPool.value ?? [], RANDOM_WATCHES_TOTAL, watch.value.slug) : []
 ));
 
 if (error.value) {
@@ -49,12 +53,6 @@ function addToCart() {
   cart.addFromWatch(watch.value);
   analytics.track('add_to_cart', { slug: watch.value.slug });
 }
-
-async function consultWhatsApp() {
-  if (!watch.value) return;
-  await openChat(`Me interesa: ${watch.value.brand.name} ${watch.value.model}`);
-}
-
 </script>
 
 <template>
@@ -80,9 +78,6 @@ async function consultWhatsApp() {
             <button type="button" class="btn-add-to-cart" :disabled="watch.stock === 0" @click="addToCart">
               Agregar al carrito
             </button>
-            <button type="button" class="btn-whatsapp" @click="consultWhatsApp">
-              💬 Consultar por WhatsApp
-            </button>
           </div>
         </div>
 
@@ -90,6 +85,19 @@ async function consultWhatsApp() {
       </div>
     </div>
 
-    <CatalogSimilarWatchesCarousel :key="watch.slug" :watches="similarWatches" />
+    <CatalogSimilarWatchesCarousel
+      :key="`${watch.slug}-similar`"
+      :watches="similarWatches"
+      eyebrow="Selección curada"
+      title="Relojes que combinan con tu gusto"
+    />
+
+    <CatalogSimilarWatchesCarousel
+      v-if="randomWatches.length"
+      :key="`${watch.slug}-random`"
+      :watches="randomWatches"
+      eyebrow="Explora más"
+      title="Piezas que podrían interesarte"
+    />
   </div>
 </template>

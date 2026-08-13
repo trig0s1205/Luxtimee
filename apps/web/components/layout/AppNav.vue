@@ -81,6 +81,7 @@ watch(() => route.fullPath, closeMenu);
     </ul>
 
     <div class="nav-actions">
+      <LayoutThemeToggle />
       <LayoutLocaleSwitcher v-if="showSwitcher" />
       <button
         type="button"

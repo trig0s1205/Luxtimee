@@ -59,29 +59,33 @@ const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
     carouselImages: ['', '', '', '', ''],
   },
   valueProps: {
-    enabled: true,
+    enabled: false,
     label: 'Por qué elegirnos',
     title: 'La diferencia LUXTIMEE',
-    items: [
-      { icon: '✦', title: 'Selección curada', description: 'Cada pieza pasa por un riguroso proceso de curaduría antes de llegar a ti.' },
-      { icon: '✦', title: 'Asesoría directa', description: 'Atención personalizada por WhatsApp sin intermediarios, desde el primer mensaje.' },
-      { icon: '✦', title: 'Stock real', description: 'Solo vendemos lo que tenemos disponible para entrega inmediata en Colombia.' },
-    ],
+    items: [],
+  },
+  customerProof: {
+    enabled: true,
+    label: 'Entregas reales',
+    title: 'Clientes que ya',
+    titleEm: 'recibieron su pieza',
+    subtitle: 'Fotos de entregas locales y envíos nacionales. Sin renders ni stock de banco de imágenes.',
+    images: [],
   },
   statement: {
     enabled: true,
-    text: 'Un reloj no solo mide el tiempo.',
-    textEm: 'Demuestra quién eres.',
-    sub: 'LUXTIMEE · Luxury Timepieces · PTA · Colombia',
+    text: 'El detalle está en la entrega,',
+    textEm: 'no en el discurso.',
+    sub: 'LUXTIMEE · Piedecuesta · Colombia',
   },
   contact: {
     enabled: true,
-    label: 'Contacto',
-    title: 'Hablemos de tu próxima pieza.',
-    titleEm: 'Asesoría personalizada.',
-    body: 'Cuéntanos qué buscas, un modelo específico o un encargo a medida. Nuestro equipo te responde por WhatsApp con atención directa desde Piedecuesta.',
-    ctaText: 'Escribir por WhatsApp',
-    whatsappMessage: 'Hola LUXTIMEE, me gustaría recibir asesoría sobre la colección.',
+    label: 'WhatsApp directo',
+    title: '¿Buscas un modelo',
+    titleEm: 'en específico?',
+    body: 'Escríbenos el reloj, tu ciudad y si prefieres envío nacional o entrega local. Te respondemos con disponibilidad y tiempos reales.',
+    ctaText: 'Abrir chat',
+    whatsappMessage: 'Hola LUXTIMEE, busco un reloj en particular. Mi ciudad es ',
   },
 };
 
@@ -208,6 +212,7 @@ export class SettingsService {
       featured?: HomepageConfigDto['featured'];
       founder?: LegacyFounder;
       valueProps?: HomepageConfigDto['valueProps'];
+      customerProof?: HomepageConfigDto['customerProof'];
       statement?: HomepageConfigDto['statement'];
       contact?: HomepageConfigDto['contact'];
     }>(HOMEPAGE_KEY, {});
@@ -244,6 +249,16 @@ export class SettingsService {
         carouselImages,
       },
       valueProps: { ...DEFAULT_HOMEPAGE_CONFIG.valueProps, ...(stored.valueProps ?? {}) },
+      customerProof: {
+        ...DEFAULT_HOMEPAGE_CONFIG.customerProof,
+        ...(stored.customerProof ?? {}),
+        images: Array.isArray(stored.customerProof?.images)
+          ? stored.customerProof!.images.map((img) => ({
+              url: img?.url ?? '',
+              caption: img?.caption ?? '',
+            }))
+          : DEFAULT_HOMEPAGE_CONFIG.customerProof.images,
+      },
       statement: { ...DEFAULT_HOMEPAGE_CONFIG.statement, ...(stored.statement ?? {}) },
       contact: { ...DEFAULT_HOMEPAGE_CONFIG.contact, ...(stored.contact ?? {}) },
     };
@@ -256,6 +271,13 @@ export class SettingsService {
       featured: patch.featured ? { ...current.featured, ...patch.featured } : current.featured,
       founder: patch.founder ? { ...current.founder, ...patch.founder } : current.founder,
       valueProps: patch.valueProps ? { ...current.valueProps, ...patch.valueProps } : current.valueProps,
+      customerProof: patch.customerProof
+        ? {
+            ...current.customerProof,
+            ...patch.customerProof,
+            images: patch.customerProof.images ?? current.customerProof.images,
+          }
+        : current.customerProof,
       statement: patch.statement ? { ...current.statement, ...patch.statement } : current.statement,
       contact: patch.contact ? { ...current.contact, ...patch.contact } : current.contact,
     };

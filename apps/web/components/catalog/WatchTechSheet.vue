@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { WatchPublicDto } from '@luxtime/shared';
 import { LUXTIMEE_EXPERIENCE_ITEMS } from '~/constants/luxtime-experience';
+import { SHIPPING_FULL_TEXT } from '~/constants/shipping-copy';
 import { buildWatchTechSpecs, splitDescription } from '~/utils/watch-tech-sheet';
 
 const props = withDefaults(defineProps<{
@@ -39,6 +40,7 @@ const careDescription = computed(() => {
       <h3 class="watch-tech-sheet__block-title">Descripción</h3>
       <div class="watch-tech-sheet__description">
         <p v-for="(paragraph, index) in descriptionParagraphs" :key="index">{{ paragraph }}</p>
+        <p class="watch-tech-sheet__shipping">{{ SHIPPING_FULL_TEXT }}</p>
         <div v-if="careDescription" class="watch-tech-sheet__care">
           <p class="watch-tech-sheet__care-title">{{ careDescription.title }}</p>
           <p class="watch-tech-sheet__care-text">{{ careDescription.text }}</p>

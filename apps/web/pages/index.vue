@@ -21,9 +21,9 @@ const cms = computed<HomepageConfigDto>(() => homeCms.value ?? DEFAULT_HOMEPAGE_
 
 useSeoMeta({
   title: 'LUXTIMEE — Luxury Timepieces',
-  description: 'Catálogo premium de relojes de lujo. LUXTIMEE Luxury Timepieces.',
+  description: 'Relojes de lujo con stock real en Colombia. Compra online y confirma por WhatsApp.',
   ogTitle: 'LUXTIMEE — Luxury Timepieces',
-  ogDescription: 'Catálogo premium de relojes de lujo. Compra asesorada por WhatsApp.',
+  ogDescription: 'Relojes de lujo con stock real en Colombia. Compra online y confirma por WhatsApp.',
 });
 
 onMounted(() => {
@@ -33,7 +33,6 @@ onMounted(() => {
 
 <template>
   <div>
-    <!-- Hero intacto: spotlight best-sellers -->
     <CatalogHomeHeroSpotlight v-if="heroWatches?.length" :watches="heroWatches" />
 
     <HomeFeaturedSection
@@ -41,22 +40,22 @@ onMounted(() => {
       :config="cms.featured"
     />
 
-    <HomeAboutFounderSection
+    <LazyHomeAboutFounderSection
       v-if="cms.founder.enabled"
       :config="cms.founder"
     />
 
-    <HomeValuePropsSection
-      v-if="cms.valueProps.enabled && cms.valueProps.items.length"
-      :config="cms.valueProps"
+    <HomeCustomerProofSection
+      v-if="cms.customerProof.enabled"
+      :config="cms.customerProof"
     />
 
-    <HomeStatementSection
+    <LazyHomeStatementSection
       v-if="cms.statement.enabled"
       :config="cms.statement"
     />
 
-    <HomeContactSection
+    <LazyHomeContactSection
       v-if="cms.contact.enabled"
       :config="cms.contact"
     />

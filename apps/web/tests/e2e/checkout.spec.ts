@@ -52,6 +52,9 @@ test.describe('Checkout retail', () => {
     const popupPromise = page.waitForEvent('popup');
     await page.getByRole('button', { name: 'Comprar por WhatsApp' }).click();
 
+    await expect(page.getByText('Pedido registrado')).toBeVisible({ timeout: 10_000 });
+
+    await page.getByRole('button', { name: 'Abrir WhatsApp' }).click();
     const popup = await popupPromise;
     await expect(popup).toHaveURL(/wa\.me|api\.whatsapp\.com/);
 

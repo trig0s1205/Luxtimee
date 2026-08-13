@@ -4,8 +4,14 @@ import type { WatchPublicDto } from '@luxtime/shared';
 const props = withDefaults(defineProps<{
   watches: WatchPublicDto[];
   cycleSeconds?: number;
+  eyebrow?: string;
+  title?: string;
+  compact?: boolean;
 }>(), {
   cycleSeconds: 5,
+  eyebrow: 'Selección curada',
+  title: 'Relojes que combinan con tu gusto',
+  compact: false,
 });
 
 const RESUME_DELAY = 2200;
@@ -152,10 +158,10 @@ watch(() => props.watches, () => {
 </script>
 
 <template>
-  <section v-if="watches.length" class="similar-watches">
+  <section v-if="watches.length" class="similar-watches" :class="{ 'similar-watches--compact': compact }">
     <header class="similar-watches__header">
-      <p class="similar-watches__eyebrow">Selección curada</p>
-      <h2 class="similar-watches__title">Relojes que combinan con tu gusto</h2>
+      <p class="similar-watches__eyebrow">{{ eyebrow }}</p>
+      <h2 class="similar-watches__title">{{ title }}</h2>
     </header>
 
     <div class="similar-watches__carousel">
@@ -392,5 +398,23 @@ watch(() => props.watches, () => {
     flex: 0 0 44vw;
     width: 44vw;
   }
+}
+
+.similar-watches--compact {
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.similar-watches--compact .similar-watches__header {
+  margin-bottom: 12px;
+}
+
+.similar-watches--compact .similar-watches__title {
+  font-size: clamp(18px, 2.5vw, 24px);
+}
+
+.similar-watches--compact .similar-watches__slide {
+  flex: 0 0 38vw;
+  width: 38vw;
 }
 </style>

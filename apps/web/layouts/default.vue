@@ -9,6 +9,7 @@
     <LayoutCartDrawer />
     <LayoutStockNotice />
     <CatalogProductDetailModal />
+    <StorefrontSocialProofToast />
     <LayoutCookieConsent />
     <UiToastContainer />
     <UiConfirmDialog />

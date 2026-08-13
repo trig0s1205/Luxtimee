@@ -2,6 +2,11 @@
 import type { CreatePreOrderDto, LegalDocumentsDto, ShippingZoneDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
+import {
+  SHIPPING_CHECKOUT_NOTE_HINT,
+  SHIPPING_CHECKOUT_NOTE_PLACEHOLDER,
+  SHIPPING_FULL_TEXT,
+} from '~/constants/shipping-copy';
 
 definePageMeta({ middleware: ['wholesale'] });
 
@@ -20,6 +25,7 @@ const form = reactive({
 
 const loading = ref(false);
 const error = ref('');
+const success = ref<{ whatsappUrl: string; orderId?: string } | null>(null);
 
 const { data: zones } = await useCachedAsyncData('wholesale-shipping-zones', () =>
   api.get<ShippingZoneDto[]>('/shipping-zones/public').catch(() => []),
@@ -57,11 +63,16 @@ async function submit() {
       ...form,
       items: cart.toCheckoutItems(),
     };
-    const res = await api.post<{ whatsappUrl: string }>('/pre-orders', payload);
+    const res = await api.post<{ whatsappUrl: string; order?: { readableId?: string } }>('/pre-orders', payload);
     analytics.track('checkout_complete', { total: total.value, channel: 'wholesale' });
+    success.value = {
+      whatsappUrl: res.whatsappUrl,
+      orderId: res.order?.readableId,
+    };
     cart.clear();
-    if (import.meta.client && res.whatsappUrl) {
-      window.open(res.whatsappUrl, '_blank', 'noopener,noreferrer');
+
+    if (import.meta.client && res.whatsappUrl && isMobileBrowser()) {
+      window.location.href = res.whatsappUrl;
     }
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'No se pudo crear el pre-pedido';
@@ -75,18 +86,25 @@ async function submit() {
   <div class="mayoristas-page px-6 md:px-16 py-12 max-w-2xl mx-auto">
     <UiSectionHeader label="Mayorista" title="Checkout mayorista" />
 
-    <div v-if="!cart.items.length" class="text-center py-16 text-lux-white-dim">
+    <CheckoutSuccessPanel
+      v-if="success"
+      :whatsapp-url="success.whatsappUrl"
+      :order-id="success.orderId"
+    />
+
+    <div v-else-if="!cart.items.length" class="text-center py-16 text-lux-white-dim">
       No hay productos en el carrito.
       <NuxtLink to="/mayoristas/catalogo" class="block mt-4 text-lux-gold">Volver al catálogo mayorista</NuxtLink>
     </div>
 
     <form v-else class="checkout-form space-y-5" autocomplete="on" @submit.prevent="submit">
-      <UiLuxInput id="wholesale-checkout-name" v-model="form.customerName" placeholder="Nombre completo" required />
-      <UiLuxInput id="wholesale-checkout-address" v-model="form.customerAddress" placeholder="Dirección de entrega" required />
-      <UiLuxInput id="wholesale-checkout-phone" v-model="form.customerPhone" type="tel" placeholder="Teléfono / WhatsApp" required />
+      <UiLuxInput id="wholesale-checkout-name" v-model="form.customerName" autocomplete="name" placeholder="Nombre completo" required />
+      <UiLuxInput id="wholesale-checkout-address" v-model="form.customerAddress" autocomplete="street-address" placeholder="Dirección de entrega" required />
+      <UiLuxInput id="wholesale-checkout-phone" v-model="form.customerPhone" type="tel" autocomplete="tel" placeholder="Teléfono / WhatsApp" required />
 
       <div class="space-y-4 border border-lux-gold/10 p-4">
         <p class="text-xs uppercase tracking-widest text-lux-white-dim">Notas de entrega (opcional)</p>
+        <p class="text-xs text-lux-white-dim leading-relaxed">{{ SHIPPING_CHECKOUT_NOTE_HINT }}</p>
         <div v-for="item in cart.items" :key="item.watchId" class="space-y-2">
           <label class="text-sm text-lux-white-dim" :for="`wholesale-note-${item.watchId}`">
             {{ item.productName }}
@@ -96,7 +114,7 @@ async function submit() {
             :value="item.deliveryNote ?? ''"
             rows="2"
             maxlength="500"
-            placeholder="Ej: recoger a las 6pm, dejar en portería..."
+            :placeholder="SHIPPING_CHECKOUT_NOTE_PLACEHOLDER"
             class="w-full bg-lux-black-2 border border-lux-gold/20 px-4 py-3 text-sm resize-y"
             @input="cart.setDeliveryNote(item.watchId, ($event.target as HTMLTextAreaElement).value)"
           />
@@ -120,10 +138,11 @@ async function submit() {
         <p>Subtotal mayorista: {{ formatCop(cart.subtotal) }}</p>
         <p>Envío: {{ formatCop(shippingCost) }}</p>
         <p class="font-display text-xl text-lux-gold">Total: {{ formatCop(total) }}</p>
+        <p class="text-xs text-lux-white-dim">{{ SHIPPING_FULL_TEXT }}</p>
       </div>
 
       <UiLuxCheckbox v-model="form.consentAccepted">
-        Acepto los Términos y Condiciones y la Política de Tratamiento de Datos.
+        Acepto los Términos y Condiciones y la Política de Tratamiento de Datos (Ley 1581 de 2012).
       </UiLuxCheckbox>
       <details v-if="legal" class="text-xs text-lux-white-dim">
         <summary class="cursor-pointer mb-2">Ver borradores legales</summary>
@@ -134,7 +153,7 @@ async function submit() {
       <p v-if="error" class="text-red-400 text-sm">{{ error }}</p>
 
       <UiLuxButton type="submit" class="w-full" :disabled="loading">
-        {{ loading ? 'Procesando…' : 'Enviar pre-pedido mayorista' }}
+        {{ loading ? 'Procesando…' : 'Comprar por WhatsApp' }}
       </UiLuxButton>
     </form>
   </div>

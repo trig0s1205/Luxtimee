@@ -800,7 +800,7 @@
 
 .btn-add-to-cart {
   padding: 14px 24px;
-  background: var(--white);
+  background: var(--gold);
   border: none;
   color: var(--black);
   font-family: var(--font-body);
@@ -813,7 +813,47 @@
 }
 
 .btn-add-to-cart:hover:not(:disabled) {
-  background: var(--white-dim);
+  background: var(--gold-light);
+}
+
+.btn-gallery-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 24px;
+  border: var(--border-hairline);
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: all 0.3s;
+}
+
+.btn-gallery-link:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.detail-experience--gold {
+  padding: 18px 20px;
+  border: 1px solid rgba(200, 169, 110, 0.28);
+  background: linear-gradient(135deg, rgba(200, 169, 110, 0.12) 0%, rgba(200, 169, 110, 0.04) 100%);
+  border-radius: 2px;
+}
+
+.product-detail-content--scroll {
+  max-height: min(92vh, 920px);
+  overflow-y: auto;
+}
+
+.product-detail-modal__carousel {
+  padding: 0 24px 24px;
+}
+
+.product-detail-modal__carousel :deep(.similar-watches) {
+  padding-top: 0;
 }
 
 .btn-add-to-cart:disabled {
@@ -1854,6 +1894,16 @@ body.cart-scroll-lock {
   font-size: 14px;
   line-height: 1.8;
   color: var(--white-dim);
+}
+
+.watch-tech-sheet__shipping {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-left: 2px solid var(--gold);
+  color: var(--white);
+  font-size: 12px;
+  line-height: 1.7;
+  background: rgba(200, 169, 110, 0.06);
 }
 
 .watch-tech-sheet__care {

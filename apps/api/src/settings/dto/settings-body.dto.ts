@@ -86,6 +86,10 @@ export class SetHomepageConfigBodyDto {
 
   @IsOptional()
   @IsObject()
+  customerProof?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsObject()
   statement?: Record<string, unknown>;
 
   @IsOptional()

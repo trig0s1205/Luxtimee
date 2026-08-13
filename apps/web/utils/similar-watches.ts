@@ -93,3 +93,15 @@ export function buildRelatedWatches(
 
   return mixSimilarAndDiscovery(similar, discovery).slice(0, total);
 }
+
+export function pickRandomWatches(
+  current: WatchPublicDto,
+  catalog: WatchPublicDto[],
+  total = 12,
+  seed = current.slug,
+): WatchPublicDto[] {
+  const pool = catalog.filter(
+    (item) => item.id !== current.id && item.slug !== current.slug && item.stock > 0,
+  );
+  return seededShuffle(pool, seed).slice(0, total);
+}

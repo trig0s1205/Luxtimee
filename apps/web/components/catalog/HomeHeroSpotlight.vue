@@ -440,7 +440,7 @@ onBeforeUnmount(() => stopTimer());
   padding: 0.85rem 1.6rem;
   border: none;
   border-radius: 999px;
-  background: var(--white);
+  background: var(--gold);
   color: var(--black);
   font-family: var(--font-body);
   font-size: 10px;

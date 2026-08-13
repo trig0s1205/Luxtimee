@@ -49,7 +49,8 @@ const profit = reactive<ProfitConfigDto>({
 const commission = reactive<CommissionConfigDto>({ percent: 5 });
 
 const home = reactive<HomepageConfigDto>(structuredClone(DEFAULT_HOMEPAGE_CONFIG));
-const indexSubTab = ref<'featured' | 'founder' | 'valueprops' | 'statement' | 'contact'>('founder');
+home.customerProof.images = Array.from({ length: 12 }, () => ({ url: '', caption: '' }));
+const indexSubTab = ref<'featured' | 'founder' | 'proof' | 'statement' | 'contact'>('founder');
 
 const profitSplitTotal = computed(() =>
   Number(profit.reinvestmentPercent || 0) + Number(profit.ownerProfitPercent || 0),
@@ -116,6 +117,13 @@ useAsyncData('admin-config', async () => {
     home.valueProps.items = homepageRes.valueProps.items?.length
       ? homepageRes.valueProps.items.map((item) => ({ ...item }))
       : [];
+    if (homepageRes.customerProof) {
+      Object.assign(home.customerProof, homepageRes.customerProof);
+      home.customerProof.images = Array.from({ length: 12 }, (_, i) => ({
+        url: homepageRes.customerProof?.images?.[i]?.url ?? '',
+        caption: homepageRes.customerProof?.images?.[i]?.caption ?? '',
+      }));
+    }
   }
 
   return true;
@@ -218,6 +226,15 @@ async function saveIndexSettings() {
       valueProps: {
         ...home.valueProps,
         items: home.valueProps.items.map((item) => ({ ...item })),
+      },
+      customerProof: {
+        ...home.customerProof,
+        images: home.customerProof.images
+          .filter((img) => img.url?.trim())
+          .map((img) => ({
+            url: img.url.trim(),
+            caption: img.caption?.trim() || undefined,
+          })),
       },
       statement: { ...home.statement },
       contact: { ...home.contact },
@@ -519,7 +536,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
           v-for="tab in [
             { id: 'founder', label: 'Fundador' },
             { id: 'featured', label: 'Colección' },
-            { id: 'valueprops', label: 'Valores' },
+            { id: 'proof', label: 'Reseñas visuales' },
             { id: 'statement', label: 'Statement' },
             { id: 'contact', label: 'Contacto' },
           ]"
@@ -683,31 +700,38 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
         </div>
       </section>
 
-      <!-- Valores -->
-      <section v-else-if="indexSubTab === 'valueprops'" class="admin-config-card">
+      <!-- Reseñas visuales -->
+      <section v-else-if="indexSubTab === 'proof'" class="admin-config-card">
         <div class="admin-card-head">
-          <h2>Valores</h2>
+          <h2>Reseñas visuales (index)</h2>
           <label class="admin-toggle-label">
-            <input v-model="home.valueProps.enabled" type="checkbox" />
+            <input v-model="home.customerProof.enabled" type="checkbox" />
             Activo
           </label>
         </div>
+        <p class="admin-config-hint">
+          Pega URLs de Cloudinary externo (cuenta dedicada). No se suben archivos al servidor LUXTIMEE.
+        </p>
         <div class="admin-config-fields">
-          <label><span>Label</span><UiLuxInput v-model="home.valueProps.label" /></label>
-          <label><span>Título</span><UiLuxInput v-model="home.valueProps.title" /></label>
+          <label><span>Label</span><UiLuxInput v-model="home.customerProof.label" /></label>
+          <label><span>Título</span><UiLuxInput v-model="home.customerProof.title" /></label>
+          <label><span>Título cursiva</span><UiLuxInput v-model="home.customerProof.titleEm" /></label>
+          <label>
+            <span>Subtítulo</span>
+            <textarea v-model="home.customerProof.subtitle" class="admin-textarea" rows="2" />
+          </label>
         </div>
         <div class="admin-field-group">
+          <span class="admin-field-group-label">Imágenes (URL + caption opcional)</span>
           <div
-            v-for="(item, i) in home.valueProps.items"
+            v-for="(img, i) in home.customerProof.images"
             :key="i"
-            class="admin-valueprop-row"
+            class="admin-proof-row"
           >
-            <UiLuxInput v-model="item.icon" placeholder="✦" style="width:64px" />
-            <UiLuxInput v-model="item.title" placeholder="Título" />
-            <UiLuxInput v-model="item.description" placeholder="Descripción" />
-            <button type="button" class="admin-icon-btn" @click="removeValueProp(i)">✕</button>
+            <span class="admin-proof-row__index">{{ i + 1 }}</span>
+            <UiLuxInput v-model="img.url" placeholder="https://res.cloudinary.com/..." />
+            <UiLuxInput v-model="img.caption" placeholder="Ej: Entrega en Bogotá" />
           </div>
-          <button type="button" class="admin-add-btn" @click="addValueProp">+ Valor</button>
         </div>
       </section>
 
@@ -1055,6 +1079,21 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
 
 .admin-carousel-slot-actions {
   display: flex;
+}
+
+.admin-proof-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 1fr;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.admin-proof-row__index {
+  font-size: 11px;
+  color: var(--lux-white-dim);
+  text-align: center;
+}
   gap: 6px;
   align-items: center;
 }
@@ -1075,6 +1114,20 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
 
 .admin-file-btn input {
   display: none;
+}
+
+.admin-proof-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 1fr;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.admin-proof-row__index {
+  font-size: 11px;
+  color: var(--lux-white-dim);
+  text-align: center;
 }
 
 .admin-index-save {

@@ -63,11 +63,27 @@ export interface HomepageContactConfig {
   whatsappMessage: string;
 }
 
+export interface HomepageCustomerProofImage {
+  url: string;
+  caption?: string;
+}
+
+export interface HomepageCustomerProofConfig {
+  enabled: boolean;
+  label: string;
+  title: string;
+  titleEm: string;
+  subtitle: string;
+  /** URLs externas (ej. Cloudinary dedicado). Máx. recomendado: 12. */
+  images: HomepageCustomerProofImage[];
+}
+
 export interface HomepageConfigDto {
   hero: HomepageHeroConfig;
   featured: HomepageFeaturedConfig;
   founder: HomepageFounderConfig;
   valueProps: HomepageValuePropsConfig;
+  customerProof: HomepageCustomerProofConfig;
   statement: HomepageStatementConfig;
   contact: HomepageContactConfig;
 }

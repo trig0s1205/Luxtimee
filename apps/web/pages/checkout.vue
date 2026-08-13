@@ -2,6 +2,11 @@
 import type { CreatePreOrderDto, LegalDocumentsDto, ShippingZoneDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
+import {
+  SHIPPING_CHECKOUT_NOTE_HINT,
+  SHIPPING_CHECKOUT_NOTE_PLACEHOLDER,
+  SHIPPING_FULL_TEXT,
+} from '~/constants/shipping-copy';
 
 const cart = useCartStore();
 const api = useApi();
@@ -17,6 +22,7 @@ const form = reactive({
 
 const loading = ref(false);
 const error = ref('');
+const success = ref<{ whatsappUrl: string; orderId?: string } | null>(null);
 
 const { data: zones } = await useCachedAsyncData('shipping-zones', () =>
   api.get<ShippingZoneDto[]>('/shipping-zones/public').catch(() => []),
@@ -56,11 +62,16 @@ async function submit() {
       ...form,
       items: cart.toCheckoutItems(),
     };
-    const res = await api.post<{ whatsappUrl: string }>('/pre-orders', payload);
+    const res = await api.post<{ whatsappUrl: string; order?: { readableId?: string } }>('/pre-orders', payload);
     analytics.track('checkout_complete', { total: total.value });
+    success.value = {
+      whatsappUrl: res.whatsappUrl,
+      orderId: res.order?.readableId,
+    };
     cart.clear();
-    if (import.meta.client && res.whatsappUrl) {
-      window.open(res.whatsappUrl, '_blank', 'noopener,noreferrer');
+
+    if (import.meta.client && res.whatsappUrl && isMobileBrowser()) {
+      window.location.href = res.whatsappUrl;
     }
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'No se pudo crear el pre-pedido';
@@ -74,7 +85,13 @@ async function submit() {
   <div class="px-6 md:px-16 py-12 max-w-2xl mx-auto">
     <UiSectionHeader label="Intención de compra" title="Checkout" />
 
-    <div v-if="!cart.items.length" class="text-center py-16 text-lux-white-dim">
+    <CheckoutSuccessPanel
+      v-if="success"
+      :whatsapp-url="success.whatsappUrl"
+      :order-id="success.orderId"
+    />
+
+    <div v-else-if="!cart.items.length" class="text-center py-16 text-lux-white-dim">
       No hay productos en el carrito.
       <NuxtLink to="/catalogo" class="block mt-4 text-lux-gold">Volver al catálogo</NuxtLink>
     </div>
@@ -108,6 +125,7 @@ async function submit() {
 
       <div class="space-y-4 border border-lux-gold/10 p-4">
         <p class="text-xs uppercase tracking-widest text-lux-white-dim">Notas de entrega (opcional)</p>
+        <p class="text-xs text-lux-white-dim leading-relaxed">{{ SHIPPING_CHECKOUT_NOTE_HINT }}</p>
         <div v-for="item in cart.items" :key="item.watchId" class="space-y-2">
           <label class="text-sm text-lux-white-dim" :for="`checkout-note-${item.watchId}`">
             {{ item.productName }}
@@ -117,7 +135,7 @@ async function submit() {
             :value="item.deliveryNote ?? ''"
             rows="2"
             maxlength="500"
-            placeholder="Ej: recoger a las 6pm, dejar en portería..."
+            :placeholder="SHIPPING_CHECKOUT_NOTE_PLACEHOLDER"
             class="w-full bg-lux-black-2 border border-lux-gold/20 px-4 py-3 text-sm resize-y"
             @input="cart.setDeliveryNote(item.watchId, ($event.target as HTMLTextAreaElement).value)"
           />
@@ -143,7 +161,7 @@ async function submit() {
         <p>Subtotal: {{ formatCop(cart.subtotal) }}</p>
         <p>Envío: {{ formatCop(shippingCost) }}</p>
         <p class="font-display text-xl text-lux-gold">Total: {{ formatCop(total) }}</p>
-        <p class="text-xs text-lux-white-dim">Envíos nacionales: pago total + envío al confirmar.</p>
+        <p class="text-xs text-lux-white-dim">{{ SHIPPING_FULL_TEXT }}</p>
       </div>
 
       <UiLuxCheckbox v-model="form.consentAccepted">

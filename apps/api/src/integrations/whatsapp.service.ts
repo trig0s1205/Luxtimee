@@ -58,6 +58,10 @@ export class WhatsappService {
       divider,
       '',
       `💰 *Total estimado:* $${input.total.toLocaleString('es-CO')} COP`,
+      '',
+      '📦 *Tiempos de entrega*',
+      '• Envíos nacionales: 2 a 5 días hábiles',
+      '• Entregas locales (Piedecuesta): 2:00 p.m. – 8:00 p.m.',
     ].join('\n');
   }
 
