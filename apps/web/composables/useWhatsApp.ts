@@ -43,7 +43,7 @@ export function useWhatsApp() {
       toast.warning('WhatsApp no está configurado. Escríbenos desde la sección de contacto.');
       return false;
     }
-    window.open(target, '_blank', 'noopener,noreferrer');
+    openWhatsAppChat(target);
     return true;
   }
 

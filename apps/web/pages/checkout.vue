@@ -64,15 +64,17 @@ async function submit() {
     };
     const res = await api.post<{ whatsappUrl: string; order?: { readableId?: string } }>('/pre-orders', payload);
     analytics.track('checkout_complete', { total: total.value });
+    cart.clear();
+
+    if (import.meta.client && res.whatsappUrl) {
+      launchWhatsAppCheckout(res.whatsappUrl);
+      return;
+    }
+
     success.value = {
       whatsappUrl: res.whatsappUrl,
       orderId: res.order?.readableId,
     };
-    cart.clear();
-
-    if (import.meta.client && res.whatsappUrl && isMobileBrowser()) {
-      window.location.href = res.whatsappUrl;
-    }
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'No se pudo crear el pre-pedido';
   } finally {

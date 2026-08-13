@@ -66,12 +66,10 @@ export class WhatsappService {
   }
 
   buildRedirectUrl(baseUrl: string, message: string) {
-    const phone = baseUrl.replace(/[^\d]/g, '').replace(/^57/, '');
+    const digits = baseUrl.replace(/\D/g, '');
+    const phone = digits.length >= 10 ? digits : '573000000000';
     const text = encodeURIComponent(message);
-    if (this.config.get('USE_MOCKS') === 'true' || !baseUrl.includes('wa.me')) {
-      return `https://wa.me/${phone || '573000000000'}?text=${text}`;
-    }
-    return `${baseUrl}?text=${text}`;
+    return `https://wa.me/${phone}?text=${text}`;
   }
 
   async notifyStaff(message: string) {
