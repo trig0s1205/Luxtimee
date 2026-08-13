@@ -74,7 +74,13 @@ useSeoMeta({ title: 'Historias de garantías — LUXTIMEE Admin' });
 
 <template>
   <div class="admin-records-page">
-    <UiSectionHeader label="Ventas" :title="`Garantías de hoy (${total})`" />
+    <UiSectionHeader
+      label="Ventas"
+      :title="`Garantías de hoy (${total})`"
+      refreshable
+      :refreshing="pending"
+      @refresh="refresh()"
+    />
     <p class="admin-records-hint">
       Solo se muestran las garantías registradas hoy. Al exportar el reporte del día, se archivan y se limpian de la plataforma.
     </p>

@@ -10,7 +10,7 @@ const api = useApi();
 const toast = useToast();
 const { confirm } = useConfirm();
 
-const { data: zones, refresh } = useAdminCachedData('admin-zones', () =>
+const { data: zones, refresh, pending } = useAdminCachedData('admin-zones', () =>
   api.get<ShippingZoneDto[]>('/shipping-zones').catch(() => []),
 );
 
@@ -87,7 +87,13 @@ async function removeZone(zone: ShippingZoneDto) {
 <template>
   <div>
     <UiToastContainer />
-    <UiSectionHeader label="Operaciones" title="Tarifas de envío" />
+    <UiSectionHeader
+      label="Operaciones"
+      title="Tarifas de envío"
+      refreshable
+      :refreshing="pending"
+      @refresh="refresh()"
+    />
 
     <section class="shipping-create-card">
       <h3>Nueva zona de envío</h3>

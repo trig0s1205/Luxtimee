@@ -11,7 +11,7 @@ interface ReviewDto {
 }
 
 const api = useApi();
-const { data: reviews, refresh } = useAdminCachedData('admin-reviews', () =>
+const { data: reviews, refresh, pending } = useAdminCachedData('admin-reviews', () =>
   api.get<ReviewDto[]>('/reviews/pending'),
 );
 
@@ -24,7 +24,13 @@ async function moderate(id: string, approve: boolean) {
 
 <template>
   <div>
-    <UiSectionHeader label="Marketing" title="Moderar reseñas" />
+    <UiSectionHeader
+      label="Marketing"
+      title="Moderar reseñas"
+      refreshable
+      :refreshing="pending"
+      @refresh="refresh()"
+    />
     <div class="space-y-4">
       <article v-for="r in reviews ?? []" :key="r.id" class="border border-lux-gold/15 p-4">
         <p class="font-display text-lg">{{ r.customerName }} · {{ r.rating }}/5</p>

@@ -241,7 +241,13 @@ useSeoMeta({ title: props.seoTitle });
 <template>
   <div class="admin-records-page orders-page">
     <UiToastContainer />
-    <UiSectionHeader label="Ventas" :title="`${title} (${totalOrders})`" />
+    <UiSectionHeader
+      label="Ventas"
+      :title="`${title} (${totalOrders})`"
+      refreshable
+      :refreshing="pending"
+      @refresh="refresh()"
+    />
     <p class="admin-records-period-label">{{ periodLabel }}</p>
 
     <div class="admin-records-toolbar">

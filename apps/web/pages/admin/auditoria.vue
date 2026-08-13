@@ -13,14 +13,20 @@ const auth = useAuthStore();
 if (!auth.isSuperAdmin) throw createError({ statusCode: 403 });
 
 const api = useApi();
-const { data: logs } = useAdminCachedData('audit-logs', () =>
+const { data: logs, refresh, pending } = useAdminCachedData('audit-logs', () =>
   api.get<AuditLogDto[]>('/audit/logs'),
 );
 </script>
 
 <template>
   <div>
-    <UiSectionHeader label="Cumplimiento" title="Log de auditoría" />
+    <UiSectionHeader
+      label="Cumplimiento"
+      title="Log de auditoría"
+      refreshable
+      :refreshing="pending"
+      @refresh="refresh()"
+    />
     <div class="space-y-2 text-sm">
       <article v-for="log in logs ?? []" :key="log.id" class="border border-lux-gold/10 p-3">
         <p class="text-lux-gold text-xs uppercase">{{ log.action }} · {{ log.entity }}</p>

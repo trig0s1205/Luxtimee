@@ -2,7 +2,7 @@
 definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const api = useApi();
-const { data: notifications, refresh } = useAdminCachedData('notifications', () =>
+const { data: notifications, refresh, pending } = useAdminCachedData('notifications', () =>
   api.get<Array<{ id: string; type: string; payload: Record<string, unknown>; createdAt: string; readAt: string | null }>>('/notifications').catch(() => []),
 );
 
@@ -14,7 +14,13 @@ async function markRead(id: string) {
 
 <template>
   <div>
-    <UiSectionHeader label="Alertas" title="Centro de notificaciones" />
+    <UiSectionHeader
+      label="Alertas"
+      title="Centro de notificaciones"
+      refreshable
+      :refreshing="pending"
+      @refresh="refresh()"
+    />
     <div class="space-y-3">
       <article
         v-for="n in notifications"

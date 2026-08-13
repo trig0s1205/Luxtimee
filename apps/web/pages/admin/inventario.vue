@@ -99,6 +99,11 @@ const { data: careTemplates } = useAdminCachedData('care', () =>
 const watches = computed(() => paginated.value?.data ?? []);
 const total = computed(() => paginated.value?.total ?? 0);
 const hasMore = computed(() => watches.value.length < total.value);
+const inventoryRefreshing = computed(() => pending.value || insightsPending.value);
+
+async function reloadInventory() {
+  await Promise.all([refresh(), refreshInsights()]);
+}
 
 watch([() => query.search, () => query.brand], () => {
   loadPages.value = 1;
@@ -249,7 +254,13 @@ async function handleDelete(watch: WatchStaffDto) {
     <UiToastContainer />
 
     <div class="admin-inventory-header">
-      <UiSectionHeader label="Operaciones" title="Inventario de relojes" />
+      <UiSectionHeader
+        label="Operaciones"
+        title="Inventario de relojes"
+        refreshable
+        :refreshing="inventoryRefreshing"
+        @refresh="reloadInventory()"
+      />
       <UiLuxButton @click="openCreate">+ Nuevo Reloj</UiLuxButton>
     </div>
 

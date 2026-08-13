@@ -121,7 +121,13 @@ useSeoMeta({ title: 'Socios mayoristas — LUXTIMEE Admin' });
 <template>
   <div class="admin-records-page">
     <UiToastContainer />
-    <UiSectionHeader label="Ventas" title="Socios mayoristas" />
+    <UiSectionHeader
+      label="Ventas"
+      title="Socios mayoristas"
+      refreshable
+      :refreshing="pending"
+      @refresh="refresh()"
+    />
     <p class="admin-records-hint">
       Crea accesos privados y comparte el enlace con cada socio. Solo quien tenga un enlace activo puede ver el catálogo mayorista.
     </p>

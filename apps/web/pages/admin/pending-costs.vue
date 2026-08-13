@@ -65,7 +65,13 @@ useSeoMeta({ title: 'Relojes pendientes de costo — LUXTIMEE Admin' });
 <template>
   <div class="pending-costs">
     <UiToastContainer />
-    <UiSectionHeader label="Finanzas" :title="`Relojes pendientes de costo (${total})`" />
+    <UiSectionHeader
+      label="Finanzas"
+      :title="`Relojes pendientes de costo (${total})`"
+      refreshable
+      :refreshing="pending"
+      @refresh="refresh()"
+    />
     <p class="pending-costs-intro">
       Relojes sin costo asignado (vacío o en 0). Al guardar un costo mayor a 0 se calculan los márgenes automáticamente.
     </p>

@@ -106,7 +106,13 @@ useSeoMeta({ title: props.seoTitle });
 
 <template>
   <div class="admin-records-page">
-    <UiSectionHeader label="Ventas" :title="`${title} (${total})`" />
+    <UiSectionHeader
+      label="Ventas"
+      :title="`${title} (${total})`"
+      refreshable
+      :refreshing="pending"
+      @refresh="refresh()"
+    />
 
     <p v-if="bucket === 'active'" class="admin-records-hint">
       Pre-pedidos vigentes durante {{ PRE_ORDER_RESPONSE_HOURS }} horas. Si el cliente no responde, pasan automáticamente a suspendidos.
