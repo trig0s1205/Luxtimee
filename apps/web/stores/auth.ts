@@ -5,7 +5,10 @@ import {
   authFetchHeaders,
   clearStoredTokens,
   loadStoredTokens,
+  loadStoredUser,
+  resolveAccessToken,
   saveStoredTokens,
+  saveStoredUser,
 } from '~/utils/auth-token';
 import {
   clearLocalSession,
@@ -57,6 +60,13 @@ export const useAuthStore = defineStore('auth', {
       if (!import.meta.client) return;
       const { accessToken } = loadStoredTokens();
       this.accessToken = accessToken;
+      if (!this.user) {
+        const storedUser = loadStoredUser<AuthUserDto>();
+        if (storedUser && isStaffUser(storedUser)) {
+          this.user = storedUser;
+          this.loaded = true;
+        }
+      }
     },
     applySession(data: AuthSessionDto, isLocalSession = false) {
       clearLocalSession();
@@ -64,6 +74,9 @@ export const useAuthStore = defineStore('auth', {
         this.setTokens(data.accessToken, data.refreshToken ?? null);
       }
       this.setUser(data.user, isLocalSession);
+      if (import.meta.client && isStaffUser(data.user)) {
+        saveStoredUser(data.user);
+      }
     },
     async refreshSession() {
       const baseUrl = useApiBaseUrl();
@@ -81,10 +94,12 @@ export const useAuthStore = defineStore('auth', {
     },
     async fetchMe(options: { allowRefresh?: boolean } = {}) {
       const { allowRefresh = true } = options;
+      this.hydrateTokens();
       const baseUrl = useApiBaseUrl();
+      const token = resolveAccessToken(this.accessToken);
       const fetchOptions = {
         credentials: 'include' as const,
-        headers: authFetchHeaders(this.accessToken),
+        headers: authFetchHeaders(token),
       };
 
       try {
@@ -92,8 +107,10 @@ export const useAuthStore = defineStore('auth', {
         if (isStaffUser(data.user)) {
           clearLocalSession();
           this.setUser(data.user, false);
+          if (import.meta.client) saveStoredUser(data.user);
         } else {
           this.setUser(null, false);
+          if (import.meta.client) saveStoredUser(null);
         }
         return;
       } catch {
@@ -102,11 +119,12 @@ export const useAuthStore = defineStore('auth', {
             await this.refreshSession();
             const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, {
               credentials: 'include',
-              headers: authFetchHeaders(this.accessToken),
+              headers: authFetchHeaders(resolveAccessToken(this.accessToken)),
             });
             if (isStaffUser(data.user)) {
               clearLocalSession();
               this.setUser(data.user, false);
+              if (import.meta.client) saveStoredUser(data.user);
               return;
             }
           } catch { /* refresh falló */ }
@@ -120,7 +138,7 @@ export const useAuthStore = defineStore('auth', {
           }
         }
 
-        if (isStaffUser(this.user) && (this.accessToken || Date.now() - this.sessionCheckedAt < 30_000)) {
+        if (isStaffUser(this.user) && (resolveAccessToken(this.accessToken) || Date.now() - this.sessionCheckedAt < 30_000)) {
           return;
         }
 
@@ -128,6 +146,7 @@ export const useAuthStore = defineStore('auth', {
         this.setUser(null, false);
         if (hadStaffSession) {
           this.setTokens(null, null);
+          if (import.meta.client) saveStoredUser(null);
         }
       }
     },

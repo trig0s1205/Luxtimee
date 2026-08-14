@@ -1,5 +1,5 @@
 import type { AuthRefreshDto } from '@luxtime/shared';
-import { authFetchHeaders, loadStoredTokens } from '~/utils/auth-token';
+import { authFetchHeaders, loadStoredTokens, resolveAccessToken } from '~/utils/auth-token';
 
 type QueryValue = string | number | boolean | undefined;
 
@@ -11,10 +11,10 @@ type RequestOptions = {
 };
 
 function isUnauthorized(err: unknown) {
-  return err
-    && typeof err === 'object'
-    && 'statusCode' in err
-    && (err as { statusCode?: number }).statusCode === 401;
+  if (!err || typeof err !== 'object') return false;
+  const status = (err as { statusCode?: number; status?: number }).statusCode
+    ?? (err as { status?: number }).status;
+  return status === 401;
 }
 
 let refreshPromise: Promise<void> | null = null;
@@ -31,7 +31,7 @@ export function useApi() {
         method: 'POST',
         credentials: 'include',
         body,
-        headers: authFetchHeaders(auth.accessToken),
+        headers: authFetchHeaders(resolveAccessToken(auth.accessToken)),
       })
         .then((data) => {
           if (data.accessToken) {
@@ -55,31 +55,29 @@ export function useApi() {
       });
     }
 
+    const token = resolveAccessToken(auth.accessToken);
+    if (token && token !== auth.accessToken) {
+      auth.accessToken = token;
+    }
+
     try {
       const response = await $fetch(`${baseUrl}${path}`, {
         method: options.method ?? 'GET',
         body: options.body as Record<string, unknown> | BodyInit | null | undefined,
         query: options.query,
         credentials: 'include',
-        headers: authFetchHeaders(auth.accessToken),
+        headers: authFetchHeaders(token),
       });
       return response as T;
     } catch (err: unknown) {
-      if (isUnauthorized(err) && !options._retried && auth.isAuthenticated) {
-        try {
-          await refreshSession();
-          return request<T>(path, { ...options, _retried: true });
-        } catch {
-          await auth.logout();
-          if (import.meta.client) {
-            const route = useRoute();
-            if (route.path.startsWith('/admin')) {
-              const { loginPath } = useStaffLoginPath();
-              await navigateTo(loginPath({ redirect: route.fullPath }), { replace: true });
-            } else {
-              const { loginPath } = useStaffLoginPath();
-              await navigateTo(loginPath({ redirect: route.fullPath }));
-            }
+      if (isUnauthorized(err) && !options._retried) {
+        const stored = loadStoredTokens();
+        if (stored.refreshToken) {
+          try {
+            await refreshSession();
+            return request<T>(path, { ...options, _retried: true });
+          } catch {
+            /* refresh falló; no cerrar sesión */
           }
         }
       }
