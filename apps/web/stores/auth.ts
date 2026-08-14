@@ -120,6 +120,10 @@ export const useAuthStore = defineStore('auth', {
           }
         }
 
+        if (isStaffUser(this.user) && (this.accessToken || Date.now() - this.sessionCheckedAt < 30_000)) {
+          return;
+        }
+
         const hadStaffSession = isStaffUser(this.user);
         this.setUser(null, false);
         if (hadStaffSession) {

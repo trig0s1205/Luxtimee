@@ -1,5 +1,6 @@
 export default defineNuxtRouteMiddleware(async (to) => {
   const auth = useAuthStore();
+  auth.hydrateTokens();
   if (!auth.loaded) {
     await auth.fetchMe();
   }
