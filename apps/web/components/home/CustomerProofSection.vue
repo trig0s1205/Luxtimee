@@ -1,13 +1,25 @@
 <script setup lang="ts">
 import type { HomepageCustomerProofConfig } from '@luxtime/shared';
-
 import { normalizeCustomerProofImages } from '~/utils/homepage-config';
 
 const props = defineProps<{ config: HomepageCustomerProofConfig }>();
 
 const images = computed(() => normalizeCustomerProofImages(props.config.images));
+const loopedImages = computed(() => (images.value.length ? [...images.value, ...images.value] : []));
 
 const lightboxUrl = ref<string | null>(null);
+const cycleSeconds = ref(28);
+
+const {
+  viewport,
+  track,
+  initCarousel,
+  pause,
+  resume,
+  pauseTemporarily,
+  scrollByCards,
+  onManualScroll,
+} = useInfiniteHorizontalScroll({ cycleSeconds, enabled: computed(() => images.value.length > 1) });
 
 function openLightbox(url: string) {
   lightboxUrl.value = url;
@@ -16,6 +28,8 @@ function openLightbox(url: string) {
 function closeLightbox() {
   lightboxUrl.value = null;
 }
+
+watch(images, () => initCarousel(), { deep: true });
 </script>
 
 <template>
@@ -30,18 +44,54 @@ function closeLightbox() {
         <p v-if="config.subtitle" class="lux-proof__subtitle">{{ config.subtitle }}</p>
       </header>
 
-      <div v-if="images.length" class="lux-proof__grid reveal">
-        <figure
-          v-for="(item, i) in images"
-          :key="`${item.url}-${i}`"
-          class="lux-proof__item"
-          :class="`lux-proof__item--${(i % 5) + 1}`"
+      <div v-if="images.length" class="lux-proof__carousel reveal">
+        <div class="lux-proof__fade lux-proof__fade--left" aria-hidden="true" />
+        <div class="lux-proof__fade lux-proof__fade--right" aria-hidden="true" />
+
+        <button
+          v-if="images.length > 1"
+          type="button"
+          class="lux-proof__arrow lux-proof__arrow--prev"
+          aria-label="Anterior"
+          @click="scrollByCards(-1)"
         >
-          <button type="button" class="lux-proof__thumb" @click="openLightbox(item.url)">
-            <img :src="item.url.trim()" :alt="item.caption || 'Entrega LUXTIMEE'" loading="lazy" decoding="async">
-          </button>
-          <figcaption v-if="item.caption" class="lux-proof__caption">{{ item.caption }}</figcaption>
-        </figure>
+          ‹
+        </button>
+        <button
+          v-if="images.length > 1"
+          type="button"
+          class="lux-proof__arrow lux-proof__arrow--next"
+          aria-label="Siguiente"
+          @click="scrollByCards(1)"
+        >
+          ›
+        </button>
+
+        <div
+          ref="viewport"
+          class="lux-proof__viewport"
+          @mouseenter="pause"
+          @mouseleave="resume"
+          @pointerdown="pause"
+          @pointerup="pauseTemporarily"
+          @touchstart.passive="pause"
+          @touchend.passive="pauseTemporarily"
+          @wheel.passive="pauseTemporarily"
+          @scroll.passive="onManualScroll"
+        >
+          <div ref="track" class="lux-proof__track">
+            <figure
+              v-for="(item, i) in loopedImages"
+              :key="`${item.url}-${i}`"
+              class="lux-proof__slide"
+            >
+              <button type="button" class="lux-proof__thumb" @click="openLightbox(item.url)">
+                <img :src="item.url.trim()" :alt="item.caption || 'Entrega LUXTIMEE'" loading="lazy" decoding="async">
+              </button>
+              <figcaption v-if="item.caption" class="lux-proof__caption">{{ item.caption }}</figcaption>
+            </figure>
+          </div>
+        </div>
       </div>
       <p v-else class="lux-proof__empty reveal">Próximamente más entregas documentadas.</p>
     </div>
@@ -61,6 +111,7 @@ function closeLightbox() {
   padding: clamp(4rem, 8vw, 7rem) clamp(1.5rem, 6vw, 5rem);
   background: linear-gradient(180deg, var(--black) 0%, var(--black-2) 100%);
   border-top: 1px solid rgba(200, 169, 110, 0.1);
+  overflow: hidden;
 }
 
 .lux-proof__inner {
@@ -110,15 +161,32 @@ function closeLightbox() {
   letter-spacing: 0.06em;
 }
 
-.lux-proof__grid {
-  columns: 2;
-  column-gap: 14px;
+.lux-proof__carousel {
+  position: relative;
 }
 
-.lux-proof__item {
-  break-inside: avoid;
-  margin-bottom: 14px;
-  display: block;
+.lux-proof__viewport {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px 0 16px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.lux-proof__viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.lux-proof__track {
+  display: flex;
+  gap: 16px;
+  width: max-content;
+}
+
+.lux-proof__slide {
+  flex: 0 0 clamp(220px, 28vw, 320px);
+  width: clamp(220px, 28vw, 320px);
+  margin: 0;
 }
 
 .lux-proof__thumb {
@@ -139,16 +207,10 @@ function closeLightbox() {
 
 .lux-proof__thumb img {
   width: 100%;
-  height: auto;
+  aspect-ratio: 4 / 5;
   display: block;
   object-fit: cover;
 }
-
-.lux-proof__item--1 .lux-proof__thumb img { aspect-ratio: 4 / 5; }
-.lux-proof__item--2 .lux-proof__thumb img { aspect-ratio: 1 / 1; }
-.lux-proof__item--3 .lux-proof__thumb img { aspect-ratio: 3 / 4; }
-.lux-proof__item--4 .lux-proof__thumb img { aspect-ratio: 16 / 11; }
-.lux-proof__item--5 .lux-proof__thumb img { aspect-ratio: 5 / 6; }
 
 .lux-proof__caption {
   margin-top: 0.5rem;
@@ -156,6 +218,51 @@ function closeLightbox() {
   letter-spacing: 0.06em;
   color: var(--white-dim);
   line-height: 1.5;
+  text-align: center;
+}
+
+.lux-proof__fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.lux-proof__fade--left {
+  left: 0;
+  background: linear-gradient(90deg, var(--black-2) 0%, transparent 100%);
+}
+
+.lux-proof__fade--right {
+  right: 0;
+  background: linear-gradient(270deg, var(--black-2) 0%, transparent 100%);
+}
+
+.lux-proof__arrow {
+  position: absolute;
+  top: 42%;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  transform: translateY(-50%);
+  border: 1px solid rgba(200, 169, 110, 0.25);
+  background: rgba(10, 10, 10, 0.72);
+  color: var(--gold);
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.lux-proof__arrow--prev {
+  left: 4px;
+}
+
+.lux-proof__arrow--next {
+  right: 4px;
 }
 
 .lux-proof-lightbox {
@@ -189,16 +296,10 @@ function closeLightbox() {
   cursor: pointer;
 }
 
-@media (min-width: 768px) {
-  .lux-proof__grid {
-    columns: 3;
-    column-gap: 18px;
-  }
-}
-
-@media (min-width: 1100px) {
-  .lux-proof__grid {
-    columns: 4;
+@media (max-width: 640px) {
+  .lux-proof__slide {
+    flex: 0 0 72vw;
+    width: 72vw;
   }
 }
 </style>

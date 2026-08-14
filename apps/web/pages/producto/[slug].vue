@@ -20,8 +20,8 @@ const { data: watch, error } = await useCachedAsyncData(
   { watch: [slug], staleTime: STOREFRONT_CACHE_MS.product },
 );
 
-const { data: catalogPool } = await useCachedAsyncData<WatchPublicDto[]>(
-  'product-related-pool',
+const { data: catalogPool, refresh: refreshCatalogPool } = await useCachedAsyncData<WatchPublicDto[]>(
+  () => `product-related-pool-${slug.value}`,
   async () => (await catalog.listCatalog({ limit: 100, available: 'true' })).data,
   { default: (): WatchPublicDto[] => [], staleTime: STOREFRONT_CACHE_MS.catalog },
 );
@@ -33,6 +33,16 @@ const similarWatches = computed(() => (
 const randomWatches = computed(() => (
   watch.value ? pickRandomWatches(watch.value, catalogPool.value ?? [], RANDOM_WATCHES_TOTAL, watch.value.slug) : []
 ));
+
+const discoveryWatches = computed(() => {
+  if (!watch.value) return [];
+  if (randomWatches.value.length) return randomWatches.value;
+  return similarWatches.value;
+});
+
+onMounted(() => {
+  void refreshCatalogPool();
+});
 
 if (error.value) {
   throw createError({ statusCode: 404, message: 'Producto no encontrado' });
@@ -82,11 +92,24 @@ function addToCart() {
         </div>
 
         <CatalogWatchTechSheet :watch="watch" inline compact />
+
+        <CatalogSimilarWatchesCarousel
+          v-if="discoveryWatches.length"
+          :key="`${watch.slug}-inline-discovery`"
+          class="product-inline-carousel"
+          :watches="discoveryWatches"
+          eyebrow="Descubre más"
+          title="Relojes del catálogo"
+          :compact="true"
+          :cycle-seconds="6"
+        />
       </div>
     </div>
 
     <CatalogSimilarWatchesCarousel
+      v-if="similarWatches.length"
       :key="`${watch.slug}-similar`"
+      class="product-page-carousel"
       :watches="similarWatches"
       eyebrow="Selección curada"
       title="Relojes que combinan con tu gusto"
@@ -95,6 +118,7 @@ function addToCart() {
     <CatalogSimilarWatchesCarousel
       v-if="randomWatches.length"
       :key="`${watch.slug}-random`"
+      class="product-page-carousel"
       :watches="randomWatches"
       eyebrow="Explora más"
       title="Piezas que podrían interesarte"

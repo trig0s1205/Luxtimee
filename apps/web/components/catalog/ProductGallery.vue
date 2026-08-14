@@ -1,4 +1,11 @@
 <script setup lang="ts">
+type GallerySlide = {
+  key: string;
+  type: 'image' | 'video';
+  src: string;
+  label: string;
+};
+
 const props = defineProps<{
   frontUrl?: string | null;
   backUrl?: string | null;
@@ -6,63 +13,117 @@ const props = defineProps<{
   alt: string;
 }>();
 
-type MediaView = 'front' | 'back' | 'video';
+const activeIndex = ref(0);
+const touchStartX = ref(0);
 
-const active = ref<MediaView>('front');
+const slides = computed<GallerySlide[]>(() => {
+  const items: GallerySlide[] = [];
+  if (props.frontUrl) items.push({ key: 'front', type: 'image', src: props.frontUrl, label: 'Frontal' });
+  if (props.backUrl) items.push({ key: 'back', type: 'image', src: props.backUrl, label: 'Trasera' });
+  if (props.videoUrl) items.push({ key: 'video', type: 'video', src: props.videoUrl, label: 'Video' });
+  return items;
+});
 
-const hasBack = computed(() => !!props.backUrl);
-const hasVideo = computed(() => !!props.videoUrl);
-const showTabs = computed(() => hasBack.value || hasVideo.value);
+const activeSlide = computed(() => slides.value[activeIndex.value] ?? slides.value[0] ?? null);
 
-function selectView(view: MediaView) {
-  active.value = view;
+watch(slides, (next) => {
+  if (activeIndex.value >= next.length) activeIndex.value = 0;
+});
+
+function goTo(index: number) {
+  if (!slides.value.length) return;
+  activeIndex.value = (index + slides.value.length) % slides.value.length;
+}
+
+function prev() {
+  goTo(activeIndex.value - 1);
+}
+
+function next() {
+  goTo(activeIndex.value + 1);
+}
+
+function onTouchStart(e: TouchEvent) {
+  touchStartX.value = e.changedTouches[0]?.clientX ?? 0;
+}
+
+function onTouchEnd(e: TouchEvent) {
+  const delta = (e.changedTouches[0]?.clientX ?? 0) - touchStartX.value;
+  if (Math.abs(delta) < 40) return;
+  if (delta < 0) next();
+  else prev();
 }
 </script>
 
 <template>
-  <div class="product-gallery">
-    <div class="product-gallery__stage">
-      <video
-        v-if="active === 'video' && videoUrl"
-        :src="videoUrl"
-        class="product-gallery__media"
-        controls
-        playsinline
-      />
-      <img
-        v-else
-        :src="(active === 'back' && backUrl ? backUrl : frontUrl) || undefined"
-        :alt="alt"
-        class="product-gallery__media"
+  <div v-if="slides.length" class="product-gallery">
+    <div
+      class="product-gallery__stage"
+      @touchstart.passive="onTouchStart"
+      @touchend.passive="onTouchEnd"
+    >
+      <button
+        v-if="slides.length > 1"
+        type="button"
+        class="product-gallery__arrow product-gallery__arrow--prev"
+        aria-label="Anterior"
+        @click="prev"
       >
+        ‹
+      </button>
+      <button
+        v-if="slides.length > 1"
+        type="button"
+        class="product-gallery__arrow product-gallery__arrow--next"
+        aria-label="Siguiente"
+        @click="next"
+      >
+        ›
+      </button>
+
+      <Transition name="product-gallery-fade" mode="out-in">
+        <video
+          v-if="activeSlide?.type === 'video'"
+          :key="activeSlide.key"
+          :src="activeSlide.src"
+          class="product-gallery__media"
+          controls
+          playsinline
+        />
+        <img
+          v-else-if="activeSlide"
+          :key="activeSlide.key"
+          :src="activeSlide.src"
+          :alt="alt"
+          class="product-gallery__media"
+        >
+      </Transition>
     </div>
 
-    <div v-if="showTabs" class="product-gallery__tabs">
+    <div v-if="slides.length > 1" class="product-gallery__dots" role="tablist" aria-label="Galería del reloj">
       <button
+        v-for="(slide, i) in slides"
+        :key="slide.key"
+        type="button"
+        class="product-gallery__dot"
+        :class="{ 'product-gallery__dot--active': i === activeIndex }"
+        :aria-label="slide.label"
+        :aria-selected="i === activeIndex"
+        role="tab"
+        @click="goTo(i)"
+      />
+    </div>
+
+    <div v-if="slides.length > 1" class="product-gallery__tabs">
+      <button
+        v-for="(slide, i) in slides"
+        :key="`${slide.key}-tab`"
         type="button"
         class="product-gallery__tab"
-        :class="{ 'product-gallery__tab--active': active === 'front' }"
-        @click="selectView('front')"
+        :class="{ 'product-gallery__tab--active': i === activeIndex }"
+        @click="goTo(i)"
       >
-        Frontal
-      </button>
-      <button
-        v-if="hasBack"
-        type="button"
-        class="product-gallery__tab"
-        :class="{ 'product-gallery__tab--active': active === 'back' }"
-        @click="selectView('back')"
-      >
-        Trasera
-      </button>
-      <button
-        v-if="hasVideo"
-        type="button"
-        class="product-gallery__tab"
-        :class="{ 'product-gallery__tab--active': active === 'video' }"
-        @click="selectView('video')"
-      >
-        Video
+        {{ slide.label }}
       </button>
     </div>
   </div>
@@ -79,6 +140,7 @@ function selectView(view: MediaView) {
 }
 
 .product-gallery__stage {
+  position: relative;
   aspect-ratio: 3 / 4;
   display: flex;
   align-items: center;
@@ -92,6 +154,54 @@ function selectView(view: MediaView) {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.product-gallery__arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  transform: translateY(-50%);
+  border: 1px solid rgba(200, 169, 110, 0.25);
+  background: rgba(10, 10, 10, 0.72);
+  color: var(--gold);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.product-gallery__arrow--prev {
+  left: 8px;
+}
+
+.product-gallery__arrow--next {
+  right: 8px;
+}
+
+.product-gallery__dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.product-gallery__dot {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(200, 169, 110, 0.25);
+  cursor: pointer;
+  transition: background 0.25s, transform 0.25s;
+}
+
+.product-gallery__dot--active {
+  background: var(--gold);
+  transform: scale(1.15);
 }
 
 .product-gallery__tabs {
@@ -126,5 +236,15 @@ function selectView(view: MediaView) {
   background: rgba(200, 169, 110, 0.18);
   border-color: rgba(200, 169, 110, 0.55);
   box-shadow: 0 0 0 1px rgba(200, 169, 110, 0.15);
+}
+
+.product-gallery-fade-enter-active,
+.product-gallery-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.product-gallery-fade-enter-from,
+.product-gallery-fade-leave-to {
+  opacity: 0;
 }
 </style>

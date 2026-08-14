@@ -1697,6 +1697,25 @@ body.cart-scroll-lock {
   text-align: left;
 }
 
+.product-inline-carousel {
+  margin-top: 28px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.product-inline-carousel :deep(.similar-watches) {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  border-top: var(--border-hairline);
+}
+
+.product-page-carousel {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .product-experience-block {
   margin-top: 32px;
   padding-top: 24px;
