@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { WatchPublicDto } from '@luxtime/shared';
 import {
   SOCIAL_PROOF_CITIES,
   SOCIAL_PROOF_FIRST_NAMES,
@@ -7,13 +8,20 @@ import {
   SOCIAL_PROOF_MAX_PER_DAY,
   SOCIAL_PROOF_MIN_INTERVAL_MS,
 } from '~/constants/social-proof-pools';
+import { mockWatches } from '~/mocks/watches';
 
 const LOG_KEY = 'luxtimee-social-proof-log';
+
+type WatchPoolItem = {
+  product: string;
+  imageUrl?: string;
+};
 
 type ToastPayload = {
   name: string;
   city: string;
   product: string;
+  imageUrl?: string;
   minutesAgo: number;
 };
 
@@ -24,7 +32,8 @@ let hideTimer: ReturnType<typeof setTimeout> | null = null;
 
 const route = useRoute();
 const catalog = useCatalogData();
-const watchPool = ref<string[]>([]);
+const { watchPrimaryImage } = useMediaUrl();
+const watchPool = ref<WatchPoolItem[]>([]);
 
 const hiddenRoute = computed(() =>
   route.path.startsWith('/admin')
@@ -53,14 +62,30 @@ function randomItem<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)]!;
 }
 
+function toPoolItem(watch: WatchPublicDto): WatchPoolItem {
+  return {
+    product: `${watch.brand.name} ${watch.model}`.trim(),
+    imageUrl: watchPrimaryImage(watch),
+  };
+}
+
+function fallbackPool(): WatchPoolItem[] {
+  return mockWatches.map((watch) => ({
+    product: `${watch.brand} ${watch.model}`.trim(),
+    imageUrl: watch.image,
+  }));
+}
+
 function buildToast(): ToastPayload | null {
   if (!watchPool.value.length) return null;
+  const watch = randomItem(watchPool.value);
   const first = randomItem(SOCIAL_PROOF_FIRST_NAMES);
   const last = randomItem(SOCIAL_PROOF_LAST_NAMES);
   return {
     name: `${first} ${last}`,
     city: randomItem(SOCIAL_PROOF_CITIES),
-    product: randomItem(watchPool.value),
+    product: watch.product,
+    imageUrl: watch.imageUrl,
     minutesAgo: Math.floor(Math.random() * 175) + 5,
   };
 }
@@ -109,9 +134,10 @@ function dismiss() {
 onMounted(async () => {
   try {
     const res = await catalog.listCatalog({ limit: 60, available: 'true' });
-    watchPool.value = res.data.map((w) => `${w.brand.name} ${w.model}`.trim()).filter(Boolean);
+    const items = res.data.map(toPoolItem).filter((item) => item.product);
+    watchPool.value = items.length ? items : fallbackPool();
   } catch {
-    watchPool.value = ['Rolex Submariner', 'Omega Seamaster', 'Cartier Santos', 'Rolex Daytona'];
+    watchPool.value = fallbackPool();
   }
 
   const initialDelay = 45_000 + Math.random() * 60_000;
@@ -137,6 +163,20 @@ watch(hiddenRoute, (hidden) => {
       aria-live="polite"
     >
       <button type="button" class="social-proof-toast__close" aria-label="Cerrar" @click="dismiss">×</button>
+      <img
+        v-if="current.imageUrl"
+        :src="current.imageUrl"
+        :alt="current.product"
+        class="social-proof-toast__avatar"
+        loading="lazy"
+        decoding="async"
+      >
+      <div v-else class="social-proof-toast__avatar social-proof-toast__avatar--placeholder" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+          <circle cx="12" cy="12" r="8" />
+          <path d="M12 8v4l2 2" />
+        </svg>
+      </div>
       <p class="social-proof-toast__text">
         <strong>{{ current.name }}</strong> en {{ current.city }} compró
         <span class="social-proof-toast__product">{{ current.product }}</span>
@@ -152,14 +192,34 @@ watch(hiddenRoute, (hidden) => {
   left: 16px;
   bottom: 88px;
   z-index: 90;
-  max-width: min(340px, calc(100vw - 32px));
-  padding: 14px 36px 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 12px 36px 12px 12px;
   background: var(--black-2);
   border: 1px solid rgba(200, 169, 110, 0.22);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
 }
 
+.social-proof-toast__avatar {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(200, 169, 110, 0.35);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.social-proof-toast__avatar--placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--gold);
+}
+
 .social-proof-toast__text {
+  margin: 0;
   font-size: 12px;
   line-height: 1.55;
   color: var(--white-dim);
@@ -201,6 +261,11 @@ watch(hiddenRoute, (hidden) => {
   .social-proof-toast {
     left: 12px;
     bottom: 76px;
+  }
+
+  .social-proof-toast__avatar {
+    width: 40px;
+    height: 40px;
   }
 }
 </style>
