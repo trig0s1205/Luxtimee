@@ -306,6 +306,7 @@ section {
 .statement-text em {
   font-style: italic;
   font-weight: 600;
+  color: var(--black);
 }
 
 /* —— Navbar —— */

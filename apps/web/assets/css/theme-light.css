@@ -36,3 +36,13 @@
 [data-theme="light"] .social-proof-toast {
   box-shadow: 0 12px 32px rgba(20, 20, 20, 0.12);
 }
+
+[data-theme="light"] .statement-section {
+  background: linear-gradient(135deg, var(--gold-light) 0%, var(--gold) 50%, var(--gold-dark) 100%);
+}
+
+[data-theme="light"] .statement-text,
+[data-theme="light"] .statement-text em,
+[data-theme="light"] .statement-sub {
+  color: #141414;
+}
