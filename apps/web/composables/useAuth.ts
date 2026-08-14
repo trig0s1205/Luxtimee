@@ -21,6 +21,7 @@ export function useAuth() {
   };
 
   const completeLogin = async (requested?: string | null) => {
+    auth.hydrateTokens();
     await auth.fetchMe();
     if (!auth.user) return null;
     const stored = consumeAuthRedirect();

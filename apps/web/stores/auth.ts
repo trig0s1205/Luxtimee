@@ -1,6 +1,12 @@
 import { defineStore } from 'pinia';
-import type { AuthUserDto } from '@luxtime/shared';
+import type { AuthRefreshDto, AuthSessionDto, AuthUserDto } from '@luxtime/shared';
 import { Role } from '@luxtime/shared';
+import {
+  authFetchHeaders,
+  clearStoredTokens,
+  loadStoredTokens,
+  saveStoredTokens,
+} from '~/utils/auth-token';
 import {
   clearLocalSession,
   loadLocalSession,
@@ -10,9 +16,14 @@ import {
 } from '~/utils/local-auth';
 import { AUTH_REDIRECT_KEY } from '~/utils/auth-redirect';
 
+function isStaffUser(user: AuthUserDto | null) {
+  return user?.role === Role.ADMIN || user?.role === Role.SUPER_ADMIN;
+}
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null as AuthUserDto | null,
+    accessToken: null as string | null,
     loaded: false,
     isLocalSession: false,
     sessionCheckedAt: 0,
@@ -29,21 +40,56 @@ export const useAuthStore = defineStore('auth', {
       this.loaded = true;
       if (user) this.sessionCheckedAt = Date.now();
     },
+    setTokens(accessToken: string | null, refreshToken?: string | null) {
+      this.accessToken = accessToken;
+      if (import.meta.client) {
+        saveStoredTokens(accessToken, refreshToken);
+      }
+    },
     hydrateLocal() {
       if (!LOCAL_AUTH_ENABLED) return;
       const local = loadLocalSession();
-      if (local && (local.role === Role.ADMIN || local.role === Role.SUPER_ADMIN)) {
+      if (local && isStaffUser(local)) {
         this.setUser(local, true);
+      }
+    },
+    hydrateTokens() {
+      if (!import.meta.client) return;
+      const { accessToken } = loadStoredTokens();
+      this.accessToken = accessToken;
+    },
+    applySession(data: AuthSessionDto, isLocalSession = false) {
+      clearLocalSession();
+      if (data.accessToken) {
+        this.setTokens(data.accessToken, data.refreshToken ?? null);
+      }
+      this.setUser(data.user, isLocalSession);
+    },
+    async refreshSession() {
+      const baseUrl = useApiBaseUrl();
+      const stored = loadStoredTokens();
+      const body = stored.refreshToken ? { refreshToken: stored.refreshToken } : undefined;
+      const data = await $fetch<AuthRefreshDto>(`${baseUrl}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        body,
+        headers: authFetchHeaders(this.accessToken),
+      });
+      if (data.accessToken) {
+        this.setTokens(data.accessToken, data.refreshToken ?? stored.refreshToken ?? null);
       }
     },
     async fetchMe(options: { allowRefresh?: boolean } = {}) {
       const { allowRefresh = true } = options;
       const baseUrl = useApiBaseUrl();
+      const fetchOptions = {
+        credentials: 'include' as const,
+        headers: authFetchHeaders(this.accessToken),
+      };
+
       try {
-        const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, {
-          credentials: 'include',
-        });
-        if (data.user.role === Role.ADMIN || data.user.role === Role.SUPER_ADMIN) {
+        const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, fetchOptions);
+        if (isStaffUser(data.user)) {
           clearLocalSession();
           this.setUser(data.user, false);
         } else {
@@ -53,14 +99,12 @@ export const useAuthStore = defineStore('auth', {
       } catch {
         if (allowRefresh) {
           try {
-            await $fetch(`${baseUrl}/auth/refresh`, {
-              method: 'POST',
-              credentials: 'include',
-            });
+            await this.refreshSession();
             const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, {
               credentials: 'include',
+              headers: authFetchHeaders(this.accessToken),
             });
-            if (data.user.role === Role.ADMIN || data.user.role === Role.SUPER_ADMIN) {
+            if (isStaffUser(data.user)) {
               clearLocalSession();
               this.setUser(data.user, false);
               return;
@@ -70,12 +114,17 @@ export const useAuthStore = defineStore('auth', {
 
         if (LOCAL_AUTH_ENABLED) {
           const local = loadLocalSession();
-          if (local && (local.role === Role.ADMIN || local.role === Role.SUPER_ADMIN)) {
+          if (local && isStaffUser(local)) {
             this.setUser(local, true);
             return;
           }
         }
+
+        const hadStaffSession = isStaffUser(this.user);
         this.setUser(null, false);
+        if (hadStaffSession) {
+          this.setTokens(null, null);
+        }
       }
     },
     localLogin(email: string, password: string) {
@@ -92,28 +141,27 @@ export const useAuthStore = defineStore('auth', {
     },
     async mockLogin(email: string, name: string) {
       const baseUrl = useApiBaseUrl();
-      const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/mock-login`, {
+      const data = await $fetch<AuthSessionDto>(`${baseUrl}/auth/mock-login`, {
         method: 'POST',
         body: { email, name },
         credentials: 'include',
       });
-      clearLocalSession();
-      this.setUser(data.user, false);
+      this.applySession(data, false);
       return data.user;
     },
     async credentialLogin(email: string, password: string) {
       const baseUrl = useApiBaseUrl();
-      const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/login`, {
+      const data = await $fetch<AuthSessionDto>(`${baseUrl}/auth/login`, {
         method: 'POST',
         body: { email: email.trim(), password },
         credentials: 'include',
       });
-      clearLocalSession();
-      this.setUser(data.user, false);
+      this.applySession(data, false);
       return data.user;
     },
     async logout() {
       clearLocalSession();
+      clearStoredTokens();
       if (import.meta.client) {
         sessionStorage.removeItem(AUTH_REDIRECT_KEY);
       }
@@ -122,8 +170,10 @@ export const useAuthStore = defineStore('auth', {
         await $fetch(`${baseUrl}/auth/logout`, {
           method: 'POST',
           credentials: 'include',
+          headers: authFetchHeaders(this.accessToken),
         });
       } catch { /* */ }
+      this.accessToken = null;
       this.setUser(null, false);
       this.loaded = false;
     },

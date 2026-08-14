@@ -1,5 +1,7 @@
 import { fileURLToPath } from 'node:url';
 
+const apiUpstream = process.env.NUXT_API_UPSTREAM_URL?.replace(/\/$/, '');
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -13,16 +15,24 @@ export default defineNuxtConfig({
     '/': { swr: 60 },
     '/catalogo': { swr: 120 },
     '/admin/**': { ssr: false },
+    ...(apiUpstream
+      ? {
+          '/api/v1/**': { proxy: `${apiUpstream}/api/v1/**` },
+          '/uploads/**': { proxy: `${apiUpstream}/uploads/**` },
+        }
+      : {}),
   },
   alias: {
     '@luxtime/shared': fileURLToPath(new URL('../../packages/shared/src/index.ts', import.meta.url)),
   },
   runtimeConfig: {
     apiInternalUrl: process.env.NUXT_API_INTERNAL_URL
+      || (apiUpstream ? `${apiUpstream}/api/v1` : undefined)
       || process.env.NUXT_PUBLIC_API_BASE_URL
       || 'http://127.0.0.1:3001/api/v1',
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL
+        || (apiUpstream ? '/api/v1' : undefined)
         || (process.env.NUXT_LAN === 'true' ? '/api/v1' : 'http://localhost:3001/api/v1'),
       apiAssetsUrl: process.env.NUXT_PUBLIC_API_ASSETS_URL
         ?? (process.env.NUXT_LAN === 'true' ? '' : 'http://localhost:3001'),

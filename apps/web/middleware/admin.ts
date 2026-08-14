@@ -1,11 +1,11 @@
-export default defineNuxtRouteMiddleware(async () => {
+export default defineNuxtRouteMiddleware(async (to) => {
   const auth = useAuthStore();
-
-  // SIEMPRE verificar con el API - sin excepciones
+  auth.hydrateLocal();
+  auth.hydrateTokens();
   await auth.fetchMe({ allowRefresh: true });
 
-  // Si no hay usuario autenticado o no es staff → fuera
   if (!auth.user || (auth.user.role !== 'ADMIN' && auth.user.role !== 'SUPER_ADMIN')) {
-    return navigateTo('/vigilancia', { replace: true });
+    const { loginPath } = useStaffLoginPath();
+    return navigateTo(loginPath({ redirect: to.fullPath }), { replace: true });
   }
 });

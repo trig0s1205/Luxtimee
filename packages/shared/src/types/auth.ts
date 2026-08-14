@@ -10,6 +10,14 @@ export interface AuthUserDto {
 
 export interface AuthSessionDto {
   user: AuthUserDto;
+  accessToken?: string;
+  refreshToken?: string;
+}
+
+export interface AuthRefreshDto {
+  ok: boolean;
+  accessToken?: string;
+  refreshToken?: string;
 }
 
 export interface AuthConfigDto {

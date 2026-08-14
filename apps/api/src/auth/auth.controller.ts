@@ -19,7 +19,7 @@ import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/metadata.decorators';
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 import {
   ChangeEmailDto,
   ChangePasswordDto,
@@ -34,6 +34,12 @@ class MockLoginDto {
   @IsString()
   @MinLength(2)
   name!: string;
+}
+
+class RefreshTokenDto {
+  @IsOptional()
+  @IsString()
+  refreshToken?: string;
 }
 
 @Controller({ path: 'auth', version: '1' })
@@ -97,6 +103,8 @@ export class AuthController {
         role: user.role,
         phone: user.phone,
       },
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
     };
   }
 
@@ -122,14 +130,20 @@ export class AuthController {
         name: user.name,
         role: user.role,
       },
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
     };
   }
 
   @Public()
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('refresh')
-  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const refreshToken = req.cookies?.LUXTIMEE_refresh;
+  async refresh(
+    @Req() req: Request,
+    @Body() dto: RefreshTokenDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = req.cookies?.LUXTIMEE_refresh ?? dto.refreshToken;
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token no encontrado');
     }
@@ -146,7 +160,11 @@ export class AuthController {
 
       const tokens = await this.authService.issueTokens(user);
       this.authService.setAuthCookies(res, tokens);
-      return { ok: true };
+      return {
+        ok: true,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      };
     } catch {
       throw new UnauthorizedException('Refresh token inválido');
     }

@@ -1,3 +1,6 @@
+import type { AuthRefreshDto } from '@luxtime/shared';
+import { authFetchHeaders, loadStoredTokens } from '~/utils/auth-token';
+
 type QueryValue = string | number | boolean | undefined;
 
 type RequestOptions = {
@@ -20,12 +23,21 @@ export function useApi() {
   const baseUrl = useApiBaseUrl();
 
   async function refreshSession() {
+    const auth = useAuthStore();
     if (!refreshPromise) {
-      refreshPromise = $fetch(`${baseUrl}/auth/refresh`, {
+      const stored = loadStoredTokens();
+      const body = stored.refreshToken ? { refreshToken: stored.refreshToken } : undefined;
+      refreshPromise = $fetch<AuthRefreshDto>(`${baseUrl}/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
+        body,
+        headers: authFetchHeaders(auth.accessToken),
       })
-        .then(() => undefined)
+        .then((data) => {
+          if (data.accessToken) {
+            auth.setTokens(data.accessToken, data.refreshToken ?? stored.refreshToken ?? null);
+          }
+        })
         .finally(() => {
           refreshPromise = null;
         });
@@ -49,6 +61,7 @@ export function useApi() {
         body: options.body as Record<string, unknown> | BodyInit | null | undefined,
         query: options.query,
         credentials: 'include',
+        headers: authFetchHeaders(auth.accessToken),
       });
       return response as T;
     } catch (err: unknown) {
@@ -61,7 +74,8 @@ export function useApi() {
           if (import.meta.client) {
             const route = useRoute();
             if (route.path.startsWith('/admin')) {
-              await navigateTo('/vigilancia', { replace: true });
+              const { loginPath } = useStaffLoginPath();
+              await navigateTo(loginPath({ redirect: route.fullPath }), { replace: true });
             } else {
               const { loginPath } = useStaffLoginPath();
               await navigateTo(loginPath({ redirect: route.fullPath }));

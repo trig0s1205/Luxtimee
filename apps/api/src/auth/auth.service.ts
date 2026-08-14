@@ -170,6 +170,7 @@ export class AuthService {
 
   setAuthCookies(res: Response, tokens: { accessToken: string; refreshToken: string }) {
     const isProd = this.config.get('NODE_ENV') === 'production';
+    const configuredSameSite = this.config.get<'lax' | 'none'>('COOKIE_SAME_SITE');
     const cookieOptions: {
       httpOnly: boolean;
       secure: boolean;
@@ -178,7 +179,7 @@ export class AuthService {
     } = {
       httpOnly: true,
       secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      sameSite: configuredSameSite ?? (isProd ? 'none' : 'lax'),
       path: '/',
     };
 
@@ -195,6 +196,7 @@ export class AuthService {
 
   clearAuthCookies(res: Response) {
     const isProd = this.config.get('NODE_ENV') === 'production';
+    const configuredSameSite = this.config.get<'lax' | 'none'>('COOKIE_SAME_SITE');
     const cookieOptions: {
       httpOnly: boolean;
       secure: boolean;
@@ -203,7 +205,7 @@ export class AuthService {
     } = {
       httpOnly: true,
       secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      sameSite: configuredSameSite ?? (isProd ? 'none' : 'lax'),
       path: '/',
     };
 
