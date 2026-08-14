@@ -4,7 +4,7 @@ export default {
     about: 'About',
     contact: 'Contact',
     raffles: 'Raffles',
-    wholesale: 'Elite Partners',
+    wholesale: 'Wholesale',
     bag: 'Bag',
     menu: 'Menu',
   },

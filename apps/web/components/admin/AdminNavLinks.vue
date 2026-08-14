@@ -31,7 +31,7 @@ const prePedidosLinks = [
 ];
 
 const linksAfterPedidos = [
-  { to: '/admin/socios-mayoristas', label: 'Socios mayoristas' },
+  { to: '/admin/socios-mayoristas', label: 'Mayoristas' },
   { to: '/admin/garantias', label: 'Garantías' },
   { to: '/admin/envios', label: 'Envíos', superOnly: true },
 ];

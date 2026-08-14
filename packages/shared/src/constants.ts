@@ -9,7 +9,7 @@ export const MIN_WHOLESALE_COOKIE_DAYS = 1;
 export const MAX_WHOLESALE_COOKIE_DAYS = 365;
 
 export const WHOLESALE_BANNER =
-  '¿Compras al por mayor? Solicita acceso en nuestra sección de socios mayoristas.';
+  '¿Compras al por mayor? Solicita acceso en nuestra sección de mayoristas.';
 
 /** Única zona cuyo costo de envío es siempre $0 y no se puede cambiar desde admin. */
 export const FREE_SHIPPING_ZONE_NAME = 'Piedecuesta';

@@ -46,7 +46,7 @@ useSeoMeta({ title: 'Catálogo mayorista — LUXTIMEE' });
     </header>
 
     <section class="mb-8 text-sm text-lux-white-dim leading-relaxed max-w-3xl">
-      Precios mayoristas exclusivos para socios autorizados. Mínimo recomendado de compra: 4 unidades.
+      Precios mayoristas exclusivos para clientes autorizados. Mínimo recomendado de compra: 4 unidades.
       Especificaciones completas por reloj. Los pedidos desde aquí se registran como mayorista.
     </section>
 

@@ -6,7 +6,7 @@ onMounted(async () => {
   await fetchSession();
 });
 
-useSeoMeta({ title: 'Socios Mayoristas — LUXTIMEE' });
+useSeoMeta({ title: 'Mayoristas — LUXTIMEE' });
 </script>
 
 <template>
@@ -23,7 +23,7 @@ useSeoMeta({ title: 'Socios Mayoristas — LUXTIMEE' });
 
     <section class="manifesto-section reveal">
       <p class="manifesto-tag">Programa mayorista</p>
-      <h1>Catálogo y precios exclusivos para socios</h1>
+      <h1>Catálogo y precios exclusivos para mayoristas</h1>
       <p class="section-body" style="max-width:640px;margin:0 auto">
         Compra al por mayor con especificaciones completas, condiciones claras y precios reservados.
         Si ya te enviamos tu enlace privado, ábrelo directamente — no necesitas escribirnos de nuevo.
@@ -35,7 +35,7 @@ useSeoMeta({ title: 'Socios Mayoristas — LUXTIMEE' });
       <ul class="plan-features" style="text-align:left;max-width:520px;margin:0 auto">
         <li>Los precios mayoristas no están en el catálogo público.</li>
         <li>Comprar 4 o más relojes en la web retail sigue siendo al precio de detal.</li>
-        <li>Solo socios autorizados acceden al catálogo mayorista por enlace privado.</li>
+        <li>Solo mayoristas autorizados acceden al catálogo por enlace privado.</li>
         <li>Mínimo recomendado: 4 unidades por pedido mayorista.</li>
       </ul>
     </section>

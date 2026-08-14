@@ -4,7 +4,7 @@ export default {
     about: 'Nosotros',
     contact: 'Contacto',
     raffles: 'Sorteos',
-    wholesale: 'Socios Élite',
+    wholesale: 'Mayoristas',
     bag: 'Bolsa',
     menu: 'Menú',
   },

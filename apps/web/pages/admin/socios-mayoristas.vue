@@ -106,16 +106,16 @@ async function removeAccess(item: WholesaleAccessDto) {
   deletingId.value = item.id;
   try {
     await api.del(`/wholesale-access/${item.id}`);
-    toast.success('Socio eliminado.');
+    toast.success('Mayorista eliminado.');
     await refresh();
   } catch (err: unknown) {
-    toast.error(err instanceof Error ? err.message : 'No se pudo eliminar el socio.');
+    toast.error(err instanceof Error ? err.message : 'No se pudo eliminar el mayorista.');
   } finally {
     deletingId.value = null;
   }
 }
 
-useSeoMeta({ title: 'Socios mayoristas — LUXTIMEE Admin' });
+useSeoMeta({ title: 'Mayoristas — LUXTIMEE Admin' });
 </script>
 
 <template>
@@ -123,19 +123,19 @@ useSeoMeta({ title: 'Socios mayoristas — LUXTIMEE Admin' });
     <UiToastContainer />
     <UiSectionHeader
       label="Ventas"
-      title="Socios mayoristas"
+      title="Mayoristas"
       :refreshable="true"
       :refreshing="pending"
       @refresh="refresh()"
     />
     <p class="admin-records-hint">
-      Crea accesos privados y comparte el enlace con cada socio. Solo quien tenga un enlace activo puede ver el catálogo mayorista.
+      Crea accesos privados y comparte el enlace con cada mayorista. Solo quien tenga un enlace activo puede ver el catálogo mayorista.
     </p>
 
     <section class="admin-record-export">
       <h3>Nuevo acceso</h3>
       <div class="grid gap-3 md:grid-cols-2">
-        <UiLuxInput v-model="form.name" placeholder="Nombre del socio" />
+        <UiLuxInput v-model="form.name" placeholder="Nombre del mayorista" />
         <UiLuxInput v-model="form.email" type="email" placeholder="Correo (opcional)" />
         <UiLuxInput v-model="form.phone" placeholder="Teléfono (opcional)" />
         <UiLuxInput v-model="form.notes" placeholder="Notas internas (opcional)" />
@@ -155,7 +155,7 @@ useSeoMeta({ title: 'Socios mayoristas — LUXTIMEE Admin' });
       </div>
     </section>
 
-    <div v-if="pending && !items.length" class="admin-record-empty">Cargando socios...</div>
+    <div v-if="pending && !items.length" class="admin-record-empty">Cargando mayoristas...</div>
 
     <div v-else class="admin-records-list">
       <article v-for="item in items" :key="item.id" class="admin-record-card">
@@ -206,7 +206,7 @@ useSeoMeta({ title: 'Socios mayoristas — LUXTIMEE Admin' });
           </div>
         </div>
       </article>
-      <p v-if="!items.length" class="admin-record-empty">Aún no hay socios mayoristas autorizados.</p>
+      <p v-if="!items.length" class="admin-record-empty">Aún no hay mayoristas autorizados.</p>
     </div>
   </div>
 </template>

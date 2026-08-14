@@ -16,8 +16,8 @@ test.describe('Portal mayoristas', () => {
     await expect(page).toHaveURL(/\/mayoristas\/?$/);
   });
 
-  test('nav tiene enlace Socios Élite', async ({ page }) => {
+  test('nav tiene enlace Mayoristas', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('#navbar').getByRole('link', { name: 'Socios Élite' })).toBeVisible();
+    await expect(page.locator('#navbar').getByRole('link', { name: 'Mayoristas' })).toBeVisible();
   });
 });
