@@ -93,6 +93,11 @@ async function submitLogin(preset?: { email: string; password: string }) {
       return;
     }
 
+    if (!auth.accessToken && !config.value.mockEnabled) {
+      error.value = 'No se pudo establecer la sesión en este navegador. Recarga e intenta de nuevo.';
+      return;
+    }
+
     await navigateTo(redirectAfterLogin(user, redirectTarget.value));
   } catch (e: unknown) {
     const err = e as { data?: { message?: string | string[] }; message?: string };

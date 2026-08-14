@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { BrandDto, CategoryDto, ShippingZoneDto } from '@luxtime/shared';
 import { preloadRouteComponents } from '#app';
+import { resolveAccessToken } from '~/utils/auth-token';
 import { warmupAdminModules } from '~/utils/admin-warmup';
 
 const auth = useAuthStore();
@@ -37,6 +38,8 @@ useHead({
 onMounted(() => {
   if (!import.meta.client) return;
 
+  auth.hydrateTokens();
+
   for (const route of ADMIN_ROUTES) {
     void preloadRouteComponents(route);
   }
@@ -44,13 +47,24 @@ onMounted(() => {
   const catalog = useAdminCatalogStore();
   const adminData = useAdminDataStore();
 
-  void catalog.ensureAll({
-    brands: () => api.get<BrandDto[]>('/brands').catch(() => []),
-    categories: () => api.get<CategoryDto[]>('/categories').catch(() => []),
-  });
-  void adminData.ensureZones(() => api.get<ShippingZoneDto[]>('/shipping-zones').catch(() => []));
+  async function loadSharedAdminData() {
+    catalog.invalidate();
+    await catalog.ensureAll({
+      brands: () => api.get<BrandDto[]>('/brands'),
+      categories: () => api.get<CategoryDto[]>('/categories'),
+    });
+    await adminData.ensureZones(() => api.get<ShippingZoneDto[]>('/shipping-zones'));
+    warmupAdminModules(api);
+  }
 
-  warmupAdminModules(api);
+  void loadSharedAdminData();
+
+  watch(
+    () => resolveAccessToken(auth.accessToken),
+    (token) => {
+      if (token) void loadSharedAdminData();
+    },
+  );
 });
 
 const { open: sidebarOpen, close: closeSidebar } = useAdminSidebar();

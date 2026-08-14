@@ -66,6 +66,8 @@ async function bootstrap() {
             }
       : true,
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
   });
 
   const port = Number(process.env.PORT ?? 3001);

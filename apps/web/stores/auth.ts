@@ -17,6 +17,7 @@ import {
   saveLocalSession,
   validateLocalLogin,
 } from '~/utils/local-auth';
+import { invalidateAdminCachePrefix } from '~/utils/admin-cache';
 import { AUTH_REDIRECT_KEY } from '~/utils/auth-redirect';
 
 function isStaffUser(user: AuthUserDto | null) {
@@ -47,6 +48,11 @@ export const useAuthStore = defineStore('auth', {
       this.accessToken = accessToken;
       if (import.meta.client) {
         saveStoredTokens(accessToken, refreshToken);
+        if (accessToken) {
+          invalidateAdminCachePrefix('admin-');
+          invalidateAdminCachePrefix('inventory-');
+          invalidateAdminCachePrefix('care');
+        }
       }
     },
     hydrateLocal() {

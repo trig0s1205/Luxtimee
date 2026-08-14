@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BrandDto, CareTemplateDto, InventoryInsightsDto, PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
+import type { BrandDto, CareTemplateDto, CategoryDto, InventoryInsightsDto, PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
 import { WatchStatus } from '@luxtime/shared';
 import { extractApiErrorMessage, isBadRequest } from '~/utils/api-error';
 import { invalidateAdminCache } from '~/utils/admin-cache';
@@ -78,23 +78,29 @@ const watchesKey = computed(() =>
 
 const { data: paginated, refresh, pending } = useAdminCachedData(
   watchesKey,
-  () => api.get<PaginatedResponse<WatchStaffDto>>('/watches', fetchQuery.value as Record<string, string | number | boolean | undefined>).catch(() => ({ data: [], total: 0, page: 1, limit: PAGE_SIZE })),
+  () => api.get<PaginatedResponse<WatchStaffDto>>('/watches', fetchQuery.value as Record<string, string | number | boolean | undefined>),
 );
 
 const { data: insights, pending: insightsPending, refresh: refreshInsights } = useAdminCachedData(
   'inventory-insights',
-  () => api.get<InventoryInsightsDto>('/watches/inventory-insights').catch(() => null),
+  () => api.get<InventoryInsightsDto>('/watches/inventory-insights'),
 );
 
-// Brands/categories en paralelo con watches (no bloquean)
-catalogStore.ensureAll({
-  brands: () => api.get<BrandDto[]>('/brands').catch(() => []),
-  categories: () => api.get<BrandDto[]>('/categories').catch(() => []) as Promise<BrandDto[]>,
-});
+async function loadCatalogMeta() {
+  catalogStore.invalidate();
+  await catalogStore.ensureAll({
+    brands: () => api.get<BrandDto[]>('/brands'),
+    categories: () => api.get<CategoryDto[]>('/categories'),
+  });
+}
 
-const { data: careTemplates } = useAdminCachedData('care', () =>
-  api.get<CareTemplateDto[]>('/care').catch(() => []),
+void loadCatalogMeta();
+
+const { data: careTemplates, refresh: refreshCare } = useAdminCachedData('care', () =>
+  api.get<CareTemplateDto[]>('/care'),
 );
+
+useAdminRefetchWhenAuthed([refresh, refreshInsights, refreshCare, loadCatalogMeta]);
 
 const watches = computed(() => paginated.value?.data ?? []);
 const total = computed(() => paginated.value?.total ?? 0);

@@ -60,6 +60,8 @@ export function useApi() {
       auth.accessToken = token;
     }
 
+    const hadToken = !!token;
+
     try {
       const response = await $fetch(`${baseUrl}${path}`, {
         method: options.method ?? 'GET',
@@ -71,13 +73,19 @@ export function useApi() {
       return response as T;
     } catch (err: unknown) {
       if (isUnauthorized(err) && !options._retried) {
+        const lateToken = resolveAccessToken(auth.accessToken);
+        if (lateToken && !hadToken) {
+          auth.accessToken = lateToken;
+          return request<T>(path, { ...options, _retried: true });
+        }
+
         const stored = loadStoredTokens();
         if (stored.refreshToken) {
           try {
             await refreshSession();
             return request<T>(path, { ...options, _retried: true });
           } catch {
-            /* refresh falló; no cerrar sesión */
+            /* refresh falló */
           }
         }
       }
