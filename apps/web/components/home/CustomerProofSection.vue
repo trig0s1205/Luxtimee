@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import type { HomepageCustomerProofConfig } from '@luxtime/shared';
 
+import { normalizeCustomerProofImages } from '~/utils/homepage-config';
+
 const props = defineProps<{ config: HomepageCustomerProofConfig }>();
 
-const images = computed(() =>
-  (props.config.images ?? []).filter((item) => item.url?.trim()),
-);
+const images = computed(() => normalizeCustomerProofImages(props.config.images));
 
 const lightboxUrl = ref<string | null>(null);
 

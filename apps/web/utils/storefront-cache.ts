@@ -32,3 +32,8 @@ export function hasHydratedCacheKey(key: string) {
 export function markHydratedCacheKey(key: string) {
   hydratedKeys.add(key);
 }
+
+export function invalidateClientCache(key: string) {
+  clientStore.delete(key);
+  hydratedKeys.delete(key);
+}

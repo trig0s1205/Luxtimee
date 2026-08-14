@@ -3,6 +3,7 @@ import type { MaybeRefOrGetter } from 'vue';
 import { toValue } from 'vue';
 import {
   hasHydratedCacheKey,
+  invalidateClientCache,
   markHydratedCacheKey,
   readClientCache,
   STOREFRONT_CACHE_MS,
@@ -27,7 +28,7 @@ export function useCachedAsyncData<T, E = T>(
   const staleTime = options?.staleTime ?? STOREFRONT_CACHE_MS.catalog;
   const { staleTime: _ignored, ...asyncOptions } = options ?? {};
 
-  return useAsyncData<T>(
+  const result = useAsyncData<T>(
     key,
     async () => {
       const resolved = toValue(key);
@@ -35,9 +36,9 @@ export function useCachedAsyncData<T, E = T>(
         const hit = readClientCache<T>(resolved, staleTime);
         if (hit !== undefined) return hit;
       }
-      const result = await handler();
-      if (import.meta.client) writeClientCache(resolved, result);
-      return result;
+      const data = await handler();
+      if (import.meta.client) writeClientCache(resolved, data);
+      return data;
     },
     {
       ...asyncOptions,
@@ -56,4 +57,14 @@ export function useCachedAsyncData<T, E = T>(
       },
     } as AsyncDataOptions<T>,
   );
+
+  async function refreshFromNetwork() {
+    invalidateClientCache(toValue(key));
+    await result.refresh();
+  }
+
+  return {
+    ...result,
+    refresh: refreshFromNetwork,
+  };
 }

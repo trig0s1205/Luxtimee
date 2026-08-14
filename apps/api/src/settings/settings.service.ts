@@ -15,6 +15,8 @@ import type {
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
 
+import { normalizeCustomerProofImages } from './homepage-images.util';
+
 const HOMEPAGE_KEY = 'homepage_config';
 
 const PUBLIC_SETTING_KEYS = new Set([
@@ -252,12 +254,7 @@ export class SettingsService {
       customerProof: {
         ...DEFAULT_HOMEPAGE_CONFIG.customerProof,
         ...(stored.customerProof ?? {}),
-        images: Array.isArray(stored.customerProof?.images)
-          ? stored.customerProof!.images.map((img) => ({
-              url: img?.url ?? '',
-              caption: img?.caption ?? '',
-            }))
-          : DEFAULT_HOMEPAGE_CONFIG.customerProof.images,
+        images: normalizeCustomerProofImages(stored.customerProof?.images),
       },
       statement: { ...DEFAULT_HOMEPAGE_CONFIG.statement, ...(stored.statement ?? {}) },
       contact: { ...DEFAULT_HOMEPAGE_CONFIG.contact, ...(stored.contact ?? {}) },
@@ -275,7 +272,9 @@ export class SettingsService {
         ? {
             ...current.customerProof,
             ...patch.customerProof,
-            images: patch.customerProof.images ?? current.customerProof.images,
+            images: normalizeCustomerProofImages(
+              patch.customerProof.images ?? current.customerProof.images,
+            ),
           }
         : current.customerProof,
       statement: patch.statement ? { ...current.statement, ...patch.statement } : current.statement,

@@ -7,7 +7,7 @@ import type {
   WhatsappSettingDto,
 } from '@luxtime/shared';
 import { extractApiErrorMessage } from '~/utils/api-error';
-import { DEFAULT_HOMEPAGE_CONFIG } from '~/composables/useHomepageConfig';
+import { DEFAULT_HOMEPAGE_CONFIG } from '~/utils/homepage-config';
 
 definePageMeta({ middleware: ['admin'], keepalive: true });
 
@@ -222,30 +222,28 @@ async function saveIndexSettings() {
       toast.warning('Fundador desactivado (faltan 5 fotos). El resto del Index sí se guardó.');
     }
 
+    const proofImages = home.customerProof.images
+      .map((img) => ({
+        url: img.url?.trim().replace(/^["']|["']$/g, '') ?? '',
+        caption: img.caption?.trim().replace(/^["']|["']$/g, '') || undefined,
+      }))
+      .filter((img) => /^https?:\/\//i.test(img.url));
+
     await api.patch('/settings/homepage', {
       featured: { ...home.featured },
-      founder: {
-        ...home.founder,
-        carouselImages: [...home.founder.carouselImages],
-        storyParagraphs: [...home.founder.storyParagraphs],
-      },
+      founder: founderPayload,
       valueProps: {
         ...home.valueProps,
         items: home.valueProps.items.map((item) => ({ ...item })),
       },
       customerProof: {
         ...home.customerProof,
-        images: home.customerProof.images
-          .filter((img) => img.url?.trim())
-          .map((img) => ({
-            url: img.url.trim(),
-            caption: img.caption?.trim() || undefined,
-          })),
+        images: proofImages,
       },
       statement: { ...home.statement },
       contact: { ...home.contact },
     });
-    toast.success('Configuración Index guardada.');
+    toast.success(`Index guardado (${proofImages.length} reseñas visuales).`);
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'No se pudo guardar el Index.'));
   } finally {
