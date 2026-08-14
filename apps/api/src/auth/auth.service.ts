@@ -14,6 +14,23 @@ export interface JwtPayload {
 
 const STAFF_ROLES = new Set<Role>([Role.ADMIN, Role.SUPER_ADMIN]);
 
+function parseDurationMs(value: string | undefined, fallbackMs: number): number {
+  if (!value) return fallbackMs;
+  const match = /^(\d+(?:\.\d+)?)(ms|s|m|h|d)$/i.exec(value.trim());
+  if (!match) return fallbackMs;
+  const amount = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  const multipliers: Record<string, number> = {
+    ms: 1,
+    s: 1000,
+    m: 60_000,
+    h: 3_600_000,
+    d: 86_400_000,
+  };
+  const ms = Math.round(amount * (multipliers[unit] ?? 0));
+  return ms > 0 ? ms : fallbackMs;
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -162,7 +179,7 @@ export class AuthService {
 
     const refreshToken = await this.jwtService.signAsync(payload, {
       secret: this.config.get<string>('JWT_SECRET'),
-      expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES', '7d'),
+      expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES', '90d'),
     });
 
     return { accessToken, refreshToken };
@@ -171,6 +188,14 @@ export class AuthService {
   setAuthCookies(res: Response, tokens: { accessToken: string; refreshToken: string }) {
     const isProd = this.config.get('NODE_ENV') === 'production';
     const configuredSameSite = this.config.get<'lax' | 'none'>('COOKIE_SAME_SITE');
+    const accessMaxAge = parseDurationMs(
+      this.config.get<string>('JWT_ACCESS_EXPIRES'),
+      15 * 60 * 1000,
+    );
+    const refreshMaxAge = parseDurationMs(
+      this.config.get<string>('JWT_REFRESH_EXPIRES'),
+      90 * 24 * 60 * 60 * 1000,
+    );
     const cookieOptions: {
       httpOnly: boolean;
       secure: boolean;
@@ -185,12 +210,12 @@ export class AuthService {
 
     res.cookie('LUXTIMEE_access', tokens.accessToken, {
       ...cookieOptions,
-      maxAge: 15 * 60 * 1000,
+      maxAge: accessMaxAge,
     });
 
     res.cookie('LUXTIMEE_refresh', tokens.refreshToken, {
       ...cookieOptions,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: refreshMaxAge,
     });
   }
 
