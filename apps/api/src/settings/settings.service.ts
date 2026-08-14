@@ -285,9 +285,11 @@ export class SettingsService {
     if (merged.founder.enabled) {
       const imgs = (merged.founder.carouselImages ?? []).filter((u) => typeof u === 'string' && u.trim());
       if (imgs.length !== 5) {
-        throw new BadRequestException('La sección fundador requiere exactamente 5 imágenes en el carrusel.');
+        merged.founder.enabled = false;
+        merged.founder.carouselImages = Array.from({ length: 5 }, (_, i) => merged.founder.carouselImages?.[i] ?? '');
+      } else {
+        merged.founder.carouselImages = imgs.slice(0, 5);
       }
-      merged.founder.carouselImages = imgs.slice(0, 5);
     } else {
       merged.founder.carouselImages = Array.from({ length: 5 }, (_, i) => merged.founder.carouselImages?.[i] ?? '');
     }

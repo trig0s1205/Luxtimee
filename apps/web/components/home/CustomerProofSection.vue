@@ -19,7 +19,7 @@ function closeLightbox() {
 </script>
 
 <template>
-  <section v-if="images.length" id="reseñas" class="lux-proof">
+  <section id="reseñas" class="lux-proof">
     <div class="lux-proof__inner">
       <header class="lux-proof__header reveal">
         <p class="lux-proof__label">{{ config.label }}</p>
@@ -30,7 +30,7 @@ function closeLightbox() {
         <p v-if="config.subtitle" class="lux-proof__subtitle">{{ config.subtitle }}</p>
       </header>
 
-      <div class="lux-proof__grid reveal">
+      <div v-if="images.length" class="lux-proof__grid reveal">
         <figure
           v-for="(item, i) in images"
           :key="`${item.url}-${i}`"
@@ -43,6 +43,7 @@ function closeLightbox() {
           <figcaption v-if="item.caption" class="lux-proof__caption">{{ item.caption }}</figcaption>
         </figure>
       </div>
+      <p v-else class="lux-proof__empty reveal">Próximamente más entregas documentadas.</p>
     </div>
 
     <Teleport to="body">
@@ -100,6 +101,13 @@ function closeLightbox() {
   font-size: 0.9rem;
   line-height: 1.75;
   color: var(--white-dim);
+}
+
+.lux-proof__empty {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--white-dim);
+  letter-spacing: 0.06em;
 }
 
 .lux-proof__grid {

@@ -209,13 +209,19 @@ async function savePlatformSettings() {
 }
 
 async function saveIndexSettings() {
-  if (home.founder.enabled && carouselFilled.value !== 5) {
-    toast.warning('Debes cargar exactamente 5 fotos para el carrusel del fundador.');
-    return;
-  }
-
   savingIndex.value = true;
   try {
+    const founderPayload = {
+      ...home.founder,
+      carouselImages: [...home.founder.carouselImages],
+      storyParagraphs: [...home.founder.storyParagraphs],
+    };
+
+    if (founderPayload.enabled && carouselFilled.value !== 5) {
+      founderPayload.enabled = false;
+      toast.warning('Fundador desactivado (faltan 5 fotos). El resto del Index sí se guardó.');
+    }
+
     await api.patch('/settings/homepage', {
       featured: { ...home.featured },
       founder: {

@@ -11,11 +11,17 @@ const { data: heroWatches } = await useCachedAsyncData(
   () => catalog.getBestSellers(6),
   { staleTime: STOREFRONT_CACHE_MS.catalog },
 );
-const { data: homeCms } = await useCachedAsyncData<HomepageConfigDto>(
+const { data: homeCms, refresh: refreshHomeCms } = await useCachedAsyncData<HomepageConfigDto>(
   'home-cms-config',
   () => fetchConfig(),
   { default: (): HomepageConfigDto => structuredClone(DEFAULT_HOMEPAGE_CONFIG), staleTime: STOREFRONT_CACHE_MS.static },
 );
+
+if (import.meta.client) {
+  onMounted(() => {
+    void refreshHomeCms();
+  });
+}
 
 const cms = computed<HomepageConfigDto>(() => homeCms.value ?? DEFAULT_HOMEPAGE_CONFIG);
 
