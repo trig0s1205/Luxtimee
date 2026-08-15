@@ -32,6 +32,21 @@ export function invalidateAdminCachePrefix(prefix: string) {
   }
 }
 
+export function clearSessionAdminCaches() {
+  if (!import.meta.client) return;
+  for (let i = sessionStorage.length - 1; i >= 0; i--) {
+    const key = sessionStorage.key(i);
+    if (key?.startsWith(SESSION_PREFIX)) sessionStorage.removeItem(key);
+  }
+}
+
+export function invalidateStaffAdminCaches() {
+  invalidateAdminCachePrefix('admin-');
+  invalidateAdminCachePrefix('inventory-');
+  invalidateAdminCachePrefix('care');
+  clearSessionAdminCaches();
+}
+
 const SESSION_PREFIX = 'lx-admin-';
 
 export function readSessionAdminCache<T>(key: string, staleTime: number): T | undefined {

@@ -79,14 +79,11 @@ export function useApi() {
           return request<T>(path, { ...options, _retried: true });
         }
 
-        const stored = loadStoredTokens();
-        if (stored.refreshToken) {
-          try {
-            await refreshSession();
-            return request<T>(path, { ...options, _retried: true });
-          } catch {
-            /* refresh falló */
-          }
+        try {
+          await refreshSession();
+          return request<T>(path, { ...options, _retried: true });
+        } catch {
+          /* refresh falló */
         }
       }
       throw err;

@@ -17,7 +17,7 @@ import {
   saveLocalSession,
   validateLocalLogin,
 } from '~/utils/local-auth';
-import { invalidateAdminCachePrefix } from '~/utils/admin-cache';
+import { invalidateStaffAdminCaches } from '~/utils/admin-cache';
 import { AUTH_REDIRECT_KEY } from '~/utils/auth-redirect';
 
 function isStaffUser(user: AuthUserDto | null) {
@@ -48,11 +48,7 @@ export const useAuthStore = defineStore('auth', {
       this.accessToken = accessToken;
       if (import.meta.client) {
         saveStoredTokens(accessToken, refreshToken);
-        if (accessToken) {
-          invalidateAdminCachePrefix('admin-');
-          invalidateAdminCachePrefix('inventory-');
-          invalidateAdminCachePrefix('care');
-        }
+        if (accessToken) invalidateStaffAdminCaches();
       }
     },
     hydrateLocal() {
@@ -82,6 +78,7 @@ export const useAuthStore = defineStore('auth', {
       this.setUser(data.user, isLocalSession);
       if (import.meta.client && isStaffUser(data.user)) {
         saveStoredUser(data.user);
+        invalidateStaffAdminCaches();
       }
     },
     async refreshSession() {
@@ -186,6 +183,11 @@ export const useAuthStore = defineStore('auth', {
         credentials: 'include',
       });
       this.applySession(data, false);
+      if (!resolveAccessToken(this.accessToken)) {
+        try {
+          await this.refreshSession();
+        } catch { /* cookies pueden bastar */ }
+      }
       return data.user;
     },
     async logout() {
@@ -205,6 +207,7 @@ export const useAuthStore = defineStore('auth', {
       this.accessToken = null;
       this.setUser(null, false);
       this.loaded = false;
+      if (import.meta.client) invalidateStaffAdminCaches();
     },
   },
 });

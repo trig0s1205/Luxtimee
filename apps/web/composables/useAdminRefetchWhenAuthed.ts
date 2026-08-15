@@ -1,19 +1,19 @@
-import { resolveAccessToken } from '~/utils/auth-token';
-import { invalidateAdminCachePrefix } from '~/utils/admin-cache';
+import { invalidateStaffAdminCaches } from '~/utils/admin-cache';
 
 export function useAdminRefetchWhenAuthed(refreshFns: Array<() => void | Promise<void>>) {
   const auth = useAuthStore();
+  const catalogStore = useAdminCatalogStore();
 
   async function refetchAll() {
-    invalidateAdminCachePrefix('admin-');
-    invalidateAdminCachePrefix('inventory-');
+    invalidateStaffAdminCaches();
+    catalogStore.invalidate();
     await Promise.all(refreshFns.map((fn) => fn()));
   }
 
   watch(
-    () => resolveAccessToken(auth.accessToken),
-    (token) => {
-      if (token) void refetchAll();
+    () => (auth.loaded && auth.isStaff ? auth.sessionCheckedAt : 0),
+    (ts) => {
+      if (ts) void refetchAll();
     },
     { immediate: true },
   );

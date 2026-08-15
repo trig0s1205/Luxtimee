@@ -76,17 +76,24 @@ const watchesKey = computed(() =>
   `admin-watches-${query.search}-${query.brand}-${loadPages.value}`,
 );
 
-const { data: paginated, refresh, pending } = useAdminCachedData(
+const staffReady = computed(() => auth.loaded && auth.isStaff && !auth.isLocalSession);
+
+const { data: paginated, refresh, pending, error: watchesError } = useAdminCachedData(
   watchesKey,
   () => api.get<PaginatedResponse<WatchStaffDto>>('/watches', fetchQuery.value as Record<string, string | number | boolean | undefined>),
 );
 
-const { data: insights, pending: insightsPending, refresh: refreshInsights } = useAdminCachedData(
+const { data: insights, pending: insightsPending, refresh: refreshInsights, error: insightsError } = useAdminCachedData(
   'inventory-insights',
   () => api.get<InventoryInsightsDto>('/watches/inventory-insights'),
 );
 
+const { data: careTemplates, refresh: refreshCare } = useAdminCachedData('care', () =>
+  api.get<CareTemplateDto[]>('/care'),
+);
+
 async function loadCatalogMeta() {
+  if (!staffReady.value) return;
   catalogStore.invalidate();
   await catalogStore.ensureAll({
     brands: () => api.get<BrandDto[]>('/brands'),
@@ -94,13 +101,21 @@ async function loadCatalogMeta() {
   });
 }
 
-void loadCatalogMeta();
-
-const { data: careTemplates, refresh: refreshCare } = useAdminCachedData('care', () =>
-  api.get<CareTemplateDto[]>('/care'),
-);
+watch(staffReady, (ready) => {
+  if (ready) {
+    void loadCatalogMeta();
+    void refresh();
+    void refreshInsights();
+    void refreshCare();
+  }
+}, { immediate: true });
 
 useAdminRefetchWhenAuthed([refresh, refreshInsights, refreshCare, loadCatalogMeta]);
+
+watch([watchesError, insightsError], ([wErr, iErr]) => {
+  const err = wErr ?? iErr;
+  if (err) toast.error(extractApiErrorMessage(err, 'No se pudo cargar el inventario'));
+});
 
 const watches = computed(() => paginated.value?.data ?? []);
 const total = computed(() => paginated.value?.total ?? 0);
