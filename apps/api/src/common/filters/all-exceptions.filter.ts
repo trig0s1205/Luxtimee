@@ -9,6 +9,27 @@ import {
 import { Prisma } from '@prisma/client';
 import { Response } from 'express';
 
+function extractHttpMessage(response: string | object): string | string[] {
+  if (typeof response === 'string') return response;
+
+  if (response && typeof response === 'object') {
+    const msg = (response as { message?: unknown }).message;
+    if (typeof msg === 'string') return msg;
+    if (Array.isArray(msg)) {
+      return msg.filter((item): item is string => typeof item === 'string');
+    }
+    if (msg && typeof msg === 'object' && 'message' in msg) {
+      const inner = (msg as { message?: unknown }).message;
+      if (typeof inner === 'string') return inner;
+      if (Array.isArray(inner)) {
+        return inner.filter((item): item is string => typeof item === 'string');
+      }
+    }
+  }
+
+  return 'Error en la solicitud';
+}
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
@@ -28,22 +49,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    let message: string | object =
+    let message: string | string[] =
       exception instanceof HttpException
-        ? exception.getResponse()
-        : 'Error interno del servidor';
+        ? extractHttpMessage(exception.getResponse())
+        : isProd
+          ? 'Error interno del servidor'
+          : exception instanceof Error
+            ? exception.message
+            : 'Error interno del servidor';
 
     if (isProd && (status >= 500 || isPrisma)) {
       this.logger.error(exception);
-      status = status >= 500 || isPrisma ? HttpStatus.INTERNAL_SERVER_ERROR : status;
+      status = HttpStatus.INTERNAL_SERVER_ERROR;
       message = 'Error interno del servidor';
     } else if (status >= 500) {
       this.logger.error(exception);
-      if (typeof message === 'object' && message !== null && 'message' in message) {
-        const safe = { ...(message as Record<string, unknown>) };
-        delete safe.stack;
-        message = safe;
-      }
     }
 
     response.status(status).json({

@@ -35,7 +35,7 @@ export default defineNuxtConfig({
         || (apiUpstream ? '/api/v1' : undefined)
         || (process.env.NUXT_LAN === 'true' ? '/api/v1' : 'http://localhost:3001/api/v1'),
       apiAssetsUrl: process.env.NUXT_PUBLIC_API_ASSETS_URL
-        ?? (process.env.NUXT_LAN === 'true' ? '' : 'http://localhost:3001'),
+        ?? (apiUpstream || process.env.NUXT_LAN === 'true' ? '' : 'http://localhost:3001'),
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000',
       staffLoginSlug: process.env.NUXT_PUBLIC_STAFF_LOGIN_SLUG || 'dev-portal-lx9k2',
       ga4MeasurementId: process.env.NUXT_PUBLIC_GA4_MEASUREMENT_ID || '',

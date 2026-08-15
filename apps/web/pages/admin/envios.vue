@@ -3,6 +3,7 @@ import type { CreateShippingZoneDto, ShippingZoneDto } from '@luxtime/shared';
 import { isAlwaysFreeShippingZone } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { invalidateAdminCache } from '~/utils/admin-cache';
+import { extractApiErrorMessage } from '~/utils/api-error';
 
 definePageMeta({ middleware: ['admin'], keepalive: true });
 
@@ -53,8 +54,7 @@ async function createZone() {
     invalidateAdminCache('admin-zones');
     await refresh();
   } catch (err: unknown) {
-    const message = err && typeof err === 'object' && 'message' in err ? String(err.message) : 'No se pudo crear la zona.';
-    toast.error(message);
+    toast.error(extractApiErrorMessage(err, 'No se pudo crear la zona.'));
   } finally {
     creating.value = false;
   }
@@ -76,8 +76,7 @@ async function removeZone(zone: ShippingZoneDto) {
     invalidateAdminCache('admin-zones');
     await refresh();
   } catch (err: unknown) {
-    const message = err && typeof err === 'object' && 'message' in err ? String(err.message) : 'No se pudo eliminar la zona.';
-    toast.error(message);
+    toast.error(extractApiErrorMessage(err, 'No se pudo eliminar la zona.'));
   } finally {
     deletingId.value = null;
   }

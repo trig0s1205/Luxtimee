@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CreateWholesaleAccessDto, WholesaleAccessDto, WholesaleAccessListDto } from '@luxtime/shared';
 import { DEFAULT_WHOLESALE_COOKIE_DAYS } from '@luxtime/shared';
+import { extractApiErrorMessage } from '~/utils/api-error';
 
 definePageMeta({ middleware: ['admin'], keepalive: true });
 
@@ -59,7 +60,7 @@ async function createAccess() {
     form.cookieDurationDays = DEFAULT_WHOLESALE_COOKIE_DAYS;
     await refresh();
   } catch (err: unknown) {
-    toast.error(err instanceof Error ? err.message : 'No se pudo crear el acceso.');
+    toast.error(extractApiErrorMessage(err, 'No se pudo crear el acceso.'));
   } finally {
     creating.value = false;
   }
@@ -109,7 +110,7 @@ async function removeAccess(item: WholesaleAccessDto) {
     toast.success('Mayorista eliminado.');
     await refresh();
   } catch (err: unknown) {
-    toast.error(err instanceof Error ? err.message : 'No se pudo eliminar el mayorista.');
+    toast.error(extractApiErrorMessage(err, 'No se pudo eliminar el mayorista.'));
   } finally {
     deletingId.value = null;
   }

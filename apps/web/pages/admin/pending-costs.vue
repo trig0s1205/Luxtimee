@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
+import { extractApiErrorMessage } from '~/utils/api-error';
 
 definePageMeta({ middleware: ['admin'], keepalive: true });
 
@@ -52,8 +53,7 @@ async function saveCost(watch: WatchStaffDto) {
     delete costDrafts[watch.id];
     await refresh();
   } catch (err: unknown) {
-    const message = err && typeof err === 'object' && 'message' in err ? String(err.message) : 'Error al guardar el costo.';
-    toast.error(message);
+    toast.error(extractApiErrorMessage(err, 'Error al guardar el costo.'));
   } finally {
     savingId.value = null;
   }

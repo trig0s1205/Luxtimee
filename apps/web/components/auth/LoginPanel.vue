@@ -2,6 +2,7 @@
 import type { AuthConfigDto, AuthUserDto } from '@luxtime/shared';
 import { Role } from '@luxtime/shared';
 import { isSafeRedirect, storeAuthRedirect } from '~/utils/auth-redirect';
+import { extractApiErrorMessage } from '~/utils/api-error';
 
 const props = defineProps<{
   redirect?: string | null;
@@ -100,9 +101,7 @@ async function submitLogin(preset?: { email: string; password: string }) {
 
     await navigateTo(redirectAfterLogin(user, redirectTarget.value));
   } catch (e: unknown) {
-    const err = e as { data?: { message?: string | string[] }; message?: string };
-    const msg = err.data?.message ?? err.message;
-    error.value = Array.isArray(msg) ? msg.join('. ') : (msg || 'No se pudo iniciar sesión.');
+    error.value = extractApiErrorMessage(e, 'Correo o contraseña incorrectos.');
   } finally {
     loading.value = false;
   }

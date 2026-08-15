@@ -7,6 +7,7 @@ import {
   SHIPPING_CHECKOUT_NOTE_PLACEHOLDER,
   SHIPPING_FULL_TEXT,
 } from '~/constants/shipping-copy';
+import { extractApiErrorMessage } from '~/utils/api-error';
 
 definePageMeta({ middleware: ['wholesale'] });
 
@@ -85,7 +86,7 @@ async function submit() {
       orderId: res.order?.readableId,
     };
   } catch (e: unknown) {
-    error.value = e instanceof Error ? e.message : 'No se pudo crear el pre-pedido';
+    error.value = extractApiErrorMessage(e, 'No se pudo crear el pre-pedido');
   } finally {
     loading.value = false;
   }
