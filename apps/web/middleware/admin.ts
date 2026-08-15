@@ -13,7 +13,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   if (!auth.user || (auth.user.role !== 'ADMIN' && auth.user.role !== 'SUPER_ADMIN')) {
-    const { loginPath } = useStaffLoginPath();
-    return navigateTo(loginPath({ redirect: to.fullPath }), { replace: true });
+    return navigateTo('/vigilancia', { replace: true });
   }
 });
