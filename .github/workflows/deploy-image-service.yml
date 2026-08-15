@@ -66,7 +66,7 @@ jobs:
             --cpu 2 \
             --timeout 300 \
             --concurrency 1 \
-            --min-instances 1 \
+            --min-instances 0 \
             --max-instances 3 \
             --set-env-vars "REMBG_MODEL=u2netp" \
             --update-secrets "IMAGE_SERVICE_API_KEY=IMAGE_SERVICE_API_KEY:latest" \

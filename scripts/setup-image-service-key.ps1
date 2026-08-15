@@ -37,7 +37,7 @@ Write-Host "Actualizando Cloud Run..." -ForegroundColor Cyan
 gcloud run services update luxtime-image-service `
     --region $Region `
     --project $ProjectId `
-    --min-instances 1 `
+    --min-instances 0 `
     --cpu 2 `
     --memory 2Gi `
     --set-env-vars "REMBG_MODEL=u2netp" `
