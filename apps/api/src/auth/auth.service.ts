@@ -204,7 +204,7 @@ export class AuthService {
     } = {
       httpOnly: true,
       secure: isProd,
-      sameSite: configuredSameSite ?? (isProd ? 'none' : 'lax'),
+      sameSite: configuredSameSite ?? 'lax',
       path: '/',
     };
 
@@ -230,7 +230,7 @@ export class AuthService {
     } = {
       httpOnly: true,
       secure: isProd,
-      sameSite: configuredSameSite ?? (isProd ? 'none' : 'lax'),
+      sameSite: configuredSameSite ?? 'lax',
       path: '/',
     };
 

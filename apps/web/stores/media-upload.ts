@@ -63,36 +63,47 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
 
       try {
         const uploadBase = useApiUploadUrl();
-        const api = useApi();
         const auth = useAuthStore();
-
-        try {
-          await api.refreshSession();
-        } catch { /* usamos token en memoria si el refresh falla */ }
-
-        const token = resolveAccessToken(auth.accessToken);
-        if (!token) {
-          throw new Error('Sesión no disponible. Cierra sesión e ingresa de nuevo.');
-        }
-
-        const fd = new FormData();
-        fd.append('image1', job.files.image1);
-        fd.append('image2', job.files.image2);
-        fd.append('video', job.files.video);
-
         const crossOrigin = /^https?:\/\//i.test(uploadBase) && !uploadBase.startsWith('/');
 
-        const res = await fetch(`${uploadBase}/watches/${job.watchId}/upload-media`, {
-          method: 'POST',
-          body: fd,
-          credentials: crossOrigin ? 'omit' : 'include',
-          signal: AbortSignal.timeout(300_000),
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        function buildFormData() {
+          const fd = new FormData();
+          fd.append('image1', job.files.image1);
+          fd.append('image2', job.files.image2);
+          fd.append('video', job.files.video);
+          return fd;
+        }
+
+        async function postUpload(token: string) {
+          return fetch(`${uploadBase}/watches/${job.watchId}/upload-media`, {
+            method: 'POST',
+            body: buildFormData(),
+            credentials: crossOrigin ? 'omit' : 'include',
+            signal: AbortSignal.timeout(300_000),
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
+
+        let token = await auth.ensureAccessToken(true);
+        let res = await postUpload(token);
+
+        if (res.status === 401) {
+          token = await auth.ensureAccessToken(true);
+          res = await postUpload(token);
+        }
 
         if (!res.ok) {
           const payload = await res.json().catch(() => null);
-          throw { statusCode: res.status, data: payload, message: (payload as { message?: string } | null)?.message };
+          const apiMessage = (payload as { message?: string } | null)?.message;
+
+          if (res.status === 401) {
+            throw new Error('Tu sesión expiró. Recarga la página e intenta de nuevo.');
+          }
+          if (res.status === 413) {
+            throw new Error('Los archivos son demasiado grandes. Usa imágenes más pequeñas o un video más corto.');
+          }
+
+          throw { statusCode: res.status, data: payload, message: apiMessage };
         }
 
         job.fileStatuses = { image1: 'done', image2: 'done', video: 'done' };

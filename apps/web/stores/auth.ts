@@ -95,6 +95,19 @@ export const useAuthStore = defineStore('auth', {
         this.setTokens(data.accessToken, data.refreshToken ?? stored.refreshToken ?? null);
       }
     },
+    async ensureAccessToken(forceRefresh = false): Promise<string> {
+      this.hydrateTokens();
+      if (!forceRefresh) {
+        const existing = resolveAccessToken(this.accessToken);
+        if (existing) return existing;
+      }
+      await this.refreshSession();
+      const token = resolveAccessToken(this.accessToken);
+      if (!token) {
+        throw new Error('Tu sesión expiró. Cierra sesión e ingresa de nuevo.');
+      }
+      return token;
+    },
     async fetchMe(options: { allowRefresh?: boolean } = {}) {
       const { allowRefresh = true } = options;
       this.hydrateTokens();
@@ -111,6 +124,11 @@ export const useAuthStore = defineStore('auth', {
           clearLocalSession();
           this.setUser(data.user, false);
           if (import.meta.client) saveStoredUser(data.user);
+          if (!resolveAccessToken(this.accessToken)) {
+            try {
+              await this.refreshSession();
+            } catch { /* cookies siguen valiendo para /api/v1 */ }
+          }
         } else {
           this.setUser(null, false);
           if (import.meta.client) saveStoredUser(null);
@@ -128,6 +146,11 @@ export const useAuthStore = defineStore('auth', {
               clearLocalSession();
               this.setUser(data.user, false);
               if (import.meta.client) saveStoredUser(data.user);
+              if (!resolveAccessToken(this.accessToken)) {
+                try {
+                  await this.refreshSession();
+                } catch { /* cookies siguen valiendo para /api/v1 */ }
+              }
               return;
             }
           } catch { /* refresh falló */ }
