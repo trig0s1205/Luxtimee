@@ -12,9 +12,19 @@ async function bootstrap() {
   const isProd = process.env.NODE_ENV === 'production';
   const frontendOrigins = (process.env.FRONTEND_URL ?? '')
     .split(',')
-    .map((url) => url.trim())
+    .map((url) => url.trim().replace(/\/$/, ''))
     .filter(Boolean);
-  const frontendUrl = frontendOrigins[0];
+  const allowedOrigins = new Set(frontendOrigins);
+  for (const origin of frontendOrigins) {
+    try {
+      const parsed = new URL(origin);
+      if (parsed.hostname.startsWith('www.')) {
+        allowedOrigins.add(`${parsed.protocol}//${parsed.hostname.slice(4)}`);
+      } else {
+        allowedOrigins.add(`${parsed.protocol}//www.${parsed.hostname}`);
+      }
+    } catch { /* ignore */ }
+  }
 
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
   app.use(cookieParser());
@@ -57,17 +67,18 @@ async function bootstrap() {
 
   app.enableCors({
     origin: isProd
-      ? frontendOrigins.length === 0
-        ? false
-        : frontendOrigins.length === 1
-          ? frontendOrigins[0]
-          : (origin, callback) => {
-              callback(null, !origin || frontendOrigins.includes(origin));
-            }
+      ? (origin, callback) => {
+          if (!origin || allowedOrigins.has(origin)) {
+            callback(null, true);
+            return;
+          }
+          callback(null, false);
+        }
       : true,
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    maxAge: 86400,
   });
 
   const port = Number(process.env.PORT ?? 3001);

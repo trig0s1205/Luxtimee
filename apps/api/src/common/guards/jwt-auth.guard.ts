@@ -23,6 +23,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       return true;
     }
 
+    const request = context.switchToHttp().getRequest<{ method?: string }>();
+    if (request?.method === 'OPTIONS') {
+      return true;
+    }
+
     return super.canActivate(context);
   }
 

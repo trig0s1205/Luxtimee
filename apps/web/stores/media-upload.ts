@@ -82,13 +82,18 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
 
         const crossOrigin = /^https?:\/\//i.test(uploadBase) && !uploadBase.startsWith('/');
 
-        await $fetch(`${uploadBase}/watches/${job.watchId}/upload-media`, {
+        const res = await fetch(`${uploadBase}/watches/${job.watchId}/upload-media`, {
           method: 'POST',
           body: fd,
           credentials: crossOrigin ? 'omit' : 'include',
-          timeout: 300_000,
+          signal: AbortSignal.timeout(300_000),
           headers: { Authorization: `Bearer ${token}` },
         });
+
+        if (!res.ok) {
+          const payload = await res.json().catch(() => null);
+          throw { statusCode: res.status, data: payload, message: (payload as { message?: string } | null)?.message };
+        }
 
         job.fileStatuses = { image1: 'done', image2: 'done', video: 'done' };
         job.status = 'done';
@@ -107,7 +112,13 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
       } catch (err: unknown) {
         job.fileStatuses = { image1: 'error', image2: 'error', video: 'error' };
         job.status = 'error';
-        job.errorMessage = extractApiErrorMessage(err, 'Error al subir archivos');
+        job.errorMessage = extractApiErrorMessage(err, '')
+          || (err instanceof Error && err.name === 'TimeoutError'
+            ? 'La subida tardó demasiado. Usa un video más corto.'
+            : '')
+          || (err instanceof Error && err.message && !err.message.startsWith('[')
+            ? err.message
+            : 'No se pudo completar la subida. Revisa la conexión e intenta de nuevo.');
         useToast().error(`Error multimedia — ${job.brandName} ${job.model}`);
       } finally {
         this._processing = false;
