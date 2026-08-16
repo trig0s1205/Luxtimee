@@ -34,7 +34,7 @@ test.describe('Catálogo y carrito', () => {
     await expect(page.getByRole('link', { name: /Ver mayoristas/i })).toBeVisible();
   });
 
-  test('añadir producto desde catálogo abre bolsa', async ({ page, baseURL }) => {
+  test('añadir producto desde catálogo abre carro', async ({ page, baseURL }) => {
     await page.goto('/catalogo');
     await expect(page.locator('.catalog-grid .products-card').first()).toBeVisible({ timeout: 20_000 });
 
@@ -43,7 +43,7 @@ test.describe('Catálogo y carrito', () => {
     await page.getByRole('button', { name: 'Agregar al carrito' }).click();
 
     await expect(page.locator('#cart-drawer')).toHaveAttribute('aria-hidden', 'false', { timeout: 20_000 });
-    await expect(page.getByRole('button', { name: /Bolsa \(1\)/ })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: /Carro \(1\)/ })).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('#cart-footer a[href="/checkout"]')).toBeVisible();
   });
 });
