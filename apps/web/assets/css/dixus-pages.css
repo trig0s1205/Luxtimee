@@ -54,6 +54,7 @@
 }
 
 .products-img {
+  position: relative;
   aspect-ratio: 3 / 4;
   display: flex;
   align-items: center;
@@ -83,6 +84,26 @@
   width: 60%;
   height: 40%;
   background: rgba(255, 255, 255, 0.08);
+}
+
+.product-stock-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(200, 169, 110, 0.4);
+  background: rgba(10, 10, 10, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-light);
+  pointer-events: none;
 }
 
 .products-info {
@@ -719,6 +740,44 @@
   background: var(--black-2);
   border-radius: 4px;
   padding: 40px;
+}
+
+.detail-back-btn {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px 0 10px;
+  border: var(--border-hairline);
+  border-radius: 2px;
+  background: rgba(10, 10, 10, 0.72);
+  color: var(--gold);
+  cursor: pointer;
+  transition: color 0.3s, border-color 0.3s, background 0.3s;
+}
+
+.detail-back-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.detail-back-btn__label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.detail-back-btn:hover,
+.detail-back-btn:focus-visible {
+  color: var(--white);
+  border-color: var(--gold);
+  background: rgba(200, 169, 110, 0.08);
+  outline: none;
 }
 
 .detail-close-btn {
@@ -2236,6 +2295,23 @@ body.cart-scroll-lock {
   .detail-actions {
     flex-direction: column;
     gap: 10px;
+  }
+
+  .detail-back-btn {
+    top: max(12px, env(safe-area-inset-top, 0px));
+    left: max(12px, env(safe-area-inset-left, 0px));
+    width: 40px;
+    min-height: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .detail-back-btn__label {
+    display: none;
+  }
+
+  .product-detail-content {
+    padding: 52px 16px 24px;
   }
 
   .btn-add-to-cart,

@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateStockDto } from '../products/dto/watch.dto';
 import { WaitlistService } from '../waitlist/waitlist.service';
+import { storefrontHideWhenEmpty } from '../common/utils/storefront-stock.util';
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
 
@@ -22,7 +23,12 @@ export class InventoryService {
     const previousStock = current.stock;
     const watch = await this.prisma.watch.update({
       where: { id },
-      data: { stock: dto.stock },
+      data: {
+        stock: dto.stock,
+        ...(dto.stock > 0
+          ? { status: 'DISPONIBLE' as const }
+          : storefrontHideWhenEmpty(0)),
+      },
       include: { brand: true },
     });
 

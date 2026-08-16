@@ -7,6 +7,7 @@ export default {
     wholesale: 'Wholesale',
     bag: 'Bag',
     menu: 'Menu',
+    back: 'Back',
   },
   footer: {
     brandText: 'Luxury watches for those who live with intensity. Elegance · Presence · Style. From Piedecuesta to all of Colombia.',
@@ -116,6 +117,8 @@ export default {
   },
   product: {
     limited: 'Limited edition',
+    stockLeft: '{n} left',
+    stockUnits: '{n} units',
     add: 'Add',
     addToCart: 'Add to cart',
     whatsapp: 'Inquire on WhatsApp',

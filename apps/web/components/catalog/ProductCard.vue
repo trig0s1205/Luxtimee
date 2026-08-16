@@ -20,6 +20,13 @@ const { watchPrimaryImage } = useMediaUrl();
 const imageUrl = computed(() => watchPrimaryImage(props.watch));
 
 const showLimited = computed(() => props.watch.stock > 0 && props.watch.stock <= 3);
+const stockLabel = computed(() => {
+  if (props.watch.stock <= 0) return null;
+  if (props.watch.stock <= 3) {
+    return t('product.stockLeft').replace('{n}', String(props.watch.stock));
+  }
+  return t('product.stockUnits').replace('{n}', String(props.watch.stock));
+});
 
 function onCardClick(e: MouseEvent) {
   if ((e.target as HTMLElement).closest('.add-btn')) return;
@@ -50,6 +57,7 @@ function onAdd(e: Event) {
   >
     <span v-if="showLimited" class="badge-limited">{{ t('product.limited') }}</span>
     <div class="products-img">
+      <span v-if="stockLabel" class="product-stock-badge">{{ stockLabel }}</span>
       <img
         v-if="imageUrl"
         :src="imageUrl"

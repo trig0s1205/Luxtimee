@@ -15,6 +15,7 @@ import { randomUUID } from 'crypto';
 import { assertMediaFile } from '../common/utils/file-magic.util';
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
+import { storefrontHideWhenEmpty } from '../common/utils/storefront-stock.util';
 
 const MAX_CATALOG_FEATURED = 6;
 const CATALOG_LIMIT_MESSAGE =
@@ -212,7 +213,11 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     if (dto.wholesalePrice !== undefined) data.wholesalePrice = dto.wholesalePrice;
     if (dto.stock !== undefined) {
       data.stock = dto.stock;
-      data.status = dto.stock > 0 ? 'DISPONIBLE' : 'AGOTADO';
+      if (dto.stock > 0) {
+        data.status = 'DISPONIBLE';
+      } else {
+        Object.assign(data, storefrontHideWhenEmpty(0));
+      }
     }
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
     if (dto.isPublished !== undefined) data.isPublished = dto.isPublished;

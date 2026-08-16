@@ -46,7 +46,7 @@ const MOCK_CATALOG = mockWatches.map(mockToPublic);
 
 function filterMockCatalog(query: CatalogListQuery): PaginatedResponse<WatchPublicDto> {
   const params = sanitizeCatalogQuery(query);
-  let data = [...MOCK_CATALOG];
+  let data = MOCK_CATALOG.filter((w) => w.stock > 0);
 
   if (params.brand) {
     data = data.filter((w) => equalsInsensitive(w.brand.slug, String(params.brand)));
@@ -120,7 +120,7 @@ export function useCatalogData() {
     try {
       return await api.get<WatchPublicDto>(`/catalog/${slug}`);
     } catch {
-      const found = MOCK_CATALOG.find((w) => w.slug === slug);
+      const found = MOCK_CATALOG.find((w) => w.slug === slug && w.stock > 0);
       if (!found) throw createError({ statusCode: 404, message: 'Producto no encontrado' });
       return found;
     }

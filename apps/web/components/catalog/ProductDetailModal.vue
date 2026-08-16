@@ -7,6 +7,7 @@ import { pickRandomWatches } from '~/utils/similar-watches';
 const { open, slug, closeProduct } = useProductModal();
 const catalog = useCatalogData();
 const cart = useCartStore();
+const { t } = useLocale();
 
 const product = ref<WatchPublicDto | null>(null);
 const loading = ref(false);
@@ -59,6 +60,10 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
       @click="onOverlayClick"
     >
       <div class="product-detail-content product-detail-content--scroll">
+        <button type="button" class="detail-back-btn" :aria-label="t('nav.back')" @click="closeProduct">
+          <UiBackArrowIcon />
+          <span class="detail-back-btn__label">{{ t('nav.back') }}</span>
+        </button>
         <button type="button" class="detail-close-btn" aria-label="Cerrar" @click="closeProduct">×</button>
         <div v-if="loading" class="detail-loading">Cargando…</div>
         <div v-else-if="product" class="detail-wrapper">

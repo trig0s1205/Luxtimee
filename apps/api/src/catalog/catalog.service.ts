@@ -74,6 +74,7 @@ export class CatalogService {
       isActive: true,
       isPublished: true,
       deletedAt: null,
+      stock: { gt: 0 },
     };
 
     const brand = this.clean(query.brand);
@@ -99,8 +100,6 @@ export class CatalogService {
     const available = this.clean(query.available);
     if (available === 'true') {
       where.stock = { gt: 0 };
-    } else if (available === 'false') {
-      where.stock = 0;
     }
 
     if (query.minPrice !== undefined || query.maxPrice !== undefined) {
@@ -172,7 +171,7 @@ export class CatalogService {
 
   async findBySlug(slug: string) {
     const watch = await this.prisma.watch.findFirst({
-      where: { slug, isActive: true, isPublished: true, deletedAt: null },
+      where: { slug, isActive: true, isPublished: true, deletedAt: null, stock: { gt: 0 } },
       include: { brand: true, category: true, warrantyTemplate: true, careTemplate: true },
     });
 
@@ -197,7 +196,7 @@ export class CatalogService {
       .map(([id]) => id);
     if (!ids.length) return [];
     const watches = await this.prisma.watch.findMany({
-      where: { id: { in: ids }, isActive: true },
+      where: { id: { in: ids }, isActive: true, stock: { gt: 0 } },
       include: { brand: true, category: true, warrantyTemplate: true, careTemplate: true },
     });
     return ids
@@ -208,7 +207,7 @@ export class CatalogService {
 
   async findNewArrivals(limit = 8) {
     const watches = await this.prisma.watch.findMany({
-      where: { isActive: true, isPublished: true, deletedAt: null },
+      where: { isActive: true, isPublished: true, deletedAt: null, stock: { gt: 0 } },
       include: { brand: true, category: true },
       orderBy: { createdAt: 'desc' },
       take: limit,
@@ -224,6 +223,7 @@ export class CatalogService {
         isPublished: true,
         showInCatalog: true,
         deletedAt: null,
+        stock: { gt: 0 },
       },
       include: { brand: true, category: true, warrantyTemplate: true, careTemplate: true },
       orderBy: { updatedAt: 'desc' },
@@ -261,7 +261,7 @@ export class CatalogService {
 
   async findWholesaleBySlug(slug: string) {
     const watch = await this.prisma.watch.findFirst({
-      where: { slug, isActive: true, isPublished: true, deletedAt: null },
+      where: { slug, isActive: true, isPublished: true, deletedAt: null, stock: { gt: 0 } },
       include: { brand: true, category: true, warrantyTemplate: true, careTemplate: true },
     });
 

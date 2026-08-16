@@ -19,6 +19,19 @@
   border-bottom: 1px solid rgba(20, 20, 20, 0.08);
 }
 
+[data-theme="light"] .nav-back {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(20, 20, 20, 0.12);
+  color: var(--white-dim);
+}
+
+[data-theme="light"] .nav-back:hover,
+[data-theme="light"] .nav-back:focus-visible {
+  color: var(--white);
+  border-color: rgba(200, 169, 110, 0.55);
+  background: rgba(200, 169, 110, 0.1);
+}
+
 [data-theme="light"] .nav-menu-mobile {
   background: rgba(255, 255, 255, 0.98);
 }

@@ -46,15 +46,17 @@ function toggleSwap() {
 
 const stockBadge = computed(() => {
   const watch = active.value;
-  if (!watch) return null;
-  if (watch.stock <= 0) return { tone: 'sold' as const, label: t('home.heroSoldOut') };
+  if (!watch || watch.stock <= 0) return null;
   if (watch.stock <= 3) {
     return {
       tone: 'limited' as const,
       label: t('home.heroLimitedTo').replace('{n}', String(watch.stock)),
     };
   }
-  return { tone: 'ok' as const, label: t('home.heroAvailable') };
+  return {
+    tone: 'ok' as const,
+    label: t('product.stockUnits').replace('{n}', String(watch.stock)),
+  };
 });
 
 const glowTone = computed(() => activeIndex.value % 3);
@@ -163,6 +165,9 @@ onBeforeUnmount(() => stopTimer());
       <div class="lux-hero__visual">
         <Transition name="hero-fade" mode="out-in">
           <div :key="active.id" class="lux-hero__watch-wrap">
+            <span v-if="active.stock > 0" class="lux-hero__stock-pill">
+              {{ t('product.stockUnits').replace('{n}', String(active.stock)) }}
+            </span>
             <Transition name="hero-swap" mode="out-in">
               <img
                 v-if="mainDisplayUrl"
@@ -216,6 +221,7 @@ onBeforeUnmount(() => stopTimer());
           @click="goTo(index)"
         >
           <span class="lux-hero__dot-num">{{ String(index + 1).padStart(2, '0') }}</span>
+          <span v-if="watch.stock > 0" class="lux-hero__dot-stock">{{ watch.stock }}</span>
           <span class="lux-hero__dot-line" />
         </button>
       </div>
@@ -468,12 +474,32 @@ onBeforeUnmount(() => stopTimer());
 }
 
 .lux-hero__watch-wrap {
+  position: relative;
   width: min(100%, clamp(310px, 34vw, 530px));
   aspect-ratio: 3 / 4;
   display: flex;
   align-items: center;
   justify-content: center;
   perspective: 900px;
+}
+
+.lux-hero__stock-pill {
+  position: absolute;
+  top: 8%;
+  right: 6%;
+  z-index: 2;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(200, 169, 110, 0.45);
+  background: rgba(10, 10, 10, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold-light);
 }
 
 .lux-hero__watch {
@@ -641,6 +667,14 @@ onBeforeUnmount(() => stopTimer());
   font-size: 9px;
   letter-spacing: 0.14em;
   transition: color 0.3s ease;
+}
+
+.lux-hero__dot-stock {
+  font-family: var(--font-body);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  line-height: 1;
 }
 
 .lux-hero__dot-line {

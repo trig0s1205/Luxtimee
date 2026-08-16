@@ -5,6 +5,7 @@ const menuOpen = ref(false);
 const cart = useCartStore();
 const { openCart } = useCartDrawer();
 const { t, showSwitcher } = useLocale();
+const { showBack, goBack } = useStorefrontBack();
 
 const navLinks = computed(() => [
   { label: t('nav.collection'), to: '/catalogo' },
@@ -49,18 +50,31 @@ watch(() => route.fullPath, closeMenu);
 </script>
 
 <template>
-  <nav id="navbar" class="site-nav" :class="{ scrolled }">
-    <NuxtLink to="/" class="nav-logo" @click="onLogoClick">
-      <span class="nav-logo__frame">
-        <img
-          src="/images/logo-luxtimee.png"
-          alt="LuxTimee"
-          class="nav-logo__img"
-          width="140"
-          height="40"
-        >
-      </span>
-    </NuxtLink>
+  <nav id="navbar" class="site-nav" :class="{ scrolled, 'site-nav--subpage': showBack }">
+    <div class="nav-start">
+      <button
+        v-if="showBack"
+        type="button"
+        class="nav-back"
+        :aria-label="t('nav.back')"
+        @click="goBack"
+      >
+        <UiBackArrowIcon />
+        <span class="nav-back__label">{{ t('nav.back') }}</span>
+      </button>
+
+      <NuxtLink to="/" class="nav-logo" @click="onLogoClick">
+        <span class="nav-logo__frame">
+          <img
+            src="/images/logo-luxtimee.png"
+            alt="LuxTimee"
+            class="nav-logo__img"
+            width="140"
+            height="40"
+          >
+        </span>
+      </NuxtLink>
+    </div>
 
     <button
       type="button"

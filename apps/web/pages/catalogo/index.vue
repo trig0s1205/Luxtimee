@@ -17,7 +17,6 @@ type CatalogSort = 'newest' | 'oldest' | 'price_asc' | 'price_desc';
 const brand = ref(FILTER_NONE);
 const movement = ref(FILTER_NONE);
 const category = ref(FILTER_NONE);
-const available = ref(FILTER_NONE);
 const gender = ref(FILTER_NONE);
 const minPrice = ref('');
 const maxPrice = ref('');
@@ -25,7 +24,6 @@ const sort = ref<CatalogSort>('newest');
 const searchQuery = ref('');
 const debouncedSearch = ref('');
 const loadPages = ref(1);
-const showEncargoHero = ref(false);
 
 const { data: brands } = await useCachedAsyncData('catalog-brands', () =>
   $fetch<BrandDto[]>(`${apiBase}/brands/public`).catch(() => []),
@@ -58,7 +56,6 @@ function buildCatalogParams() {
     brand: brand.value || undefined,
     movement: movement.value || undefined,
     category: category.value || undefined,
-    available: available.value || undefined,
     gender: gender.value ? normalizeGender(gender.value) : undefined,
     minPrice: minPrice.value !== '' && !Number.isNaN(Number(minPrice.value)) ? Number(minPrice.value) : undefined,
     maxPrice: maxPrice.value !== '' && !Number.isNaN(Number(maxPrice.value)) ? Number(maxPrice.value) : undefined,
@@ -83,7 +80,6 @@ const hasActiveFilters = computed(() =>
   !!brand.value
   || !!movement.value
   || !!category.value
-  || !!available.value
   || !!gender.value
   || minPrice.value !== ''
   || maxPrice.value !== ''
@@ -95,7 +91,6 @@ const activeFilterCount = computed(() => [
   brand.value,
   movement.value,
   category.value,
-  available.value,
   gender.value,
   minPrice.value !== '' ? minPrice.value : '',
   maxPrice.value !== '' ? maxPrice.value : '',
@@ -118,7 +113,6 @@ function scheduleRefresh() {
 function onFilterChange() {
   if (skipFilterWatch) return;
   loadPages.value = 1;
-  showEncargoHero.value = false;
   scheduleRefresh();
 }
 
@@ -148,24 +142,18 @@ function clearFilters() {
   brand.value = FILTER_NONE;
   movement.value = FILTER_NONE;
   category.value = FILTER_NONE;
-  available.value = FILTER_NONE;
   gender.value = FILTER_NONE;
   minPrice.value = '';
   maxPrice.value = '';
   sort.value = 'newest';
   searchQuery.value = '';
   debouncedSearch.value = '';
-  showEncargoHero.value = false;
   loadPages.value = 1;
   skipFilterWatch = false;
   scheduleRefresh();
 }
 
-watch([brand, movement, category, available, gender, minPrice, maxPrice, sort], onFilterChange);
-
-watch(debouncedSearch, () => {
-  showEncargoHero.value = debouncedSearch.value.trim().length > 0 && total.value === 0;
-});
+watch([brand, movement, category, gender, minPrice, maxPrice, sort], onFilterChange);
 
 watch(() => route.query, (query) => {
   const preset = resolveCatalogRouteQuery(query as Record<string, unknown>);
@@ -203,16 +191,7 @@ useSeoMeta({
       </p>
     </section>
 
-    <div v-if="showEncargoHero" class="catalog-encargo">
-      <p class="section-label">{{ t('catalog.encargoLabel') }}</p>
-      <h2 class="section-title" style="font-size:clamp(28px,4vw,40px)">{{ t('catalog.encargoTitle') }}</h2>
-      <p class="section-body" style="max-width:480px;margin:0 auto 24px">{{ t('catalog.encargoBody') }}</p>
-      <NuxtLink to="/#contacto" class="btn-primary">{{ t('catalog.encargoCta') }}</NuxtLink>
-    </div>
-
-    <template v-else>
-      <!-- Mobile: filter toggle bar -->
-      <div class="catalog-mobile-bar">
+    <div class="catalog-mobile-bar">
         <button
           type="button"
           class="catalog-mobile-filter-btn"
@@ -287,17 +266,6 @@ useSeoMeta({
             <select v-model="gender" class="catalog-select">
               <option value="" disabled hidden>{{ t('catalog.gender') }}</option>
               <option v-for="g in GENDER_OPTIONS" :key="g" :value="g">{{ g }}</option>
-            </select>
-            <svg class="catalog-field-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </div>
-
-          <div class="catalog-field" :class="{ 'is-active': !!available }">
-            <select v-model="available" class="catalog-select">
-              <option value="" disabled hidden>{{ t('catalog.availability') }}</option>
-              <option value="true">{{ t('catalog.available') }}</option>
-              <option value="false">{{ t('catalog.soldOut') }}</option>
             </select>
             <svg class="catalog-field-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <path d="M6 9l6 6 6-6" />
@@ -440,20 +408,6 @@ useSeoMeta({
                   </div>
                 </div>
 
-                <div class="catalog-drawer-field" :class="{ 'is-active': !!available }">
-                  <label class="catalog-drawer-label">{{ t('catalog.availability') }}</label>
-                  <div class="catalog-field">
-                    <select v-model="available" class="catalog-select">
-                      <option value="">Todos</option>
-                      <option value="true">{{ t('catalog.available') }}</option>
-                      <option value="false">{{ t('catalog.soldOut') }}</option>
-                    </select>
-                    <svg class="catalog-field-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                      <path d="M6 9l6 6 6-6" />
-                    </svg>
-                  </div>
-                </div>
-
                 <div class="catalog-drawer-field" :class="{ 'is-active': sort !== 'newest' }">
                   <label class="catalog-drawer-label">Ordenar</label>
                   <div class="catalog-field">
@@ -514,7 +468,6 @@ useSeoMeta({
           {{ t('catalog.loadMore') }}
         </button>
       </section>
-    </template>
   </div>
 </template>
 

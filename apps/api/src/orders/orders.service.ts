@@ -5,6 +5,9 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { CertificatesService } from '../certificates/certificates.service';
 import { assertValidTransition } from './state-machine';
 import type { OrdersPeriod } from './dto/orders-query.dto';
+import { CACHE_TAGS } from '../common/cache/cache.decorator';
+import { MemoryCacheService } from '../common/cache/memory-cache.service';
+import { storefrontHideWhenEmpty } from '../common/utils/storefront-stock.util';
 
 const orderInclude = {
   items: {
@@ -24,6 +27,7 @@ export class OrdersService {
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
     private certificatesService: CertificatesService,
+    private cache: MemoryCacheService,
   ) {}
 
   private mapOrder(order: OrderWithRelations) {
@@ -178,6 +182,20 @@ export class OrdersService {
         where: { id: item.watchId },
         data: { stock: { decrement: item.quantity } },
       });
+
+      const watch = await this.prisma.watch.findUnique({
+        where: { id: item.watchId },
+        select: { stock: true },
+      });
+
+      if (watch && watch.stock <= 0) {
+        await this.prisma.watch.update({
+          where: { id: item.watchId },
+          data: storefrontHideWhenEmpty(0),
+        });
+      }
     }
+
+    this.cache.invalidateTag(CACHE_TAGS.catalog);
   }
 }

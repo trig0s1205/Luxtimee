@@ -7,6 +7,7 @@ export default {
     wholesale: 'Mayoristas',
     bag: 'Carro',
     menu: 'Menú',
+    back: 'Volver',
   },
   footer: {
     brandText: 'Relojes de lujo para quienes viven con intensidad. Elegance · Presence · Estilo. Desde Piedecuesta para todo Colombia.',
@@ -116,6 +117,8 @@ export default {
   },
   product: {
     limited: 'Edición limitada',
+    stockLeft: 'Quedan {n}',
+    stockUnits: '{n} uds.',
     add: 'Añadir',
     addToCart: 'Agregar al carrito',
     whatsapp: 'Consultar por WhatsApp',
