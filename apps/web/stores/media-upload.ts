@@ -63,18 +63,31 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
 
       try {
         const uploadBase = useApiUploadUrl();
+        const api = useApi();
         const auth = useAuthStore();
+
+        try {
+          await api.refreshSession();
+        } catch { /* usamos token en memoria si el refresh falla */ }
+
+        const token = resolveAccessToken(auth.accessToken);
+        if (!token) {
+          throw new Error('Sesión no disponible. Cierra sesión e ingresa de nuevo.');
+        }
+
         const fd = new FormData();
         fd.append('image1', job.files.image1);
         fd.append('image2', job.files.image2);
         fd.append('video', job.files.video);
 
+        const crossOrigin = /^https?:\/\//i.test(uploadBase) && !uploadBase.startsWith('/');
+
         await $fetch(`${uploadBase}/watches/${job.watchId}/upload-media`, {
           method: 'POST',
           body: fd,
-          credentials: 'include',
+          credentials: crossOrigin ? 'omit' : 'include',
           timeout: 300_000,
-          headers: authFetchHeaders(resolveAccessToken(auth.accessToken)),
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         job.fileStatuses = { image1: 'done', image2: 'done', video: 'done' };
