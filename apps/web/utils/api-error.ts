@@ -46,7 +46,7 @@ function statusFallback(status: number | undefined, fallback: string): string {
   if (status === 401) return 'Credenciales incorrectas o sesión expirada.';
   if (status === 403) return 'No tienes permiso para realizar esta acción.';
   if (status === 404) return 'Recurso no encontrado.';
-  if (status === 429) return 'Demasiados intentos. Espera un momento e intenta de nuevo.';
+  if (status === 413) return 'Los archivos pesan demasiado para el servidor. Usa fotos más livianas y un video corto (máx. ~25 MB en total).';
   if (status && status >= 500) return fallback;
   return fallback;
 }

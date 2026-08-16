@@ -34,6 +34,10 @@ export default defineNuxtConfig({
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL
         || (apiUpstream ? '/api/v1' : undefined)
         || (process.env.NUXT_LAN === 'true' ? '/api/v1' : 'http://localhost:3001/api/v1'),
+      apiUploadUrl: process.env.NUXT_PUBLIC_API_UPLOAD_URL
+        || (apiUpstream ? `${apiUpstream}/api/v1` : undefined)
+        || process.env.NUXT_PUBLIC_API_BASE_URL
+        || (process.env.NUXT_LAN === 'true' ? '/api/v1' : 'http://localhost:3001/api/v1'),
       apiAssetsUrl: process.env.NUXT_PUBLIC_API_ASSETS_URL
         ?? (apiUpstream || process.env.NUXT_LAN === 'true' ? '' : 'http://localhost:3001'),
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000',

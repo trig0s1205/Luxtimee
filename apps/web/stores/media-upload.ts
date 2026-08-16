@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia';
 import { validateWatchVideoFile } from '~/utils/video-validation';
+import { extractApiErrorMessage } from '~/utils/api-error';
+import { authFetchHeaders, resolveAccessToken } from '~/utils/auth-token';
 
 export type MediaFileStatus = 'queue' | 'uploading' | 'done' | 'error';
 
@@ -60,28 +62,31 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
       }
 
       try {
-        const config = useRuntimeConfig();
+        const uploadBase = useApiUploadUrl();
+        const auth = useAuthStore();
         const fd = new FormData();
         fd.append('image1', job.files.image1);
         fd.append('image2', job.files.image2);
         fd.append('video', job.files.video);
 
-        await $fetch(`${config.public.apiBaseUrl}/watches/${job.watchId}/upload-media`, {
+        await $fetch(`${uploadBase}/watches/${job.watchId}/upload-media`, {
           method: 'POST',
           body: fd,
           credentials: 'include',
           timeout: 300_000,
+          headers: authFetchHeaders(resolveAccessToken(auth.accessToken)),
         });
 
         job.fileStatuses = { image1: 'done', image2: 'done', video: 'done' };
         job.status = 'done';
 
         if (job.intendedShowInCatalog) {
-          await $fetch(`${config.public.apiBaseUrl}/watches/${job.watchId}`, {
+          const apiBase = useApiBaseUrl();
+          await $fetch(`${apiBase}/watches/${job.watchId}`, {
             method: 'PATCH',
-            body: JSON.stringify({ showInCatalog: true }),
-            headers: { 'Content-Type': 'application/json' },
+            body: { showInCatalog: true },
             credentials: 'include',
+            headers: authFetchHeaders(resolveAccessToken(auth.accessToken)),
           });
         }
 
@@ -89,11 +94,7 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
       } catch (err: unknown) {
         job.fileStatuses = { image1: 'error', image2: 'error', video: 'error' };
         job.status = 'error';
-        const msg =
-          err && typeof err === 'object' && 'message' in err
-            ? String((err as { message: string }).message)
-            : 'Error al subir archivos';
-        job.errorMessage = msg;
+        job.errorMessage = extractApiErrorMessage(err, 'Error al subir archivos');
         useToast().error(`Error multimedia — ${job.brandName} ${job.model}`);
       } finally {
         this._processing = false;
