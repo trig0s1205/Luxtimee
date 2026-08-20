@@ -24,6 +24,7 @@ export interface CreatePreOrderDto {
   customerAddress: string;
   customerPhone?: string;
   shippingZoneId?: string;
+  manualShippingCost?: number;
   consentAccepted: boolean;
   items: PreOrderItemInput[];
 }
@@ -33,6 +34,7 @@ export interface CreateManualPreOrderDto {
   customerAddress: string;
   customerPhone?: string;
   shippingZoneId?: string;
+  manualShippingCost?: number;
   items: PreOrderItemInput[];
 }
 
@@ -50,6 +52,7 @@ export interface OrderItemDto {
   productName: string;
   productRef: string;
   productImage: string | null;
+  watchThumbnail: string | null;
   quantity: number;
   unitPrice: number;
   priceType: PriceType;
@@ -96,7 +99,14 @@ export interface UpdatePreOrderDto {
   customerAddress?: string;
   customerPhone?: string;
   shippingZoneId?: string;
+  manualShippingCost?: number;
   items?: PreOrderItemInput[];
+}
+
+export interface UpdateOrderDto {
+  customerAddress?: string;
+  shippingCost?: number;
+  status?: string;
 }
 
 export interface TransitionOrderDto {

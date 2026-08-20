@@ -9,6 +9,7 @@ import { WatchQueryDto } from './dto/watch-query.dto';
 const watchInclude = {
   brand: true,
   category: true,
+  mechanism: true,
   warrantyTemplate: true,
   careTemplate: true,
 } as const;
@@ -35,6 +36,7 @@ export class WatchesRepository {
         { model: { contains: term, mode: 'insensitive' } },
         { reference: { contains: term, mode: 'insensitive' } },
         { sku: { contains: term, mode: 'insensitive' } },
+        { brand: { name: { contains: term, mode: 'insensitive' } } },
         ...(skuIds.length ? [{ id: { in: skuIds } }] : []),
       ];
     }

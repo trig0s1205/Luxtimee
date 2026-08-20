@@ -37,12 +37,25 @@ const { data: legal } = await useCachedAsyncData('wholesale-legal-docs', () =>
   { staleTime: STOREFRONT_CACHE_MS.static },
 );
 
+const selectedZone = computed(() => zones.value?.find((z) => z.id === form.shippingZoneId) ?? null);
+const isManualCostZone = computed(() => !!selectedZone.value?.isManualCost);
+const manualShippingCost = ref(0);
+
 const shippingCost = computed(() => {
-  const zone = zones.value?.find((z) => z.id === form.shippingZoneId);
-  return zone?.cost ?? 0;
+  if (!selectedZone.value) return 0;
+  if (selectedZone.value.alwaysFree) return 0;
+  if (selectedZone.value.isManualCost) return manualShippingCost.value;
+  return selectedZone.value.cost;
 });
 
 const total = computed(() => cart.subtotal + shippingCost.value);
+
+const WHOLESALE_MIN = 4;
+const meetsMinimum = computed(() => cart.unitCount >= WHOLESALE_MIN);
+
+watch(() => form.shippingZoneId, () => {
+  manualShippingCost.value = 0;
+});
 
 onMounted(() => cart.hydrate());
 
@@ -54,6 +67,10 @@ async function submit() {
     error.value = 'El carrito está vacío';
     return;
   }
+  if (!meetsMinimum.value) {
+    error.value = 'El pedido mínimo mayorista es de 4 unidades';
+    return;
+  }
   if (!form.consentAccepted) {
     error.value = 'Debe aceptar términos y política de datos';
     return;
@@ -62,6 +79,7 @@ async function submit() {
   try {
     const payload: CreatePreOrderDto = {
       ...form,
+      ...(isManualCostZone.value ? { manualShippingCost: manualShippingCost.value } : {}),
       items: cart.toCheckoutItems(),
     };
     const res = await api.post<{ whatsappUrl: string; order?: { readableId?: string } }>('/pre-orders', payload);
@@ -141,9 +159,25 @@ async function submit() {
       >
         <option value="" disabled>Seleccione zona</option>
         <option v-for="zone in zones" :key="zone.id" :value="zone.id">
-          {{ zone.name }} — {{ formatCop(zone.cost) }}
+          {{ zone.name }}{{ zone.isManualCost ? ' — Costo manual' : ` — ${formatCop(zone.cost)}` }}
         </option>
       </select>
+
+      <div v-if="isManualCostZone" class="space-y-2">
+        <label class="block text-xs uppercase tracking-widest text-lux-white-dim" for="wholesale-manual-shipping">
+          Costo de envío (COP) <span class="text-lux-gold">*</span>
+        </label>
+        <input
+          id="wholesale-manual-shipping"
+          v-model.number="manualShippingCost"
+          type="number"
+          min="0"
+          step="1000"
+          required
+          placeholder="Ej. 25000"
+          class="w-full bg-lux-black-2 border border-lux-gold/20 px-4 py-3 text-sm"
+        >
+      </div>
 
       <div class="border border-lux-gold/15 p-4 text-sm space-y-2">
         <p>Subtotal mayorista: {{ formatCop(cart.subtotal) }}</p>
@@ -161,9 +195,13 @@ async function submit() {
         <p>{{ legal.privacyDraft }}</p>
       </details>
 
+      <p v-if="!meetsMinimum" class="text-amber-400 text-sm">
+        El pedido mínimo mayorista es de 4 unidades. Faltan {{ WHOLESALE_MIN - cart.unitCount }} unidad{{ (WHOLESALE_MIN - cart.unitCount) === 1 ? '' : 'es' }}.
+      </p>
+
       <p v-if="error" class="text-red-400 text-sm">{{ error }}</p>
 
-      <UiLuxButton type="submit" class="w-full" :disabled="loading">
+      <UiLuxButton type="submit" class="w-full" :disabled="loading || !meetsMinimum">
         {{ loading ? 'Procesando…' : 'Comprar por WhatsApp' }}
       </UiLuxButton>
     </form>

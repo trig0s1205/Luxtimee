@@ -1,6 +1,17 @@
 import { BadRequestException } from '@nestjs/common';
 import { MAX_VIDEO_INPUT_BYTES } from '@luxtime/shared';
 
+const GENERIC_CONTENT_TYPES = new Set([
+  '',
+  'application/octet-stream',
+  'binary/octet-stream',
+  'application/binary',
+]);
+
+function isGenericContentType(mime?: string) {
+  return !mime || GENERIC_CONTENT_TYPES.has(mime.toLowerCase());
+}
+
 const IMAGE_JPEG = Buffer.from([0xff, 0xd8, 0xff]);
 const IMAGE_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -49,7 +60,7 @@ export function assertImageBuffer(buffer: Buffer, declaredMime?: string) {
   if (!detected) {
     throw new BadRequestException('El archivo no es una imagen JPEG, PNG o WEBP válida');
   }
-  if (declaredMime) {
+  if (declaredMime && !isGenericContentType(declaredMime)) {
     const normalized = declaredMime === 'image/jpg' ? 'image/jpeg' : declaredMime;
     if (normalized !== detected && !(normalized === 'image/jpeg' && detected === 'image/jpeg')) {
       if (normalized !== detected) {
@@ -71,7 +82,7 @@ export function assertVideoBuffer(buffer: Buffer, declaredMime?: string) {
   if (!detected) {
     throw new BadRequestException('El archivo no es un video MP4 o WEBM válido');
   }
-  if (declaredMime && declaredMime !== detected) {
+  if (declaredMime && !isGenericContentType(declaredMime) && declaredMime !== detected) {
     const allowedDeclared = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'];
     if (!allowedDeclared.includes(declaredMime)) {
       throw new BadRequestException('El tipo MIME del video no es permitido');

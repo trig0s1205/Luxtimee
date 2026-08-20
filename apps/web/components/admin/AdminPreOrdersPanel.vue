@@ -2,6 +2,7 @@
 import type { OrderDto, PreOrdersListDto } from '@luxtime/shared';
 import { PRE_ORDER_RESPONSE_HOURS } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
+import { extractApiErrorMessage } from '~/utils/api-error';
 import { orderDeliveryNotes, orderHasDeliveryNotes } from '~/utils/order-delivery-notes';
 import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
 
@@ -13,10 +14,13 @@ const props = defineProps<{
 
 const PAGE_SIZE = 10;
 const api = useApi();
+const toast = useToast();
 const { confirm: confirmDialog } = useConfirm();
 const { waitHoursSince } = useLiveWaitHours();
 const page = ref(1);
 const expandedIds = ref<Set<string>>(new Set());
+const editingOrder = ref<OrderDto | null>(null);
+const deletingId = ref<string | null>(null);
 
 const endpoint = computed(() =>
   props.bucket === 'active' ? '/pre-orders' : '/pre-orders/suspended',
@@ -99,6 +103,38 @@ async function cancelOrder(id: string) {
   await api.post(`/pre-orders/${id}/cancel`);
   invalidateAdminCache(cacheKey.value);
   await refresh();
+}
+
+async function deleteOrder(order: OrderDto) {
+  const ok = await confirmDialog({
+    title: 'Eliminar pre-pedido',
+    message: `¿Eliminar permanentemente el pre-pedido ${order.readableId}? Esta acción no se puede deshacer.`,
+    confirmLabel: 'Eliminar',
+    destructive: true,
+  });
+  if (!ok) return;
+  deletingId.value = order.id;
+  try {
+    await api.del(`/pre-orders/${order.id}`);
+    toast.success(`Pre-pedido ${order.readableId} eliminado`);
+    invalidateAdminCache(cacheKey.value);
+    invalidateAdminCachePrefix('admin-pre-orders-');
+    await refresh();
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo eliminar el pre-pedido.'));
+  } finally {
+    deletingId.value = null;
+  }
+}
+
+function openEdit(order: OrderDto) {
+  editingOrder.value = order;
+}
+
+function onEditSaved() {
+  editingOrder.value = null;
+  invalidateAdminCache(cacheKey.value);
+  refresh();
 }
 
 useSeoMeta({ title: props.seoTitle });
@@ -189,11 +225,28 @@ useSeoMeta({ title: props.seoTitle });
               :subtitle="`${order.items.length} artículo${order.items.length === 1 ? '' : 's'}`"
             >
               <ul class="admin-record-list">
-                <li v-for="item in order.items" :key="item.id">
-                  {{ item.productName }} ×{{ item.quantity }}
-                  <p v-if="item.deliveryNote?.trim()" class="admin-delivery-note">
-                    {{ item.deliveryNote }}
-                  </p>
+                <li v-for="item in order.items" :key="item.id" class="admin-record-item-row">
+                  <a
+                    v-if="item.watchThumbnail"
+                    :href="item.watchThumbnail"
+                    target="_blank"
+                    rel="noopener"
+                    @click.stop
+                  >
+                    <img
+                      :src="item.watchThumbnail"
+                      :alt="item.productName"
+                      width="40"
+                      height="40"
+                      style="object-fit:cover;border-radius:2px;display:block;"
+                    />
+                  </a>
+                  <span>
+                    {{ item.productName }} ×{{ item.quantity }}
+                    <p v-if="item.deliveryNote?.trim()" class="admin-delivery-note">
+                      {{ item.deliveryNote }}
+                    </p>
+                  </span>
                 </li>
               </ul>
             </AdminAccordionSection>
@@ -241,8 +294,19 @@ useSeoMeta({ title: props.seoTitle });
               >
                 Reactivar
               </button>
+              <button type="button" class="admin-record-btn admin-record-btn--ghost" @click.stop="openEdit(order)">
+                Editar
+              </button>
               <button type="button" class="admin-record-btn admin-record-btn--ghost" @click.stop="cancelOrder(order.id)">
                 Anular
+              </button>
+              <button
+                type="button"
+                class="admin-record-btn admin-record-btn--danger"
+                :disabled="deletingId === order.id"
+                @click.stop="deleteOrder(order)"
+              >
+                {{ deletingId === order.id ? 'Eliminando...' : 'Eliminar' }}
               </button>
             </div>
           </div>
@@ -264,4 +328,11 @@ useSeoMeta({ title: props.seoTitle });
       </button>
     </nav>
   </div>
+
+  <AdminPreOrderEditModal
+    v-if="editingOrder"
+    :order="editingOrder"
+    @close="editingOrder = null"
+    @saved="onEditSaved"
+  />
 </template>

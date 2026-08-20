@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BrandDto, CareTemplateDto, CategoryDto, WatchStaffDto } from '@luxtime/shared';
+import type { BrandDto, CareTemplateDto, CategoryDto, MechanismDto, WatchStaffDto } from '@luxtime/shared';
 import { WatchStatus } from '@luxtime/shared';
 import { calcMarginPercent } from '~/utils/margin';
 import { validateWatchVideoFile } from '~/utils/video-validation';
@@ -8,8 +8,9 @@ import { MAX_VIDEO_DURATION_SEC } from '@luxtime/shared';
 type WatchFormPayload = {
   brandId: string;
   categoryId?: string;
+  mechanismId?: string;
+  movementType?: string;
   model: string;
-  reference?: string;
   description?: string;
   gender?: string;
   warrantyMonths: number;
@@ -22,7 +23,6 @@ type WatchFormPayload = {
   wholesaleMarginPercentage?: number;
   stock: number;
   status: WatchStatus;
-  showInCatalog: boolean;
   isLimitedEdition: boolean;
   limitedEditionNumber?: string;
   images: string[];
@@ -39,6 +39,7 @@ const props = defineProps<{
   watch?: WatchStaffDto | null;
   brands: BrandDto[];
   categories: CategoryDto[];
+  mechanisms: MechanismDto[];
   careTemplates: CareTemplateDto[];
   saving: boolean;
   submitError?: string;
@@ -50,35 +51,7 @@ const emit = defineEmits<{
 }>();
 
 const auth = useAuthStore();
-const api = useApi();
 const toast = useToast();
-
-const MAX_CATALOG_FEATURED = 6;
-const featuredCount = ref(0);
-
-async function loadFeaturedCount() {
-  try {
-    const result = await api.get<{ count: number; max: number }>('/watches/featured/count');
-    featuredCount.value = result.count;
-  } catch {
-    featuredCount.value = 0;
-  }
-}
-
-onMounted(() => {
-  loadFeaturedCount();
-});
-
-watch(
-  () => props.watch?.id,
-  () => {
-    loadFeaturedCount();
-  },
-);
-
-const catalogFeaturedFull = computed(
-  () => featuredCount.value >= MAX_CATALOG_FEATURED && !form.showInCatalog,
-);
 
 const activeTab = ref(0);
 const tabs = ['GENERAL', 'PRECIOS E INVENTARIO', 'MULTIMEDIA'];
@@ -88,8 +61,9 @@ const genderOptions = ['Hombre', 'Mujer', 'Unisex'];
 const form = reactive<WatchFormPayload>({
   brandId: props.watch?.brand?.id ?? '',
   categoryId: props.watch?.category?.id ?? '',
+  mechanismId: props.watch?.mechanism?.id ?? '',
+  movementType: props.watch?.mechanism?.name ?? props.watch?.movementType ?? '',
   model: props.watch?.model ?? '',
-  reference: props.watch?.reference ?? undefined,
   description: props.watch?.description ?? undefined,
   gender: props.watch?.gender ?? undefined,
   warrantyMonths: props.watch?.warrantyMonths ?? 1,
@@ -102,7 +76,6 @@ const form = reactive<WatchFormPayload>({
   wholesaleMarginPercentage: props.watch?.wholesaleMarginPercentage ?? undefined,
   stock: props.watch?.stock ?? 0,
   status: props.watch?.status ?? WatchStatus.DISPONIBLE,
-  showInCatalog: props.watch?.showInCatalog ?? false,
   isLimitedEdition: props.watch?.isLimitedEdition ?? false,
   limitedEditionNumber: props.watch?.limitedEditionNumber ?? undefined,
   images: props.watch?.images?.length ? [...props.watch.images] : [],
@@ -121,6 +94,14 @@ watch(
     form.status = stock > 0 ? WatchStatus.DISPONIBLE : WatchStatus.AGOTADO;
   },
   { immediate: true },
+);
+
+watch(
+  () => form.mechanismId,
+  (id) => {
+    const mech = props.mechanisms.find((m) => m.id === id);
+    form.movementType = mech?.name ?? '';
+  },
 );
 
 const retailMarginPercentage = computed(() =>
@@ -301,13 +282,16 @@ const selectedCareTemplate = computed(() =>
           </div>
 
           <div class="admin-form-field">
-            <label>Nombre comercial (modelo) <span class="admin-form-required">*</span></label>
-            <UiLuxInput v-model="form.model" placeholder="Ej. Submariner Date" />
+            <label>Mecanismo</label>
+            <select v-model="form.mechanismId">
+              <option value="">Sin especificar</option>
+              <option v-for="mechanism in mechanisms" :key="mechanism.id" :value="mechanism.id">{{ mechanism.name }}</option>
+            </select>
           </div>
 
           <div class="admin-form-field">
-            <label>Referencia del fabricante</label>
-            <UiLuxInput v-model="form.reference" placeholder="Ej. 126610LN" />
+            <label>Nombre comercial (modelo) <span class="admin-form-required">*</span></label>
+            <UiLuxInput v-model="form.model" placeholder="Ej. Submariner Date" />
           </div>
 
           <div class="admin-form-field">
@@ -341,17 +325,6 @@ const selectedCareTemplate = computed(() =>
               rows="5"
               placeholder="Historia y detalles comerciales del modelo..."
             />
-          </div>
-
-          <div class="admin-form-field admin-form-field--full">
-            <UiLuxCheckbox
-              v-model="form.showInCatalog"
-              label="Mostrar en catálogo"
-              :disabled="catalogFeaturedFull"
-            />
-            <p class="admin-form-hint">
-              Máximo 6 relojes visibles en portada ({{ featuredCount }}/{{ MAX_CATALOG_FEATURED }} seleccionados)
-            </p>
           </div>
 
           <div class="admin-form-field admin-form-field--inline">

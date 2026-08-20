@@ -151,7 +151,7 @@ export class CatalogService {
     const [data, total] = await Promise.all([
       this.prisma.watch.findMany({
         where,
-        include: { brand: true, category: true, warrantyTemplate: true, careTemplate: true },
+        include: { brand: true, category: true, mechanism: true, warrantyTemplate: true, careTemplate: true },
         orderBy,
         skip,
         take: limit,
@@ -172,7 +172,7 @@ export class CatalogService {
   async findBySlug(slug: string) {
     const watch = await this.prisma.watch.findFirst({
       where: { slug, isActive: true, isPublished: true, deletedAt: null, stock: { gt: 0 } },
-      include: { brand: true, category: true, warrantyTemplate: true, careTemplate: true },
+      include: { brand: true, category: true, mechanism: true, warrantyTemplate: true, careTemplate: true },
     });
 
     if (!watch) throw new NotFoundException('Producto no encontrado');

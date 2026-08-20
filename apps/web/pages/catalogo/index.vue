@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BrandDto, CategoryDto, PaginatedResponse, WatchPublicDto } from '@luxtime/shared';
+import type { BrandDto, CategoryDto, MechanismDto, PaginatedResponse, WatchPublicDto } from '@luxtime/shared';
 import { normalizeGender, resolveCatalogRouteQuery, sanitizeCatalogQuery } from '~/utils/catalog-filters';
 import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 
@@ -35,18 +35,12 @@ const { data: categories } = await useCachedAsyncData('catalog-categories', () =
   { staleTime: STOREFRONT_CACHE_MS.static },
 );
 
-const { data: filterMeta } = await useCachedAsyncData('catalog-filter-meta', () =>
-  $fetch<PaginatedResponse<WatchPublicDto>>(`${apiBase}/catalog`, {
-    query: { limit: 200, page: 1, sort: 'newest' },
-  }).catch(() => ({ data: [], total: 0, page: 1, limit: 200 })),
-  { staleTime: STOREFRONT_CACHE_MS.catalog },
+const { data: mechanismsData } = await useCachedAsyncData('catalog-mechanisms', () =>
+  $fetch<MechanismDto[]>(`${apiBase}/mechanisms/public`).catch(() => []),
+  { staleTime: STOREFRONT_CACHE_MS.static },
 );
 
-const movements = computed(() => {
-  const set = new Set<string>();
-  for (const w of filterMeta.value?.data ?? []) set.add(w.movementType);
-  return [...set].sort();
-});
+const movements = computed(() => mechanismsData.value ?? []);
 
 function buildCatalogParams() {
   return sanitizeCatalogQuery({
@@ -63,13 +57,19 @@ function buildCatalogParams() {
   });
 }
 
+const catalogKey = computed(() => `catalog-products-${JSON.stringify(buildCatalogParams())}`);
+
 const { data: catalogResult, pending, refresh } = await useCachedAsyncData<PaginatedResponse<WatchPublicDto>>(
-  'catalog-products',
+  catalogKey,
   () =>
     $fetch<PaginatedResponse<WatchPublicDto>>(`${apiBase}/catalog`, {
       query: buildCatalogParams(),
     }),
-  { default: (): PaginatedResponse<WatchPublicDto> => ({ data: [], total: 0, page: 1, limit: PAGE_SIZE }), staleTime: STOREFRONT_CACHE_MS.catalog },
+  {
+    default: (): PaginatedResponse<WatchPublicDto> => ({ data: [], total: 0, page: 1, limit: PAGE_SIZE }),
+    staleTime: STOREFRONT_CACHE_MS.catalog,
+    watch: [catalogKey],
+  },
 );
 
 const products = computed(() => catalogResult.value?.data ?? []);
@@ -245,7 +245,7 @@ useSeoMeta({
           <div class="catalog-field" :class="{ 'is-active': !!movement }">
             <select v-model="movement" class="catalog-select">
               <option value="" disabled hidden>{{ t('catalog.movement') }}</option>
-              <option v-for="m in movements" :key="m" :value="m">{{ m }}</option>
+              <option v-for="m in movements" :key="m.id" :value="m.name">{{ m.name }}</option>
             </select>
             <svg class="catalog-field-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <path d="M6 9l6 6 6-6" />
@@ -374,7 +374,7 @@ useSeoMeta({
                   <div class="catalog-field">
                     <select v-model="movement" class="catalog-select">
                       <option value="">Todos</option>
-                      <option v-for="m in movements" :key="m" :value="m">{{ m }}</option>
+                      <option v-for="m in movements" :key="m.id" :value="m.name">{{ m.name }}</option>
                     </select>
                     <svg class="catalog-field-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                       <path d="M6 9l6 6 6-6" />

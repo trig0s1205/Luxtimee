@@ -34,12 +34,22 @@ const { data: legal } = await useCachedAsyncData('legal-docs', () =>
   { staleTime: STOREFRONT_CACHE_MS.static },
 );
 
+const selectedZone = computed(() => zones.value?.find((z) => z.id === form.shippingZoneId) ?? null);
+const isManualCostZone = computed(() => !!selectedZone.value?.isManualCost);
+const manualShippingCost = ref(0);
+
 const shippingCost = computed(() => {
-  const zone = zones.value?.find((z) => z.id === form.shippingZoneId);
-  return zone?.cost ?? 0;
+  if (!selectedZone.value) return 0;
+  if (selectedZone.value.alwaysFree) return 0;
+  if (selectedZone.value.isManualCost) return manualShippingCost.value;
+  return selectedZone.value.cost;
 });
 
 const total = computed(() => cart.subtotal + shippingCost.value);
+
+watch(() => form.shippingZoneId, () => {
+  manualShippingCost.value = 0;
+});
 
 onMounted(() => {
   cart.hydrate();
@@ -61,6 +71,7 @@ async function submit() {
   try {
     const payload: CreatePreOrderDto = {
       ...form,
+      ...(isManualCostZone.value ? { manualShippingCost: manualShippingCost.value } : {}),
       items: cart.toCheckoutItems(),
     };
     const res = await api.post<{ whatsappUrl: string; order?: { readableId?: string } }>('/pre-orders', payload);
@@ -164,9 +175,25 @@ async function submit() {
       >
         <option value="" disabled>Seleccione zona</option>
         <option v-for="zone in zones" :key="zone.id" :value="zone.id">
-          {{ zone.name }} — {{ formatCop(zone.cost) }}
+          {{ zone.name }}{{ zone.isManualCost ? ' — Costo manual' : ` — ${formatCop(zone.cost)}` }}
         </option>
       </select>
+
+      <div v-if="isManualCostZone" class="space-y-2">
+        <label class="block text-xs uppercase tracking-widest text-lux-white-dim" for="checkout-manual-shipping">
+          Costo de envío (COP) <span class="text-lux-gold">*</span>
+        </label>
+        <input
+          id="checkout-manual-shipping"
+          v-model.number="manualShippingCost"
+          type="number"
+          min="0"
+          step="1000"
+          required
+          placeholder="Ej. 25000"
+          class="w-full bg-lux-black-2 border border-lux-gold/20 px-4 py-3 text-sm"
+        >
+      </div>
 
       <div class="border border-lux-gold/15 p-4 text-sm space-y-2">
         <p>Subtotal: {{ formatCop(cart.subtotal) }}</p>

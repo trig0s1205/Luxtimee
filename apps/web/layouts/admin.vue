@@ -21,6 +21,7 @@ const ADMIN_ROUTES = [
   '/admin/pre-pedidos/nuevo',
   '/admin/pedidos/detal',
   '/admin/pedidos/mayor',
+  '/admin/ventas',
   '/admin/garantias',
   '/admin/envios',
   '/admin/socios-mayoristas',

@@ -13,10 +13,188 @@ const PERIOD_LABELS: Record<string, string> = {
   month: 'Mensual',
 };
 
+const BRAND = {
+  gold: '#B8962E',
+  goldLight: '#F5E9C8',
+  dark: '#1A1A1A',
+  gray: '#6B7280',
+  rowAlt: '#FAF7F0',
+  white: '#FFFFFF',
+  border: '#E5E7EB',
+} as const;
+
+const PG_MARGIN = 40;
+const PG_WIDTH = 595.28;
+const CONTENT_W = PG_WIDTH - PG_MARGIN * 2; // 515.28
+const HEADER_H = 70;
+const ROW_H = 18;
+
+interface PdfCell {
+  value: string;
+  x: number;
+  w: number;
+  align?: 'left' | 'right' | 'center';
+}
+
+interface PdfHeaderCell extends PdfCell {
+  label: string;
+}
+
 @Injectable()
 export class ReportsService {
   private periodLabel(period: string) {
     return PERIOD_LABELS[period] ?? period;
+  }
+
+  private fmt(n: number): string {
+    return `$${n.toLocaleString('es-CO')}`;
+  }
+
+  private fmtDate(d: string | Date): string {
+    return new Date(d).toLocaleDateString('es-CO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+    });
+  }
+
+  private drawHeader(doc: PDFKit.PDFDocument, title: string, subtitle: string): void {
+    doc.rect(0, 0, PG_WIDTH, HEADER_H).fill(BRAND.dark);
+    doc.rect(0, HEADER_H, PG_WIDTH, 3).fill(BRAND.gold);
+
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(22)
+      .fillColor(BRAND.gold)
+      .text('LUXTIMEE', PG_MARGIN, 18, { lineBreak: false });
+
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(13)
+      .fillColor(BRAND.white)
+      .text(title, PG_MARGIN + 140, 16, {
+        width: CONTENT_W - 140,
+        align: 'right',
+        lineBreak: false,
+      });
+
+    doc
+      .font('Helvetica')
+      .fontSize(9)
+      .fillColor('#CCCCCC')
+      .text(subtitle, PG_MARGIN + 140, 34, {
+        width: CONTENT_W - 140,
+        align: 'right',
+        lineBreak: false,
+      });
+  }
+
+  private drawSummaryBox(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    label: string,
+    value: string,
+  ): void {
+    doc.rect(x, y, w, h).fillAndStroke(BRAND.goldLight, BRAND.gold);
+    doc
+      .font('Helvetica')
+      .fontSize(7.5)
+      .fillColor(BRAND.gray)
+      .text(label, x + 6, y + 9, { width: w - 12, align: 'center', lineBreak: false });
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(12)
+      .fillColor(BRAND.dark)
+      .text(value, x + 6, y + 22, { width: w - 12, align: 'center', lineBreak: false });
+  }
+
+  private drawTableHeaderRow(
+    doc: PDFKit.PDFDocument,
+    y: number,
+    cols: PdfHeaderCell[],
+  ): void {
+    doc.rect(PG_MARGIN, y, CONTENT_W, ROW_H).fill(BRAND.dark);
+    for (const col of cols) {
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(7.5)
+        .fillColor(BRAND.white)
+        .text(col.label, col.x + 4, y + (ROW_H - 7.5) / 2, {
+          width: col.w - 8,
+          align: col.align ?? 'left',
+          lineBreak: false,
+        });
+    }
+  }
+
+  private drawTableRow(
+    doc: PDFKit.PDFDocument,
+    y: number,
+    cells: PdfCell[],
+    isAlt: boolean,
+    isBold = false,
+  ): void {
+    if (isAlt) {
+      doc.rect(PG_MARGIN, y, CONTENT_W, ROW_H).fill(BRAND.rowAlt);
+    }
+    doc.rect(PG_MARGIN, y, CONTENT_W, ROW_H).stroke(BRAND.border);
+    for (const cell of cells) {
+      doc
+        .font(isBold ? 'Helvetica-Bold' : 'Helvetica')
+        .fontSize(7.5)
+        .fillColor(BRAND.dark)
+        .text(cell.value, cell.x + 4, y + (ROW_H - 7.5) / 2, {
+          width: cell.w - 8,
+          align: cell.align ?? 'left',
+          lineBreak: false,
+        });
+    }
+  }
+
+  private drawTotalRow(doc: PDFKit.PDFDocument, y: number, cells: PdfCell[]): void {
+    doc.rect(PG_MARGIN, y, CONTENT_W, ROW_H).fillAndStroke(BRAND.goldLight, BRAND.gold);
+    for (const cell of cells) {
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(7.5)
+        .fillColor(BRAND.dark)
+        .text(cell.value, cell.x + 4, y + (ROW_H - 7.5) / 2, {
+          width: cell.w - 8,
+          align: cell.align ?? 'left',
+          lineBreak: false,
+        });
+    }
+  }
+
+  private addFooters(doc: PDFKit.PDFDocument, byLine: string): void {
+    const range = doc.bufferedPageRange();
+    const total = range.count;
+    for (let i = 0; i < total; i++) {
+      doc.switchToPage(range.start + i);
+      const footerY = doc.page.height - 28;
+      doc.rect(0, footerY - 5, PG_WIDTH, 1).fill(BRAND.gold);
+      doc
+        .font('Helvetica')
+        .fontSize(7)
+        .fillColor(BRAND.gray)
+        .text(`${byLine} · ${new Date().toLocaleString('es-CO')}`, PG_MARGIN, footerY, {
+          width: CONTENT_W / 2,
+          align: 'left',
+          lineBreak: false,
+        });
+      doc
+        .font('Helvetica')
+        .fontSize(7)
+        .fillColor(BRAND.gray)
+        .text(`Página ${i + 1} de ${total}`, PG_MARGIN + CONTENT_W / 2, footerY, {
+          width: CONTENT_W / 2,
+          align: 'right',
+          lineBreak: false,
+        });
+    }
   }
 
   async buildProfitExcel(data: ProfitDashboardDto, owner: ReportOwnerDto): Promise<Buffer> {
@@ -106,43 +284,125 @@ export class ReportsService {
 
   async buildProfitPdf(data: ProfitDashboardDto, owner: ReportOwnerDto): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-      const doc = new PDFDocument({ margin: 50 });
+      const doc = new PDFDocument({ margin: PG_MARGIN, size: 'A4', bufferPages: true });
       const chunks: Buffer[] = [];
-      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      doc.fontSize(18).fillColor('#000000').text('LUXTIMEE — Reporte de Ganancia', { underline: true });
-      doc.moveDown(0.5);
+      const periodLbl = this.periodLabel(data.period);
+      const today = new Date().toLocaleDateString('es-CO');
 
-      doc.fontSize(9).fillColor('#666666');
-      doc.text(`Generado el ${new Date().toLocaleString('es-CO')}`);
-      doc.text(`Generado por: ${owner.name} · ${owner.email}${owner.phone ? ` · ${owner.phone}` : ''}`);
-      doc.fillColor('#000000');
-      doc.moveDown();
+      this.drawHeader(doc, 'Reporte de Ganancias', `Periodo: ${periodLbl} · ${today}`);
 
-      doc.fontSize(12).text(`Periodo: ${this.periodLabel(data.period)}`);
-      doc.text(`Ingresos: $${data.totalRevenue.toLocaleString('es-CO')}`);
-      doc.text(`Costos vendidos: $${data.totalCost.toLocaleString('es-CO')}`);
-      doc.text(`Ganancia bruta: $${data.totalGrossProfit.toLocaleString('es-CO')}`);
-      doc.text(`Comisión secretaría: $${data.totalCommission.toLocaleString('es-CO')}`);
-      doc.text(`Ganancia neta: $${data.totalProfit.toLocaleString('es-CO')}`);
-      doc.text(`Fondo reinversión (${data.reinvestmentPercent}%): $${data.totalReinvestmentFund.toLocaleString('es-CO')}`);
-      doc.text(`Ganancia libre dueño (${data.ownerProfitPercent}%): $${data.totalOwnerProfit.toLocaleString('es-CO')}`);
-      doc.text(`Inversión en inventario: $${data.totalInventoryInvestment.toLocaleString('es-CO')}`);
-      doc.moveDown();
+      // Summary cards — row 1
+      const totalOrders = data.items.length;
+      const wholesaleOrders = data.items.filter((i) => i.orderType === 'MAYORISTA').length;
+      const avgValue = totalOrders > 0 ? Math.round(data.totalRevenue / totalOrders) : 0;
+      const CARD_H = 46;
+      const cardW1 = (CONTENT_W - 12) / 4;
+      let cy = HEADER_H + 14;
 
-      if (!data.items.length) {
-        doc.fontSize(11).fillColor('#666666').text('Sin ventas registradas en el periodo seleccionado.');
+      this.drawSummaryBox(doc, PG_MARGIN, cy, cardW1, CARD_H, 'Total Ingresos', this.fmt(data.totalRevenue));
+      this.drawSummaryBox(doc, PG_MARGIN + (cardW1 + 4) * 1, cy, cardW1, CARD_H, 'Pedidos', `${totalOrders}`);
+      this.drawSummaryBox(doc, PG_MARGIN + (cardW1 + 4) * 2, cy, cardW1, CARD_H, 'Mayoristas', `${wholesaleOrders}`);
+      this.drawSummaryBox(doc, PG_MARGIN + (cardW1 + 4) * 3, cy, cardW1, CARD_H, 'Valor Promedio', this.fmt(avgValue));
+      cy += CARD_H + 6;
+
+      // Summary cards — row 2
+      const cardW2 = (CONTENT_W - 8) / 3;
+      this.drawSummaryBox(doc, PG_MARGIN, cy, cardW2, CARD_H, 'Ganancia Bruta', this.fmt(data.totalGrossProfit));
+      this.drawSummaryBox(doc, PG_MARGIN + (cardW2 + 4) * 1, cy, cardW2, CARD_H, 'Ganancia Neta', this.fmt(data.totalProfit));
+      this.drawSummaryBox(doc, PG_MARGIN + (cardW2 + 4) * 2, cy, cardW2, CARD_H, 'Comisión Secretaría', this.fmt(data.totalCommission));
+      cy += CARD_H + 12;
+
+      // Column definitions
+      const cols: PdfHeaderCell[] = [
+        { label: 'Fecha',    value: '', x: PG_MARGIN,        w: 65,    align: 'left' },
+        { label: 'Pedido',   value: '', x: PG_MARGIN + 65,   w: 55,    align: 'left' },
+        { label: 'Producto', value: '', x: PG_MARGIN + 120,  w: 150,   align: 'left' },
+        { label: 'Tipo',     value: '', x: PG_MARGIN + 270,  w: 50,    align: 'left' },
+        { label: 'Cant.',    value: '', x: PG_MARGIN + 320,  w: 30,    align: 'center' },
+        { label: 'Ingreso',  value: '', x: PG_MARGIN + 350,  w: 82.64, align: 'right' },
+        { label: 'Ganancia', value: '', x: PG_MARGIN + 432.64, w: 82.64, align: 'right' },
+      ];
+
+      const orderTypeLabels: Record<string, string> = {
+        DETAL: 'Al detal',
+        MAYORISTA: 'Mayor.',
+      };
+
+      let tableY = cy;
+      this.drawTableHeaderRow(doc, tableY, cols);
+      tableY += ROW_H;
+
+      if (data.items.length === 0) {
+        doc
+          .font('Helvetica')
+          .fontSize(10)
+          .fillColor(BRAND.gray)
+          .text('Sin ventas registradas en el periodo seleccionado.', PG_MARGIN, tableY + 8, {
+            width: CONTENT_W,
+            align: 'center',
+            lineBreak: false,
+          });
+        tableY += ROW_H + 8;
       } else {
-        data.items.forEach((item) => {
-          doc
-            .fontSize(10)
-            .fillColor('#000000')
-            .text(`${item.readableId} · ${item.productName} x${item.quantity} → $${item.profit.toLocaleString('es-CO')}`);
-        });
+        for (let idx = 0; idx < data.items.length; idx++) {
+          const item = data.items[idx];
+          if (tableY + ROW_H > doc.page.height - 50) {
+            doc.addPage();
+            tableY = PG_MARGIN;
+            this.drawTableHeaderRow(doc, tableY, cols);
+            tableY += ROW_H;
+          }
+          const cells: PdfCell[] = [
+            { value: item.paidAt ? this.fmtDate(item.paidAt) : '—', x: cols[0].x, w: cols[0].w, align: 'left' },
+            { value: item.readableId,                                 x: cols[1].x, w: cols[1].w, align: 'left' },
+            { value: item.productName,                                x: cols[2].x, w: cols[2].w, align: 'left' },
+            { value: orderTypeLabels[item.orderType] ?? item.orderType, x: cols[3].x, w: cols[3].w, align: 'left' },
+            { value: String(item.quantity),                           x: cols[4].x, w: cols[4].w, align: 'center' },
+            { value: this.fmt(item.revenue),                          x: cols[5].x, w: cols[5].w, align: 'right' },
+            { value: this.fmt(item.profit),                           x: cols[6].x, w: cols[6].w, align: 'right' },
+          ];
+          this.drawTableRow(doc, tableY, cells, idx % 2 === 1);
+          tableY += ROW_H;
+        }
+
+        // Grand total row
+        if (tableY + ROW_H > doc.page.height - 50) {
+          doc.addPage();
+          tableY = PG_MARGIN;
+        }
+        const totalCells: PdfCell[] = [
+          { value: '',                          x: cols[0].x, w: cols[0].w, align: 'left' },
+          { value: '',                          x: cols[1].x, w: cols[1].w, align: 'left' },
+          { value: '',                          x: cols[2].x, w: cols[2].w, align: 'left' },
+          { value: 'TOTAL',                     x: cols[3].x, w: cols[3].w + cols[4].w, align: 'right' },
+          { value: '',                          x: cols[4].x, w: 0, align: 'left' },
+          { value: this.fmt(data.totalRevenue), x: cols[5].x, w: cols[5].w, align: 'right' },
+          { value: this.fmt(data.totalProfit),  x: cols[6].x, w: cols[6].w, align: 'right' },
+        ];
+        this.drawTotalRow(doc, tableY, totalCells);
+        tableY += ROW_H + 10;
       }
 
+      // Breakdown footnote
+      doc
+        .font('Helvetica')
+        .fontSize(7.5)
+        .fillColor(BRAND.gray)
+        .text(
+          `Reinversión (${data.reinvestmentPercent}%): ${this.fmt(data.totalReinvestmentFund)}   ·   ` +
+            `Ganancia dueño (${data.ownerProfitPercent}%): ${this.fmt(data.totalOwnerProfit)}   ·   ` +
+            `Inversión inventario: ${this.fmt(data.totalInventoryInvestment)}`,
+          PG_MARGIN,
+          tableY,
+          { width: CONTENT_W, align: 'left', lineBreak: false },
+        );
+
+      this.addFooters(doc, `${owner.name} · ${owner.email}`);
+      doc.flushPages();
       doc.end();
     });
   }
@@ -209,39 +469,75 @@ export class ReportsService {
 
   async buildWarrantyPdf(data: WarrantyHistoryExportDto, owner: ReportOwnerDto): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-      const doc = new PDFDocument({ margin: 50 });
+      const doc = new PDFDocument({ margin: PG_MARGIN, size: 'A4', bufferPages: true });
       const chunks: Buffer[] = [];
-      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      doc.fontSize(18).fillColor('#000000').text('LUXTIMEE — Historias de garantías', { underline: true });
-      doc.moveDown(0.5);
-      doc.fontSize(9).fillColor('#666666');
-      doc.text(`Generado el ${new Date().toLocaleString('es-CO')}`);
-      doc.text(`Generado por: ${owner.name} · ${owner.email}${owner.phone ? ` · ${owner.phone}` : ''}`);
-      doc.fillColor('#000000');
-      doc.moveDown();
-      doc.fontSize(12).text(`Periodo: ${data.periodLabel}`);
-      doc.moveDown();
+      const today = new Date().toLocaleDateString('es-CO');
+      this.drawHeader(doc, 'Reporte de Garantías', `Periodo: ${data.periodLabel} · ${today}`);
 
-      if (!data.items.length) {
-        doc.fontSize(11).fillColor('#666666').text('Sin historias de garantía en el periodo seleccionado.');
+      // Summary cards
+      const total = data.items.length;
+      const registered = data.items.filter((i) => i.status === 'GARANTIA_REGISTRADA').length;
+      const CARD_H = 46;
+      const cardW = (CONTENT_W - 4) / 2;
+      let cy = HEADER_H + 14;
+
+      this.drawSummaryBox(doc, PG_MARGIN, cy, cardW, CARD_H, 'Total Garantías Registradas', `${total}`);
+      this.drawSummaryBox(doc, PG_MARGIN + cardW + 4, cy, cardW, CARD_H, 'Garantías Activas (Registradas)', `${registered}`);
+      cy += CARD_H + 12;
+
+      // Column definitions
+      const cols: PdfHeaderCell[] = [
+        { label: 'Registro',  value: '', x: PG_MARGIN,        w: 72,    align: 'left' },
+        { label: 'Cliente',   value: '', x: PG_MARGIN + 72,   w: 110,   align: 'left' },
+        { label: 'Producto',  value: '', x: PG_MARGIN + 182,  w: 143,   align: 'left' },
+        { label: 'SKU',       value: '', x: PG_MARGIN + 325,  w: 75,    align: 'left' },
+        { label: 'Serv.',     value: '', x: PG_MARGIN + 400,  w: 65,    align: 'left' },
+        { label: 'Estado',    value: '', x: PG_MARGIN + 465,  w: 50.28, align: 'center' },
+      ];
+
+      let tableY = cy;
+      this.drawTableHeaderRow(doc, tableY, cols);
+      tableY += ROW_H;
+
+      if (data.items.length === 0) {
+        doc
+          .font('Helvetica')
+          .fontSize(10)
+          .fillColor(BRAND.gray)
+          .text('Sin historias de garantía en el periodo seleccionado.', PG_MARGIN, tableY + 8, {
+            width: CONTENT_W,
+            align: 'center',
+            lineBreak: false,
+          });
       } else {
-        data.items.forEach((item) => {
-          doc
-            .fontSize(10)
-            .fillColor('#000000')
-            .text(
-              `${item.productSku} · ${item.customerName} · Venta ${new Date(item.saleDate).toLocaleDateString('es-CO')}${
-                item.serviceDate
-                  ? ` · Garantía ${new Date(item.serviceDate).toLocaleDateString('es-CO')}`
-                  : ' · Pendiente'
-              }`,
-            );
-        });
+        for (let idx = 0; idx < data.items.length; idx++) {
+          const item = data.items[idx];
+          if (tableY + ROW_H > doc.page.height - 50) {
+            doc.addPage();
+            tableY = PG_MARGIN;
+            this.drawTableHeaderRow(doc, tableY, cols);
+            tableY += ROW_H;
+          }
+          const statusLabel = item.status === 'GARANTIA_REGISTRADA' ? 'Reg.' : 'Pend.';
+          const cells: PdfCell[] = [
+            { value: this.fmtDate(item.createdAt),                              x: cols[0].x, w: cols[0].w, align: 'left' },
+            { value: item.customerName,                                          x: cols[1].x, w: cols[1].w, align: 'left' },
+            { value: item.productName,                                           x: cols[2].x, w: cols[2].w, align: 'left' },
+            { value: item.productSku,                                            x: cols[3].x, w: cols[3].w, align: 'left' },
+            { value: item.serviceDate ? this.fmtDate(item.serviceDate) : '—',   x: cols[4].x, w: cols[4].w, align: 'left' },
+            { value: statusLabel,                                                x: cols[5].x, w: cols[5].w, align: 'center' },
+          ];
+          this.drawTableRow(doc, tableY, cells, idx % 2 === 1);
+          tableY += ROW_H;
+        }
       }
 
+      this.addFooters(doc, `${owner.name} · ${owner.email}`);
+      doc.flushPages();
       doc.end();
     });
   }

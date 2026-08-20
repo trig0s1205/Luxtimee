@@ -46,6 +46,12 @@ export class CreatePreOrderDto {
   @IsString()
   shippingZoneId?: string;
 
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  manualShippingCost?: number;
+
   @IsBoolean()
   consentAccepted!: boolean;
 
@@ -73,6 +79,12 @@ export class CreateManualPreOrderDto {
   @IsString()
   shippingZoneId?: string;
 
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  manualShippingCost?: number;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => PreOrderItemDto)
@@ -98,6 +110,12 @@ export class UpdatePreOrderDto {
   @IsOptional()
   @IsString()
   shippingZoneId?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  manualShippingCost?: number;
 
   @IsOptional()
   @IsArray()

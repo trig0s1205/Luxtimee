@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { BrandDto, CategoryDto } from '@luxtime/shared';
+import type { BrandDto, CategoryDto, MechanismDto } from '@luxtime/shared';
 import { extractApiErrorMessage } from '~/utils/api-error';
 
-useHead({ title: 'Catálogo — Marcas y clases — LUXTIMEE Admin' });
+useHead({ title: 'Catálogo — Marcas, clases y mecanismos — LUXTIMEE Admin' });
 definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const api = useApi();
@@ -10,20 +10,25 @@ const toast = useToast();
 const { confirm } = useConfirm();
 const catalogStore = useAdminCatalogStore();
 
-const activeTab = ref<'brands' | 'categories'>('brands');
+const activeTab = ref<'brands' | 'categories' | 'mechanisms'>('brands');
 const brandName = ref('');
 const categoryName = ref('');
+const mechanismName = ref('');
 const savingBrand = ref(false);
 const savingCategory = ref(false);
+const savingMechanism = ref(false);
 
 const brands = computed(() => catalogStore.brands);
 const categories = computed(() => catalogStore.categories);
+const mechanisms = computed(() => catalogStore.mechanisms);
 const brandsPending = computed(() => catalogStore.loadingBrands);
 const categoriesPending = computed(() => catalogStore.loadingCategories);
+const mechanismsPending = computed(() => catalogStore.loadingMechanisms);
 
 catalogStore.ensureAll({
   brands: () => api.get<BrandDto[]>('/brands').catch(() => []),
   categories: () => api.get<CategoryDto[]>('/categories').catch(() => []),
+  mechanisms: () => api.get<MechanismDto[]>('/mechanisms').catch(() => []),
 });
 
 async function createBrand() {
@@ -95,13 +100,48 @@ async function deleteCategory(category: CategoryDto) {
     toast.error(extractApiErrorMessage(err, 'No se pudo eliminar la clase'));
   }
 }
+
+async function createMechanism() {
+  const name = mechanismName.value.trim();
+  if (!name) {
+    toast.warning('Escribe el nombre del mecanismo.');
+    return;
+  }
+  savingMechanism.value = true;
+  try {
+    const created = await api.post<MechanismDto>('/mechanisms', { name });
+    mechanismName.value = '';
+    catalogStore.addMechanism(created);
+    toast.success('Mecanismo creado correctamente');
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo crear el mecanismo'));
+  } finally {
+    savingMechanism.value = false;
+  }
+}
+
+async function deleteMechanism(mechanism: MechanismDto) {
+  const ok = await confirm({
+    title: `¿Eliminar el mecanismo "${mechanism.name}"?`,
+    destructive: true,
+    confirmLabel: 'Eliminar',
+  });
+  if (!ok) return;
+  try {
+    await api.del(`/mechanisms/${mechanism.id}`);
+    catalogStore.removeMechanism(mechanism.id);
+    toast.success('Mecanismo eliminado');
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo eliminar el mecanismo'));
+  }
+}
 </script>
 
 <template>
   <div class="catalog-settings">
     <UiToastContainer />
 
-    <UiSectionHeader label="Catálogo" title="Marcas y clases" />
+    <UiSectionHeader label="Catálogo" title="Marcas, clases y mecanismos" />
 
     <div class="catalog-settings-tabs">
       <button
@@ -119,6 +159,14 @@ async function deleteCategory(category: CategoryDto) {
         @click="activeTab = 'categories'"
       >
         Clases / Estilos
+      </button>
+      <button
+        type="button"
+        class="catalog-settings-tab"
+        :class="{ active: activeTab === 'mechanisms' }"
+        @click="activeTab = 'mechanisms'"
+      >
+        Mecanismos
       </button>
     </div>
 
@@ -187,6 +235,42 @@ async function deleteCategory(category: CategoryDto) {
               <td><span class="admin-catalog-table-slug">{{ category.slug }}</span></td>
               <td class="admin-catalog-table-actions">
                 <button type="button" class="admin-catalog-action-btn admin-catalog-action-btn--danger" title="Eliminar" aria-label="Eliminar clase" @click="deleteCategory(category)">×</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section v-show="activeTab === 'mechanisms'" class="catalog-settings-panel">
+      <form class="catalog-settings-form" @submit.prevent="createMechanism">
+        <UiLuxInput v-model="mechanismName" placeholder="Nuevo mecanismo (ej. Automático)" />
+        <UiLuxButton type="submit" :disabled="savingMechanism">
+          {{ savingMechanism ? 'Guardando...' : 'Agregar mecanismo' }}
+        </UiLuxButton>
+      </form>
+
+      <div class="admin-catalog-table-wrap">
+        <table class="admin-catalog-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Slug</th>
+              <th class="admin-catalog-table-actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="mechanismsPending">
+              <td colspan="3" class="admin-catalog-table-empty">Cargando mecanismos...</td>
+            </tr>
+            <tr v-else-if="!mechanisms?.length">
+              <td colspan="3" class="admin-catalog-table-empty">No hay mecanismos registrados.</td>
+            </tr>
+            <tr v-for="mechanism in mechanisms" :key="mechanism.id" class="admin-catalog-table-row">
+              <td><strong>{{ mechanism.name }}</strong></td>
+              <td><span class="admin-catalog-table-slug">{{ mechanism.slug }}</span></td>
+              <td class="admin-catalog-table-actions">
+                <button type="button" class="admin-catalog-action-btn admin-catalog-action-btn--danger" title="Eliminar" aria-label="Eliminar mecanismo" @click="deleteMechanism(mechanism)">×</button>
               </td>
             </tr>
           </tbody>

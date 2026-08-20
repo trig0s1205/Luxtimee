@@ -94,6 +94,19 @@ async function main() {
     });
   }
 
+  const defaultMechanisms = [
+    { name: 'Automático', slug: 'automatico' },
+    { name: 'Semiautomático', slug: 'semiautomatico' },
+    { name: 'Cuarzo', slug: 'cuarzo' },
+  ];
+  for (const m of defaultMechanisms) {
+    await prisma.mechanism.upsert({
+      where: { slug: m.slug },
+      update: {},
+      create: m,
+    });
+  }
+
   const rolex = await prisma.brand.upsert({
     where: { slug: 'rolex' },
     update: {},

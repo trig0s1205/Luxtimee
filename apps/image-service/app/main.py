@@ -2,6 +2,7 @@ import io
 import logging
 import os
 import secrets
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
@@ -12,8 +13,18 @@ from rembg import new_session, remove
 
 from app.video_processor import ALLOWED_VIDEO_MIMES, process_watch_video
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
 logger = logging.getLogger("luxtime-image-service")
+
+_GENERIC_CONTENT_TYPES = {
+    "",
+    "application/octet-stream",
+    "binary/octet-stream",
+    "application/binary",
+}
 
 _default_origins = [
     "http://localhost:3000",
@@ -21,12 +32,32 @@ _default_origins = [
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
 ]
-_cors_env = os.getenv("IMAGE_SERVICE_CORS_ORIGINS", "").strip()
-allow_origins = (
-    [origin.strip() for origin in _cors_env.split(",") if origin.strip()]
-    if _cors_env
-    else _default_origins
-)
+_production_origins = [
+    "https://luxtimee.com",
+    "https://www.luxtimee.com",
+]
+
+
+def _split_origins(raw: str) -> list[str]:
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+def _build_allow_origins() -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for origin in (
+        *_default_origins,
+        *_production_origins,
+        *_split_origins(os.getenv("IMAGE_SERVICE_CORS_ORIGINS", "")),
+        *_split_origins(os.getenv("FRONTEND_URL", "")),
+    ):
+        if origin not in seen:
+            seen.add(origin)
+            merged.append(origin)
+    return merged
+
+
+allow_origins = _build_allow_origins()
 
 CANVAS_WIDTH = 1200
 CANVAS_HEIGHT = 1800
@@ -43,10 +74,13 @@ _rembg_session = None
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     global _rembg_session
+    logger.info("CORS allow_origins=%s", allow_origins)
     logger.info("Preloading rembg model: %s", REMBG_MODEL)
+    started = time.perf_counter()
     _rembg_session = new_session(REMBG_MODEL)
-    logger.info("Model ready")
+    logger.info("Model ready in %.2fs", time.perf_counter() - started)
     yield
+    logger.info("Shutting down image-service")
 
 
 app = FastAPI(title="Luxtime Image Service", version="1.0.0", lifespan=lifespan)
@@ -94,8 +128,15 @@ def _scale_to_fill(img: Image.Image, max_w: int, max_h: int) -> Image.Image:
 
 
 def process_watch_image(data: bytes) -> bytes:
+    started = time.perf_counter()
     try:
+        logger.info("rembg remove() inicio bytes=%s model=%s", len(data), REMBG_MODEL)
         no_bg = remove(data, session=_rembg_session)
+        logger.info(
+            "rembg remove() ok in %.2fs out_bytes=%s",
+            time.perf_counter() - started,
+            len(no_bg),
+        )
         watch = Image.open(io.BytesIO(no_bg)).convert("RGBA")
 
         bbox = watch.getbbox()
@@ -114,15 +155,29 @@ def process_watch_image(data: bytes) -> bytes:
 
         buffer = io.BytesIO()
         canvas.save(buffer, format="WEBP", quality=88, method=4)
-        return buffer.getvalue()
+        result = buffer.getvalue()
+        logger.info(
+            "Imagen lista in %.2fs canvas=%sx%s out_bytes=%s",
+            time.perf_counter() - started,
+            CANVAS_WIDTH,
+            CANVAS_HEIGHT,
+            len(result),
+        )
+        return result
 
     except HTTPException:
         raise
-    except Exception as exc:
-        logger.exception("Fallo al procesar imagen: %s", exc)
+    except MemoryError as exc:
+        logger.exception("rembg OOM al procesar imagen")
         raise HTTPException(
             status_code=500,
-            detail="Error al procesar la imagen",
+            detail="Error de rembg: memoria insuficiente",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Fallo rembg al procesar imagen: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error de rembg al procesar la imagen ({type(exc).__name__})",
         ) from exc
 
 
@@ -137,13 +192,15 @@ async def process_watch(
     file: UploadFile = File(...),
     _: None = Depends(verify_api_key),
 ) -> Response:
-    if not file.content_type or file.content_type not in ALLOWED_FORMATS:
-        raise HTTPException(
-            status_code=400,
-            detail="Formato no válido. Formatos aceptados: JPG, PNG, WEBP",
-        )
-
     raw = await file.read()
+    declared_raw = (file.content_type or "").strip().lower()
+    logger.info(
+        "process-watch filename=%s content_type=%s size=%s",
+        file.filename,
+        declared_raw or "(vacío)",
+        len(raw),
+    )
+
     if len(raw) == 0:
         raise HTTPException(status_code=400, detail="Imagen vacía")
 
@@ -155,20 +212,33 @@ async def process_watch(
 
     detected = _detect_image_mime(raw)
     if detected is None:
+        logger.warning(
+            "Rechazado: magic bytes inválidos filename=%s content_type=%s size=%s",
+            file.filename,
+            declared_raw or "(vacío)",
+            len(raw),
+        )
         raise HTTPException(
             status_code=400,
-            detail="El contenido del archivo no es una imagen válida",
+            detail="El contenido del archivo no es una imagen válida (JPG, PNG o WEBP)",
         )
 
-    declared = "image/jpeg" if file.content_type == "image/jpg" else file.content_type
-    if detected != declared and not (
-        detected == "image/jpeg" and declared in {"image/jpeg", "image/jpg"}
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="El tipo MIME declarado no coincide con el contenido del archivo",
+    declared = "image/jpeg" if declared_raw == "image/jpg" else declared_raw
+    if declared and declared not in _GENERIC_CONTENT_TYPES and declared not in ALLOWED_FORMATS:
+        logger.warning(
+            "content_type no permitido %s; se acepta por magic bytes %s",
+            declared,
+            detected,
         )
+    elif declared and declared not in _GENERIC_CONTENT_TYPES and detected != declared:
+        if not (detected == "image/jpeg" and declared in {"image/jpeg", "image/jpg"}):
+            logger.warning(
+                "MIME declarado %s no coincide con %s; se usa magic bytes",
+                declared,
+                detected,
+            )
 
+    logger.info("Procesando imagen mime=%s size=%s", detected, len(raw))
     processed = process_watch_image(raw)
     return Response(content=processed, media_type="image/webp")
 
@@ -179,13 +249,20 @@ async def process_video(
     file: UploadFile = File(...),
     _: None = Depends(verify_api_key),
 ) -> Response:
-    declared = file.content_type
-    if declared and declared not in ALLOWED_VIDEO_MIMES:
+    declared = (file.content_type or "").strip().lower() or None
+    logger.info(
+        "process-video filename=%s content_type=%s",
+        file.filename,
+        declared or "(vacío)",
+    )
+    if declared and declared not in _GENERIC_CONTENT_TYPES and declared not in ALLOWED_VIDEO_MIMES:
         raise HTTPException(
             status_code=400,
             detail="Formato no válido. Formatos aceptados: MP4, MOV, WEBM",
         )
 
     raw = await file.read()
-    processed = process_watch_video(raw, declared_mime=declared)
+    logger.info("Video recibido size=%s mime=%s", len(raw), declared or "(vacío)")
+    processed = process_watch_video(raw, declared_mime=declared if declared not in _GENERIC_CONTENT_TYPES else None)
+    logger.info("Video procesado out_bytes=%s", len(processed))
     return Response(content=processed, media_type="video/mp4")

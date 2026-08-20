@@ -25,6 +25,10 @@ export class CreateWatchDto {
   @IsString()
   categoryId?: string;
 
+  @IsOptional()
+  @IsString()
+  mechanismId?: string;
+
   @IsString()
   @MinLength(2)
   model!: string;

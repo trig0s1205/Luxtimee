@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards, BadRequestException } from '@nestjs/common';
 import type { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
@@ -103,5 +103,13 @@ export class PreOrdersController {
   @Audit('CANCEL', 'PreOrder')
   cancel(@Param('id') id: string) {
     return this.preOrdersService.cancelPreOrder(id);
+  }
+
+  @Delete(':id')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  @Audit('DELETE', 'PreOrder')
+  remove(@Param('id') id: string) {
+    return this.preOrdersService.deletePreOrder(id);
   }
 }

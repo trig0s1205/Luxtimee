@@ -86,11 +86,18 @@ def process_watch_video(data: bytes, declared_mime: str | None = None) -> bytes:
             detail="El video supera el tamaño máximo de entrada (120MB)",
         )
 
-    if declared_mime and declared_mime not in ALLOWED_VIDEO_MIMES:
+    generic = declared_mime in {None, "", "application/octet-stream", "binary/octet-stream"}
+    if declared_mime and not generic and declared_mime not in ALLOWED_VIDEO_MIMES:
         raise HTTPException(
             status_code=400,
             detail="Formato no válido. Use MP4, MOV o WEBM",
         )
+
+    logger.info(
+        "process_watch_video size=%s declared_mime=%s",
+        len(data),
+        declared_mime or "(vacío)",
+    )
 
     with tempfile.TemporaryDirectory(prefix="lux-video-") as tmp:
         input_path = os.path.join(tmp, "input")
@@ -100,6 +107,7 @@ def process_watch_video(data: bytes, declared_mime: str | None = None) -> bytes:
             handle.write(data)
 
         duration = _probe_duration(input_path)
+        logger.info("Video duración=%.2fs", duration)
         if duration > MAX_VIDEO_DURATION_SEC + MAX_VIDEO_DURATION_TOLERANCE_SEC:
             raise HTTPException(
                 status_code=400,

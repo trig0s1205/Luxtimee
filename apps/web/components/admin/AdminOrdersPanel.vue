@@ -40,6 +40,8 @@ const updatingId = ref<string | null>(null);
 const expandedIds = ref<Set<string>>(new Set());
 const warrantyItemId = ref<string | null>(null);
 const savingWarrantyId = ref<string | null>(null);
+const editingOrder = ref<OrderDto | null>(null);
+const deletingId = ref<string | null>(null);
 
 const warrantyForm = reactive({
   damageDescription: '',
@@ -235,6 +237,40 @@ async function transition(order: OrderDto, status: OrderStatusValue) {
   }
 }
 
+async function deleteOrder(order: OrderDto) {
+  const ok = await confirm({
+    title: 'Eliminar pedido',
+    message: `¿Eliminar permanentemente el pedido ${orderSku(order)}? Si el inventario fue descontado, se restaurará.`,
+    confirmLabel: 'Eliminar',
+    destructive: true,
+  });
+  if (!ok) return;
+  deletingId.value = order.id;
+  try {
+    await api.del(`/orders/${order.id}`);
+    toast.success(`Pedido eliminado — ${orderSku(order)}`);
+    invalidateAdminCache(dataKey.value);
+    invalidateAdminCachePrefix('admin-orders-');
+    invalidateAdminCachePrefix('profit-dashboard-');
+    await refresh();
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo eliminar el pedido.'));
+  } finally {
+    deletingId.value = null;
+  }
+}
+
+function openEdit(order: OrderDto) {
+  editingOrder.value = order;
+}
+
+function onEditSaved() {
+  editingOrder.value = null;
+  invalidateAdminCache(dataKey.value);
+  invalidateAdminCachePrefix('admin-orders-');
+  refresh();
+}
+
 useSeoMeta({ title: props.seoTitle });
 </script>
 
@@ -328,6 +364,21 @@ useSeoMeta({ title: props.seoTitle });
             >
               <ul class="admin-record-list">
                 <li v-for="item in order.items" :key="item.id" class="admin-record-item-row">
+                  <a
+                    v-if="item.watchThumbnail"
+                    :href="item.watchThumbnail"
+                    target="_blank"
+                    rel="noopener"
+                    @click.stop
+                  >
+                    <img
+                      :src="item.watchThumbnail"
+                      :alt="item.productName"
+                      width="40"
+                      height="40"
+                      style="object-fit:cover;border-radius:2px;display:block;"
+                    />
+                  </a>
                   <span>
                     {{ item.productSku }} — {{ item.productName }} ×{{ item.quantity }}
                     <span class="admin-record-muted"> · {{ formatCop(item.unitPrice * item.quantity) }}</span>
@@ -418,36 +469,46 @@ useSeoMeta({ title: props.seoTitle });
               </div>
             </AdminAccordionSection>
 
-            <div v-if="nextTransitions(order).length" class="admin-record-actions">
-              <button
-                v-for="status in nextTransitions(order)"
-                :key="status"
-                type="button"
-                class="admin-record-btn"
-                :class="{
-                  'admin-record-btn--danger': status === 'CANCELADO',
-                  'admin-record-btn--primary': status !== 'CANCELADO',
-                }"
-                :disabled="updatingId === order.id"
-                @click.stop="transition(order, status)"
-              >
-                {{ updatingId === order.id ? 'Actualizando...' : ORDER_TRANSITION_LABELS[status] }}
+            <div class="admin-record-actions">
+              <template v-if="nextTransitions(order).length || hasPendingWarranty(order)">
+                <button
+                  v-for="status in nextTransitions(order)"
+                  :key="status"
+                  type="button"
+                  class="admin-record-btn"
+                  :class="{
+                    'admin-record-btn--danger': status === 'CANCELADO',
+                    'admin-record-btn--primary': status !== 'CANCELADO',
+                  }"
+                  :disabled="updatingId === order.id"
+                  @click.stop="transition(order, status)"
+                >
+                  {{ updatingId === order.id ? 'Actualizando...' : ORDER_TRANSITION_LABELS[status] }}
+                </button>
+                <button
+                  v-if="hasPendingWarranty(order)"
+                  type="button"
+                  class="admin-record-btn admin-record-btn--primary"
+                  @click.stop="firstPendingItem(order) && openWarrantyForm(order, firstPendingItem(order)!)"
+                >
+                  Registrar garantía
+                </button>
+              </template>
+              <button type="button" class="admin-record-btn admin-record-btn--ghost" @click.stop="openEdit(order)">
+                Editar
               </button>
               <button
-                v-if="hasPendingWarranty(order)"
                 type="button"
-                class="admin-record-btn admin-record-btn--primary"
-                @click.stop="firstPendingItem(order) && openWarrantyForm(order, firstPendingItem(order)!)"
+                class="admin-record-btn admin-record-btn--danger"
+                :disabled="deletingId === order.id"
+                @click.stop="deleteOrder(order)"
               >
-                Registrar garantía
+                {{ deletingId === order.id ? 'Eliminando...' : 'Eliminar' }}
               </button>
             </div>
 
-            <p v-else-if="order.status === 'ENTREGADO' && !hasPendingWarranty(order)" class="admin-record-status-note">
+            <p v-if="order.status === 'ENTREGADO'" class="admin-record-status-note">
               Pedido completado.
-            </p>
-            <p v-else-if="order.status === 'ENTREGADO' && hasPendingWarranty(order)" class="admin-record-status-note">
-              Pedido entregado. Registra la garantía cuando corresponda.
             </p>
           </div>
         </div>
@@ -468,5 +529,12 @@ useSeoMeta({ title: props.seoTitle });
       </button>
     </nav>
   </div>
+
+  <AdminOrderEditModal
+    v-if="editingOrder"
+    :order="editingOrder"
+    @close="editingOrder = null"
+    @saved="onEditSaved"
+  />
 </template>
 

@@ -47,26 +47,33 @@ function imageFileFilter(
   cb(null, true);
 }
 
+function isGenericUploadMime(mime?: string) {
+  return !mime || mime === 'application/octet-stream' || mime === 'binary/octet-stream';
+}
+
 function mediaFileFilter(
   _req: Request,
   file: Express.Multer.File,
   cb: (error: Error | null, acceptFile: boolean) => void,
 ) {
   if (file.fieldname === 'video') {
-    if (!['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'].includes(file.mimetype)) {
-      cb(new BadRequestException('El video debe ser MP4, MOV o WEBM'), false);
+    if (
+      isGenericUploadMime(file.mimetype)
+      || ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'].includes(file.mimetype)
+    ) {
+      cb(null, true);
       return;
     }
+    cb(new BadRequestException('El video debe ser MP4, MOV o WEBM'), false);
+    return;
+  }
+
+  if (isGenericUploadMime(file.mimetype) || ALLOWED_IMAGE_MIME.has(file.mimetype)) {
     cb(null, true);
     return;
   }
 
-  if (!ALLOWED_IMAGE_MIME.has(file.mimetype)) {
-    cb(new BadRequestException('image1 e image2 deben ser JPEG, PNG o WEBP'), false);
-    return;
-  }
-
-  cb(null, true);
+  cb(new BadRequestException('image1 e image2 deben ser JPEG, PNG o WEBP'), false);
 }
 
 @Controller({ path: 'watches', version: '1' })
@@ -151,12 +158,12 @@ export class WatchesController {
     },
     @Req() req: Request,
   ) {
-    const image1 = files.image1?.[0];
-    const image2 = files.image2?.[0];
-    const video = files.video?.[0];
+    const image1 = files?.image1?.[0];
+    const image2 = files?.image2?.[0];
+    const video = files?.video?.[0];
 
-    if (!image1 || !image2 || !video) {
-      throw new BadRequestException('image1, image2 y video son obligatorios');
+    if (!image1 && !image2 && !video) {
+      throw new BadRequestException('Debes enviar al menos un archivo (foto o video)');
     }
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;

@@ -17,11 +17,22 @@ export class CreateShippingZoneBodyDto {
   @IsBoolean()
   @Type(() => Boolean)
   isNational?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  isManualCost?: boolean;
 }
 
 export class UpdateShippingZoneBodyDto {
+  @IsOptional()
   @IsInt()
   @Min(0)
   @Type(() => Number)
-  cost!: number;
+  cost?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  isManualCost?: boolean;
 }

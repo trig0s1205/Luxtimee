@@ -8,6 +8,10 @@ const cart = useWholesaleCartStore();
 onMounted(() => cart.hydrate());
 
 useSeoMeta({ title: 'Carrito mayorista — LUXTIMEE' });
+
+const WHOLESALE_MIN = 4;
+const meetsMinimum = computed(() => cart.unitCount >= WHOLESALE_MIN);
+const remaining = computed(() => WHOLESALE_MIN - cart.unitCount);
 </script>
 
 <template>
@@ -38,13 +42,23 @@ useSeoMeta({ title: 'Carrito mayorista — LUXTIMEE' });
         </div>
       </article>
 
+      <div
+        v-if="!meetsMinimum"
+        class="border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300"
+      >
+        Faltan {{ remaining }} unidad{{ remaining === 1 ? '' : 'es' }} para el mínimo mayorista ({{ WHOLESALE_MIN }} unidades).
+      </div>
+
       <div class="border-t border-lux-gold/20 pt-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <p class="text-sm text-lux-white-dim">Subtotal mayorista</p>
           <p class="font-display text-3xl text-lux-gold">{{ formatCop(cart.subtotal) }}</p>
           <UiLuxBadge tone="mayorista">MAYORISTA</UiLuxBadge>
         </div>
-        <NuxtLink to="/mayoristas/checkout"><UiLuxButton>Ir al checkout</UiLuxButton></NuxtLink>
+        <NuxtLink v-if="meetsMinimum" to="/mayoristas/checkout">
+          <UiLuxButton>Ir al checkout</UiLuxButton>
+        </NuxtLink>
+        <UiLuxButton v-else disabled>Ir al checkout</UiLuxButton>
       </div>
     </div>
   </div>

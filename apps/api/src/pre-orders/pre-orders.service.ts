@@ -19,6 +19,7 @@ import {
 import { generateReadableId, priceOrderLines } from '../orders/order-pricing.util';
 import { formatWatchOrderLabel } from '../orders/watch-description.util';
 import { WholesaleAccessService } from '../wholesale-access/wholesale-access.service';
+import { storefrontHideWhenEmpty } from '../common/utils/storefront-stock.util';
 
 const activePreOrderWhere = {
   stage: OrderStage.PRE_ORDER,
@@ -37,7 +38,7 @@ const suspendedPreOrderWhere = {
 const orderInclude = {
   items: {
     include: {
-      watch: { select: { sku: true } },
+      watch: { select: { sku: true, frontImageUrl: true } },
     },
   },
   shippingZone: true,
@@ -74,6 +75,7 @@ export class PreOrdersService {
         productName: item.productName,
         productRef: item.productRef,
         productImage: item.productImage,
+        watchThumbnail: item.watch.frontImageUrl ?? item.productImage ?? null,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         priceType: item.priceType,
@@ -205,13 +207,25 @@ export class PreOrdersService {
     includeWhatsappUrl: boolean;
   }) {
     const { dto, userId, wholesaleAccessId, channel, source, includeWhatsappUrl } = options;
+    if (channel === 'wholesale') {
+      const totalQty = dto.items.reduce((sum, i) => sum + i.quantity, 0);
+      if (totalQty < 4) {
+        throw new BadRequestException('El pedido mínimo mayorista es de 4 unidades');
+      }
+    }
     const lineInputs = await this.buildLines(dto.items);
     let shippingCost = 0;
     let shippingZoneName: string | undefined;
     if (dto.shippingZoneId) {
       const zone = await this.prisma.shippingZone.findUnique({ where: { id: dto.shippingZoneId } });
       if (!zone) throw new BadRequestException('Zona de envío inválida');
-      shippingCost = isAlwaysFreeShippingZone(zone.name) ? 0 : zone.cost;
+      if (isAlwaysFreeShippingZone(zone.name)) {
+        shippingCost = 0;
+      } else if (zone.isManualCost) {
+        shippingCost = Math.max(0, Math.round(dto.manualShippingCost ?? 0));
+      } else {
+        shippingCost = zone.cost;
+      }
       shippingZoneName = zone.name;
     }
     const priced = priceOrderLines(lineInputs, shippingCost, channel);
@@ -234,39 +248,60 @@ export class PreOrdersService {
     });
 
     const now = new Date();
-    const order = await this.prisma.order.create({
-      data: {
-        readableId: await this.nextReadableId(),
-        stage: OrderStage.PRE_ORDER,
-        type: priced.type,
-        source,
-        customerName: dto.customerName,
-        customerAddress: dto.customerAddress,
-        customerEmail: '',
-        customerPhone: dto.customerPhone,
-        userId,
-        wholesaleAccessId,
-        shippingZoneId: dto.shippingZoneId,
-        shippingCost: priced.shippingCost,
-        depositExpected: priced.depositExpected,
-        subtotal: priced.subtotal,
-        total: priced.total,
-        whatsappMessage: message,
-        preOrderActiveAt: now,
-        items: {
-          create: priced.lines.map((line) => ({
-            watchId: line.watchId,
-            productName: line.productName,
-            productRef: line.productRef,
-            productImage: line.productImage,
-            quantity: line.quantity,
-            unitPrice: line.unitPrice,
-            priceType: line.priceType,
-            deliveryNote: line.deliveryNote,
-          })),
+    const readableId = await this.nextReadableId();
+    const order = await this.prisma.$transaction(async (tx) => {
+      for (const line of lineInputs) {
+        const watch = await tx.watch.findUnique({
+          where: { id: line.watchId },
+          select: { stock: true },
+        });
+        if (!watch || watch.stock < line.quantity) {
+          throw new BadRequestException('Stock insuficiente para este reloj');
+        }
+        const newStock = watch.stock - line.quantity;
+        await tx.watch.update({
+          where: { id: line.watchId },
+          data: {
+            stock: newStock,
+            ...(newStock === 0 ? storefrontHideWhenEmpty(0) : {}),
+          },
+        });
+      }
+
+      return tx.order.create({
+        data: {
+          readableId,
+          stage: OrderStage.PRE_ORDER,
+          type: priced.type,
+          source,
+          customerName: dto.customerName,
+          customerAddress: dto.customerAddress,
+          customerEmail: '',
+          customerPhone: dto.customerPhone,
+          userId,
+          wholesaleAccessId,
+          shippingZoneId: dto.shippingZoneId,
+          shippingCost: priced.shippingCost,
+          depositExpected: priced.depositExpected,
+          subtotal: priced.subtotal,
+          total: priced.total,
+          whatsappMessage: message,
+          preOrderActiveAt: now,
+          items: {
+            create: priced.lines.map((line) => ({
+              watchId: line.watchId,
+              productName: line.productName,
+              productRef: line.productRef,
+              productImage: line.productImage,
+              quantity: line.quantity,
+              unitPrice: line.unitPrice,
+              priceType: line.priceType,
+              deliveryNote: line.deliveryNote,
+            })),
+          },
         },
-      },
-      include: orderInclude,
+        include: orderInclude,
+      });
     });
 
     await this.notificationsService.emit({
@@ -339,19 +374,33 @@ export class PreOrdersService {
     const existing = await this.prisma.order.findUnique({ where: { id }, include: orderInclude });
     if (!existing) throw new NotFoundException('Pre-pedido no encontrado');
     assertPreOrderEditable(existing.stage, existing.canceledAt);
-    if (existing.suspendedAt) {
-      throw new BadRequestException('Reactiva el pre-pedido suspendido antes de editarlo');
-    }
+
+    const isSuspended = !!existing.suspendedAt;
 
     let pricingPatch: Record<string, unknown> = {};
+    let autoReactivate = false;
+
     if (dto.items) {
       const lineInputs = await this.buildLines(dto.items);
       let shippingCost = existing.shippingCost;
       if (dto.shippingZoneId) {
         const zone = await this.prisma.shippingZone.findUnique({ where: { id: dto.shippingZoneId } });
-        shippingCost = zone
-          ? (isAlwaysFreeShippingZone(zone.name) ? 0 : zone.cost)
-          : existing.shippingCost;
+        if (zone) {
+          if (isAlwaysFreeShippingZone(zone.name)) {
+            shippingCost = 0;
+          } else if (zone.isManualCost) {
+            shippingCost = Math.max(0, Math.round(dto.manualShippingCost ?? 0));
+          } else {
+            shippingCost = zone.cost;
+          }
+        }
+      } else if (dto.manualShippingCost !== undefined) {
+        const currentZone = existing.shippingZoneId
+          ? await this.prisma.shippingZone.findUnique({ where: { id: existing.shippingZoneId } })
+          : null;
+        if (currentZone?.isManualCost) {
+          shippingCost = Math.max(0, Math.round(dto.manualShippingCost));
+        }
       }
       const channel = existing.type === OrderType.MAYORISTA ? 'wholesale' : 'retail';
       const priced = priceOrderLines(lineInputs, shippingCost, channel);
@@ -375,20 +424,41 @@ export class PreOrdersService {
           })),
         },
       };
+
+      if (isSuspended) {
+        const hasEnoughStock = dto.items.every((item) => {
+          const watch = lineInputs.find((l) => l.watchId === item.watchId);
+          return watch !== undefined;
+        });
+        if (hasEnoughStock) autoReactivate = true;
+      }
+    } else if (isSuspended) {
+      throw new BadRequestException('Reactiva el pre-pedido suspendido antes de editarlo');
     }
 
     const order = await this.prisma.order.update({
       where: { id },
       data: {
-        ...(dto.customerName !== undefined ? { customerName: dto.customerName } : {}),
-        ...(dto.customerAddress !== undefined ? { customerAddress: dto.customerAddress } : {}),
-        ...(dto.customerPhone !== undefined ? { customerPhone: dto.customerPhone } : {}),
+        ...(dto.customerName !== undefined && !isSuspended ? { customerName: dto.customerName } : {}),
+        ...(dto.customerAddress !== undefined && !isSuspended ? { customerAddress: dto.customerAddress } : {}),
+        ...(dto.customerPhone !== undefined && !isSuspended ? { customerPhone: dto.customerPhone } : {}),
         ...(dto.shippingZoneId !== undefined ? { shippingZoneId: dto.shippingZoneId } : {}),
+        ...(autoReactivate ? { suspendedAt: null, preOrderActiveAt: new Date() } : {}),
         ...pricingPatch,
       },
       include: orderInclude,
     });
     return this.mapOrder(order);
+  }
+
+  async deletePreOrder(id: string) {
+    const existing = await this.prisma.order.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Pre-pedido no encontrado');
+    if (existing.stage !== OrderStage.PRE_ORDER) {
+      throw new BadRequestException('Solo se pueden eliminar pre-pedidos');
+    }
+    await this.prisma.order.delete({ where: { id } });
+    return { id, deleted: true };
   }
 
   async confirmDeposit(id: string) {
@@ -481,7 +551,11 @@ export class PreOrdersService {
         ...activePreOrderWhere,
         preOrderActiveAt: { lt: threshold },
       },
-      select: { id: true, readableId: true },
+      select: {
+        id: true,
+        readableId: true,
+        items: { select: { watchId: true, quantity: true } },
+      },
     });
 
     if (!expired.length) return 0;
@@ -493,6 +567,23 @@ export class PreOrdersService {
     });
 
     for (const order of expired) {
+      for (const item of order.items) {
+        await this.prisma.watch.update({
+          where: { id: item.watchId },
+          data: { stock: { increment: item.quantity } },
+        });
+        const watch = await this.prisma.watch.findUnique({
+          where: { id: item.watchId },
+          select: { stock: true },
+        });
+        if (watch && watch.stock > 0) {
+          await this.prisma.watch.update({
+            where: { id: item.watchId },
+            data: { showInCatalog: true },
+          });
+        }
+      }
+
       await this.notificationsService.emit({
         type: 'PRE_ORDER_SUSPENDED',
         targetRole: Role.ADMIN,

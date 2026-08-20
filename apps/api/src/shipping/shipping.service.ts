@@ -11,6 +11,7 @@ export class CreateShippingZoneDto {
   name!: string;
   cost!: number;
   isNational?: boolean;
+  isManualCost?: boolean;
 }
 
 type ShippingZoneRecord = {
@@ -18,6 +19,7 @@ type ShippingZoneRecord = {
   name: string;
   cost: number;
   isNational: boolean;
+  isManualCost: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -35,6 +37,7 @@ export class ShippingService {
       ...zone,
       cost: alwaysFree ? 0 : zone.cost,
       alwaysFree,
+      isManualCost: zone.isManualCost,
     };
   }
 
@@ -73,18 +76,19 @@ export class ShippingService {
         name,
         cost: this.resolveCost(name, dto.cost),
         isNational: dto.isNational ?? false,
+        isManualCost: dto.isManualCost ?? false,
       },
     });
     this.cache.invalidateTag(CACHE_TAGS.shipping);
     return this.mapZone(zone);
   }
 
-  async update(id: string, cost: number) {
+  async update(id: string, cost?: number, isManualCost?: boolean) {
     const existing = await this.prisma.shippingZone.findUnique({ where: { id } });
     if (!existing) throw new BadRequestException('Zona no encontrada');
 
     if (isAlwaysFreeShippingZone(existing.name)) {
-      if (cost !== 0) {
+      if (cost !== undefined && cost !== 0) {
         throw new BadRequestException(
           `El envío a ${FREE_SHIPPING_ZONE_NAME} es siempre gratuito y no se puede modificar.`,
         );
@@ -92,13 +96,20 @@ export class ShippingService {
       return this.mapZone(existing);
     }
 
-    if (!Number.isFinite(cost) || cost < 0) {
-      throw new BadRequestException('El costo debe ser un número válido');
+    const updateData: Record<string, unknown> = {};
+    if (cost !== undefined) {
+      if (!Number.isFinite(cost) || cost < 0) {
+        throw new BadRequestException('El costo debe ser un número válido');
+      }
+      updateData.cost = Math.round(cost);
+    }
+    if (isManualCost !== undefined) {
+      updateData.isManualCost = isManualCost;
     }
 
     const zone = await this.prisma.shippingZone.update({
       where: { id },
-      data: { cost: Math.round(cost) },
+      data: updateData,
     });
     this.cache.invalidateTag(CACHE_TAGS.shipping);
     return this.mapZone(zone);

@@ -40,7 +40,7 @@ export class ShippingController {
   @UseGuards(RolesGuard)
   @Audit('UPDATE', 'ShippingZone')
   update(@Param('id') id: string, @Body() body: UpdateShippingZoneBodyDto) {
-    return this.shippingService.update(id, body.cost);
+    return this.shippingService.update(id, body.cost, body.isManualCost);
   }
 
   @Delete(':id')

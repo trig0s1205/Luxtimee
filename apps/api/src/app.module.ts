@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
 import { BrandsModule } from './brands/brands.module';
 import { CategoriesModule } from './categories/categories.module';
+import { MechanismsModule } from './mechanisms/mechanisms.module';
 import { WarrantiesModule } from './warranties/warranties.module';
 import { WarrantyHistoriesModule } from './warranty-histories/warranty-histories.module';
 import { CareModule } from './care/care.module';
@@ -55,6 +56,7 @@ const isProd = process.env.NODE_ENV === 'production';
     AuditModule,
     BrandsModule,
     CategoriesModule,
+    MechanismsModule,
     WarrantiesModule,
     CareModule,
     ProductsModule,

@@ -19,6 +19,7 @@ const newZone = reactive<CreateShippingZoneDto>({
   name: '',
   cost: 0,
   isNational: false,
+  isManualCost: false,
 });
 
 const creating = ref(false);
@@ -35,7 +36,7 @@ async function createZone() {
     toast.warning('Ingresa el nombre del lugar.');
     return;
   }
-  if (!Number.isFinite(newZone.cost) || newZone.cost < 0) {
+  if (!newZone.isManualCost && (!Number.isFinite(newZone.cost) || newZone.cost < 0)) {
     toast.warning('Ingresa un precio válido.');
     return;
   }
@@ -46,10 +47,12 @@ async function createZone() {
       name: newZone.name.trim(),
       cost: Number(newZone.cost),
       isNational: newZone.isNational,
+      isManualCost: newZone.isManualCost,
     });
     newZone.name = '';
     newZone.cost = 0;
     newZone.isNational = false;
+    newZone.isManualCost = false;
     toast.success('Zona de envío creada.');
     invalidateAdminCache('admin-zones');
     await refresh();
@@ -98,10 +101,14 @@ async function removeZone(zone: ShippingZoneDto) {
       <h3>Nueva zona de envío</h3>
       <div class="shipping-create-form">
         <UiLuxInput v-model="newZone.name" placeholder="Nombre del lugar (ej. Medellín centro)" />
-        <UiLuxInput v-model.number="newZone.cost" type="number" min="0" placeholder="Precio COP" />
+        <UiLuxInput v-model.number="newZone.cost" :disabled="!!newZone.isManualCost" type="number" min="0" placeholder="Precio COP" />
         <label class="shipping-national-check">
           <input v-model="newZone.isNational" type="checkbox">
           Envío nacional
+        </label>
+        <label class="shipping-national-check">
+          <input v-model="newZone.isManualCost" type="checkbox">
+          Costo manual por pedido (Otros)
         </label>
         <UiLuxButton :disabled="creating" @click="createZone">
           {{ creating ? 'Creando...' : 'Agregar zona' }}
@@ -115,17 +122,23 @@ async function removeZone(zone: ShippingZoneDto) {
           <p class="font-display">{{ zone.name }}</p>
           <p class="shipping-zone-type">{{ zone.isNational ? 'Nacional' : 'Metropolitana' }}</p>
         </div>
-        <input
-          v-if="!zone.alwaysFree && !isAlwaysFreeShippingZone(zone.name)"
-          type="number"
-          class="shipping-zone-input"
-          :value="zone.cost"
-          @change="save(zone, Number(($event.target as HTMLInputElement).value))"
-        >
-        <span v-else class="shipping-zone-free">Gratis (fijo)</span>
-        <span class="shipping-zone-price">
-          {{ zone.alwaysFree || isAlwaysFreeShippingZone(zone.name) ? 'Gratis' : formatCop(zone.cost) }}
-        </span>
+        <template v-if="zone.alwaysFree || isAlwaysFreeShippingZone(zone.name)">
+          <span class="shipping-zone-free">Gratis (fijo)</span>
+          <span class="shipping-zone-price">Gratis</span>
+        </template>
+        <template v-else-if="zone.isManualCost">
+          <span class="shipping-zone-free">Manual por pedido</span>
+          <span class="shipping-zone-price">—</span>
+        </template>
+        <template v-else>
+          <input
+            type="number"
+            class="shipping-zone-input"
+            :value="zone.cost"
+            @change="save(zone, Number(($event.target as HTMLInputElement).value))"
+          >
+          <span class="shipping-zone-price">{{ formatCop(zone.cost) }}</span>
+        </template>
         <button
           v-if="!zone.alwaysFree && !isAlwaysFreeShippingZone(zone.name)"
           type="button"

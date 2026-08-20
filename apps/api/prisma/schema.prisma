@@ -129,6 +129,16 @@ model Category {
   watches Watch[]
 }
 
+model Mechanism {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  watches Watch[]
+}
+
 model Product {
   id                            Int      @id @default(autoincrement())
   name                          String
@@ -175,6 +185,7 @@ model Watch {
   sku                 String       @unique
   brandId             String
   categoryId          String?
+  mechanismId         String?
   model               String
   reference           String?
   slug                String       @unique
@@ -222,6 +233,7 @@ model Watch {
 
   brand            Brand             @relation(fields: [brandId], references: [id])
   category         Category?         @relation(fields: [categoryId], references: [id])
+  mechanism        Mechanism?        @relation(fields: [mechanismId], references: [id])
   warrantyTemplate WarrantyTemplate? @relation(fields: [warrantyTemplateId], references: [id])
   careTemplate     CareTemplate?     @relation(fields: [careTemplateId], references: [id])
   orderItems       OrderItem[]
@@ -232,18 +244,20 @@ model Watch {
 
   @@index([brandId])
   @@index([categoryId])
+  @@index([mechanismId])
   @@index([isActive, stock])
   @@index([status])
   @@index([slug])
 }
 
 model ShippingZone {
-  id         String   @id @default(cuid())
-  name       String   @unique
-  cost       Int
-  isNational Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String   @unique
+  cost         Int
+  isNational   Boolean  @default(false)
+  isManualCost Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   orders Order[]
 }

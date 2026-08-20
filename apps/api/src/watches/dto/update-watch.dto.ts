@@ -28,6 +28,10 @@ export class UpdateWatchDto {
 
   @IsOptional()
   @IsString()
+  mechanismId?: string;
+
+  @IsOptional()
+  @IsString()
   @MinLength(2)
   model?: string;
 

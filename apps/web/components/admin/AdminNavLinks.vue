@@ -166,6 +166,20 @@ function onNavigate() {
       </div>
 
       <NuxtLink
+        to="/admin/ventas"
+        prefetch
+        class="admin-nav-link"
+        :class="{ active: isActive('/admin/ventas') }"
+        @click="onNavigate"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M4 4h16v2H4zM4 8h16l-2 10H6L4 8z" />
+          <path d="M9 12h6M9 15h4" />
+        </svg>
+        Ventas
+      </NuxtLink>
+
+      <NuxtLink
         v-for="link in visibleLinks(linksAfterPedidos)"
         :key="`${link.to}-${link.label}`"
         :to="link.to"

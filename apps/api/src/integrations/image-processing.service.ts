@@ -2,6 +2,78 @@ import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MAX_VIDEO_INPUT_BYTES } from '@luxtime/shared';
 import { v2 as cloudinary } from 'cloudinary';
+import { detectImageMime, detectVideoMime } from '../common/utils/file-magic.util';
+
+function parseMicroserviceDetail(text: string): string | null {
+  if (!text?.trim()) return null;
+  try {
+    const parsed = JSON.parse(text) as { detail?: unknown; message?: unknown };
+    if (typeof parsed.detail === 'string' && parsed.detail.trim()) return parsed.detail.trim();
+    if (Array.isArray(parsed.detail) && parsed.detail.length) {
+      const first = parsed.detail[0];
+      if (typeof first === 'string') return first;
+      if (first && typeof first === 'object' && 'msg' in first) {
+        const msg = (first as { msg?: unknown }).msg;
+        if (typeof msg === 'string' && msg.trim()) return msg.trim();
+      }
+    }
+    if (typeof parsed.message === 'string' && parsed.message.trim()) return parsed.message.trim();
+  } catch {
+    const trimmed = text.trim();
+    if (trimmed.length > 0 && trimmed.length <= 400 && !/^<!DOCTYPE/i.test(trimmed)) {
+      return trimmed;
+    }
+  }
+  return null;
+}
+
+function isTimeoutError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return error.name === 'TimeoutError'
+    || error.name === 'AbortError'
+    || /aborted|timeout/i.test(error.message);
+}
+
+function mapGatewayError(
+  kind: 'imagen' | 'video',
+  error: unknown,
+  status?: number,
+  body?: string,
+): string {
+  if (isTimeoutError(error)) {
+    return kind === 'imagen'
+      ? 'Timeout: el servicio de imágenes no respondió a tiempo.'
+      : 'Timeout: el servicio de video no respondió a tiempo. Usa un clip más corto.';
+  }
+
+  const detail = body ? parseMicroserviceDetail(body) : null;
+  const raw = `${detail ?? ''} ${error instanceof Error ? error.message : ''}`;
+
+  if (status === 401 || /api key inválida/i.test(raw)) {
+    return 'API key del servicio de imágenes inválida.';
+  }
+  if (status === 503 || /api_key no configurada/i.test(raw)) {
+    return 'El servicio de imágenes no tiene API key configurada.';
+  }
+  if (detail) return detail;
+  if (status === 500 || /rembg|procesar la imagen/i.test(raw)) {
+    return kind === 'imagen'
+      ? 'Error de rembg al procesar la imagen.'
+      : 'Error al procesar el video.';
+  }
+  if (error instanceof Error && error.message && !/https?:\/\//i.test(error.message)) {
+    return error.message;
+  }
+  return kind === 'imagen'
+    ? 'No se pudo procesar la imagen.'
+    : 'No se pudo procesar el video.';
+}
+
+function cloudinaryMessage(kind: 'imagen' | 'video', error: unknown): string {
+  const raw = error instanceof Error ? error.message : 'Upload fallido';
+  const short = raw.replace(/https?:\/\/\S+/gi, '').trim().slice(0, 180);
+  return `Error de Cloudinary al subir ${kind === 'imagen' ? 'la imagen' : 'el video'}${short ? `: ${short}` : '.'}`;
+}
 
 @Injectable()
 export class ImageProcessingService {
@@ -26,16 +98,17 @@ export class ImageProcessingService {
       throw new Error('El archivo de imagen no contiene buffer en memoria');
     }
 
+    const mime = detectImageMime(file.buffer) ?? file.mimetype ?? 'image/jpeg';
     let lastError: Error | null = null;
 
     for (const endpoint of endpoints) {
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
           const formData = new FormData();
-          const blob = new Blob([Uint8Array.from(file.buffer)], { type: file.mimetype });
+          const blob = new Blob([Uint8Array.from(file.buffer)], { type: mime });
           formData.append('file', blob, file.originalname);
 
-          this.logger.log(`Procesando imagen en ${endpoint} (intento ${attempt})`);
+          this.logger.log(`Procesando imagen en ${endpoint} (intento ${attempt}) mime=${mime} bytes=${file.buffer.length}`);
 
           const headers: Record<string, string> = {};
           const apiKey = this.config.get<string>('IMAGE_SERVICE_API_KEY')?.trim();
@@ -49,13 +122,17 @@ export class ImageProcessingService {
           });
 
           if (response.status === 404) {
-            lastError = new Error(`Image service respondió 404 en ${endpoint}`);
+            lastError = new Error(mapGatewayError('imagen', new Error(`Image service respondió 404`), 404));
             break;
           }
 
           if (!response.ok) {
             const detail = await response.text().catch(() => '');
-            throw new Error(`Image service respondió ${response.status}: ${detail}`);
+            const mapped = mapGatewayError('imagen', new Error(`HTTP ${response.status}`), response.status, detail);
+            lastError = new Error(mapped);
+            this.logger.error(`Fallo en ${endpoint} intento ${attempt}: ${mapped} status=${response.status}`);
+            if (response.status < 500) break;
+            continue;
           }
 
           const buffer = Buffer.from(await response.arrayBuffer());
@@ -66,8 +143,9 @@ export class ImageProcessingService {
           this.logger.log(`Imagen procesada correctamente (${buffer.length} bytes)`);
           return buffer;
         } catch (error) {
-          lastError = error as Error;
+          lastError = new Error(mapGatewayError('imagen', error));
           this.logger.error(`Fallo en ${endpoint} intento ${attempt}: ${lastError.message}`);
+          if (!isTimeoutError(error) && lastError.message.includes('API key')) break;
         }
       }
     }
@@ -93,16 +171,17 @@ export class ImageProcessingService {
       throw new BadGatewayException('El video supera el tamaño máximo de entrada (120MB)');
     }
 
+    const mime = detectVideoMime(file.buffer) ?? file.mimetype || 'video/mp4';
     let lastError: Error | null = null;
 
     for (const endpoint of endpoints) {
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
           const formData = new FormData();
-          const blob = new Blob([Uint8Array.from(file.buffer)], { type: file.mimetype || 'video/mp4' });
+          const blob = new Blob([Uint8Array.from(file.buffer)], { type: mime });
           formData.append('file', blob, file.originalname || 'watch-video.mp4');
 
-          this.logger.log(`Procesando video en ${endpoint} (intento ${attempt})`);
+          this.logger.log(`Procesando video en ${endpoint} (intento ${attempt}) mime=${mime} bytes=${file.buffer.length}`);
 
           const headers: Record<string, string> = {};
           const apiKey = this.config.get<string>('IMAGE_SERVICE_API_KEY')?.trim();
@@ -116,13 +195,17 @@ export class ImageProcessingService {
           });
 
           if (response.status === 404) {
-            lastError = new Error(`Image service respondió 404 en ${endpoint}`);
+            lastError = new Error(mapGatewayError('video', new Error('Image service respondió 404'), 404));
             break;
           }
 
           if (!response.ok) {
             const detail = await response.text().catch(() => '');
-            throw new Error(`Image service respondió ${response.status}: ${detail}`);
+            const mapped = mapGatewayError('video', new Error(`HTTP ${response.status}`), response.status, detail);
+            lastError = new Error(mapped);
+            this.logger.error(`Fallo video en ${endpoint} intento ${attempt}: ${mapped} status=${response.status}`);
+            if (response.status < 500) break;
+            continue;
           }
 
           const buffer = Buffer.from(await response.arrayBuffer());
@@ -133,8 +216,9 @@ export class ImageProcessingService {
           this.logger.log(`Video procesado correctamente (${buffer.length} bytes)`);
           return buffer;
         } catch (error) {
-          lastError = error as Error;
+          lastError = new Error(mapGatewayError('video', error));
           this.logger.error(`Fallo video en ${endpoint} intento ${attempt}: ${lastError.message}`);
+          if (!isTimeoutError(error) && lastError.message.includes('API key')) break;
         }
       }
     }
@@ -150,18 +234,23 @@ export class ImageProcessingService {
     }
 
     const targetFolder = folder ?? this.config.get<string>('CLOUDINARY_FOLDER', 'LUXTIMEE/watches');
-    const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: targetFolder, public_id: publicId, resource_type: 'image', format: 'webp' },
-        (error, uploadResult) => {
-          if (error || !uploadResult) reject(error ?? new Error('Upload fallido'));
-          else resolve(uploadResult);
-        },
-      );
-      stream.end(buffer);
-    });
+    try {
+      const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: targetFolder, public_id: publicId, resource_type: 'image', format: 'webp' },
+          (error, uploadResult) => {
+            if (error || !uploadResult) reject(error ?? new Error('Upload fallido'));
+            else resolve(uploadResult);
+          },
+        );
+        stream.end(buffer);
+      });
 
-    return result.secure_url;
+      return result.secure_url;
+    } catch (error) {
+      this.logger.error(`Cloudinary imagen: ${error instanceof Error ? error.message : 'Upload fallido'}`);
+      throw new BadGatewayException(cloudinaryMessage('imagen', error));
+    }
   }
 
   async deleteCloudinaryAsset(url: string, resourceType: 'image' | 'video' = 'image'): Promise<void> {
@@ -195,22 +284,27 @@ export class ImageProcessingService {
     }
 
     const folder = this.config.get<string>('CLOUDINARY_FOLDER', 'LUXTIMEE/watches');
-    const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        {
-          folder,
-          public_id: publicId,
-          resource_type: 'video',
-          format: 'mp4',
-        },
-        (error, uploadResult) => {
-          if (error || !uploadResult) reject(error ?? new Error('Upload de video fallido'));
-          else resolve(uploadResult);
-        },
-      );
-      stream.end(buffer);
-    });
+    try {
+      const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder,
+            public_id: publicId,
+            resource_type: 'video',
+            format: 'mp4',
+          },
+          (error, uploadResult) => {
+            if (error || !uploadResult) reject(error ?? new Error('Upload de video fallido'));
+            else resolve(uploadResult);
+          },
+        );
+        stream.end(buffer);
+      });
 
-    return result.secure_url;
+      return result.secure_url;
+    } catch (error) {
+      this.logger.error(`Cloudinary video: ${error instanceof Error ? error.message : 'Upload fallido'}`);
+      throw new BadGatewayException(cloudinaryMessage('video', error));
+    }
   }
 }

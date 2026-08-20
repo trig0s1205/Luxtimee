@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, HttpException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { WatchesRepository } from './watches.repository';
@@ -20,6 +20,24 @@ import { storefrontHideWhenEmpty } from '../common/utils/storefront-stock.util';
 const MAX_CATALOG_FEATURED = 6;
 const CATALOG_LIMIT_MESSAGE =
   'Límite alcanzado: Solo se permite mostrar un máximo de 6 relojes en el catálogo principal.';
+
+export type MediaSlot = 'image1' | 'image2' | 'video';
+export type MediaSlotResult =
+  | { status: 'done' }
+  | { status: 'error'; message: string };
+
+function slotErrorMessage(error: unknown): string {
+  if (error instanceof HttpException) {
+    const response = error.getResponse();
+    if (typeof response === 'string') return response;
+    if (response && typeof response === 'object' && 'message' in response) {
+      const msg = (response as { message?: unknown }).message;
+      if (typeof msg === 'string' && msg.trim()) return msg;
+    }
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return 'No se pudo procesar el archivo';
+}
 
 @Injectable()
 export class WatchesService {  private readonly logger = new Logger(WatchesService.name);
@@ -162,6 +180,9 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     if (dto.categoryId) {
       data.category = { connect: { id: dto.categoryId } };
     }
+    if (dto.mechanismId) {
+      data.mechanism = { connect: { id: dto.mechanismId } };
+    }
 
     const watch = await this.watchesRepository.create(data);
     this.logger.log(`[watches:create] ${watch.id} sku=${watch.sku}`);
@@ -189,6 +210,11 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     if (dto.categoryId !== undefined) {
       data.category = dto.categoryId
         ? { connect: { id: dto.categoryId } }
+        : { disconnect: true };
+    }
+    if (dto.mechanismId !== undefined) {
+      data.mechanism = dto.mechanismId
+        ? { connect: { id: dto.mechanismId } }
         : { disconnect: true };
     }
     if (dto.model) {
@@ -291,92 +317,185 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
 
   async uploadMedia(
     id: string,
-    files: { image1: Express.Multer.File; image2: Express.Multer.File; video: Express.Multer.File },
+    files: { image1?: Express.Multer.File; image2?: Express.Multer.File; video?: Express.Multer.File },
     _baseUrl: string,
   ) {
     const existing = await this.watchesRepository.findById(id);
-
-    assertMediaFile(files.image1, 'image');
-    assertMediaFile(files.image2, 'image');
-    assertMediaFile(files.video, 'video');
-
-    const [primaryBuffer, secondaryBuffer, videoBuffer] = await Promise.all([
-      this.imageProcessing.processWithMicroservice(files.image1),
-      this.imageProcessing.processWithMicroservice(files.image2),
-      this.imageProcessing.processVideoWithMicroservice(files.video),
-    ]);
-
-    const isProd = process.env.NODE_ENV === 'production';
-
-    if (isProd) {
-      const [primaryImageUrl, secondaryImageUrl, videoUrl] = await Promise.all([
-        this.imageProcessing.uploadToCloudinary(primaryBuffer, `watch-${randomUUID()}`),
-        this.imageProcessing.uploadToCloudinary(secondaryBuffer, `watch-${randomUUID()}`),
-        this.imageProcessing.uploadVideoToCloudinary(videoBuffer, `watch-video-${randomUUID()}`),
-      ]);
-
-      const updated = await this.watchesRepository.update(id, {
-        primaryImageUrl,
-        secondaryImageUrl,
-        videoUrl,
-        images: [primaryImageUrl, secondaryImageUrl],
-        mainImageIndex: 0,
-        frontImageUrl: primaryImageUrl,
-        backImageUrl: secondaryImageUrl,
-      });
-
-      this.cache.invalidateTag(CACHE_TAGS.catalog);
-      return updated;
+    if (!files.image1 && !files.image2 && !files.video) {
+      throw new BadRequestException('Debes enviar al menos un archivo (foto o video)');
     }
 
-    const uploadsDir = join(process.cwd(), 'uploads', 'watches');
-    const videosDir = join(uploadsDir, 'videos');
-    await mkdir(videosDir, { recursive: true });
+    const isProd = process.env.NODE_ENV === 'production';
+    const mediaResults: Partial<Record<MediaSlot, MediaSlotResult>> = {};
+    const data: Prisma.WatchUpdateInput = {};
+    let imageNeedsReview = existing.imageNeedsReview;
+    const writtenPaths: string[] = [];
 
-    const primaryName = `watch-${randomUUID()}.webp`;
-    const secondaryName = `watch-${randomUUID()}.webp`;
-    const videoName = `watch-${randomUUID()}.mp4`;
+    const tasks: Array<Promise<void>> = [];
 
-    const primaryPath = join(uploadsDir, primaryName);
-    const secondaryPath = join(uploadsDir, secondaryName);
-    const videoPath = join(videosDir, videoName);
-    const writtenPaths = [primaryPath, secondaryPath, videoPath];
+    if (files.image1) {
+      tasks.push((async () => {
+        try {
+          const stored = await this.processAndStoreWatchImage(files.image1!, isProd, writtenPaths);
+          data.primaryImageUrl = stored.url;
+          data.frontImageUrl = stored.url;
+          if (stored.needsReview) imageNeedsReview = true;
+          mediaResults.image1 = { status: 'done' };
+        } catch (error) {
+          this.logger.error(`uploadMedia image1: ${slotErrorMessage(error)}`);
+          mediaResults.image1 = { status: 'error', message: slotErrorMessage(error) };
+        }
+      })());
+    }
 
-    try {
-      await Promise.all([
-        writeFile(primaryPath, primaryBuffer),
-        writeFile(secondaryPath, secondaryBuffer),
-        writeFile(videoPath, videoBuffer),
-      ]);
+    if (files.image2) {
+      tasks.push((async () => {
+        try {
+          const stored = await this.processAndStoreWatchImage(files.image2!, isProd, writtenPaths);
+          data.secondaryImageUrl = stored.url;
+          data.backImageUrl = stored.url;
+          if (stored.needsReview) imageNeedsReview = true;
+          mediaResults.image2 = { status: 'done' };
+        } catch (error) {
+          this.logger.error(`uploadMedia image2: ${slotErrorMessage(error)}`);
+          mediaResults.image2 = { status: 'error', message: slotErrorMessage(error) };
+        }
+      })());
+    }
 
-      const primaryImageUrl = `/uploads/watches/${primaryName}`;
-      const secondaryImageUrl = `/uploads/watches/${secondaryName}`;
-      const videoUrl = `/uploads/watches/videos/${videoName}`;
+    if (files.video) {
+      tasks.push((async () => {
+        try {
+          assertMediaFile(files.video!, 'video');
+          const videoBuffer = await this.imageProcessing.processVideoWithMicroservice(files.video!);
+          const videoUrl = await this.persistWatchVideo(videoBuffer, isProd, writtenPaths);
+          data.videoUrl = videoUrl;
+          mediaResults.video = { status: 'done' };
+        } catch (error) {
+          this.logger.error(`uploadMedia video: ${slotErrorMessage(error)}`);
+          mediaResults.video = { status: 'error', message: slotErrorMessage(error) };
+        }
+      })());
+    }
 
-      const updated = await this.watchesRepository.update(id, {
-        primaryImageUrl,
-        secondaryImageUrl,
-        videoUrl,
-        images: [primaryImageUrl, secondaryImageUrl],
-        mainImageIndex: 0,
-        frontImageUrl: primaryImageUrl,
-        backImageUrl: secondaryImageUrl,
-      });
+    await Promise.all(tasks);
 
+    const submitted = Object.keys(mediaResults) as MediaSlot[];
+    const failed = submitted.filter((slot) => mediaResults[slot]?.status === 'error');
+    const succeeded = submitted.filter((slot) => mediaResults[slot]?.status === 'done');
+
+    if (succeeded.length === 0) {
+      if (!isProd && writtenPaths.length) {
+        await Promise.all(writtenPaths.map((path) => unlink(path).catch(() => undefined)));
+      }
+      throw new BadGatewayException(
+        failed.map((slot) => {
+          const result = mediaResults[slot];
+          const label = slot === 'video' ? 'Video' : slot === 'image1' ? 'Foto principal' : 'Foto secundaria';
+          return result?.status === 'error' ? `${label}: ${result.message}` : label;
+        }).join(' · ') || 'No se pudo procesar la multimedia',
+      );
+    }
+
+    if (typeof data.primaryImageUrl === 'string' || typeof data.secondaryImageUrl === 'string') {
+      const primary = (typeof data.primaryImageUrl === 'string' ? data.primaryImageUrl : existing.primaryImageUrl)
+        ?? existing.frontImageUrl;
+      const secondary = (typeof data.secondaryImageUrl === 'string' ? data.secondaryImageUrl : existing.secondaryImageUrl)
+        ?? existing.backImageUrl;
+      data.images = [primary, secondary].filter((url): url is string => Boolean(url));
+      data.mainImageIndex = 0;
+      data.imageNeedsReview = imageNeedsReview;
+    }
+
+    const updated = await this.watchesRepository.update(id, data);
+    this.cache.invalidateTag(CACHE_TAGS.catalog);
+
+    if (!isProd) {
+      const keep = [
+        typeof data.primaryImageUrl === 'string' ? data.primaryImageUrl : existing.primaryImageUrl,
+        typeof data.secondaryImageUrl === 'string' ? data.secondaryImageUrl : existing.secondaryImageUrl,
+        typeof data.videoUrl === 'string' ? data.videoUrl : existing.videoUrl,
+      ].filter((url): url is string => Boolean(url));
       await this.bestEffortDeleteUrls([
         existing.primaryImageUrl,
         existing.secondaryImageUrl,
         existing.videoUrl,
         ...(existing.images ?? []),
-      ], [primaryImageUrl, secondaryImageUrl, videoUrl]);
-
-      return updated;
-    } catch (error) {
-      await Promise.all(
-        writtenPaths.map((path) => unlink(path).catch(() => undefined)),
-      );
-      throw error;
+      ], keep);
     }
+
+    return { ...updated, mediaResults };
+  }
+
+  private async processAndStoreWatchImage(
+    file: Express.Multer.File,
+    isProd: boolean,
+    writtenPaths: string[],
+  ): Promise<{ url: string; needsReview: boolean }> {
+    assertMediaFile(file, 'image');
+    let buffer: Buffer;
+    let needsReview = false;
+
+    try {
+      buffer = await this.imageProcessing.processWithMicroservice(file);
+    } catch (error) {
+      this.logger.warn(`rembg falló, se sube original: ${slotErrorMessage(error)}`);
+      buffer = file.buffer;
+      needsReview = true;
+    }
+
+    try {
+      return { url: await this.persistWatchImage(buffer, file, needsReview, isProd, writtenPaths), needsReview };
+    } catch (cloudError) {
+      if (!needsReview) {
+        this.logger.warn(`Cloudinary de imagen procesada falló, se sube original: ${slotErrorMessage(cloudError)}`);
+        const url = await this.persistWatchImage(file.buffer, file, true, isProd, writtenPaths);
+        return { url, needsReview: true };
+      }
+      throw cloudError;
+    }
+  }
+
+  private async persistWatchImage(
+    buffer: Buffer,
+    file: Express.Multer.File,
+    needsReview: boolean,
+    isProd: boolean,
+    writtenPaths: string[],
+  ): Promise<string> {
+    if (isProd) {
+      return this.imageProcessing.uploadToCloudinary(
+        buffer,
+        `watch-${needsReview ? 'raw-' : ''}${randomUUID()}`,
+      );
+    }
+
+    const uploadsDir = join(process.cwd(), 'uploads', 'watches');
+    await mkdir(uploadsDir, { recursive: true });
+    const ext = needsReview ? (extname(file.originalname).toLowerCase() || '.jpg') : '.webp';
+    const name = `watch-${randomUUID()}${ext}`;
+    const path = join(uploadsDir, name);
+    await writeFile(path, buffer);
+    writtenPaths.push(path);
+    return `/uploads/watches/${name}`;
+  }
+
+  private async persistWatchVideo(
+    buffer: Buffer,
+    isProd: boolean,
+    writtenPaths: string[],
+  ): Promise<string> {
+    if (isProd) {
+      return this.imageProcessing.uploadVideoToCloudinary(buffer, `watch-video-${randomUUID()}`);
+    }
+
+    const videosDir = join(process.cwd(), 'uploads', 'watches', 'videos');
+    await mkdir(videosDir, { recursive: true });
+    const name = `watch-${randomUUID()}.mp4`;
+    const path = join(videosDir, name);
+    await writeFile(path, buffer);
+    writtenPaths.push(path);
+    return `/uploads/watches/videos/${name}`;
   }
 
   private async bestEffortDeleteUrls(urls: Array<string | null | undefined>, keep: string[]) {

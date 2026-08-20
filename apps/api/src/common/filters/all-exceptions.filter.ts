@@ -58,7 +58,19 @@ export class AllExceptionsFilter implements ExceptionFilter {
             ? exception.message
             : 'Error interno del servidor';
 
-    if (isProd && (status >= 500 || isPrisma)) {
+    const preserveUpstream =
+      exception instanceof HttpException
+      && (
+        status === HttpStatus.BAD_GATEWAY
+        || status === HttpStatus.SERVICE_UNAVAILABLE
+        || status === HttpStatus.GATEWAY_TIMEOUT
+      );
+
+    if (isProd && isPrisma) {
+      this.logger.error(exception);
+      status = HttpStatus.INTERNAL_SERVER_ERROR;
+      message = 'Error interno del servidor';
+    } else if (isProd && status >= 500 && !preserveUpstream) {
       this.logger.error(exception);
       status = HttpStatus.INTERNAL_SERVER_ERROR;
       message = 'Error interno del servidor';

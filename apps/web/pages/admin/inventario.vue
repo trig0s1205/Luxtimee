@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BrandDto, CareTemplateDto, CategoryDto, InventoryInsightsDto, PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
+import type { BrandDto, CareTemplateDto, CategoryDto, MechanismDto, InventoryInsightsDto, PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
 import { WatchStatus } from '@luxtime/shared';
 import { extractApiErrorMessage, isBadRequest } from '~/utils/api-error';
 import { invalidateAdminCache } from '~/utils/admin-cache';
@@ -10,8 +10,9 @@ const AdminWatchFormLazy = defineAsyncComponent(() => import('~/components/admin
 type WatchFormPayload = {
   brandId: string;
   categoryId?: string;
+  mechanismId?: string;
+  movementType?: string;
   model: string;
-  reference?: string;
   description?: string;
   gender?: string;
   warrantyMonths: number;
@@ -24,7 +25,6 @@ type WatchFormPayload = {
   wholesaleMarginPercentage?: number;
   stock: number;
   status: WatchStatus;
-  showInCatalog: boolean;
   isLimitedEdition: boolean;
   limitedEditionNumber?: string;
   images: string[];
@@ -54,6 +54,17 @@ const query = reactive({
   brand: '',
 });
 
+const searchInput = ref('');
+let searchDebounce: ReturnType<typeof setTimeout> | null = null;
+
+function onSearchInput() {
+  if (searchDebounce) clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => {
+    query.search = searchInput.value;
+    loadPages.value = 1;
+  }, 300);
+}
+
 const fetchQuery = computed(() => ({
   search: query.search || undefined,
   brand: query.brand || undefined,
@@ -70,6 +81,7 @@ const mediaQueue = useMediaUploadStore();
 
 const brands = computed(() => catalogStore.brands);
 const categories = computed(() => catalogStore.categories);
+const mechanisms = computed(() => catalogStore.mechanisms);
 
 // Brands/categories desde cache Pinia + watches en paralelo sin bloquear UI
 const watchesKey = computed(() =>
@@ -81,6 +93,7 @@ const staffReady = computed(() => auth.loaded && auth.isStaff && !auth.isLocalSe
 const { data: paginated, refresh, pending, error: watchesError } = useAdminCachedData(
   watchesKey,
   () => api.get<PaginatedResponse<WatchStaffDto>>('/watches', fetchQuery.value as Record<string, string | number | boolean | undefined>),
+  { watch: [watchesKey] },
 );
 
 const { data: insights, pending: insightsPending, refresh: refreshInsights, error: insightsError } = useAdminCachedData(
@@ -98,6 +111,7 @@ async function loadCatalogMeta() {
   await catalogStore.ensureAll({
     brands: () => api.get<BrandDto[]>('/brands'),
     categories: () => api.get<CategoryDto[]>('/categories'),
+    mechanisms: () => api.get<MechanismDto[]>('/mechanisms'),
   });
 }
 
@@ -126,7 +140,7 @@ async function reloadInventory() {
   await Promise.all([refresh(), refreshInsights()]);
 }
 
-watch([() => query.search, () => query.brand], () => {
+watch(() => query.brand, () => {
   loadPages.value = 1;
 });
 
@@ -172,13 +186,13 @@ async function handleSubmit(form: WatchFormPayload) {
 
   try {
     let watchId = editingWatch.value?.id;
-    const intendedShowInCatalog = form.showInCatalog;
 
     const payload: Record<string, unknown> = {
       brandId: form.brandId,
       categoryId: form.categoryId || undefined,
+      mechanismId: form.mechanismId || undefined,
+      movementType: form.movementType || undefined,
       model: form.model,
-      reference: form.reference,
       description: form.description,
       gender: form.gender,
       warrantyMonths: Number(form.warrantyMonths),
@@ -186,8 +200,6 @@ async function handleSubmit(form: WatchFormPayload) {
       wholesalePrice: Number(form.wholesalePrice),
       stock: Number(form.stock),
       status: form.status,
-      // Forzar false hasta que multimedia termine; la cola lo restaura después
-      showInCatalog: hasNewFiles ? false : form.showInCatalog,
       isLimitedEdition: form.isLimitedEdition,
       limitedEditionNumber: form.limitedEditionNumber,
       images: form.images,
@@ -226,7 +238,6 @@ async function handleSubmit(form: WatchFormPayload) {
         watchId,
         model: form.model,
         brandName,
-        intendedShowInCatalog,
         files: {
           image1: form.primaryImageFile!,
           image2: form.secondaryImageFile!,
@@ -286,7 +297,7 @@ async function handleDelete(watch: WatchStaffDto) {
 
     <div class="admin-inventory-toolbar">
       <UiAdminRefreshButton :loading="inventoryRefreshing" @click="reloadInventory()" />
-      <UiLuxInput v-model="query.search" placeholder="Buscar por SKU, referencia o modelo..." />
+      <UiLuxInput v-model="searchInput" placeholder="Buscar por SKU, marca o modelo..." @input="onSearchInput" />
 
       <select v-model="query.brand" class="admin-filter-select">
         <option value="">Todas las marcas</option>
@@ -322,6 +333,7 @@ async function handleDelete(watch: WatchStaffDto) {
             :watch="editingWatch"
             :brands="brands ?? []"
             :categories="categories ?? []"
+            :mechanisms="mechanisms ?? []"
             :care-templates="careTemplates ?? []"
             :saving="saving"
             :submit-error="submitError"

@@ -33,12 +33,8 @@ export function useTheme() {
     document.documentElement.setAttribute('data-theme', 'dark');
   }
 
-  function syncThemeForRoute(path: string) {
+  function syncThemeForRoute(_path: string) {
     if (!import.meta.client) return;
-    if (isAdminPath(path)) {
-      forceDarkTheme();
-      return;
-    }
     applyStoredTheme();
   }
 

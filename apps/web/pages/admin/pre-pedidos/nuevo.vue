@@ -42,9 +42,19 @@ const { data: zones } = useAdminCachedData('admin-zones', () =>
   api.get<ShippingZoneDto[]>('/shipping-zones').catch(() => []),
 );
 
+const selectedZone = computed(() => zones.value?.find((z) => z.id === form.shippingZoneId) ?? null);
+const isManualCostZone = computed(() => !!selectedZone.value?.isManualCost);
+const manualShippingCost = ref(0);
+
 const shippingCost = computed(() => {
-  const zone = zones.value?.find((z) => z.id === form.shippingZoneId);
-  return zone?.cost ?? 0;
+  if (!selectedZone.value) return 0;
+  if (selectedZone.value.alwaysFree) return 0;
+  if (selectedZone.value.isManualCost) return manualShippingCost.value;
+  return selectedZone.value.cost;
+});
+
+watch(() => form.shippingZoneId, () => {
+  manualShippingCost.value = 0;
 });
 
 const subtotal = computed(() =>
@@ -146,6 +156,7 @@ async function submit() {
       customerAddress: form.customerAddress.trim(),
       customerPhone: form.customerPhone.trim() || undefined,
       shippingZoneId: form.shippingZoneId,
+      ...(isManualCostZone.value ? { manualShippingCost: manualShippingCost.value } : {}),
       items: lines.value.map((line) => ({
         watchId: line.watchId,
         quantity: line.quantity,
@@ -194,9 +205,23 @@ async function submit() {
         >
           <option value="" disabled>Seleccione zona</option>
           <option v-for="zone in zones" :key="zone.id" :value="zone.id">
-            {{ zone.name }} — {{ formatCop(zone.cost) }}
+            {{ zone.name }}{{ zone.isManualCost ? ' — Costo manual' : ` — ${formatCop(zone.cost)}` }}
           </option>
         </select>
+        <div v-if="isManualCostZone" class="space-y-2 mt-3">
+          <label class="text-xs uppercase tracking-widest text-lux-white-dim" for="manual-shipping-cost">
+            Costo de envío (COP)
+          </label>
+          <input
+            id="manual-shipping-cost"
+            v-model.number="manualShippingCost"
+            type="number"
+            min="0"
+            step="1000"
+            placeholder="Ej. 25000"
+            class="w-full bg-lux-black-2 border border-lux-gold/20 px-4 py-3 text-sm"
+          >
+        </div>
       </div>
 
       <div class="admin-record-card p-5 space-y-4">
@@ -221,6 +246,12 @@ async function submit() {
             <div>
               <p class="admin-record-title">{{ line.label }}</p>
               <p class="admin-record-muted">{{ formatCop(line.retailPrice) }} · Stock {{ line.stock }}</p>
+              <span
+                v-if="line.stock <= 1"
+                class="inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded bg-amber-500/20 text-amber-400 border border-amber-500/40"
+              >
+                {{ line.stock === 0 ? 'Sin stock' : 'Última unidad' }}
+              </span>
             </div>
             <button type="button" class="admin-record-btn admin-record-btn--ghost" @click="removeLine(line.watchId)">
               Quitar

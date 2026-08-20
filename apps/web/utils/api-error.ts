@@ -47,6 +47,9 @@ function statusFallback(status: number | undefined, fallback: string): string {
   if (status === 403) return 'No tienes permiso para realizar esta acción.';
   if (status === 404) return 'Recurso no encontrado.';
   if (status === 413) return 'Los archivos pesan demasiado para el servidor. Usa fotos más livianas y un video corto (máx. ~25 MB en total).';
+  if (status === 502 || status === 503 || status === 504) {
+    return fallback || 'No se pudo completar la subida.';
+  }
   if (status && status >= 500) return fallback || 'Error interno del servidor';
   return fallback;
 }

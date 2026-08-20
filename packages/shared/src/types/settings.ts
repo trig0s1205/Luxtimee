@@ -95,12 +95,15 @@ export interface ShippingZoneDto {
   isNational: boolean;
   /** true solo para Piedecuesta — envío siempre gratis. */
   alwaysFree?: boolean;
+  /** true para la zona "Otros" — el admin ingresa el costo manualmente por pedido. */
+  isManualCost?: boolean;
 }
 
 export interface CreateShippingZoneDto {
   name: string;
   cost: number;
   isNational?: boolean;
+  isManualCost?: boolean;
 }
 
 export interface WhatsappSettingDto {

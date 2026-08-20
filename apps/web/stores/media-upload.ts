@@ -4,6 +4,7 @@ import { extractApiErrorMessage } from '~/utils/api-error';
 import { authFetchHeaders, resolveAccessToken } from '~/utils/auth-token';
 
 export type MediaFileStatus = 'queue' | 'uploading' | 'done' | 'error';
+export type MediaSlot = 'image1' | 'image2' | 'video';
 
 export type UploadJob = {
   id: string;
@@ -17,6 +18,18 @@ export type UploadJob = {
   errorMessage?: string;
   createdAt: number;
 };
+
+type MediaSlotResult = { status: 'done' } | { status: 'error'; message?: string };
+
+const SLOT_LABEL: Record<MediaSlot, string> = {
+  image1: 'Foto principal',
+  image2: 'Foto secundaria',
+  video: 'Video',
+};
+
+function pendingSlots(job: UploadJob): MediaSlot[] {
+  return (['image1', 'image2', 'video'] as const).filter((slot) => job.fileStatuses[slot] !== 'done');
+}
 
 export const useMediaUploadStore = defineStore('mediaUpload', {
   state: () => ({
@@ -48,13 +61,25 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
 
       this._processing = true;
       job.status = 'uploading';
-      job.fileStatuses = { image1: 'uploading', image2: 'uploading', video: 'uploading' };
+      const toUpload = pendingSlots(job);
+      for (const slot of toUpload) {
+        job.fileStatuses[slot] = 'uploading';
+      }
 
-      const videoError = await validateWatchVideoFile(job.files.video);
-      if (videoError) {
-        job.fileStatuses = { image1: 'error', image2: 'error', video: 'error' };
+      const skipVideo = !toUpload.includes('video');
+      let videoClientError: string | null = null;
+      if (!skipVideo) {
+        videoClientError = await validateWatchVideoFile(job.files.video);
+        if (videoClientError) {
+          job.fileStatuses.video = 'error';
+        }
+      }
+
+      const sendSlots = toUpload.filter((slot) => slot !== 'video' || !videoClientError);
+
+      if (sendSlots.length === 0) {
         job.status = 'error';
-        job.errorMessage = videoError;
+        job.errorMessage = videoClientError || 'No hay archivos pendientes para subir.';
         useToast().error(`Video inválido — ${job.brandName} ${job.model}`);
         this._processing = false;
         void this._processNext();
@@ -68,9 +93,9 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
 
         function buildFormData() {
           const fd = new FormData();
-          fd.append('image1', job.files.image1);
-          fd.append('image2', job.files.image2);
-          fd.append('video', job.files.video);
+          if (sendSlots.includes('image1')) fd.append('image1', job.files.image1);
+          if (sendSlots.includes('image2')) fd.append('image2', job.files.image2);
+          if (sendSlots.includes('video')) fd.append('video', job.files.video);
           return fd;
         }
 
@@ -92,9 +117,17 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
           res = await postUpload(token);
         }
 
+        const payload = await res.json().catch(() => null) as {
+          message?: string;
+          mediaResults?: Partial<Record<MediaSlot, MediaSlotResult>>;
+        } | null;
+
         if (!res.ok) {
-          const payload = await res.json().catch(() => null);
-          const apiMessage = (payload as { message?: string } | null)?.message;
+          const apiMessage = payload?.message;
+          for (const slot of sendSlots) {
+            if (job.fileStatuses[slot] === 'uploading') job.fileStatuses[slot] = 'error';
+          }
+          if (videoClientError) job.fileStatuses.video = 'error';
 
           if (res.status === 401) {
             throw new Error('Tu sesión expiró. Recarga la página e intenta de nuevo.');
@@ -106,30 +139,74 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
           throw { statusCode: res.status, data: payload, message: apiMessage };
         }
 
-        job.fileStatuses = { image1: 'done', image2: 'done', video: 'done' };
-        job.status = 'done';
+        const results = payload?.mediaResults;
+        const errorParts: string[] = [];
 
-        if (job.intendedShowInCatalog) {
-          const apiBase = useApiBaseUrl();
-          await $fetch(`${apiBase}/watches/${job.watchId}`, {
-            method: 'PATCH',
-            body: { showInCatalog: true },
-            credentials: 'include',
-            headers: authFetchHeaders(resolveAccessToken(auth.accessToken)),
-          });
+        for (const slot of sendSlots) {
+          const result = results?.[slot];
+          if (result?.status === 'done') {
+            job.fileStatuses[slot] = 'done';
+          } else if (result?.status === 'error') {
+            job.fileStatuses[slot] = 'error';
+            errorParts.push(`${SLOT_LABEL[slot]}: ${result.message || 'Error al procesar'}`);
+          } else if (!results) {
+            job.fileStatuses[slot] = 'done';
+          } else {
+            job.fileStatuses[slot] = 'error';
+            errorParts.push(`${SLOT_LABEL[slot]}: No se pudo completar la subida`);
+          }
         }
 
-        useToast().success(`Multimedia lista — ${job.brandName} ${job.model}`);
+        if (videoClientError) {
+          job.fileStatuses.video = 'error';
+          errorParts.push(`Video: ${videoClientError}`);
+        }
+
+        const allDone = pendingSlots(job).length === 0;
+        if (allDone) {
+          job.status = 'done';
+          job.errorMessage = undefined;
+
+          if (job.intendedShowInCatalog) {
+            const apiBase = useApiBaseUrl();
+            await $fetch(`${apiBase}/watches/${job.watchId}`, {
+              method: 'PATCH',
+              body: { showInCatalog: true },
+              credentials: 'include',
+              headers: authFetchHeaders(resolveAccessToken(auth.accessToken)),
+            });
+          }
+
+          useToast().success(`Multimedia lista — ${job.brandName} ${job.model}`);
+        } else {
+          job.status = 'error';
+          job.errorMessage = errorParts.join(' · ') || videoClientError || 'Algunos archivos no se pudieron procesar.';
+          const photosOk = job.fileStatuses.image1 === 'done' && job.fileStatuses.image2 === 'done';
+          if (photosOk && job.fileStatuses.video === 'error') {
+            useToast().error(`Fotos listas. El video no se pudo procesar — ${job.brandName} ${job.model}`);
+          } else {
+            useToast().error(`Error multimedia — ${job.brandName} ${job.model}`);
+          }
+        }
       } catch (err: unknown) {
-        job.fileStatuses = { image1: 'error', image2: 'error', video: 'error' };
-        job.status = 'error';
-        job.errorMessage = extractApiErrorMessage(err, '')
+        for (const slot of sendSlots) {
+          if (job.fileStatuses[slot] === 'uploading') job.fileStatuses[slot] = 'error';
+        }
+        if (videoClientError) job.fileStatuses.video = 'error';
+        job.status = pendingSlots(job).length === 0 ? 'done' : 'error';
+        const fromApi = extractApiErrorMessage(err, '')
           || (err instanceof Error && err.name === 'TimeoutError'
             ? 'La subida tardó demasiado. Usa un video más corto.'
             : '')
           || (err instanceof Error && err.message && !err.message.startsWith('[')
             ? err.message
-            : 'No se pudo completar la subida. Revisa la conexión e intenta de nuevo.');
+            : '');
+        const parts = [
+          fromApi,
+          videoClientError ? `Video: ${videoClientError}` : '',
+        ].filter(Boolean);
+        job.errorMessage = parts.join(' · ')
+          || 'No se pudo completar la subida. Revisa la conexión e intenta de nuevo.';
         useToast().error(`Error multimedia — ${job.brandName} ${job.model}`);
       } finally {
         this._processing = false;
@@ -141,7 +218,9 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
       const job = this.jobs.find((j) => j.id === jobId);
       if (!job || job.status === 'uploading') return;
       job.status = 'queue';
-      job.fileStatuses = { image1: 'queue', image2: 'queue', video: 'queue' };
+      for (const slot of ['image1', 'image2', 'video'] as const) {
+        if (job.fileStatuses[slot] === 'error') job.fileStatuses[slot] = 'queue';
+      }
       job.errorMessage = undefined;
       void this._processNext();
     },

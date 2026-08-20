@@ -25,6 +25,12 @@ export interface BrandDto {
   slug: string;
 }
 
+export interface MechanismDto {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 export interface WarrantyTemplateDto {
   id: string;
   name: string;
@@ -44,6 +50,7 @@ export interface WatchPublicDto {
   slug: string;
   brand: BrandDto;
   category?: CategoryDto | null;
+  mechanism?: MechanismDto | null;
   model: string;
   reference?: string | null;
   gender?: string | null;
@@ -113,6 +120,7 @@ export interface PaginatedResponse<T> {
 export interface CreateWatchDto {
   brandId: string;
   categoryId?: string;
+  mechanismId?: string;
   model: string;
   reference?: string;
   gender?: string;
