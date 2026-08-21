@@ -30,7 +30,7 @@
     radial-gradient(ellipse 60% 40% at 0% 100%, rgba(200, 169, 110, 0.08) 0%, transparent 50%);
 }
 
-[data-theme='light'] .admin-shell > * {
+[data-theme='light'] .admin-shell .admin-content-column {
   position: relative;
   z-index: 1;
 }
