@@ -2,9 +2,12 @@
 import type { WatchPublicDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   watch: WatchPublicDto;
-}>();
+  compact?: boolean;
+}>(), {
+  compact: false,
+});
 
 const { watchPrimaryImage, watchSecondaryImage, watchVideoUrl } = useMediaUrl();
 const cart = useWholesaleCartStore();
@@ -71,7 +74,7 @@ const stockTone = computed(() => {
 </script>
 
 <template>
-  <div class="wholesale-watch-card">
+  <div class="wholesale-watch-card" :class="{ 'wholesale-watch-card--compact': compact }">
     <!-- Carrusel de medios -->
     <div v-if="slides.length" class="ww-carousel">
       <div class="ww-carousel-track">
@@ -149,7 +152,7 @@ const stockTone = computed(() => {
         P.V.P.: {{ formatCop(watch.retailPrice) }}
       </p>
 
-      <p v-if="watch.description" class="ww-description">{{ watch.description }}</p>
+      <p v-if="watch.description && !compact" class="ww-description">{{ watch.description }}</p>
 
       <button
         type="button"
@@ -390,6 +393,58 @@ const stockTone = computed(() => {
 .ww-add-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.wholesale-watch-card--compact .ww-carousel-track,
+.wholesale-watch-card--compact .ww-slide {
+  height: 132px;
+}
+
+.wholesale-watch-card--compact .ww-no-image {
+  height: 132px;
+}
+
+.wholesale-watch-card--compact .ww-info {
+  padding: 10px;
+  gap: 4px;
+}
+
+.wholesale-watch-card--compact .ww-model {
+  font-size: 14px;
+}
+
+.wholesale-watch-card--compact .ww-price {
+  font-size: 15px;
+}
+
+.wholesale-watch-card--compact .ww-movement,
+.wholesale-watch-card--compact .ww-retail-price {
+  font-size: 10px;
+}
+
+.wholesale-watch-card--compact .ww-add-btn {
+  padding: 7px 8px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.wholesale-watch-card--compact .ww-arrow {
+  width: 26px;
+  height: 26px;
+  font-size: 18px;
+}
+
+.wholesale-watch-card--compact .ww-dot {
+  width: 5px;
+  height: 5px;
+}
+
+@media (min-width: 1024px) {
+  .wholesale-watch-card--compact .ww-carousel-track,
+  .wholesale-watch-card--compact .ww-slide,
+  .wholesale-watch-card--compact .ww-no-image {
+    height: 118px;
+  }
 }
 
 /* ── Lightbox ── */
