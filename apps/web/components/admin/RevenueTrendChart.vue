@@ -265,7 +265,7 @@ const chartOptions = computed<ApexOptions>(() => ({
 </script>
 
 <template>
-  <div class="trend-chart rounded-xl bg-[#111111] border border-white/5 p-5 md:p-6">
+  <div class="trend-chart rounded-xl border border-black/5 p-5 md:p-6">
     <div class="trend-chart-header">
       <div>
         <h2 class="trend-chart-title">{{ title }}</h2>
@@ -338,8 +338,8 @@ const chartOptions = computed<ApexOptions>(() => ({
 .trend-chart-apex-tooltip {
   padding: 10px 14px;
   border: 1px solid rgba(212, 175, 55, 0.22);
-  background: rgba(12, 12, 12, 0.97);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 12px 32px rgba(20, 20, 20, 0.12);
   text-align: left;
   max-width: 260px;
 }
@@ -350,7 +350,7 @@ const chartOptions = computed<ApexOptions>(() => ({
   font-family: Montserrat, sans-serif;
   font-size: 10px;
   letter-spacing: 0.14em;
-  color: rgba(184, 176, 160, 0.75);
+  color: rgba(90, 90, 90, 0.85);
 }
 
 .trend-chart-apex-tooltip-value {
@@ -359,7 +359,7 @@ const chartOptions = computed<ApexOptions>(() => ({
   font-family: 'Cormorant Garamond', serif;
   font-size: 22px;
   font-weight: 500;
-  color: #D4AF37;
+  color: #9a7a45;
 }
 
 .trend-chart-apex-tooltip-sku {
@@ -367,7 +367,7 @@ const chartOptions = computed<ApexOptions>(() => ({
   font-family: Montserrat, sans-serif;
   font-size: 11px;
   letter-spacing: 0.08em;
-  color: rgba(184, 176, 160, 0.9);
+  color: rgba(90, 90, 90, 0.9);
 }
 
 .trend-chart-apex-tooltip-group .trend-chart-apex-tooltip + .trend-chart-apex-tooltip {
@@ -392,7 +392,7 @@ const chartOptions = computed<ApexOptions>(() => ({
   font-family: var(--font-body);
   font-size: 11px;
   letter-spacing: 0.2em;
-  color: rgba(184, 176, 160, 0.7);
+  color: var(--white-dim);
 }
 
 .trend-chart-subtitle {
@@ -415,7 +415,7 @@ const chartOptions = computed<ApexOptions>(() => ({
   gap: 4px;
   padding: 3px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(200, 169, 110, 0.1);
 }
 
 .trend-chart-pill {

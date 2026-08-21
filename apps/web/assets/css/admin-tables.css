@@ -1,7 +1,7 @@
 .admin-catalog-table-wrap {
   overflow: hidden;
   border: var(--border-hairline);
-  background: rgba(17, 17, 17, 0.8);
+  background: var(--black-2);
 }
 
 .admin-catalog-table {

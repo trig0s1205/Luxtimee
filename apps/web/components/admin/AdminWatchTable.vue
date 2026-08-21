@@ -92,7 +92,7 @@ function statusClass(status: string) {
 .admin-table-wrap {
   overflow: hidden;
   border: var(--border-hairline);
-  background: rgba(17, 17, 17, 0.8);
+  background: var(--lux-black-2);
 }
 
 .admin-table {

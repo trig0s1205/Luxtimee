@@ -840,7 +840,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
 .admin-config-card {
   padding: 22px;
   border: var(--border-hairline);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--lux-black-2);
 }
 
 .admin-config-card h2 {
@@ -1123,7 +1123,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
   position: sticky;
   bottom: 0;
   padding: 12px 0 4px;
-  background: linear-gradient(to top, var(--lux-black, #0a0a0a) 60%, transparent);
+  background: linear-gradient(to top, rgba(245, 242, 235, 0.98) 60%, transparent);
   display: flex;
   justify-content: flex-end;
 }

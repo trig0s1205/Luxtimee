@@ -183,7 +183,7 @@ const fileRows: Array<{ key: 'image1' | 'image2' | 'video'; label: string }> = [
 
 .mq-card {
   border: 1px solid rgba(200, 169, 110, 0.1);
-  background: rgba(17, 17, 17, 0.8);
+  background: var(--lux-black-2);
   padding: 18px 20px;
   transition: border-color 0.3s;
 }

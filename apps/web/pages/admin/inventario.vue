@@ -431,7 +431,7 @@ async function handleDelete(watch: WatchStaffDto) {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(20, 20, 20, 0.35);
   backdrop-filter: blur(4px);
 }
 
@@ -439,9 +439,9 @@ async function handleDelete(watch: WatchStaffDto) {
   width: 100%;
   max-width: 720px;
   max-height: 90vh;
-  background: var(--lux-black);
-  border: 1px solid rgba(200, 169, 110, 0.15);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  background: var(--lux-black-2);
+  border: 1px solid rgba(200, 169, 110, 0.2);
+  box-shadow: 0 24px 64px rgba(20, 20, 20, 0.12);
   overflow: hidden;
 }
 

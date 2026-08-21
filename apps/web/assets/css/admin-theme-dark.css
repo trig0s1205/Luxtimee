@@ -1,0 +1,109 @@
+/* Admin — modo oscuro */
+[data-theme='dark'] .admin-shell {
+  color: var(--white);
+  background: var(--black);
+}
+
+[data-theme='dark'] .admin-shell .admin-sidebar {
+  background: #0d0d0d;
+  border-right: 1px solid rgba(200, 169, 110, 0.08);
+}
+
+[data-theme='dark'] .admin-shell .admin-sidebar-theme {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border: var(--border-hairline);
+  border-radius: 2px;
+  background: rgba(200, 169, 110, 0.04);
+}
+
+[data-theme='dark'] .admin-shell .admin-sidebar-theme-label {
+  font-family: var(--font-body);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--white-dim);
+}
+
+[data-theme='dark'] .admin-shell .admin-topbar {
+  background: rgba(13, 13, 13, 0.96);
+  border-bottom: 1px solid rgba(200, 169, 110, 0.08);
+}
+
+[data-theme='dark'] .admin-shell .admin-sidebar-backdrop {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+[data-theme='dark'] .admin-shell .health-kpi-card,
+[data-theme='dark'] .admin-shell .health-chart-card,
+[data-theme='dark'] .admin-shell .health-alerts-card,
+[data-theme='dark'] .admin-shell .health-table-card,
+[data-theme='dark'] .admin-shell .admin-catalog-table-wrap {
+  background: rgba(17, 17, 17, 0.8);
+}
+
+[data-theme='dark'] .admin-shell .admin-record-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.028) 0%, rgba(255, 255, 255, 0.012) 100%);
+}
+
+[data-theme='dark'] .admin-shell .admin-accordion {
+  background: rgba(0, 0, 0, 0.12);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme='dark'] .admin-shell .admin-config-card {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme='dark'] .admin-shell .admin-table-wrap,
+[data-theme='dark'] .admin-shell .mq-card {
+  background: rgba(17, 17, 17, 0.8);
+}
+
+[data-theme='dark'] .admin-shell .admin-modal,
+[data-theme='dark'] .admin-shell .admin-modal-backdrop .admin-modal {
+  background: var(--black-2);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme='dark'] .admin-shell .admin-modal-backdrop,
+[data-theme='dark'] .admin-shell .admin-modal-overlay {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme='dark'] .admin-shell .trend-chart {
+  background: rgba(17, 17, 17, 0.8);
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme='dark'] .admin-shell .admin-index-save {
+  background: linear-gradient(to top, var(--black) 60%, transparent);
+}
+
+@media (min-width: 1024px) {
+  [data-theme='dark'] .admin-shell .admin-topbar-actions {
+    display: none;
+  }
+}
+
+[data-theme='dark'] .admin-shell .trend-chart-pills {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme='dark'] .trend-chart-apex-tooltip {
+  background: rgba(12, 12, 12, 0.97);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme='dark'] .trend-chart-apex-tooltip-date,
+[data-theme='dark'] .trend-chart-apex-tooltip-sku {
+  color: rgba(184, 176, 160, 0.9);
+}
+
+[data-theme='dark'] .trend-chart-apex-tooltip-value {
+  color: #d4af37;
+}

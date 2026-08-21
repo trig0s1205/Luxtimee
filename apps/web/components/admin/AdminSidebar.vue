@@ -13,7 +13,7 @@ function onLogout() {
 </script>
 
 <template>
-  <aside class="admin-sidebar flex flex-col shrink-0 admin-shell" :class="{ 'is-open': open }">
+  <aside class="admin-sidebar flex flex-col shrink-0" :class="{ 'is-open': open }">
     <div class="admin-sidebar-head">
       <div class="admin-sidebar-brand">
         <h2>LUXTIMEE</h2>
@@ -29,6 +29,11 @@ function onLogout() {
     <AdminNavLinks @navigate="close" />
 
     <div class="admin-sidebar-footer">
+      <div class="admin-sidebar-theme">
+        <span class="admin-sidebar-theme-label">Tema</span>
+        <LayoutThemeToggle />
+      </div>
+
       <NuxtLink
         to="/admin/configuracion"
         prefetch

@@ -113,6 +113,8 @@ async function logout() {
 </template>
 
 <style>
+@import '~/assets/css/admin-theme-light.css';
+@import '~/assets/css/admin-theme-dark.css';
 @import '~/assets/css/admin-dashboard.css';
 @import '~/assets/css/admin-tables.css';
 @import '~/assets/css/admin-records.css';

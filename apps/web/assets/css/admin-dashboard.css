@@ -1,6 +1,5 @@
 /* —— Admin panel (Stitch) —— */
 .admin-shell {
-  background: var(--black);
   min-height: 100vh;
 }
 
@@ -92,7 +91,7 @@
     position: fixed;
     inset: 0;
     z-index: 55;
-    background: rgba(0, 0, 0, 0.62);
+    background: rgba(20, 20, 20, 0.28);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.24s ease;
@@ -114,7 +113,7 @@
     padding: 0;
     transform: translateX(-105%);
     transition: transform 0.28s ease;
-    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.45);
+    box-shadow: 8px 0 32px rgba(20, 20, 20, 0.12);
   }
 
   .admin-sidebar.is-open {
@@ -175,8 +174,8 @@
     align-items: center;
     gap: 12px;
     padding: 0.75rem 1rem;
-    background: rgba(13, 13, 13, 0.96);
-    border-bottom: 1px solid rgba(200, 169, 110, 0.08);
+    background: rgba(255, 255, 255, 0.96);
+    border-bottom: 1px solid rgba(20, 20, 20, 0.08);
     backdrop-filter: blur(8px);
   }
 
@@ -287,8 +286,7 @@
 }
 
 .admin-sidebar {
-  background: #0d0d0d;
-  border-right: 1px solid rgba(200, 169, 110, 0.08);
+  border-right: 1px solid rgba(200, 169, 110, 0.12);
 }
 
 @media (min-width: 1024px) {
@@ -503,7 +501,7 @@
   position: relative;
   padding: 20px 22px;
   border: var(--border-hairline);
-  background: rgba(17, 17, 17, 0.8);
+  background: var(--black-2);
 }
 
 .health-kpi-card.has-alert::before {
@@ -567,7 +565,7 @@
 .health-alerts-card,
 .health-table-card {
   border: var(--border-hairline);
-  background: rgba(17, 17, 17, 0.8);
+  background: var(--black-2);
   padding: 24px;
 }
 

@@ -128,7 +128,7 @@ async function save() {
 }
 
 .admin-modal {
-  background: var(--color-lux-black-2, #111);
+  background: var(--lux-black-2);
   border: 1px solid rgba(212, 175, 55, 0.2);
   width: 100%;
   max-width: 480px;
