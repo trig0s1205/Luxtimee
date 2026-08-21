@@ -14,6 +14,16 @@ export interface ProfitBreakdownItem {
   paidAt: string;
 }
 
+export interface ShippingBreakdownItem {
+  orderId: string;
+  readableId: string;
+  orderType: string;
+  orderStatus: string;
+  shippingCost: number;
+  shippingZoneName: string | null;
+  paidAt: string;
+}
+
 export interface ProfitDashboardDto {
   period: string;
   totalRevenue: number;
@@ -27,7 +37,9 @@ export interface ProfitDashboardDto {
   ownerProfitPercent: number;
   commissionPercent: number;
   totalInventoryInvestment: number;
+  totalShippingRevenue: number;
   items: ProfitBreakdownItem[];
+  shippingItems: ShippingBreakdownItem[];
 }
 
 export type ProfitReportPeriod = 'day' | 'week' | 'month';

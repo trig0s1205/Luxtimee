@@ -46,7 +46,10 @@ export class DashboardsService {
               }
             : {}),
         },
-        include: { items: { include: { watch: true } } },
+        include: {
+          items: { include: { watch: true } },
+          shippingZone: { select: { name: true } },
+        },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.watch.findMany({
@@ -96,6 +99,24 @@ export class DashboardsService {
     const totalReinvestmentFund = Math.round(totalProfit * (reinvestmentPercent / 100));
     const totalOwnerProfit = Math.round(totalProfit * (ownerProfitPercent / 100));
 
+    const shippingItems = orders.flatMap((order) => {
+      const saleAt = order.paidAt ?? order.updatedAt ?? order.createdAt;
+      if (since && saleAt < since) return [];
+      if (order.shippingCost <= 0) return [];
+
+      return [{
+        orderId: order.id,
+        readableId: order.readableId,
+        orderType: order.type,
+        orderStatus: order.status ?? OrderStatus.PENDIENTE,
+        shippingCost: order.shippingCost,
+        shippingZoneName: order.shippingZone?.name ?? null,
+        paidAt: saleAt.toISOString(),
+      }];
+    });
+
+    const totalShippingRevenue = shippingItems.reduce((sum, item) => sum + item.shippingCost, 0);
+
     return {
       period,
       totalRevenue,
@@ -109,7 +130,9 @@ export class DashboardsService {
       ownerProfitPercent,
       commissionPercent,
       totalInventoryInvestment,
+      totalShippingRevenue,
       items,
+      shippingItems,
     };
   }
 

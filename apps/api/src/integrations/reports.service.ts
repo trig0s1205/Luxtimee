@@ -212,6 +212,8 @@ export class ReportsService {
     sheet.addRow(['Correo', owner.email]);
     sheet.addRow(['Teléfono', owner.phone ?? 'No registrado']);
     sheet.addRow(['Inversión en inventario', data.totalInventoryInvestment]);
+    sheet.addRow(['Ingresos por relojes', data.totalRevenue]);
+    sheet.addRow(['Fondo de domicilios', data.totalShippingRevenue]);
     sheet.addRow(['Ganancia bruta', data.totalGrossProfit]);
     sheet.addRow(['Comisión secretaría', data.totalCommission]);
     sheet.addRow(['Ganancia neta', data.totalProfit]);
@@ -274,6 +276,24 @@ export class ReportsService {
     ]);
     totalRow.font = { bold: true };
 
+    if (data.shippingItems.length > 0) {
+      sheet.addRow([]);
+      sheet.addRow(['Fondo de domicilios (vehículo de entregas)']).font = { bold: true };
+      const shippingHeader = sheet.addRow(['Pedido', 'Tipo', 'Estado', 'Zona', 'Domicilio', 'Fecha']);
+      shippingHeader.font = { bold: true };
+      for (const item of data.shippingItems) {
+        sheet.addRow([
+          item.readableId,
+          orderTypeLabels[item.orderType] ?? item.orderType,
+          orderStatusLabels[item.orderStatus] ?? item.orderStatus,
+          item.shippingZoneName ?? 'Sin zona',
+          item.shippingCost,
+          item.paidAt ? new Date(item.paidAt).toLocaleDateString('es-CO') : '',
+        ]);
+      }
+      sheet.addRow(['', '', '', 'TOTAL', data.totalShippingRevenue, '']).font = { bold: true };
+    }
+
     sheet.columns.forEach((col, index) => {
       col.width = index === 3 ? 32 : 18;
     });
@@ -314,7 +334,18 @@ export class ReportsService {
       this.drawSummaryBox(doc, PG_MARGIN, cy, cardW2, CARD_H, 'Ganancia Bruta', this.fmt(data.totalGrossProfit));
       this.drawSummaryBox(doc, PG_MARGIN + (cardW2 + 4) * 1, cy, cardW2, CARD_H, 'Ganancia Neta', this.fmt(data.totalProfit));
       this.drawSummaryBox(doc, PG_MARGIN + (cardW2 + 4) * 2, cy, cardW2, CARD_H, 'Comisión Secretaría', this.fmt(data.totalCommission));
-      cy += CARD_H + 12;
+      cy += CARD_H + 6;
+
+      this.drawSummaryBox(doc, PG_MARGIN, cy, CONTENT_W, 36, 'Fondo de domicilios', this.fmt(data.totalShippingRevenue));
+      doc
+        .font('Helvetica')
+        .fontSize(8)
+        .fillColor(BRAND.gray)
+        .text('Separado de ganancias de relojes · destinado a gastos del vehículo de entregas', PG_MARGIN + 8, cy + 22, {
+          width: CONTENT_W - 16,
+          lineBreak: false,
+        });
+      cy += 44;
 
       // Column definitions
       const cols: PdfHeaderCell[] = [
@@ -384,6 +415,55 @@ export class ReportsService {
           { value: this.fmt(data.totalProfit),  x: cols[6].x, w: cols[6].w, align: 'right' },
         ];
         this.drawTotalRow(doc, tableY, totalCells);
+        tableY += ROW_H + 10;
+      }
+
+      if (data.shippingItems.length > 0) {
+        if (tableY + ROW_H * 3 > doc.page.height - 50) {
+          doc.addPage();
+          tableY = PG_MARGIN;
+        }
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(9)
+          .fillColor(BRAND.dark)
+          .text('Fondo de domicilios (vehículo de entregas)', PG_MARGIN, tableY, { width: CONTENT_W, lineBreak: false });
+        tableY += 14;
+
+        const shipCols: PdfHeaderCell[] = [
+          { label: 'Fecha', value: '', x: PG_MARGIN, w: 65, align: 'left' },
+          { label: 'Pedido', value: '', x: PG_MARGIN + 65, w: 70, align: 'left' },
+          { label: 'Zona', value: '', x: PG_MARGIN + 135, w: 120, align: 'left' },
+          { label: 'Domicilio', value: '', x: PG_MARGIN + 255, w: CONTENT_W - 255, align: 'right' },
+        ];
+        this.drawTableHeaderRow(doc, tableY, shipCols);
+        tableY += ROW_H;
+
+        for (let idx = 0; idx < data.shippingItems.length; idx++) {
+          const item = data.shippingItems[idx];
+          if (tableY + ROW_H > doc.page.height - 50) {
+            doc.addPage();
+            tableY = PG_MARGIN;
+            this.drawTableHeaderRow(doc, tableY, shipCols);
+            tableY += ROW_H;
+          }
+          const cells: PdfCell[] = [
+            { value: this.fmtDate(item.paidAt), x: shipCols[0].x, w: shipCols[0].w, align: 'left' },
+            { value: item.readableId, x: shipCols[1].x, w: shipCols[1].w, align: 'left' },
+            { value: item.shippingZoneName ?? 'Sin zona', x: shipCols[2].x, w: shipCols[2].w, align: 'left' },
+            { value: this.fmt(item.shippingCost), x: shipCols[3].x, w: shipCols[3].w, align: 'right' },
+          ];
+          this.drawTableRow(doc, tableY, cells, idx % 2 === 1);
+          tableY += ROW_H;
+        }
+
+        const shipTotal: PdfCell[] = [
+          { value: '', x: shipCols[0].x, w: shipCols[0].w, align: 'left' },
+          { value: '', x: shipCols[1].x, w: shipCols[1].w, align: 'left' },
+          { value: 'TOTAL', x: shipCols[2].x, w: shipCols[2].w, align: 'right' },
+          { value: this.fmt(data.totalShippingRevenue), x: shipCols[3].x, w: shipCols[3].w, align: 'right' },
+        ];
+        this.drawTotalRow(doc, tableY, shipTotal);
         tableY += ROW_H + 10;
       }
 

@@ -58,9 +58,9 @@ const kpis = computed(() => {
   return [
     {
       key: 'revenue',
-      label: 'Ingresos',
+      label: 'Ingresos por relojes',
       value: formatCop(data.totalRevenue),
-      subtitle: `Periodo: ${data.period}`,
+      subtitle: 'Sin domicilios · solo venta de piezas',
       highlight: 'gold' as const,
       badge: null,
     },
@@ -118,6 +118,20 @@ const orderStatusLabels: Record<string, string> = {
   ENVIADO: 'Enviado',
   ENTREGADO: 'Entregado',
 };
+
+const shippingRows = computed(() =>
+  (dashboard.value?.shippingItems ?? []).map((item) => ({
+    id: item.orderId,
+    orderId: item.readableId,
+    date: new Date(item.paidAt).toLocaleDateString('es-CO'),
+    type: orderTypeLabels[item.orderType] ?? item.orderType,
+    status: orderStatusLabels[item.orderStatus] ?? item.orderStatus,
+    zone: item.shippingZoneName ?? 'Sin zona',
+    amount: formatCop(item.shippingCost),
+  })),
+);
+
+const totalShippingRevenue = computed(() => dashboard.value?.totalShippingRevenue ?? 0);
 
 const activityRows = computed(() =>
   (dashboard.value?.items ?? []).map((item) => ({
@@ -269,6 +283,42 @@ useSeoMeta({ title: 'Dashboard de Ganancia — LUXTIMEE Admin' });
         @retry="refresh()"
       />
     </div>
+
+    <section class="health-table-card">
+      <div class="health-table-header">
+        <h3>Fondo de domicilios</h3>
+        <span class="health-table-link">{{ formatCop(totalShippingRevenue) }}</span>
+      </div>
+      <p class="health-export-hint">
+        Este monto no entra en ganancia neta, comisión ni reinversión de relojes. Se destina a gastos y mantenimiento del vehículo de entregas.
+      </p>
+
+      <table class="health-table">
+        <thead>
+          <tr>
+            <th>Pedido</th>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Estado</th>
+            <th>Zona</th>
+            <th>Domicilio</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="!shippingRows.length">
+            <td colspan="6">Sin domicilios cobrados en el periodo seleccionado.</td>
+          </tr>
+          <tr v-for="row in shippingRows" :key="row.id">
+            <td>{{ row.orderId }}</td>
+            <td>{{ row.date }}</td>
+            <td>{{ row.type }}</td>
+            <td>{{ row.status }}</td>
+            <td>{{ row.zone }}</td>
+            <td class="profit-cell">{{ row.amount }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
 
     <section class="health-table-card">
       <div class="health-table-header">
