@@ -20,6 +20,16 @@ const orderInclude = {
   shippingZone: true,
 } as const;
 
+const inventoryDeductedStatuses: OrderStatus[] = [
+  OrderStatus.PAGADO,
+  OrderStatus.ENVIADO,
+  OrderStatus.ENTREGADO,
+];
+
+function isInventoryDeducted(status: OrderStatus | null): boolean {
+  return status !== null && inventoryDeductedStatuses.includes(status);
+}
+
 type OrderWithRelations = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
 
 @Injectable()
@@ -221,9 +231,7 @@ export class OrdersService {
       const next = dto.status as OrderStatus;
       if (next !== order.status) {
         if (next === OrderStatus.CANCELADO) {
-          const inventoryDeducted =
-            order.status !== null &&
-            [OrderStatus.PAGADO, OrderStatus.ENVIADO, OrderStatus.ENTREGADO].includes(order.status);
+          const inventoryDeducted = isInventoryDeducted(order.status);
           if (inventoryDeducted) {
             await this.restoreInventory(order.items);
           }
@@ -261,9 +269,7 @@ export class OrdersService {
       await this.prisma.order.delete({ where: { id } });
       return { id, deleted: true };
     }
-    const inventoryDeducted =
-      order.status !== null &&
-      [OrderStatus.PAGADO, OrderStatus.ENVIADO, OrderStatus.ENTREGADO].includes(order.status);
+    const inventoryDeducted = isInventoryDeducted(order.status);
     if (inventoryDeducted) {
       await this.restoreInventory(order.items);
     }

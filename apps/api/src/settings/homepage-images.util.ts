@@ -4,7 +4,7 @@ export function normalizeCustomerProofImages(raw: unknown): HomepageCustomerProo
   if (!Array.isArray(raw)) return [];
 
   return raw
-    .map((item) => {
+    .map((item): HomepageCustomerProofImage | null => {
       if (typeof item === 'string') {
         const url = item.trim();
         return url ? { url } : null;
@@ -13,9 +13,9 @@ export function normalizeCustomerProofImages(raw: unknown): HomepageCustomerProo
         const url = String((item as { url: unknown }).url ?? '').trim();
         const captionRaw = (item as { caption?: unknown }).caption;
         const caption = typeof captionRaw === 'string' ? captionRaw.trim() : '';
-        return url ? { url, caption: caption || undefined } : null;
+        return url ? { url, ...(caption ? { caption } : {}) } : null;
       }
       return null;
     })
-    .filter((item): item is HomepageCustomerProofImage => Boolean(item?.url));
+    .filter((item): item is HomepageCustomerProofImage => item !== null);
 }

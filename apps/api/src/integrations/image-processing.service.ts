@@ -171,7 +171,7 @@ export class ImageProcessingService {
       throw new BadGatewayException('El video supera el tamaño máximo de entrada (120MB)');
     }
 
-    const mime = detectVideoMime(file.buffer) ?? file.mimetype || 'video/mp4';
+    const mime = detectVideoMime(file.buffer) ?? (file.mimetype || 'video/mp4');
     let lastError: Error | null = null;
 
     for (const endpoint of endpoints) {
