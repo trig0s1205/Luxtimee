@@ -76,7 +76,7 @@ onMounted(() => {
               <td>{{ cert.watch.brand }} {{ cert.watch.model }}</td>
             </tr>
             <tr>
-              <td>Colección</td>
+              <td>Catálogo</td>
               <td>LUXTIMEE</td>
             </tr>
             <tr>

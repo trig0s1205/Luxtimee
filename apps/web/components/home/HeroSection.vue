@@ -26,9 +26,9 @@ const { openChat } = useWhatsApp();
         <div class="lux-hero-cms__divider" />
         <div class="lux-hero-cms__cta">
           <NuxtLink :to="props.config.ctaLink || '/catalogo'" class="btn-primary">
-            {{ props.config.ctaText || 'Ver colección' }}
+            {{ props.config.ctaText || 'Ver catálogo' }}
           </NuxtLink>
-          <button type="button" class="btn-ghost" @click="openChat('Hola LUXTIMEE, me gustaría saber más sobre la colección.')">
+          <button type="button" class="btn-ghost" @click="openChat('Hola LUXTIMEE, me gustaría saber más sobre el catálogo.')">
             Contactar
           </button>
         </div>

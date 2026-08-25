@@ -539,7 +539,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
         <button
           v-for="tab in [
             { id: 'founder', label: 'Fundador' },
-            { id: 'featured', label: 'Colección' },
+            { id: 'featured', label: 'Catálogo' },
             { id: 'proof', label: 'Reseñas visuales' },
             { id: 'statement', label: 'Statement' },
             { id: 'contact', label: 'Contacto' },
@@ -682,10 +682,10 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
         </section>
       </template>
 
-      <!-- Colección -->
+      <!-- Catálogo -->
       <section v-else-if="indexSubTab === 'featured'" class="admin-config-card">
         <div class="admin-card-head">
-          <h2>Sección Colección</h2>
+          <h2>Sección Catálogo</h2>
           <label class="admin-toggle-label">
             <input v-model="home.featured.enabled" type="checkbox" />
             Activo

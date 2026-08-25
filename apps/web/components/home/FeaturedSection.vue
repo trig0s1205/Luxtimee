@@ -5,7 +5,7 @@ const props = defineProps<{ config: HomepageFeaturedConfig }>();
 </script>
 
 <template>
-  <section id="coleccion" class="lux-collection reveal">
+  <section id="catalogo" class="lux-collection reveal">
     <div class="lux-collection__glow" aria-hidden="true" />
     <div class="lux-collection__inner">
       <div class="lux-collection__copy">

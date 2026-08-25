@@ -6,7 +6,7 @@ const props = defineProps<{ config: HomepageContactConfig }>();
 const { openChat } = useWhatsApp();
 
 function contactWhatsApp() {
-  openChat(props.config.whatsappMessage || 'Hola LUXTIMEE, me gustaría recibir asesoría sobre la colección.');
+  openChat(props.config.whatsappMessage || 'Hola LUXTIMEE, me gustaría recibir asesoría sobre el catálogo.');
 }
 </script>
 

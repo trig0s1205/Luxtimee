@@ -36,7 +36,7 @@ export const privacySections: LegalSection[] = [
       'Gestionar consultas, cotizaciones, pedidos, pagos, envíos y servicio posventa.',
       'Coordinar entregas a nivel nacional en Colombia y comunicar el estado de su compra.',
       'Emitir facturación, certificados, garantías y documentación asociada a la compra.',
-      'Enviar información comercial, novedades de colección o promociones, cuando exista autorización previa.',
+      'Enviar información comercial, novedades del catálogo o promociones, cuando exista autorización previa.',
       'Prevenir fraudes, garantizar la seguridad del sitio y cumplir obligaciones legales.',
       'Mejorar la experiencia de usuario mediante análisis estadístico y cookies técnicas o analíticas.',
     ],

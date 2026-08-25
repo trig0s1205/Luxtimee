@@ -6,7 +6,7 @@ export const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
     eyebrow: 'Relojes de lujo · Piedecuesta',
     title: 'Piezas con presencia. Stock real en Colombia.',
     subtitle: 'Curaduría · Entrega · Garantía',
-    ctaText: 'Ver colección',
+    ctaText: 'Ver catálogo',
     ctaLink: '/catalogo',
     backgroundImageUrl: '',
   },
