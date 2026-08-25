@@ -150,10 +150,6 @@
 }
 
 .badge-limited {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 2;
   background: var(--white);
   color: var(--black);
   padding: 6px 12px;
@@ -161,6 +157,18 @@
   font-size: 9px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
+}
+
+.badge-limited--card {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: auto;
+  z-index: 3;
+  max-width: calc(100% - 5.5rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .add-btn {
@@ -2176,9 +2184,10 @@ body.cart-scroll-lock {
     font-size: 12px;
   }
 
-  .badge-limited {
+  .badge-limited--card {
     top: 6px;
-    right: 6px;
+    left: 6px;
+    max-width: calc(100% - 4.5rem);
     padding: 3px 5px;
     font-size: 6px;
     letter-spacing: 0.1em;

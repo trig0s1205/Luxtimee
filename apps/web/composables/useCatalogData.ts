@@ -155,24 +155,7 @@ export function useCatalogData() {
   async function getBestSellers(limit = 6) {
     try {
       const best = await api.get<WatchPublicDto[]>('/catalog/best-sellers', { limit });
-      if (best.length >= limit) return best.slice(0, limit);
-      const featured = await getFeatured(limit);
-      const seen = new Set(best.map((w) => w.id));
-      const merged = [...best];
-      for (const watch of featured) {
-        if (seen.has(watch.id)) continue;
-        merged.push(watch);
-        seen.add(watch.id);
-        if (merged.length >= limit) break;
-      }
-      if (merged.length === 0) {
-        try {
-          return await api.get<WatchPublicDto[]>('/catalog/new-arrivals', { limit });
-        } catch {
-          if (import.meta.dev) return MOCK_CATALOG.slice(0, limit);
-        }
-      }
-      return merged;
+      return best.slice(0, limit);
     } catch {
       if (import.meta.dev) return MOCK_CATALOG.slice(0, limit);
       return [];

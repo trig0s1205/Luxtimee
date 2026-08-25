@@ -19,7 +19,7 @@ const { watchPrimaryImage } = useMediaUrl();
 
 const imageUrl = computed(() => watchPrimaryImage(props.watch));
 
-const showLimited = computed(() => props.watch.stock > 0 && props.watch.stock <= 3);
+const showLimitedEdition = computed(() => props.watch.isLimitedEdition && props.watch.stock > 0);
 const stockLabel = computed(() => {
   if (props.watch.stock <= 0) return null;
   if (props.watch.stock <= 3) {
@@ -55,8 +55,8 @@ function onAdd(e: Event) {
     :style="delay != null ? { transitionDelay: `${delay}s` } : undefined"
     @click="onCardClick"
   >
-    <span v-if="showLimited" class="badge-limited">{{ t('product.limited') }}</span>
     <div class="products-img">
+      <span v-if="showLimitedEdition" class="badge-limited badge-limited--card">{{ t('product.limited') }}</span>
       <span v-if="stockLabel" class="product-stock-badge">{{ stockLabel }}</span>
       <img
         v-if="imageUrl"

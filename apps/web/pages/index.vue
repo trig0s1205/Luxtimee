@@ -11,6 +11,14 @@ const { data: heroWatches } = await useCachedAsyncData(
   () => catalog.getBestSellers(6),
   { staleTime: STOREFRONT_CACHE_MS.catalog },
 );
+const { data: limitedWatches } = await useCachedAsyncData(
+  'home-limited-editions',
+  async () => {
+    const res = await catalog.listCatalog({ limit: 100, available: 'true' });
+    return res.data.filter((w) => w.isLimitedEdition && w.stock > 0);
+  },
+  { staleTime: STOREFRONT_CACHE_MS.catalog },
+);
 const { data: homeCms, refresh: refreshHomeCms } = await useCachedAsyncData<HomepageConfigDto>(
   'home-cms-config',
   () => fetchConfig(),
@@ -38,6 +46,13 @@ onMounted(() => {
 <template>
   <div>
     <CatalogHomeHeroSpotlight v-if="heroWatches?.length" :watches="heroWatches" />
+
+    <ClientOnly>
+      <CatalogLimitedEditionPromo
+        v-if="limitedWatches?.length"
+        :watches="limitedWatches"
+      />
+    </ClientOnly>
 
     <HomeFeaturedSection
       v-if="cms.featured.enabled"

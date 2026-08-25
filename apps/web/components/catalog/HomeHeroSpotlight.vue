@@ -47,6 +47,14 @@ function toggleSwap() {
 const stockBadge = computed(() => {
   const watch = active.value;
   if (!watch || watch.stock <= 0) return null;
+  if (watch.isLimitedEdition) {
+    return {
+      tone: 'limited' as const,
+      label: watch.limitedEditionNumber?.trim()
+        ? `${t('product.limited')} · ${watch.limitedEditionNumber.trim()}`
+        : t('product.limited'),
+    };
+  }
   if (watch.stock <= 3) {
     return {
       tone: 'limited' as const,
