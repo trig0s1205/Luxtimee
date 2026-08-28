@@ -72,7 +72,7 @@ const savingProfile = ref(false);
 const savingEmail = ref(false);
 const savingPassword = ref(false);
 const savingPlatform = ref(false);
-const savingIndex = ref(false);
+const savingIndexSection = ref<'founder' | 'featured' | 'proof' | 'statement' | 'contact' | null>(null);
 const uploadingSlot = ref<number | null>(null);
 
 const carouselFilled = computed(
@@ -208,47 +208,86 @@ async function savePlatformSettings() {
   }
 }
 
-async function saveIndexSettings() {
-  savingIndex.value = true;
+function buildProofImages() {
+  return home.customerProof.images
+    .map((img) => ({
+      url: img.url?.trim().replace(/^["']|["']$/g, '') ?? '',
+      caption: img.caption?.trim().replace(/^["']|["']$/g, '') || undefined,
+    }))
+    .filter((img) => /^https?:\/\//i.test(img.url));
+}
+
+async function saveHomepageSection(
+  section: 'founder' | 'featured' | 'proof' | 'statement' | 'contact',
+  payload: Partial<HomepageConfigDto>,
+  successMessage: string,
+) {
+  savingIndexSection.value = section;
   try {
-    const founderPayload = {
-      ...home.founder,
-      carouselImages: [...home.founder.carouselImages],
-      storyParagraphs: [...home.founder.storyParagraphs],
-    };
+    await api.patch('/settings/homepage', payload);
+    toast.success(successMessage);
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo guardar la sección.'));
+  } finally {
+    savingIndexSection.value = null;
+  }
+}
 
-    if (founderPayload.enabled && carouselFilled.value !== 5) {
-      founderPayload.enabled = false;
-      toast.warning('Fundador desactivado (faltan 5 fotos). El resto del Index sí se guardó.');
-    }
+async function saveFounderSection() {
+  const founderPayload = {
+    ...home.founder,
+    carouselImages: [...home.founder.carouselImages],
+    storyParagraphs: [...home.founder.storyParagraphs],
+  };
 
-    const proofImages = home.customerProof.images
-      .map((img) => ({
-        url: img.url?.trim().replace(/^["']|["']$/g, '') ?? '',
-        caption: img.caption?.trim().replace(/^["']|["']$/g, '') || undefined,
-      }))
-      .filter((img) => /^https?:\/\//i.test(img.url));
+  if (founderPayload.enabled && carouselFilled.value !== 5) {
+    founderPayload.enabled = false;
+    toast.warning('Fundador desactivado: faltan 5 fotos en el carrusel.');
+  }
 
-    await api.patch('/settings/homepage', {
-      featured: { ...home.featured },
-      founder: founderPayload,
-      valueProps: {
-        ...home.valueProps,
-        items: home.valueProps.items.map((item) => ({ ...item })),
-      },
+  await saveHomepageSection(
+    'founder',
+    { founder: founderPayload },
+    'Sección Fundador guardada.',
+  );
+}
+
+async function saveFeaturedSection() {
+  await saveHomepageSection(
+    'featured',
+    { featured: { ...home.featured } },
+    'Sección Catálogo guardada.',
+  );
+}
+
+async function saveProofSection() {
+  const proofImages = buildProofImages();
+  await saveHomepageSection(
+    'proof',
+    {
       customerProof: {
         ...home.customerProof,
         images: proofImages,
       },
-      statement: { ...home.statement },
-      contact: { ...home.contact },
-    });
-    toast.success(`Index guardado (${proofImages.length} reseñas visuales).`);
-  } catch (err: unknown) {
-    toast.error(extractApiErrorMessage(err, 'No se pudo guardar el Index.'));
-  } finally {
-    savingIndex.value = false;
-  }
+    },
+    `Reseñas visuales guardadas (${proofImages.length} imágenes).`,
+  );
+}
+
+async function saveStatementSection() {
+  await saveHomepageSection(
+    'statement',
+    { statement: { ...home.statement } },
+    'Statement guardado.',
+  );
+}
+
+async function saveContactSection() {
+  await saveHomepageSection(
+    'contact',
+    { contact: { ...home.contact } },
+    'Contacto guardado.',
+  );
 }
 
 function addParagraph() {
@@ -739,6 +778,15 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
             </div>
           </div>
         </section>
+
+        <div class="admin-section-save">
+          <UiLuxButton
+            :disabled="savingIndexSection !== null"
+            @click="saveFounderSection"
+          >
+            {{ savingIndexSection === 'founder' ? 'Guardando...' : 'Guardar Fundador' }}
+          </UiLuxButton>
+        </div>
       </template>
 
       <!-- Catálogo -->
@@ -760,6 +808,14 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
           </label>
           <label><span>CTA texto</span><UiLuxInput v-model="home.featured.ctaText" /></label>
           <label><span>CTA link</span><UiLuxInput v-model="home.featured.ctaLink" /></label>
+        </div>
+        <div class="admin-section-save">
+          <UiLuxButton
+            :disabled="savingIndexSection !== null"
+            @click="saveFeaturedSection"
+          >
+            {{ savingIndexSection === 'featured' ? 'Guardando...' : 'Guardar Catálogo' }}
+          </UiLuxButton>
         </div>
       </section>
 
@@ -824,6 +880,14 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
             <UiLuxInput v-model="img.caption" placeholder="Ej: Entrega en Bogotá" />
           </div>
         </div>
+        <div class="admin-section-save">
+          <UiLuxButton
+            :disabled="savingIndexSection !== null"
+            @click="saveProofSection"
+          >
+            {{ savingIndexSection === 'proof' ? 'Guardando...' : 'Guardar Reseñas visuales' }}
+          </UiLuxButton>
+        </div>
       </section>
 
       <!-- Statement -->
@@ -839,6 +903,14 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
           <label><span>Texto</span><UiLuxInput v-model="home.statement.text" /></label>
           <label><span>Énfasis</span><UiLuxInput v-model="home.statement.textEm" /></label>
           <label><span>Sub</span><UiLuxInput v-model="home.statement.sub" /></label>
+        </div>
+        <div class="admin-section-save">
+          <UiLuxButton
+            :disabled="savingIndexSection !== null"
+            @click="saveStatementSection"
+          >
+            {{ savingIndexSection === 'statement' ? 'Guardando...' : 'Guardar Statement' }}
+          </UiLuxButton>
         </div>
       </section>
 
@@ -862,13 +934,15 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
           <label><span>CTA</span><UiLuxInput v-model="home.contact.ctaText" /></label>
           <label><span>Mensaje WhatsApp</span><UiLuxInput v-model="home.contact.whatsappMessage" /></label>
         </div>
+        <div class="admin-section-save">
+          <UiLuxButton
+            :disabled="savingIndexSection !== null"
+            @click="saveContactSection"
+          >
+            {{ savingIndexSection === 'contact' ? 'Guardando...' : 'Guardar Contacto' }}
+          </UiLuxButton>
+        </div>
       </section>
-
-      <div class="admin-index-save">
-        <UiLuxButton :disabled="savingIndex" @click="saveIndexSettings">
-          {{ savingIndex ? 'Guardando...' : 'Guardar Index' }}
-        </UiLuxButton>
-      </div>
     </div>
   </div>
 </template>
@@ -1234,6 +1308,14 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
 
 .admin-file-btn input {
   display: none;
+}
+
+.admin-section-save {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(200, 169, 110, 0.15);
 }
 
 .admin-index-save {
