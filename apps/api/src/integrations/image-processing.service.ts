@@ -273,9 +273,9 @@ export class ImageProcessingService {
     return `${base.replace(/\/$/, '')}/homepage`;
   }
 
-  async uploadHomepageImage(file: Express.Multer.File): Promise<string> {
+  async uploadHomepageImage(file: Express.Multer.File, prefix = 'founder'): Promise<string> {
     const { randomUUID } = await import('crypto');
-    return this.uploadToCloudinary(file.buffer, `founder-${randomUUID()}`, this.homepageFolder());
+    return this.uploadToCloudinary(file.buffer, `${prefix}-${randomUUID()}`, this.homepageFolder());
   }
 
   async uploadVideoToCloudinary(buffer: Buffer, publicId: string): Promise<string> {

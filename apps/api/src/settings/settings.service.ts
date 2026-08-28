@@ -298,7 +298,12 @@ export class SettingsService {
   }
 
   async uploadFounderImage(file: Express.Multer.File): Promise<{ url: string }> {
-    const url = await this.imageProcessing.uploadHomepageImage(file);
+    const url = await this.imageProcessing.uploadHomepageImage(file, 'founder');
+    return { url };
+  }
+
+  async uploadCustomerProofImage(file: Express.Multer.File): Promise<{ url: string }> {
+    const url = await this.imageProcessing.uploadHomepageImage(file, 'proof');
     return { url };
   }
 

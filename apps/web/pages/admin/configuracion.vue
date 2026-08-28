@@ -306,7 +306,53 @@ async function clearCarouselSlot(slot: number) {
   }
 }
 
+const uploadingProofSlot = ref<number | null>(null);
 const uploadingSignature = ref(false);
+
+async function uploadProofSlot(slot: number, file: File) {
+  uploadingProofSlot.value = slot;
+  try {
+    const fd = new FormData();
+    fd.append('images', file);
+    const res = await $fetch<{ urls: string[] }>(
+      `${baseUrl}/settings/homepage/upload-customer-proof-images`,
+      { method: 'POST', body: fd, credentials: 'include' },
+    );
+    const url = res.urls[0];
+    if (!url) throw new Error('Sin URL');
+    const prev = home.customerProof.images[slot]?.url;
+    home.customerProof.images[slot] = {
+      url,
+      caption: home.customerProof.images[slot]?.caption ?? '',
+    };
+    if (prev && prev !== url) {
+      await api.del(`/settings/homepage/founder-image?url=${encodeURIComponent(prev)}`).catch(() => null);
+    }
+    toast.success(`Entrega ${slot + 1} actualizada.`);
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'Error al subir la imagen.'));
+  } finally {
+    uploadingProofSlot.value = null;
+  }
+}
+
+function onProofFileChange(slot: number, e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (file) void uploadProofSlot(slot, file);
+  input.value = '';
+}
+
+async function clearProofSlot(slot: number) {
+  const prev = home.customerProof.images[slot]?.url;
+  home.customerProof.images[slot] = {
+    url: '',
+    caption: home.customerProof.images[slot]?.caption ?? '',
+  };
+  if (prev) {
+    await api.del(`/settings/homepage/founder-image?url=${encodeURIComponent(prev)}`).catch(() => null);
+  }
+}
 
 async function uploadSignatureImage(file: File) {
   uploadingSignature.value = true;
@@ -714,7 +760,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
           </label>
         </div>
         <p class="admin-config-hint">
-          Pega URLs de Cloudinary externo (cuenta dedicada). No se suben archivos al servidor LUXTIMEE.
+          Sube fotos de entregas reales. Se guardan en Cloudinary automáticamente al elegir el archivo.
         </p>
         <div class="admin-config-fields">
           <label><span>Label</span><UiLuxInput v-model="home.customerProof.label" /></label>
@@ -726,14 +772,42 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
           </label>
         </div>
         <div class="admin-field-group">
-          <span class="admin-field-group-label">Imágenes (URL + caption opcional)</span>
+          <span class="admin-field-group-label">Imágenes de entregas (caption opcional)</span>
           <div
             v-for="(img, i) in home.customerProof.images"
             :key="i"
             class="admin-proof-row"
           >
             <span class="admin-proof-row__index">{{ i + 1 }}</span>
-            <UiLuxInput v-model="img.url" placeholder="https://res.cloudinary.com/..." />
+            <div class="admin-proof-row__media">
+              <div class="admin-proof-row__preview">
+                <img
+                  v-if="img.url"
+                  :src="resolveMedia(img.url)"
+                  :alt="`Entrega ${i + 1}`"
+                >
+                <span v-else>Sin imagen</span>
+              </div>
+              <div class="admin-proof-row__actions">
+                <label class="admin-file-btn">
+                  {{ uploadingProofSlot === i ? 'Subiendo...' : (img.url ? 'Cambiar' : 'Subir') }}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    :disabled="uploadingProofSlot !== null"
+                    @change="onProofFileChange(i, $event)"
+                  />
+                </label>
+                <button
+                  v-if="img.url"
+                  type="button"
+                  class="admin-icon-btn"
+                  @click="clearProofSlot(i)"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
             <UiLuxInput v-model="img.caption" placeholder="Ej: Entrega en Bogotá" />
           </div>
         </div>
@@ -1089,10 +1163,40 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
 
 .admin-proof-row {
   display: grid;
-  grid-template-columns: 28px 1fr 1fr;
+  grid-template-columns: 28px minmax(0, 220px) minmax(0, 1fr);
   gap: 10px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.admin-proof-row__media {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-proof-row__preview {
+  aspect-ratio: 4 / 3;
+  display: flex;
   align-items: center;
-  margin-bottom: 10px;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(200, 169, 110, 0.2);
+  background: rgba(0, 0, 0, 0.04);
+  font-size: 10px;
+  color: var(--lux-white-dim);
+}
+
+.admin-proof-row__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-proof-row__actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
 .admin-proof-row__index {

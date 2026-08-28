@@ -164,6 +164,29 @@ export class SettingsController {
     return { urls };
   }
 
+  @Post('homepage/upload-customer-proof-images')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  @UseInterceptors(
+    FilesInterceptor('images', 1, {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_IMAGE_BYTES },
+    }),
+  )
+  async uploadCustomerProofImages(
+    @UploadedFiles() files: Express.Multer.File[],
+  ): Promise<{ urls: string[] }> {
+    if (!files?.length) throw new BadRequestException('No se recibió la imagen');
+    const urls: string[] = [];
+    for (const file of files) {
+      assertImageBuffer(file.buffer, file.mimetype);
+      const { url } = await this.settingsService.uploadCustomerProofImage(file);
+      urls.push(url);
+    }
+    return { urls };
+  }
+
   @Delete('homepage/founder-image')
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @UseGuards(RolesGuard)
