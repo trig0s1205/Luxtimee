@@ -141,7 +141,7 @@ async function submitWarranty(order: OrderDto, item: OrderItemDto) {
     return;
   }
   if (warrantyForm.replacementType === 'OTHER_WATCH' && !warrantyForm.replacementSku.trim()) {
-    toast.error('Indica el SKU del reloj de reemplazo.');
+    toast.error('Selecciona el reloj de reemplazo.');
     return;
   }
 
@@ -445,10 +445,11 @@ useSeoMeta({ title: props.seoTitle });
                     Otro reloj
                   </label>
                 </fieldset>
-                <label v-if="warrantyForm.replacementType === 'OTHER_WATCH'">
-                  <span>SKU del reloj entregado</span>
-                  <UiLuxInput v-model="warrantyForm.replacementSku" />
-                </label>
+                <AdminWarrantyReplacementPicker
+                  v-if="warrantyForm.replacementType === 'OTHER_WATCH'"
+                  :key="warrantyItemId ?? 'none'"
+                  v-model="warrantyForm.replacementSku"
+                />
                 <label>
                   <span>Notas (opcional)</span>
                   <textarea v-model="warrantyForm.replacementNotes" rows="2" class="admin-record-textarea" />
