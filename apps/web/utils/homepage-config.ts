@@ -65,6 +65,24 @@ export const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
   },
 };
 
+export function isFounderCarouselComplete(images?: Array<string | null | undefined>) {
+  return (images ?? []).filter((url) => typeof url === 'string' && url.trim()).length === 5;
+}
+
+export function shouldShowFounderSection(
+  founder: Pick<HomepageConfigDto['founder'], 'enabled' | 'carouselImages'>,
+) {
+  return normalizeFounderEnabled(founder.enabled, founder.carouselImages);
+}
+
+export function normalizeFounderEnabled(
+  enabled: boolean | undefined,
+  carouselImages?: Array<string | null | undefined>,
+) {
+  if (!isFounderCarouselComplete(carouselImages)) return false;
+  return true;
+}
+
 export function normalizeCustomerProofImages(raw: unknown): HomepageCustomerProofImage[] {
   if (!Array.isArray(raw)) return [];
 
@@ -99,6 +117,10 @@ export function mergeHomepageConfig(remote: Partial<HomepageConfigDto> | null | 
       ...(remote.founder ?? {}),
       carouselImages: remote.founder?.carouselImages ?? base.founder.carouselImages,
       storyParagraphs: remote.founder?.storyParagraphs ?? base.founder.storyParagraphs,
+      enabled: normalizeFounderEnabled(
+        remote.founder?.enabled,
+        remote.founder?.carouselImages ?? base.founder.carouselImages,
+      ),
     },
     valueProps: {
       ...base.valueProps,

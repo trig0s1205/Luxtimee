@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { HomepageConfigDto } from '@luxtime/shared';
 import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
+import { shouldShowFounderSection } from '~/utils/homepage-config';
 
 const catalog = useCatalogData();
 const { observe } = useRevealObserver();
@@ -60,7 +61,7 @@ onMounted(() => {
     />
 
     <LazyHomeAboutFounderSection
-      v-if="cms.founder.enabled"
+      v-if="shouldShowFounderSection(cms.founder)"
       :config="cms.founder"
     />
 

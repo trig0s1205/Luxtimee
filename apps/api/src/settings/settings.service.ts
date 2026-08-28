@@ -234,12 +234,14 @@ export class SettingsService {
       carouselImages = Array.from({ length: 5 }, (_, i) => carouselImages[i] ?? '');
     }
 
+    const carouselFilled = carouselImages.filter((url) => typeof url === 'string' && url.trim()).length;
+
     return {
       hero: { ...DEFAULT_HOMEPAGE_CONFIG.hero, ...(stored.hero ?? {}) },
       featured: { ...DEFAULT_HOMEPAGE_CONFIG.featured, ...(stored.featured ?? {}) },
       founder: {
         ...DEFAULT_HOMEPAGE_CONFIG.founder,
-        enabled: rawFounder.enabled ?? DEFAULT_HOMEPAGE_CONFIG.founder.enabled,
+        enabled: carouselFilled === 5 ? true : Boolean(rawFounder.enabled),
         badge: rawFounder.badge ?? DEFAULT_HOMEPAGE_CONFIG.founder.badge,
         title: rawFounder.title ?? DEFAULT_HOMEPAGE_CONFIG.founder.title,
         titleEm: rawFounder.titleEm ?? DEFAULT_HOMEPAGE_CONFIG.founder.titleEm,
@@ -281,16 +283,20 @@ export class SettingsService {
       contact: patch.contact ? { ...current.contact, ...patch.contact } : current.contact,
     };
 
-    if (merged.founder.enabled) {
-      const imgs = (merged.founder.carouselImages ?? []).filter((u) => typeof u === 'string' && u.trim());
-      if (imgs.length !== 5) {
+    if (patch.founder) {
+      const imgs = (merged.founder.carouselImages ?? []).filter(
+        (url) => typeof url === 'string' && url.trim(),
+      );
+      merged.founder.carouselImages = Array.from(
+        { length: 5 },
+        (_, i) => imgs[i] ?? merged.founder.carouselImages?.[i] ?? '',
+      );
+
+      if (imgs.length === 5) {
+        merged.founder.enabled = patch.founder.enabled !== false;
+      } else if (merged.founder.enabled) {
         merged.founder.enabled = false;
-        merged.founder.carouselImages = Array.from({ length: 5 }, (_, i) => merged.founder.carouselImages?.[i] ?? '');
-      } else {
-        merged.founder.carouselImages = imgs.slice(0, 5);
       }
-    } else {
-      merged.founder.carouselImages = Array.from({ length: 5 }, (_, i) => merged.founder.carouselImages?.[i] ?? '');
     }
 
     await this.setJson(HOMEPAGE_KEY, merged);

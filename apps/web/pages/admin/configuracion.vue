@@ -240,15 +240,21 @@ async function saveFounderSection() {
     storyParagraphs: [...home.founder.storyParagraphs],
   };
 
-  if (founderPayload.enabled && carouselFilled.value !== 5) {
+  if (carouselFilled.value === 5) {
+    founderPayload.enabled = true;
+    home.founder.enabled = true;
+  } else {
     founderPayload.enabled = false;
-    toast.warning('Fundador desactivado: faltan 5 fotos en el carrusel.');
+    home.founder.enabled = false;
+    toast.warning('Se guardó el texto, pero la sección sigue oculta hasta tener 5 fotos en el carrusel.');
   }
 
   await saveHomepageSection(
     'founder',
     { founder: founderPayload },
-    'Sección Fundador guardada.',
+    founderPayload.enabled
+      ? 'Sección Fundador guardada.'
+      : 'Fundador guardado (faltan fotos para publicar en el inicio).',
   );
 }
 
