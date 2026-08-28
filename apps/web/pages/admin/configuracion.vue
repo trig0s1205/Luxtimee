@@ -7,13 +7,13 @@ import type {
   WhatsappSettingDto,
 } from '@luxtime/shared';
 import { extractApiErrorMessage } from '~/utils/api-error';
+import { authFetchHeaders } from '~/utils/auth-token';
 import { DEFAULT_HOMEPAGE_CONFIG } from '~/utils/homepage-config';
 
 definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const auth = useAuthStore();
 const api = useApi();
-const baseUrl = useApiBaseUrl();
 const toast = useToast();
 const { resolve: resolveMedia } = useMediaUrl();
 
@@ -267,17 +267,44 @@ function removeValueProp(i: number) {
   home.valueProps.items.splice(i, 1);
 }
 
+async function uploadHomepageImages(endpoint: string, file: File): Promise<string> {
+  const uploadBase = useApiUploadUrl();
+  const crossOrigin = /^https?:\/\//i.test(uploadBase) && !uploadBase.startsWith('/');
+
+  async function post(token: string) {
+    const fd = new FormData();
+    fd.append('images', file);
+    return fetch(`${uploadBase}${endpoint}`, {
+      method: 'POST',
+      body: fd,
+      credentials: crossOrigin ? 'omit' : 'include',
+      headers: authFetchHeaders(token),
+    });
+  }
+
+  let token = await auth.ensureAccessToken(true);
+  let res = await post(token);
+  if (res.status === 401) {
+    token = await auth.ensureAccessToken(true);
+    res = await post(token);
+  }
+  if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error('Tu sesión expiró. Recarga la página e ingresa de nuevo.');
+    }
+    const payload = await res.json().catch(() => null) as { message?: string } | null;
+    throw new Error(payload?.message || 'Error al subir la imagen.');
+  }
+  const data = await res.json() as { urls: string[] };
+  const url = data.urls[0];
+  if (!url) throw new Error('Sin URL');
+  return url;
+}
+
 async function uploadCarouselSlot(slot: number, file: File) {
   uploadingSlot.value = slot;
   try {
-    const fd = new FormData();
-    fd.append('images', file);
-    const res = await $fetch<{ urls: string[] }>(
-      `${baseUrl}/settings/homepage/upload-founder-images`,
-      { method: 'POST', body: fd, credentials: 'include' },
-    );
-    const url = res.urls[0];
-    if (!url) throw new Error('Sin URL');
+    const url = await uploadHomepageImages('/settings/homepage/upload-founder-images', file);
     const prev = home.founder.carouselImages[slot];
     home.founder.carouselImages[slot] = url;
     if (prev && prev !== url) {
@@ -312,14 +339,7 @@ const uploadingSignature = ref(false);
 async function uploadProofSlot(slot: number, file: File) {
   uploadingProofSlot.value = slot;
   try {
-    const fd = new FormData();
-    fd.append('images', file);
-    const res = await $fetch<{ urls: string[] }>(
-      `${baseUrl}/settings/homepage/upload-customer-proof-images`,
-      { method: 'POST', body: fd, credentials: 'include' },
-    );
-    const url = res.urls[0];
-    if (!url) throw new Error('Sin URL');
+    const url = await uploadHomepageImages('/settings/homepage/upload-customer-proof-images', file);
     const prev = home.customerProof.images[slot]?.url;
     home.customerProof.images[slot] = {
       url,
@@ -357,14 +377,7 @@ async function clearProofSlot(slot: number) {
 async function uploadSignatureImage(file: File) {
   uploadingSignature.value = true;
   try {
-    const fd = new FormData();
-    fd.append('images', file);
-    const res = await $fetch<{ urls: string[] }>(
-      `${baseUrl}/settings/homepage/upload-founder-images`,
-      { method: 'POST', body: fd, credentials: 'include' },
-    );
-    const url = res.urls[0];
-    if (!url) throw new Error('Sin URL');
+    const url = await uploadHomepageImages('/settings/homepage/upload-founder-images', file);
     const prev = home.founder.signatureImageUrl;
     home.founder.signatureImageUrl = url;
     if (prev && prev !== url) {
