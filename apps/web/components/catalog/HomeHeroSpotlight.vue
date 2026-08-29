@@ -6,6 +6,9 @@ const props = defineProps<{
   watches: WatchPublicDto[];
 }>();
 
+const catalog = useCatalogData();
+const extraWatches = ref<WatchPublicDto[]>([]);
+
 const INTERVAL_MS = 6000;
 const { t } = useLocale();
 const { openProduct } = useProductModal();
@@ -15,8 +18,19 @@ const activeIndex = ref(0);
 const paused = ref(false);
 let timer: ReturnType<typeof setInterval> | null = null;
 
-const list = computed(() => props.watches.slice(0, 6));
+const list = computed(() => {
+  const base = props.watches.slice(0, 6);
+  if (base.length >= 3) return base;
+
+  const merged = [...base];
+  for (const watch of extraWatches.value) {
+    if (merged.length >= 6) break;
+    if (!merged.some((item) => item.id === watch.id)) merged.push(watch);
+  }
+  return merged;
+});
 const listCount = computed(() => list.value.length);
+const scrollEnabled = computed(() => listCount.value >= 1);
 
 const {
   heroRoot,
@@ -24,9 +38,10 @@ const {
   scrollHeightVh,
   activeIndexFromScroll,
   reducedMotion,
+  isPinned,
   floatStyle,
   glowStyle,
-} = useHeroScrollytelling(listCount);
+} = useHeroScrollytelling(listCount, scrollEnabled);
 
 const active = computed(() => list.value[activeIndex.value] ?? null);
 const prevWatch = computed(() => {
@@ -80,6 +95,14 @@ const stockBadge = computed(() => {
 });
 
 const glowTone = computed(() => activeIndex.value % 3);
+
+const mainWatchStyle = computed(() => {
+  if (reducedMotion.value || scrollProgress.value <= 0) return {};
+  const p = scrollProgress.value;
+  return {
+    transform: `scale(${0.79 + p * 0.06}) translateY(${-p * 18}px) rotate(${p * 4}deg)`,
+  };
+});
 
 function goTo(index: number) {
   if (!list.value.length) return;
@@ -151,7 +174,13 @@ watch(() => active.value?.id, () => {
   swapped.value = false;
 });
 
-onMounted(() => startTimer());
+onMounted(() => {
+  startTimer();
+  if (props.watches.length >= 3) return;
+  void catalog.listCatalog({ limit: 8, available: 'true' }).then((res) => {
+    extraWatches.value = res.data;
+  }).catch(() => {});
+});
 onBeforeUnmount(() => stopTimer());
 </script>
 
@@ -161,19 +190,22 @@ onBeforeUnmount(() => stopTimer());
     ref="heroRoot"
     class="lux-hero"
     :class="{
-      'lux-hero--scroll': !reducedMotion && list.length > 1,
+      'lux-hero--scroll': scrollEnabled && !reducedMotion,
       [`lux-hero--tone-${glowTone}`]: true,
     }"
-    :style="!reducedMotion && list.length > 1 ? { minHeight: `${scrollHeightVh}vh` } : undefined"
+    :style="scrollEnabled && !reducedMotion ? { height: `${scrollHeightVh}vh` } : undefined"
     @mouseenter="paused = true"
     @mouseleave="paused = scrollProgress > 0.02"
   >
-    <div class="lux-hero__sticky">
+    <div
+      class="lux-hero__pin"
+      :class="{ 'lux-hero__pin--fixed': isPinned }"
+    >
       <div class="lux-hero__glow" :style="glowStyle()" aria-hidden="true" />
       <div class="lux-hero__veil" aria-hidden="true" />
 
       <div
-        v-if="list.length > 1 && !reducedMotion"
+        v-if="scrollEnabled && !reducedMotion"
         class="lux-hero__floats"
         aria-hidden="true"
       >
@@ -246,6 +278,7 @@ onBeforeUnmount(() => stopTimer());
                 :src="mainDisplayUrl"
                 :alt="`${active.brand.name} ${active.model}`"
                 class="lux-hero__watch"
+                :style="mainWatchStyle"
                 draggable="false"
               >
               <div v-else class="lux-hero__watch-placeholder" />
@@ -312,26 +345,34 @@ onBeforeUnmount(() => stopTimer());
 </template>
 
 <style scoped>
-.lux-hero {
+section.lux-hero {
   position: relative;
+  margin-top: -7rem;
+  padding: 0 !important;
+  overflow: visible !important;
+  max-width: none;
   min-height: 100vh;
   background: var(--black);
   color: var(--white);
 }
 
-.lux-hero--scroll {
-  min-height: auto;
-}
-
-.lux-hero__sticky {
-  position: sticky;
-  top: 0;
+.lux-hero__pin {
+  position: relative;
+  width: 100%;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 7.5rem 3.5rem 2.5rem;
   overflow: hidden;
+}
+
+.lux-hero__pin--fixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 8;
 }
 
 .lux-hero__floats {
@@ -345,13 +386,10 @@ onBeforeUnmount(() => stopTimer());
 .lux-hero__float {
   position: absolute;
   left: 50%;
-  top: 46%;
-  width: clamp(140px, 18vw, 260px);
+  top: 50%;
+  width: clamp(160px, 20vw, 300px);
   aspect-ratio: 3 / 4;
-  margin-left: -50%;
-  margin-top: -50%;
   will-change: transform, opacity, filter;
-  transition: opacity 0.15s linear;
 }
 
 .lux-hero__float img {
@@ -863,7 +901,7 @@ onBeforeUnmount(() => stopTimer());
 }
 
 @media (max-width: 1024px) {
-  .lux-hero__sticky {
+  .lux-hero__pin {
     padding: 6.5rem 2rem 2rem;
   }
 
@@ -878,13 +916,13 @@ onBeforeUnmount(() => stopTimer());
 }
 
 @media (max-width: 768px) {
-  .lux-hero__sticky {
-    min-height: auto;
+  .lux-hero__pin {
+    min-height: 100svh;
     padding: 5.5rem 1.25rem 2rem;
   }
 
   .lux-hero__float {
-    width: clamp(100px, 28vw, 160px);
+    width: clamp(120px, 32vw, 180px);
   }
 
   .lux-hero__scroll-hint {
@@ -973,7 +1011,7 @@ onBeforeUnmount(() => stopTimer());
 }
 
 @media (max-width: 480px) {
-  .lux-hero__sticky {
+  .lux-hero__pin {
     padding: 5rem 1rem 1.75rem;
   }
 
