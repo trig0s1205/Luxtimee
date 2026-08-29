@@ -90,7 +90,7 @@ export class SetHomepageConfigBodyDto {
 
   @IsOptional()
   @IsObject()
-  statement?: Record<string, unknown>;
+  faq?: Record<string, unknown>;
 
   @IsOptional()
   @IsObject()

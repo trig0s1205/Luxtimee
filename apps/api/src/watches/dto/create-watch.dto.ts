@@ -12,6 +12,8 @@ import {
 import { Type, Transform } from 'class-transformer';
 import { UppercaseOptional } from '../../common/decorators/uppercase.decorator';
 import { sanitizePlainTextOptional } from '../../common/utils/sanitize-text.util';
+import { FaqItemDto } from './faq-item.dto';
+import { ValidateNested } from 'class-validator';
 
 const WATCH_STATUS_VALUES = ['DISPONIBLE', 'AGOTADO'] as const;
 export type WatchStatusValue = (typeof WATCH_STATUS_VALUES)[number];
@@ -165,6 +167,12 @@ export class CreateWatchDto {
   @IsString()
   @Transform(({ value }) => sanitizePlainTextOptional(value, 8000))
   description?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FaqItemDto)
+  faqs?: FaqItemDto[];
 
   @IsOptional()
   @IsArray()

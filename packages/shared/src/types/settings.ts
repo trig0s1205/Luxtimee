@@ -46,11 +46,17 @@ export interface HomepageValuePropsConfig {
   items: HomepageValueProp[];
 }
 
-export interface HomepageStatementConfig {
+export interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+export interface HomepageFaqConfig {
   enabled: boolean;
-  text: string;
-  textEm: string;
-  sub: string;
+  label: string;
+  title: string;
+  titleEm: string;
+  items: FaqItem[];
 }
 
 export interface HomepageContactConfig {
@@ -84,7 +90,7 @@ export interface HomepageConfigDto {
   founder: HomepageFounderConfig;
   valueProps: HomepageValuePropsConfig;
   customerProof: HomepageCustomerProofConfig;
-  statement: HomepageStatementConfig;
+  faq: HomepageFaqConfig;
   contact: HomepageContactConfig;
 }
 

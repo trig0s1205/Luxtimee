@@ -1,4 +1,4 @@
-import type { HomepageConfigDto, HomepageCustomerProofImage } from '@luxtime/shared';
+import type { FaqItem, HomepageConfigDto, HomepageCustomerProofImage, HomepageFaqConfig } from '@luxtime/shared';
 
 export const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
   hero: {
@@ -48,11 +48,37 @@ export const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
     subtitle: 'Fotos de entregas locales y envíos nacionales. Sin renders ni stock de banco de imágenes.',
     images: [],
   },
-  statement: {
+  faq: {
     enabled: true,
-    text: 'El detalle está en la entrega,',
-    textEm: 'no en el discurso.',
-    sub: 'LUXTIMEE · Piedecuesta · Colombia',
+    label: 'Preguntas frecuentes',
+    title: 'Resolvemos',
+    titleEm: 'tus dudas',
+    items: [
+      {
+        question: '¿Cómo compro un reloj en LUXTIMEE?',
+        answer: 'Eliges el modelo en el catálogo, lo agregas al carrito y completas el checkout. Confirmamos disponibilidad y tiempos por WhatsApp antes de despachar.',
+      },
+      {
+        question: '¿Hacen envíos a todo Colombia?',
+        answer: 'Sí. Enviamos a nivel nacional con transportadora. En Piedecuesta y área metropolitana de Bucaramanga también ofrecemos entrega local coordinada.',
+      },
+      {
+        question: '¿Cuánto tarda en llegar mi pedido?',
+        answer: 'Los tiempos dependen de tu ciudad. Te confirmamos la fecha estimada al cerrar la compra. Los envíos nacionales suelen tardar entre 2 y 5 días hábiles.',
+      },
+      {
+        question: '¿Qué métodos de pago aceptan?',
+        answer: 'Transferencia bancaria, Nequi, Daviplata y otros medios acordados por WhatsApp. El pago se confirma antes del despacho.',
+      },
+      {
+        question: '¿Los relojes tienen garantía?',
+        answer: 'Cada pieza incluye garantía según la ficha del modelo. Cubre defectos de fabricación; el plazo se indica en la descripción del reloj.',
+      },
+      {
+        question: '¿Puedo ver el reloj antes de comprarlo?',
+        answer: 'Publicamos fotos y video reales de cada referencia. Si estás en Santander, podemos coordinar una cita para ver la pieza.',
+      },
+    ],
   },
   contact: {
     enabled: true,
@@ -103,7 +129,43 @@ export function normalizeCustomerProofImages(raw: unknown): HomepageCustomerProo
     .filter((item): item is HomepageCustomerProofImage => item !== null && /^https?:\/\//i.test(item.url));
 }
 
-export function mergeHomepageConfig(remote: Partial<HomepageConfigDto> | null | undefined): HomepageConfigDto {
+export function normalizeFaqItems(raw: unknown): FaqItem[] {
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .map((item): FaqItem | null => {
+      if (!item || typeof item !== 'object') return null;
+      const question = String((item as { question?: unknown }).question ?? '').trim();
+      const answer = String((item as { answer?: unknown }).answer ?? '').trim();
+      if (!question || !answer) return null;
+      return { question, answer };
+    })
+    .filter((item): item is FaqItem => item !== null);
+}
+
+type LegacyHomepageFaqSource = Partial<HomepageFaqConfig> & {
+  text?: string;
+  textEm?: string;
+  sub?: string;
+};
+
+export function migrateHomepageFaqConfig(
+  faq?: LegacyHomepageFaqSource | null,
+  legacyStatement?: LegacyHomepageFaqSource | null,
+): HomepageFaqConfig {
+  const source = faq ?? legacyStatement ?? {};
+  const items = normalizeFaqItems(source.items);
+
+  return {
+    enabled: source.enabled ?? true,
+    label: source.label?.trim() || DEFAULT_HOMEPAGE_CONFIG.faq.label,
+    title: source.title?.trim() || DEFAULT_HOMEPAGE_CONFIG.faq.title,
+    titleEm: source.titleEm?.trim() || DEFAULT_HOMEPAGE_CONFIG.faq.titleEm,
+    items: items.length ? items : DEFAULT_HOMEPAGE_CONFIG.faq.items,
+  };
+}
+
+export function mergeHomepageConfig(remote: Partial<HomepageConfigDto> & { statement?: LegacyHomepageFaqSource } | null | undefined): HomepageConfigDto {
   const base = structuredClone(DEFAULT_HOMEPAGE_CONFIG);
   if (!remote) return base;
 
@@ -132,7 +194,7 @@ export function mergeHomepageConfig(remote: Partial<HomepageConfigDto> | null | 
       ...(remote.customerProof ?? {}),
       images: normalizeCustomerProofImages(remote.customerProof?.images),
     },
-    statement: { ...base.statement, ...(remote.statement ?? {}) },
+    faq: migrateHomepageFaqConfig(remote.faq, remote.statement),
     contact: { ...base.contact, ...(remote.contact ?? {}) },
   };
 }

@@ -16,6 +16,7 @@ import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
 
 import { normalizeCustomerProofImages } from './homepage-images.util';
+import { DEFAULT_HOMEPAGE_FAQ_ITEMS, migrateHomepageFaqConfig } from '../common/utils/faq.util';
 
 const HOMEPAGE_KEY = 'homepage_config';
 
@@ -74,11 +75,12 @@ const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
     subtitle: 'Fotos de entregas locales y envíos nacionales. Sin renders ni stock de banco de imágenes.',
     images: [],
   },
-  statement: {
+  faq: {
     enabled: true,
-    text: 'El detalle está en la entrega,',
-    textEm: 'no en el discurso.',
-    sub: 'LUXTIMEE · Piedecuesta · Colombia',
+    label: 'Preguntas frecuentes',
+    title: 'Resolvemos',
+    titleEm: 'tus dudas',
+    items: DEFAULT_HOMEPAGE_FAQ_ITEMS,
   },
   contact: {
     enabled: true,
@@ -215,7 +217,8 @@ export class SettingsService {
       founder?: LegacyFounder;
       valueProps?: HomepageConfigDto['valueProps'];
       customerProof?: HomepageConfigDto['customerProof'];
-      statement?: HomepageConfigDto['statement'];
+      faq?: HomepageConfigDto['faq'];
+      statement?: Record<string, unknown>;
       contact?: HomepageConfigDto['contact'];
     }>(HOMEPAGE_KEY, {});
 
@@ -258,7 +261,7 @@ export class SettingsService {
         ...(stored.customerProof ?? {}),
         images: normalizeCustomerProofImages(stored.customerProof?.images),
       },
-      statement: { ...DEFAULT_HOMEPAGE_CONFIG.statement, ...(stored.statement ?? {}) },
+      faq: migrateHomepageFaqConfig(stored.faq, stored.statement),
       contact: { ...DEFAULT_HOMEPAGE_CONFIG.contact, ...(stored.contact ?? {}) },
     };
   }
@@ -279,7 +282,7 @@ export class SettingsService {
             ),
           }
         : current.customerProof,
-      statement: patch.statement ? { ...current.statement, ...patch.statement } : current.statement,
+      faq: patch.faq ? { ...current.faq, ...patch.faq, items: patch.faq.items ?? current.faq.items } : current.faq,
       contact: patch.contact ? { ...current.contact, ...patch.contact } : current.contact,
     };
 

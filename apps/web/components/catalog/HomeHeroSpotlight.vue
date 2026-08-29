@@ -16,6 +16,18 @@ const paused = ref(false);
 let timer: ReturnType<typeof setInterval> | null = null;
 
 const list = computed(() => props.watches.slice(0, 6));
+const listCount = computed(() => list.value.length);
+
+const {
+  heroRoot,
+  scrollProgress,
+  scrollHeightVh,
+  activeIndexFromScroll,
+  reducedMotion,
+  floatStyle,
+  glowStyle,
+} = useHeroScrollytelling(listCount);
+
 const active = computed(() => list.value[activeIndex.value] ?? null);
 const prevWatch = computed(() => {
   if (list.value.length < 2) return null;
@@ -116,6 +128,25 @@ watch(() => props.watches, () => {
   restartTimer();
 });
 
+watch(scrollProgress, (progress) => {
+  if (reducedMotion.value || list.value.length < 2) return;
+  if (progress > 0.02) {
+    paused.value = true;
+    activeIndex.value = activeIndexFromScroll.value;
+    swapped.value = false;
+    return;
+  }
+  paused.value = false;
+});
+
+watch(activeIndexFromScroll, (index) => {
+  if (scrollProgress.value <= 0.02 || reducedMotion.value) return;
+  if (activeIndex.value !== index) {
+    activeIndex.value = index;
+    swapped.value = false;
+  }
+});
+
 watch(() => active.value?.id, () => {
   swapped.value = false;
 });
@@ -127,13 +158,45 @@ onBeforeUnmount(() => stopTimer());
 <template>
   <section
     id="hero"
+    ref="heroRoot"
     class="lux-hero"
-    :class="`lux-hero--tone-${glowTone}`"
+    :class="{
+      'lux-hero--scroll': !reducedMotion && list.length > 1,
+      [`lux-hero--tone-${glowTone}`]: true,
+    }"
+    :style="!reducedMotion && list.length > 1 ? { minHeight: `${scrollHeightVh}vh` } : undefined"
     @mouseenter="paused = true"
-    @mouseleave="paused = false"
+    @mouseleave="paused = scrollProgress > 0.02"
   >
-    <div class="lux-hero__glow" aria-hidden="true" />
-    <div class="lux-hero__veil" aria-hidden="true" />
+    <div class="lux-hero__sticky">
+      <div class="lux-hero__glow" :style="glowStyle()" aria-hidden="true" />
+      <div class="lux-hero__veil" aria-hidden="true" />
+
+      <div
+        v-if="list.length > 1 && !reducedMotion"
+        class="lux-hero__floats"
+        aria-hidden="true"
+      >
+        <div
+          v-for="(watch, index) in list"
+          :key="`float-${watch.id}`"
+          class="lux-hero__float"
+          :style="floatStyle(index, index === activeIndex)"
+        >
+          <img
+            v-if="watchPrimaryImage(watch)"
+            :src="watchPrimaryImage(watch)!"
+            alt=""
+            draggable="false"
+            loading="lazy"
+          >
+        </div>
+      </div>
+
+      <div class="lux-hero__scroll-hint" :class="{ 'lux-hero__scroll-hint--hidden': scrollProgress > 0.08 }">
+        <span class="lux-hero__scroll-hint-line" />
+        <span class="lux-hero__scroll-hint-text">Scroll</span>
+      </div>
 
     <div class="lux-hero__brand">
       <p class="lux-hero__eyebrow">{{ t('home.heroEyebrow') }}</p>
@@ -244,6 +307,7 @@ onBeforeUnmount(() => stopTimer());
       <NuxtLink to="/catalogo" class="btn-ghost">{{ t('home.viewCollection') }}</NuxtLink>
       <NuxtLink to="/mayoristas" class="btn-ghost">{{ t('nav.wholesale') }}</NuxtLink>
     </div>
+    </div>
   </section>
 </template>
 
@@ -251,13 +315,91 @@ onBeforeUnmount(() => stopTimer());
 .lux-hero {
   position: relative;
   min-height: 100vh;
+  background: var(--black);
+  color: var(--white);
+}
+
+.lux-hero--scroll {
+  min-height: auto;
+}
+
+.lux-hero__sticky {
+  position: sticky;
+  top: 0;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 7.5rem 3.5rem 2.5rem;
   overflow: hidden;
-  background: var(--black);
-  color: var(--white);
+}
+
+.lux-hero__floats {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.lux-hero__float {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: clamp(140px, 18vw, 260px);
+  aspect-ratio: 3 / 4;
+  margin-left: -50%;
+  margin-top: -50%;
+  will-change: transform, opacity, filter;
+  transition: opacity 0.15s linear;
+}
+
+.lux-hero__float img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 24px 40px rgba(0, 0, 0, 0.55));
+  user-select: none;
+}
+
+.lux-hero__scroll-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  z-index: 3;
+  opacity: 1;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+.lux-hero__scroll-hint--hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px);
+  pointer-events: none;
+}
+
+.lux-hero__scroll-hint-line {
+  width: 1px;
+  height: 34px;
+  background: linear-gradient(180deg, transparent, var(--gold), transparent);
+  animation: hero-scroll-pulse 1.8s ease-in-out infinite;
+}
+
+.lux-hero__scroll-hint-text {
+  font-family: var(--font-body);
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--white-dim);
+}
+
+@keyframes hero-scroll-pulse {
+  0%, 100% { transform: scaleY(0.65); opacity: 0.45; }
+  50% { transform: scaleY(1); opacity: 1; }
 }
 
 .lux-hero__glow {
@@ -295,7 +437,8 @@ onBeforeUnmount(() => stopTimer());
   pointer-events: none;
   background:
     linear-gradient(180deg, rgba(10, 10, 10, 0.55) 0%, transparent 28%, transparent 70%, rgba(10, 10, 10, 0.75) 100%),
-    radial-gradient(ellipse at 80% 20%, rgba(200, 169, 110, 0.05), transparent 45%);
+    radial-gradient(ellipse at 80% 20%, rgba(200, 169, 110, 0.05), transparent 45%),
+    linear-gradient(125deg, transparent 40%, rgba(200, 169, 110, 0.03) 50%, transparent 60%);
   z-index: 1;
 }
 
@@ -720,7 +863,7 @@ onBeforeUnmount(() => stopTimer());
 }
 
 @media (max-width: 1024px) {
-  .lux-hero {
+  .lux-hero__sticky {
     padding: 6.5rem 2rem 2rem;
   }
 
@@ -735,9 +878,17 @@ onBeforeUnmount(() => stopTimer());
 }
 
 @media (max-width: 768px) {
-  .lux-hero {
+  .lux-hero__sticky {
     min-height: auto;
     padding: 5.5rem 1.25rem 2rem;
+  }
+
+  .lux-hero__float {
+    width: clamp(100px, 28vw, 160px);
+  }
+
+  .lux-hero__scroll-hint {
+    display: none;
   }
 
   .lux-hero__stage {
@@ -822,7 +973,7 @@ onBeforeUnmount(() => stopTimer());
 }
 
 @media (max-width: 480px) {
-  .lux-hero {
+  .lux-hero__sticky {
     padding: 5rem 1rem 1.75rem;
   }
 
@@ -843,8 +994,14 @@ onBeforeUnmount(() => stopTimer());
   .hero-swap-inset-enter-active,
   .hero-swap-inset-leave-active,
   .lux-hero__glow,
-  .lux-hero__inset {
+  .lux-hero__inset,
+  .lux-hero__scroll-hint-line {
     transition: none;
+    animation: none;
+  }
+
+  .lux-hero__float {
+    display: none;
   }
 }
 </style>

@@ -217,6 +217,7 @@ model Watch {
   isLimitedEdition    Boolean      @default(false)
   limitedEditionNumber String?
   description         String?      @db.Text
+  faqs                Json         @default("[]")
   images              String[]
   mainImageIndex      Int          @default(0)
   primaryImageUrl     String?

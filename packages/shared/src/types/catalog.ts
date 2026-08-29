@@ -1,4 +1,5 @@
 import type { PriceType } from '../index.js';
+import type { FaqItem } from './settings.js';
 
 export enum WatchStatus {
   DISPONIBLE = 'DISPONIBLE',
@@ -76,6 +77,7 @@ export interface WatchPublicDto {
   isLimitedEdition: boolean;
   limitedEditionNumber?: string | null;
   description?: string | null;
+  faqs: FaqItem[];
   images: string[];
   mainImageIndex: number;
   primaryImageUrl?: string | null;
@@ -151,6 +153,7 @@ export interface CreateWatchDto {
   isLimitedEdition?: boolean;
   limitedEditionNumber?: string;
   description?: string;
+  faqs?: FaqItem[];
   images?: string[];
   mainImageIndex?: number;
   warrantyTemplateId?: string;

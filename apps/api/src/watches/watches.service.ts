@@ -16,6 +16,7 @@ import { assertMediaFile } from '../common/utils/file-magic.util';
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
 import { storefrontHideWhenEmpty } from '../common/utils/storefront-stock.util';
+import { normalizeFaqItems } from '../common/utils/faq.util';
 
 const MAX_CATALOG_FEATURED = 6;
 const CATALOG_LIMIT_MESSAGE =
@@ -156,6 +157,7 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
       showInCatalog,
       isLimitedEdition: dto.isLimitedEdition ?? false,      limitedEditionNumber: dto.limitedEditionNumber,
       description: dto.description,
+      faqs: normalizeFaqItems(dto.faqs),
       images: dto.images ?? [],
       mainImageIndex: dto.mainImageIndex ?? 0,
       frontImageUrl: dto.images?.[dto.mainImageIndex ?? 0] ?? null,
@@ -250,6 +252,7 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     if (dto.showInCatalog !== undefined) data.showInCatalog = dto.showInCatalog;
     if (dto.isLimitedEdition !== undefined) data.isLimitedEdition = dto.isLimitedEdition;    if (dto.limitedEditionNumber !== undefined) data.limitedEditionNumber = dto.limitedEditionNumber;
     if (dto.description !== undefined) data.description = dto.description;
+    if (dto.faqs !== undefined) data.faqs = normalizeFaqItems(dto.faqs);
     if (dto.images) {
       data.images = dto.images;
       data.frontImageUrl = dto.images[dto.mainImageIndex ?? existing.mainImageIndex] ?? null;
