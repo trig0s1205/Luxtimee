@@ -123,6 +123,7 @@ export default {
   },
   product: {
     limited: 'Limited edition',
+    limitedBadge: 'Ltd. ed.',
     stockLeft: '{n} left',
     stockUnits: '{n} units',
     add: 'Add',

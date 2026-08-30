@@ -56,8 +56,14 @@ function onAdd(e: Event) {
     @click="onCardClick"
   >
     <div class="products-img">
-      <span v-if="showLimitedEdition" class="badge-limited badge-limited--card">{{ t('product.limited') }}</span>
-      <span v-if="stockLabel" class="product-stock-badge">{{ stockLabel }}</span>
+      <div
+        v-if="showLimitedEdition || stockLabel"
+        class="products-img-badges"
+        :class="{ 'products-img-badges--solo-stock': stockLabel && !showLimitedEdition }"
+      >
+        <span v-if="showLimitedEdition" class="badge-limited badge-limited--card">{{ t('product.limitedBadge') }}</span>
+        <span v-if="stockLabel" class="product-stock-badge">{{ stockLabel }}</span>
+      </div>
       <img
         v-if="imageUrl"
         :src="imageUrl"

@@ -123,6 +123,7 @@ export default {
   },
   product: {
     limited: 'Edición limitada',
+    limitedBadge: 'Ed. limitada',
     stockLeft: 'Quedan {n}',
     stockUnits: '{n} uds.',
     add: 'Añadir',
