@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import type { WatchPublicDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
-import { buildRelatedWatches, pickRandomWatches } from '~/utils/similar-watches';
+import { buildRelatedWatches } from '~/utils/similar-watches';
 import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 
-const RELATED_WATCHES_TOTAL = 16;
-const RANDOM_WATCHES_TOTAL = 14;
+const RELATED_WATCHES_TOTAL = 18;
 
 const route = useRoute();
 const slug = computed(() => String(route.params.slug));
@@ -26,19 +25,9 @@ const { data: catalogPool, refresh: refreshCatalogPool } = await useCachedAsyncD
   { default: (): WatchPublicDto[] => [], staleTime: STOREFRONT_CACHE_MS.catalog },
 );
 
-const similarWatches = computed(() => (
+const relatedWatches = computed(() => (
   watch.value ? buildRelatedWatches(watch.value, catalogPool.value ?? [], RELATED_WATCHES_TOTAL) : []
 ));
-
-const randomWatches = computed(() => (
-  watch.value ? pickRandomWatches(watch.value, catalogPool.value ?? [], RANDOM_WATCHES_TOTAL, watch.value.slug) : []
-));
-
-const discoveryWatches = computed(() => {
-  if (!watch.value) return [];
-  if (randomWatches.value.length) return randomWatches.value;
-  return similarWatches.value;
-});
 
 onMounted(() => {
   void refreshCatalogPool();
@@ -96,31 +85,13 @@ function addToCart() {
     </div>
 
     <CatalogSimilarWatchesCarousel
-      v-if="discoveryWatches.length"
-      :key="`${watch.slug}-inline-discovery`"
-      class="product-inline-carousel"
-      :watches="discoveryWatches"
+      v-if="relatedWatches.length"
+      :key="`${watch.slug}-related`"
+      class="product-related-carousel"
+      :watches="relatedWatches"
       eyebrow="Descubre más"
       title="Relojes del catálogo"
-      :cycle-seconds="6"
-    />
-
-    <CatalogSimilarWatchesCarousel
-      v-if="similarWatches.length"
-      :key="`${watch.slug}-similar`"
-      class="product-page-carousel"
-      :watches="similarWatches"
-      eyebrow="Selección curada"
-      title="Relojes que combinan con tu gusto"
-    />
-
-    <CatalogSimilarWatchesCarousel
-      v-if="randomWatches.length"
-      :key="`${watch.slug}-random`"
-      class="product-page-carousel"
-      :watches="randomWatches"
-      eyebrow="Explora más"
-      title="Piezas que podrían interesarte"
+      :cycle-seconds="28"
     />
   </div>
 </template>
