@@ -22,8 +22,9 @@ export function formatWatchOrderLabel(watch: WatchForDescription) {
   if (watch.caseDiameter?.trim()) parts.push(watch.caseDiameter.trim());
   if (watch.bezelMaterial?.trim()) parts.push(`bisel ${watch.bezelMaterial.trim()}`);
   if (watch.strapMaterial?.trim()) parts.push(watch.strapMaterial.trim());
-  if (watch.movementType?.trim()) parts.push(watch.movementType.trim());
+  if (watch.movementType?.trim())   parts.push(watch.movementType.trim());
   if (watch.category?.name?.trim()) parts.push(watch.category.name.trim());
+  if (watch.sku?.trim()) parts.unshift(`SKU ${watch.sku.trim()}`);
   if (watch.isLimitedEdition) {
     parts.push(watch.limitedEditionNumber?.trim() ? `Ed. ${watch.limitedEditionNumber.trim()}` : 'Edición limitada');
   }

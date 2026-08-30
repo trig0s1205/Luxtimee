@@ -13,6 +13,7 @@ export interface PricedLineInput {
   productRef: string;
   productImage?: string | null;
   whatsappLabel?: string;
+  productSku?: string;
   deliveryNote?: string | null;
 }
 

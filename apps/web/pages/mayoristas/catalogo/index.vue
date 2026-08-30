@@ -55,6 +55,10 @@ watch([loaded, isAuthed], ([ready, authed]) => {
   if (ready && authed) refresh();
 });
 
+onMounted(() => {
+  cart.hydrate();
+});
+
 function goToPage(next: number) {
   if (next < 1 || next > totalPages.value || next === page.value) return;
   page.value = next;

@@ -115,6 +115,7 @@ export class PreOrdersService {
         retailPrice: watch.retailPrice,
         wholesalePrice: watch.wholesalePrice,
         productName: whatsappLabel,
+        productSku: watch.sku,
         whatsappLabel,
         productRef: watch.slug,
         productImage: watch.frontImageUrl,
@@ -239,6 +240,7 @@ export class PreOrdersService {
       shippingCost: priced.shippingCost,
       items: priced.lines.map((line) => ({
         label: line.whatsappLabel ?? line.productName,
+        sku: line.productSku,
         qty: line.quantity,
         price: line.unitPrice,
         deliveryNote: line.deliveryNote,

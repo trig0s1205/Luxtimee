@@ -22,6 +22,16 @@ function statusClass(status: string) {
     default: return '';
   }
 }
+
+const lightboxSrc = ref<string | null>(null);
+
+function openLightbox(src: string) {
+  lightboxSrc.value = src;
+}
+
+function closeLightbox() {
+  lightboxSrc.value = null;
+}
 </script>
 
 <template>
@@ -50,14 +60,20 @@ function statusClass(status: string) {
         </tr>
         <tr v-for="watch in watches" :key="watch.id" class="admin-table-row">
           <td>
-            <div class="admin-table-thumb">
+            <button
+              type="button"
+              class="admin-table-thumb"
+              :disabled="!watchPrimaryImage(watch)"
+              :title="watchPrimaryImage(watch) ? 'Ver imagen' : undefined"
+              @click="watchPrimaryImage(watch) && openLightbox(watchPrimaryImage(watch)!)"
+            >
               <img v-if="watchPrimaryImage(watch)" :src="watchPrimaryImage(watch)" :alt="watch.model">
               <div v-else class="admin-table-thumb-placeholder">
                 <span class="admin-table-thumb-pending" title="Multimedia en proceso">
                   <span class="admin-spinner admin-spinner--xs" />
                 </span>
               </div>
-            </div>
+            </button>
           </td>
           <td class="admin-table-sku">{{ watch.sku }}</td>
           <td>
@@ -85,6 +101,19 @@ function statusClass(status: string) {
         </tr>
       </tbody>
     </table>
+
+    <div
+      v-if="lightboxSrc"
+      class="admin-table-lightbox"
+      role="dialog"
+      aria-modal="true"
+      @click.self="closeLightbox"
+    >
+      <button type="button" class="admin-table-lightbox-close" aria-label="Cerrar" @click="closeLightbox">
+        ×
+      </button>
+      <img :src="lightboxSrc" alt="Vista previa del reloj" class="admin-table-lightbox-img">
+    </div>
   </div>
 </template>
 
@@ -126,17 +155,23 @@ function statusClass(status: string) {
 }
 
 .admin-table-thumb {
-  width: 48px;
-  height: 48px;
+  width: 72px;
+  height: 72px;
+  padding: 0;
   border: 1px solid rgba(200, 169, 110, 0.15);
   background: var(--lux-black-3);
   overflow: hidden;
+  cursor: zoom-in;
+}
+
+.admin-table-thumb:disabled {
+  cursor: default;
 }
 
 .admin-table-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .admin-table-thumb-placeholder {
@@ -268,6 +303,36 @@ function statusClass(status: string) {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.admin-table-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.88);
+}
+
+.admin-table-lightbox-img {
+  max-width: min(90vw, 560px);
+  max-height: 85vh;
+  object-fit: contain;
+}
+
+.admin-table-lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(200, 169, 110, 0.3);
+  background: transparent;
+  color: var(--lux-white);
+  font-size: 22px;
+  cursor: pointer;
 }
 
 @media (max-width: 1200px) {

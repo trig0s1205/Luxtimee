@@ -64,8 +64,7 @@ export const useWholesaleCartStore = defineStore('wholesale-cart', {
       }
       this.persist();
       if (import.meta.client) {
-        const { openCart } = useCartDrawer();
-        openCart();
+        useToast().success('Agregado al carrito mayorista');
       }
     },
 
