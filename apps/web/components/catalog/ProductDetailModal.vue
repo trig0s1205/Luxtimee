@@ -2,7 +2,6 @@
 import type { WatchPublicDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { LUXTIMEE_EXPERIENCE_ITEMS } from '~/constants/luxtime-experience';
-import { pickRandomWatches } from '~/utils/similar-watches';
 
 const { open, slug, closeProduct } = useProductModal();
 const catalog = useCatalogData();
@@ -11,23 +10,18 @@ const { t } = useLocale();
 
 const product = ref<WatchPublicDto | null>(null);
 const loading = ref(false);
-const randomWatches = ref<WatchPublicDto[]>([]);
 const { watchPrimaryImage } = useMediaUrl();
 
 watch(slug, async (s) => {
   if (!s) {
     product.value = null;
-    randomWatches.value = [];
     return;
   }
   loading.value = true;
   try {
     product.value = await catalog.getBySlug(s);
-    const pool = (await catalog.listCatalog({ limit: 80, available: 'true' })).data;
-    randomWatches.value = pickRandomWatches(product.value, pool, 12, `modal-${s}`);
   } catch {
     product.value = null;
-    randomWatches.value = [];
     closeProduct();
   } finally {
     loading.value = false;
@@ -103,15 +97,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
             </div>
           </div>
         </div>
-
-        <CatalogSimilarWatchesCarousel
-          v-if="randomWatches.length"
-          class="product-detail-modal__carousel"
-          :watches="randomWatches"
-          eyebrow="Descubre más"
-          title="Otros relojes del catálogo"
-          :compact="true"
-        />
       </div>
     </div>
   </Teleport>
