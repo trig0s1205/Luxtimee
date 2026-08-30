@@ -92,18 +92,17 @@ function addToCart() {
         </div>
 
         <CatalogWatchTechSheet :watch="watch" inline compact />
-
-        <CatalogSimilarWatchesCarousel
-          v-if="discoveryWatches.length"
-          :key="`${watch.slug}-inline-discovery`"
-          class="product-inline-carousel"
-          :watches="discoveryWatches"
-          eyebrow="Descubre más"
-          title="Relojes del catálogo"
-          :compact="true"
-          :cycle-seconds="6"
-        />
       </div>
+
+      <CatalogSimilarWatchesCarousel
+        v-if="discoveryWatches.length"
+        :key="`${watch.slug}-inline-discovery`"
+        class="product-inline-carousel"
+        :watches="discoveryWatches"
+        eyebrow="Descubre más"
+        title="Relojes del catálogo"
+        :cycle-seconds="6"
+      />
     </div>
 
     <CatalogSimilarWatchesCarousel

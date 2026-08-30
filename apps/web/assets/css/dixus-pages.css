@@ -1765,7 +1765,8 @@ body.cart-scroll-lock {
 }
 
 .product-inline-carousel {
-  margin-top: 28px;
+  grid-column: 1 / -1;
+  margin-top: 40px;
   width: 100%;
   max-width: 100%;
   overflow: hidden;
@@ -1779,24 +1780,7 @@ body.cart-scroll-lock {
 }
 
 .product-inline-carousel :deep(.similar-watches__header) {
-  text-align: left;
-}
-
-.product-inline-carousel :deep(.similar-watches__slide) {
-  flex: 0 0 clamp(132px, 14vw, 168px);
-  width: clamp(132px, 14vw, 168px);
-}
-
-.product-inline-carousel :deep(.similar-watches__title) {
-  font-size: clamp(1.1rem, 2vw, 1.35rem);
-}
-
-.product-inline-carousel :deep(.products-name) {
-  font-size: 11px;
-}
-
-.product-inline-carousel :deep(.products-price) {
-  font-size: 12px;
+  text-align: center;
 }
 
 .product-page-carousel {
@@ -1812,9 +1796,8 @@ body.cart-scroll-lock {
 }
 
 @media (max-width: 640px) {
-  .product-inline-carousel :deep(.similar-watches__slide) {
-    flex: 0 0 52vw;
-    width: 52vw;
+  .product-inline-carousel {
+    margin-top: 28px;
   }
 
   .product-page-carousel {
