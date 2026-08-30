@@ -2,10 +2,15 @@
 import type { HomepageCustomerProofConfig } from '@luxtime/shared';
 import { normalizeCustomerProofImages } from '~/utils/homepage-config';
 
+const LOOP_COPIES = 4;
+
 const props = defineProps<{ config: HomepageCustomerProofConfig }>();
 
 const images = computed(() => normalizeCustomerProofImages(props.config.images));
-const loopedImages = computed(() => (images.value.length ? [...images.value, ...images.value] : []));
+const loopedImages = computed(() => {
+  if (!images.value.length) return [];
+  return Array.from({ length: LOOP_COPIES }, () => images.value).flat();
+});
 
 const lightboxUrl = ref<string | null>(null);
 const cycleSeconds = ref(28);
@@ -19,7 +24,7 @@ const {
   onTouchEnd,
   scrollByCards,
   onManualScroll,
-} = useInfiniteHorizontalScroll({ cycleSeconds, enabled: computed(() => images.value.length > 1) });
+} = useInfiniteHorizontalScroll({ cycleSeconds, enabled: computed(() => images.value.length > 1), loopCopies: LOOP_COPIES });
 
 function openLightbox(url: string) {
   lightboxUrl.value = url;

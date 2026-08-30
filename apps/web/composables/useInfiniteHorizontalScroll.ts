@@ -3,6 +3,7 @@ const RESUME_DELAY = 2200;
 export function useInfiniteHorizontalScroll(options: {
   cycleSeconds: Ref<number> | number;
   enabled?: Ref<boolean> | boolean;
+  loopCopies?: Ref<number> | number;
 }) {
   const viewport = ref<HTMLElement | null>(null);
   const track = ref<HTMLElement | null>(null);
@@ -21,8 +22,13 @@ export function useInfiniteHorizontalScroll(options: {
     return toValue(options.enabled ?? true);
   }
 
+  function loopCopiesValue() {
+    return Math.max(2, toValue(options.loopCopies ?? 2));
+  }
+
   function loopWidth() {
-    return track.value ? track.value.scrollWidth / 2 : 0;
+    const copies = loopCopiesValue();
+    return track.value ? track.value.scrollWidth / copies : 0;
   }
 
   function normalizeScroll() {
@@ -54,10 +60,21 @@ export function useInfiniteHorizontalScroll(options: {
       offset += scrollSpeed() * delta;
       const width = loopWidth();
       if (width > 0) {
-        if (offset >= width) offset -= width;
+        while (offset >= width) offset -= width;
+
         el.scrollLeft = offset;
-        if (el.scrollLeft >= width) {
+
+        while (el.scrollLeft >= width) {
           el.scrollLeft -= width;
+        }
+
+        if (Math.abs(el.scrollLeft - offset) > 1) {
+          offset = el.scrollLeft;
+          while (offset >= width) {
+            offset -= width;
+            el.scrollLeft = offset;
+          }
+        } else {
           offset = el.scrollLeft;
         }
       }

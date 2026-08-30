@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { WatchPublicDto } from '@luxtime/shared';
 
+const LOOP_COPIES = 4;
+
 const props = withDefaults(defineProps<{
   watches: WatchPublicDto[];
   cycleSeconds?: number;
@@ -14,9 +16,10 @@ const props = withDefaults(defineProps<{
   compact: false,
 });
 
-const loopedWatches = computed(() => (
-  props.watches.length ? [...props.watches, ...props.watches] : []
-));
+const loopedWatches = computed(() => {
+  if (!props.watches.length) return [];
+  return Array.from({ length: LOOP_COPIES }, () => props.watches).flat();
+});
 
 const {
   viewport,
@@ -30,6 +33,7 @@ const {
 } = useInfiniteHorizontalScroll({
   cycleSeconds: toRef(() => props.cycleSeconds),
   enabled: computed(() => props.watches.length > 1),
+  loopCopies: LOOP_COPIES,
 });
 
 watch(() => props.watches, () => {
