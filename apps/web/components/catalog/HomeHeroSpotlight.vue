@@ -67,17 +67,15 @@ const stockBadge = computed(() => {
   };
 });
 
-const glowTone = computed(() => activeIndex.value % 3);
-
 const {
   heroEl,
   visualEl,
-  pointerActive,
   reducedMotion,
-  spotlightVars,
+  trail,
   tiltStyle,
   shineStyle,
   reflectionStyle,
+  trailDotStyle,
   onPointerMove,
   onTouchMove,
   onPointerLeave,
@@ -152,24 +150,20 @@ onBeforeUnmount(() => stopTimer());
     id="hero"
     ref="heroEl"
     class="lux-hero"
-    :class="{
-      [`lux-hero--tone-${glowTone}`]: true,
-      'lux-hero--spotlight-active': pointerActive && !reducedMotion,
-    }"
-    :style="spotlightVars"
     @mouseenter="onHeroEnter"
     @mouseleave="onHeroLeave"
     @mousemove="onPointerMove"
     @touchmove.passive="onTouchMove"
   >
     <div class="lux-hero__fx" aria-hidden="true">
-      <div class="lux-hero__spotlight lux-hero__spotlight--wide" />
-      <div class="lux-hero__spotlight lux-hero__spotlight--core" />
-      <div class="lux-hero__spotlight lux-hero__spotlight--beam" />
-      <div class="lux-hero__pointer-ring" />
+      <div
+        v-for="dot in trail"
+        :key="dot.id"
+        class="lux-hero__trail-dot"
+        :style="trailDotStyle(dot)"
+      />
       <div class="lux-hero__grain" />
     </div>
-    <div class="lux-hero__glow" aria-hidden="true" />
     <div class="lux-hero__veil" aria-hidden="true" />
 
     <div class="lux-hero__brand">
@@ -211,7 +205,7 @@ onBeforeUnmount(() => stopTimer());
         ref="visualEl"
         class="lux-hero__visual"
       >
-        <Transition name="hero-fade" mode="out-in">
+        <Transition name="hero-rise" mode="out-in" appear>
           <div :key="active.id" class="lux-hero__watch-scene">
             <div class="lux-hero__watch-stage" :style="tiltStyle">
               <div class="lux-hero__watch-wrap">
@@ -311,11 +305,6 @@ section.lux-hero {
   overflow: hidden;
   background: var(--black);
   color: var(--white);
-  --spot-x: 62%;
-  --spot-y: 48%;
-  --ptr-x: 62%;
-  --ptr-y: 48%;
-  --spot-boost: 0.72;
 }
 
 .lux-hero__fx {
@@ -326,67 +315,19 @@ section.lux-hero {
   overflow: hidden;
 }
 
-.lux-hero__spotlight {
+.lux-hero__trail-dot {
   position: absolute;
-  inset: -20%;
-  pointer-events: none;
-  transition: opacity 0.5s ease;
-}
-
-.lux-hero__spotlight--wide {
-  background: radial-gradient(
-    circle 520px at var(--spot-x) var(--spot-y),
-    rgba(226, 201, 138, calc(0.34 * var(--spot-boost))) 0%,
-    rgba(200, 169, 110, calc(0.14 * var(--spot-boost))) 24%,
-    rgba(200, 169, 110, calc(0.04 * var(--spot-boost))) 44%,
-    transparent 68%
-  );
-  filter: blur(2px);
-}
-
-.lux-hero__spotlight--core {
-  background: radial-gradient(
-    circle 180px at var(--spot-x) var(--spot-y),
-    rgba(255, 244, 220, calc(0.42 * var(--spot-boost))) 0%,
-    rgba(226, 201, 138, calc(0.2 * var(--spot-boost))) 32%,
-    transparent 68%
-  );
-  mix-blend-mode: screen;
-}
-
-.lux-hero__spotlight--beam {
-  background: conic-gradient(
-    from 210deg at var(--spot-x) var(--spot-y),
-    transparent 0deg,
-    rgba(226, 201, 138, calc(0.08 * var(--spot-boost))) 28deg,
-    rgba(255, 248, 230, calc(0.16 * var(--spot-boost))) 34deg,
-    rgba(226, 201, 138, calc(0.08 * var(--spot-boost))) 40deg,
-    transparent 72deg
-  );
-  opacity: 0.85;
-  mix-blend-mode: screen;
-}
-
-.lux-hero__pointer-ring {
-  position: absolute;
-  left: var(--ptr-x);
-  top: var(--ptr-y);
-  width: 120px;
-  height: 120px;
-  margin: -60px 0 0 -60px;
   border-radius: 50%;
-  border: 1px solid rgba(226, 201, 138, 0.22);
-  box-shadow:
-    0 0 30px rgba(226, 201, 138, 0.12),
-    inset 0 0 24px rgba(226, 201, 138, 0.08);
-  opacity: 0;
-  transform: scale(0.85);
-  transition: opacity 0.35s ease, transform 0.35s ease;
-}
-
-.lux-hero--spotlight-active .lux-hero__pointer-ring {
-  opacity: 1;
-  transform: scale(1);
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    rgba(255, 244, 220, 0.55) 0%,
+    rgba(226, 201, 138, 0.28) 28%,
+    rgba(200, 169, 110, 0.08) 52%,
+    transparent 72%
+  );
+  filter: blur(1px);
+  will-change: transform, opacity;
 }
 
 .lux-hero__grain {
@@ -398,42 +339,13 @@ section.lux-hero {
   mix-blend-mode: soft-light;
 }
 
-.lux-hero__glow {
-  position: absolute;
-  inset: 12% 18% 18% 22%;
-  border-radius: 50%;
-  pointer-events: none;
-  background: radial-gradient(circle at 50% 45%, rgba(200, 169, 110, 0.28) 0%, rgba(200, 169, 110, 0.08) 38%, transparent 70%);
-  filter: blur(8px);
-  transition: opacity 1.1s ease, transform 1.4s ease, background 1.4s ease;
-  z-index: 0;
-}
-
-.lux-hero--tone-0 .lux-hero__glow {
-  opacity: 1;
-  transform: scale(1) translate(4%, -2%);
-  background: radial-gradient(circle at 48% 42%, rgba(226, 201, 138, 0.3) 0%, rgba(200, 169, 110, 0.1) 40%, transparent 72%);
-}
-
-.lux-hero--tone-1 .lux-hero__glow {
-  opacity: 0.92;
-  transform: scale(1.05) translate(-3%, 3%);
-  background: radial-gradient(circle at 55% 48%, rgba(154, 122, 69, 0.32) 0%, rgba(200, 169, 110, 0.1) 42%, transparent 70%);
-}
-
-.lux-hero--tone-2 .lux-hero__glow {
-  opacity: 0.88;
-  transform: scale(0.96) translate(2%, 4%);
-  background: radial-gradient(circle at 45% 50%, rgba(200, 169, 110, 0.26) 0%, rgba(245, 240, 232, 0.04) 45%, transparent 72%);
-}
-
 .lux-hero__veil {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
     linear-gradient(180deg, rgba(10, 10, 10, 0.55) 0%, transparent 28%, transparent 70%, rgba(10, 10, 10, 0.75) 100%),
-    radial-gradient(ellipse at 80% 20%, rgba(200, 169, 110, 0.05), transparent 45%);
+    radial-gradient(ellipse at 50% 42%, rgba(200, 169, 110, 0.04), transparent 52%);
   z-index: 1;
 }
 
@@ -891,6 +803,28 @@ section.lux-hero {
   margin-top: 1.5rem;
 }
 
+.hero-rise-enter-active {
+  transition:
+    opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hero-rise-leave-active {
+  transition:
+    opacity 0.4s ease,
+    transform 0.45s ease;
+}
+
+.hero-rise-enter-from {
+  opacity: 0;
+  transform: translateY(72px) scale(0.9);
+}
+
+.hero-rise-leave-to {
+  opacity: 0;
+  transform: translateY(-24px) scale(0.95);
+}
+
 .hero-fade-enter-active,
 .hero-fade-leave-active {
   transition: opacity 0.7s ease, transform 0.7s ease;
@@ -923,12 +857,9 @@ section.lux-hero {
     padding: 5.5rem 1.25rem 2rem !important;
   }
 
-  .lux-hero__pointer-ring {
+  .lux-hero__pointer-ring,
+  .lux-hero__trail-dot {
     display: none;
-  }
-
-  .lux-hero__spotlight--beam {
-    opacity: 0.45;
   }
 
   .lux-hero__stage {
@@ -1027,17 +958,16 @@ section.lux-hero {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .hero-rise-enter-active,
+  .hero-rise-leave-active,
   .hero-fade-enter-active,
   .hero-fade-leave-active,
   .hero-swap-enter-active,
   .hero-swap-leave-active,
   .hero-swap-inset-enter-active,
   .hero-swap-inset-leave-active,
-  .lux-hero__glow,
   .lux-hero__inset,
-  .lux-hero__watch-stage,
-  .lux-hero__spotlight,
-  .lux-hero__pointer-ring {
+  .lux-hero__watch-stage {
     transition: none;
   }
 
