@@ -53,8 +53,14 @@ export function useInfiniteHorizontalScroll(options: {
     if (!paused && delta > 0) {
       offset += scrollSpeed() * delta;
       const width = loopWidth();
-      if (width > 0 && offset >= width) offset -= width;
-      el.scrollLeft = offset;
+      if (width > 0) {
+        if (offset >= width) offset -= width;
+        el.scrollLeft = offset;
+        if (el.scrollLeft >= width) {
+          el.scrollLeft -= width;
+          offset = el.scrollLeft;
+        }
+      }
     }
 
     frameId = requestAnimationFrame(step);
@@ -89,11 +95,16 @@ export function useInfiniteHorizontalScroll(options: {
   function resume() {
     normalizeScroll();
     paused = false;
+    lastFrame = 0;
   }
 
   function pauseTemporarily() {
     pause();
     resumeTimer = setTimeout(resume, RESUME_DELAY);
+  }
+
+  function onTouchEnd() {
+    pauseTemporarily();
   }
 
   function scrollByCards(direction: -1 | 1) {
@@ -103,7 +114,6 @@ export function useInfiniteHorizontalScroll(options: {
     pause();
     normalizeScroll();
     el.scrollBy({ left: direction * el.clientWidth * 0.55, behavior: 'smooth' });
-    resumeTimer = setTimeout(resume, RESUME_DELAY);
   }
 
   function onManualScroll() {
@@ -136,6 +146,7 @@ export function useInfiniteHorizontalScroll(options: {
     initCarousel();
     if (viewport.value && typeof ResizeObserver !== 'undefined') {
       resizeObserver = new ResizeObserver(() => {
+        normalizeScroll();
         if (loopWidth() > 0 && frameId === null) initCarousel();
       });
       resizeObserver.observe(viewport.value);
@@ -154,6 +165,7 @@ export function useInfiniteHorizontalScroll(options: {
     pause,
     resume,
     pauseTemporarily,
+    onTouchEnd,
     scrollByCards,
     onManualScroll,
   };

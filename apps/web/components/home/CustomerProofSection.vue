@@ -16,7 +16,7 @@ const {
   initCarousel,
   pause,
   resume,
-  pauseTemporarily,
+  onTouchEnd,
   scrollByCards,
   onManualScroll,
 } = useInfiniteHorizontalScroll({ cycleSeconds, enabled: computed(() => images.value.length > 1) });
@@ -44,7 +44,12 @@ watch(images, () => initCarousel(), { deep: true });
         <p v-if="config.subtitle" class="lux-proof__subtitle">{{ config.subtitle }}</p>
       </header>
 
-      <div v-if="images.length" class="lux-proof__carousel reveal">
+      <div
+        v-if="images.length"
+        class="lux-proof__carousel reveal"
+        @mouseenter="pause"
+        @mouseleave="resume"
+      >
         <div class="lux-proof__fade lux-proof__fade--left" aria-hidden="true" />
         <div class="lux-proof__fade lux-proof__fade--right" aria-hidden="true" />
 
@@ -70,13 +75,8 @@ watch(images, () => initCarousel(), { deep: true });
         <div
           ref="viewport"
           class="lux-proof__viewport"
-          @mouseenter="pause"
-          @mouseleave="resume"
-          @pointerdown="pause"
-          @pointerup="pauseTemporarily"
           @touchstart.passive="pause"
-          @touchend.passive="pauseTemporarily"
-          @wheel.passive="pauseTemporarily"
+          @touchend.passive="onTouchEnd"
           @scroll.passive="onManualScroll"
         >
           <div ref="track" class="lux-proof__track">
