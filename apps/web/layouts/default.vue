@@ -1,5 +1,6 @@
 <template>
   <div class="min-h-screen bg-lux-black">
+    <LayoutLuxCursorTrail />
     <LayoutAppNav />
     <main class="pt-28">
       <slot />

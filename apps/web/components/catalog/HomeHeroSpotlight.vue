@@ -68,14 +68,11 @@ const stockBadge = computed(() => {
 });
 
 const {
-  heroEl,
   visualEl,
   reducedMotion,
-  trail,
   tiltStyle,
   shineStyle,
   reflectionStyle,
-  trailDotStyle,
   onPointerMove,
   onTouchMove,
   onPointerLeave,
@@ -148,22 +145,12 @@ onBeforeUnmount(() => stopTimer());
 <template>
   <section
     id="hero"
-    ref="heroEl"
     class="lux-hero"
     @mouseenter="onHeroEnter"
     @mouseleave="onHeroLeave"
     @mousemove="onPointerMove"
     @touchmove.passive="onTouchMove"
   >
-    <div class="lux-hero__fx" aria-hidden="true">
-      <div
-        v-for="dot in trail"
-        :key="dot.id"
-        class="lux-hero__trail-dot"
-        :style="trailDotStyle(dot)"
-      />
-      <div class="lux-hero__grain" />
-    </div>
     <div class="lux-hero__veil" aria-hidden="true" />
 
     <div class="lux-hero__brand">
@@ -305,38 +292,6 @@ section.lux-hero {
   overflow: hidden;
   background: var(--black);
   color: var(--white);
-}
-
-.lux-hero__fx {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  overflow: hidden;
-}
-
-.lux-hero__trail-dot {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  background: radial-gradient(
-    circle,
-    rgba(255, 244, 220, 0.55) 0%,
-    rgba(226, 201, 138, 0.28) 28%,
-    rgba(200, 169, 110, 0.08) 52%,
-    transparent 72%
-  );
-  filter: blur(1px);
-  will-change: transform, opacity;
-}
-
-.lux-hero__grain {
-  position: absolute;
-  inset: 0;
-  opacity: 0.035;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.9) 0.6px, transparent 0.6px);
-  background-size: 3px 3px;
-  mix-blend-mode: soft-light;
 }
 
 .lux-hero__veil {
@@ -857,11 +812,6 @@ section.lux-hero {
     padding: 5.5rem 1.25rem 2rem !important;
   }
 
-  .lux-hero__pointer-ring,
-  .lux-hero__trail-dot {
-    display: none;
-  }
-
   .lux-hero__stage {
     grid-template-columns: 1fr;
     text-align: center;
@@ -971,7 +921,6 @@ section.lux-hero {
     transition: none;
   }
 
-  .lux-hero__fx,
   .lux-hero__watch-reflection,
   .lux-hero__watch-shine {
     display: none;
