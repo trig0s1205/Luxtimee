@@ -87,9 +87,13 @@ async function reactivate(id: string) {
     confirmLabel: 'Reactivar',
   });
   if (!ok) return;
-  await api.post(`/pre-orders/${id}/reactivate`);
-  invalidateAdminCache(cacheKey.value);
-  await refresh();
+  try {
+    await api.post(`/pre-orders/${id}/reactivate`);
+    invalidateAdminCache(cacheKey.value);
+    await refresh();
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo reactivar el pre-pedido.'));
+  }
 }
 
 async function cancelOrder(id: string) {

@@ -125,6 +125,37 @@ export class PreOrdersService {
     return lines;
   }
 
+  private async reserveStockForItems(
+    tx: Prisma.TransactionClient,
+    items: Array<{ watchId: string; quantity: number; productName?: string }>,
+  ) {
+    for (const item of items) {
+      const watch = await tx.watch.findUnique({
+        where: { id: item.watchId },
+        select: { stock: true, model: true, isActive: true },
+      });
+      if (!watch?.isActive) {
+        throw new BadRequestException(
+          `Reloj no disponible${item.productName ? `: ${item.productName}` : ''}`,
+        );
+      }
+      if (watch.stock < item.quantity) {
+        const label = item.productName ?? watch.model;
+        throw new BadRequestException(
+          `Stock insuficiente para ${label}. Edita el pre-pedido con otro reloj.`,
+        );
+      }
+      const newStock = watch.stock - item.quantity;
+      await tx.watch.update({
+        where: { id: item.watchId },
+        data: {
+          stock: newStock,
+          ...(newStock === 0 ? storefrontHideWhenEmpty(0) : {}),
+        },
+      });
+    }
+  }
+
   private async nextReadableId() {
     const count = await this.prisma.order.count();
     return generateReadableId(count + 1);
@@ -381,9 +412,15 @@ export class PreOrdersService {
 
     let pricingPatch: Record<string, unknown> = {};
     let autoReactivate = false;
+    let stockLines: Array<{ watchId: string; quantity: number; productName: string }> = [];
 
     if (dto.items) {
       const lineInputs = await this.buildLines(dto.items);
+      stockLines = lineInputs.map((line) => ({
+        watchId: line.watchId,
+        quantity: line.quantity,
+        productName: line.productName,
+      }));
       let shippingCost = existing.shippingCost;
       if (dto.shippingZoneId) {
         const zone = await this.prisma.shippingZone.findUnique({ where: { id: dto.shippingZoneId } });
@@ -428,28 +465,35 @@ export class PreOrdersService {
       };
 
       if (isSuspended) {
-        const hasEnoughStock = dto.items.every((item) => {
-          const watch = lineInputs.find((l) => l.watchId === item.watchId);
-          return watch !== undefined;
-        });
-        if (hasEnoughStock) autoReactivate = true;
+        autoReactivate = true;
       }
     } else if (isSuspended) {
       throw new BadRequestException('Reactiva el pre-pedido suspendido antes de editarlo');
     }
 
-    const order = await this.prisma.order.update({
-      where: { id },
-      data: {
-        ...(dto.customerName !== undefined && !isSuspended ? { customerName: dto.customerName } : {}),
-        ...(dto.customerAddress !== undefined && !isSuspended ? { customerAddress: dto.customerAddress } : {}),
-        ...(dto.customerPhone !== undefined && !isSuspended ? { customerPhone: dto.customerPhone } : {}),
-        ...(dto.shippingZoneId !== undefined ? { shippingZoneId: dto.shippingZoneId } : {}),
-        ...(autoReactivate ? { suspendedAt: null, preOrderActiveAt: new Date() } : {}),
-        ...pricingPatch,
-      },
-      include: orderInclude,
-    });
+    const updateData = {
+      ...(dto.customerName !== undefined && !isSuspended ? { customerName: dto.customerName } : {}),
+      ...(dto.customerAddress !== undefined && !isSuspended ? { customerAddress: dto.customerAddress } : {}),
+      ...(dto.customerPhone !== undefined && !isSuspended ? { customerPhone: dto.customerPhone } : {}),
+      ...(dto.shippingZoneId !== undefined ? { shippingZoneId: dto.shippingZoneId } : {}),
+      ...(autoReactivate ? { suspendedAt: null, preOrderActiveAt: new Date() } : {}),
+      ...pricingPatch,
+    };
+
+    const order = autoReactivate && dto.items
+      ? await this.prisma.$transaction(async (tx) => {
+          await this.reserveStockForItems(tx, stockLines);
+          return tx.order.update({
+            where: { id },
+            data: updateData,
+            include: orderInclude,
+          });
+        })
+      : await this.prisma.order.update({
+          where: { id },
+          data: updateData,
+          include: orderInclude,
+        });
     return this.mapOrder(order);
   }
 
@@ -492,7 +536,10 @@ export class PreOrdersService {
   }
 
   async reactivatePreOrder(id: string) {
-    const existing = await this.prisma.order.findUnique({ where: { id } });
+    const existing = await this.prisma.order.findUnique({
+      where: { id },
+      include: { items: true },
+    });
     if (!existing) throw new NotFoundException('Pre-pedido no encontrado');
     if (existing.stage !== OrderStage.PRE_ORDER || existing.canceledAt) {
       throw new BadRequestException('No se puede reactivar este pre-pedido');
@@ -502,13 +549,23 @@ export class PreOrdersService {
     }
 
     const now = new Date();
-    const order = await this.prisma.order.update({
-      where: { id },
-      data: {
-        suspendedAt: null,
-        preOrderActiveAt: now,
-      },
-      include: orderInclude,
+    const order = await this.prisma.$transaction(async (tx) => {
+      await this.reserveStockForItems(
+        tx,
+        existing.items.map((item) => ({
+          watchId: item.watchId,
+          quantity: item.quantity,
+          productName: item.productName,
+        })),
+      );
+      return tx.order.update({
+        where: { id },
+        data: {
+          suspendedAt: null,
+          preOrderActiveAt: now,
+        },
+        include: orderInclude,
+      });
     });
 
     await this.notificationsService.emit({
