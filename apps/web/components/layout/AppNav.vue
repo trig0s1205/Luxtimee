@@ -5,16 +5,21 @@ const menuOpen = ref(false);
 const retailCart = useCartStore();
 const wholesaleCart = useWholesaleCartStore();
 const { openCart } = useCartDrawer();
+const { showWholesaleNavCart, isWholesaleCatalogArea } = useWholesaleNav();
 const { t, showSwitcher } = useLocale();
 const { showBack, goBack } = useStorefrontBack();
 
-const isWholesaleArea = computed(() => route.path.startsWith('/mayoristas'));
+const showNavCart = computed(() => {
+  if (route.path.startsWith('/mayoristas')) return showWholesaleNavCart.value;
+  return true;
+});
+
 const cartUnitCount = computed(() => (
-  isWholesaleArea.value ? wholesaleCart.unitCount : retailCart.unitCount
+  isWholesaleCatalogArea.value ? wholesaleCart.unitCount : retailCart.unitCount
 ));
 
 function openActiveCart() {
-  openCart(isWholesaleArea.value ? 'wholesale' : 'retail');
+  openCart(isWholesaleCatalogArea.value ? 'wholesale' : 'retail');
 }
 
 const navLinks = computed(() => [
@@ -109,6 +114,7 @@ watch(() => route.fullPath, closeMenu);
       <LayoutThemeToggle />
       <LayoutLocaleSwitcher v-if="showSwitcher" />
       <button
+        v-if="showNavCart"
         type="button"
         class="nav-cart"
         :class="{ 'has-items': cartUnitCount > 0 }"
