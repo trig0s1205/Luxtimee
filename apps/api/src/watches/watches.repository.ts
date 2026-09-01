@@ -3,6 +3,7 @@ import { OrderStage, OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { InventoryInsightWatchDto, InventoryInsightsDto } from '@luxtime/shared';
 import { findWatchIdsByFlexibleSkuSearch } from '../common/utils/sku-search.util';
+import { formatWatchSku, resolveSkuPrefix } from './utils/sku.util';
 import { CreateWatchDto, UpdateWatchDto } from './dto';
 import { WatchQueryDto } from './dto/watch-query.dto';
 
@@ -126,6 +127,33 @@ export class WatchesRepository {
       suffix++;
     }
     return candidate;
+  }
+
+  async getNextSkuSequence(prefix: string): Promise<number> {
+    const rows = await this.prisma.watch.findMany({
+      where: {
+        sku: { startsWith: `${prefix}-` },
+        deletedAt: null,
+      },
+      select: { sku: true },
+    });
+
+    const pattern = new RegExp(`^${prefix}-(\\d+)$`);
+    let max = -1;
+    for (const row of rows) {
+      const match = row.sku.match(pattern);
+      if (!match) continue;
+      const value = Number.parseInt(match[1], 10);
+      if (Number.isFinite(value) && value > max) max = value;
+    }
+    return max + 1;
+  }
+
+  async allocateSku(retailPrice: number, gender?: string | null): Promise<string> {
+    const prefix = resolveSkuPrefix(retailPrice, gender);
+    const sequence = await this.getNextSkuSequence(prefix);
+    const sku = formatWatchSku(prefix, sequence);
+    return this.ensureUniqueSku(sku);
   }
 
   async findPendingCost(page = 1, limit = 10) {

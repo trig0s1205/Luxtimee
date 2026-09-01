@@ -4,7 +4,6 @@ import { Prisma } from '@prisma/client';
 import { WatchesRepository } from './watches.repository';
 import { CreateWatchDto, UpdateWatchDto } from './dto';
 import { WatchQueryDto } from './dto/watch-query.dto';
-import { generateSku } from './utils/sku.util';
 import { computeWatchFinancials } from './utils/margin.util';
 import { slugify } from '../common/utils/slug.util';
 import { SettingsService } from '../settings/settings.service';
@@ -121,8 +120,7 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     const brand = await this.watchesRepository.findBrandById(dto.brandId);
     if (!brand) throw new NotFoundException('Marca no encontrada');
     const reference = this.normalizeReference(dto.reference);
-    const baseSku = generateSku(brand.name.trim().toUpperCase(), reference);
-    const sku = (await this.watchesRepository.ensureUniqueSku(baseSku)).trim().toUpperCase();
+    const sku = (await this.watchesRepository.allocateSku(dto.retailPrice, dto.gender)).trim().toUpperCase();
 
     const slugBase = slugify(`${dto.model}-${Date.now()}`);
     const uniqueSlug = await this.ensureUniqueSlug(slugBase);

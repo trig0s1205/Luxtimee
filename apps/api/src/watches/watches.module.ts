@@ -9,6 +9,6 @@ import { IntegrationsModule } from '../integrations/integrations.module';
   imports: [SettingsModule, IntegrationsModule],
   controllers: [WatchesController],
   providers: [WatchesService, WatchesRepository],
-  exports: [WatchesService],
+  exports: [WatchesService, WatchesRepository],
 })
 export class WatchesModule {}

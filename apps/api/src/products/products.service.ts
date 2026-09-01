@@ -3,7 +3,7 @@ import { Role, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateWatchDto, UpdateWatchDto } from './dto/watch.dto';
 import { slugify } from '../common/utils/slug.util';
-import { generateSku } from '../watches/utils/sku.util';
+import { WatchesRepository } from '../watches/watches.repository';
 
 const watchInclude = {
   brand: true,
@@ -15,7 +15,10 @@ const watchInclude = {
 export class ProductsService {
   private readonly logger = new Logger(ProductsService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private watchesRepository: WatchesRepository,
+  ) {}
 
   private mapWatch<T extends Record<string, unknown>>(watch: T, role?: Role) {
     if (role === Role.SUPER_ADMIN) return watch;
@@ -44,7 +47,7 @@ export class ProductsService {
     const brand = await this.prisma.brand.findUnique({ where: { id: dto.brandId } });
     if (!brand) throw new NotFoundException('Marca no encontrada');
 
-    const sku = await this.ensureUniqueSku(generateSku(brand.name, dto.model));
+    const sku = await this.watchesRepository.allocateSku(dto.retailPrice);
     const slugBase = slugify(`${dto.model}-${Date.now()}`);
     const uniqueSlug = await this.ensureUniqueSlug(slugBase);
 
@@ -125,16 +128,6 @@ export class ProductsService {
       include: watchInclude,
     });
     return this.mapWatch(watch, role);
-  }
-
-  private async ensureUniqueSku(sku: string) {
-    let candidate = sku;
-    let suffix = 1;
-    while (await this.prisma.watch.findUnique({ where: { sku: candidate } })) {
-      candidate = `${sku}-${suffix.toString(36).toUpperCase()}`;
-      suffix++;
-    }
-    return candidate;
   }
 
   private async ensureUniqueSlug(slug: string, excludeId?: string) {

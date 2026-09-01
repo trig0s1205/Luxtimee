@@ -2,10 +2,20 @@
 const route = useRoute();
 const scrolled = ref(false);
 const menuOpen = ref(false);
-const cart = useCartStore();
+const retailCart = useCartStore();
+const wholesaleCart = useWholesaleCartStore();
 const { openCart } = useCartDrawer();
 const { t, showSwitcher } = useLocale();
 const { showBack, goBack } = useStorefrontBack();
+
+const isWholesaleArea = computed(() => route.path.startsWith('/mayoristas'));
+const cartUnitCount = computed(() => (
+  isWholesaleArea.value ? wholesaleCart.unitCount : retailCart.unitCount
+));
+
+function openActiveCart() {
+  openCart(isWholesaleArea.value ? 'wholesale' : 'retail');
+}
 
 const navLinks = computed(() => [
   { label: t('nav.collection'), to: '/catalogo' },
@@ -37,7 +47,8 @@ async function onLogoClick(event: MouseEvent) {
 }
 
 onMounted(() => {
-  cart.hydrate();
+  retailCart.hydrate();
+  wholesaleCart.hydrate();
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
 });
@@ -100,9 +111,9 @@ watch(() => route.fullPath, closeMenu);
       <button
         type="button"
         class="nav-cart"
-        :class="{ 'has-items': cart.unitCount > 0 }"
-        :aria-label="`${t('nav.bag')} (${cart.unitCount})`"
-        @click="openCart"
+        :class="{ 'has-items': cartUnitCount > 0 }"
+        :aria-label="`${t('nav.bag')} (${cartUnitCount})`"
+        @click="openActiveCart"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <path d="M6 6h15l-1.5 9h-12z" />
@@ -110,8 +121,8 @@ watch(() => route.fullPath, closeMenu);
           <circle cx="18" cy="20" r="1" fill="currentColor" stroke="none" />
           <path d="M6 6L5 3H2" />
         </svg>
-        <span class="nav-cart__label">{{ t('nav.bag') }} ({{ cart.unitCount }})</span>
-        <span v-if="cart.unitCount > 0" class="nav-cart__badge">{{ cart.unitCount }}</span>
+        <span class="nav-cart__label">{{ t('nav.bag') }} ({{ cartUnitCount }})</span>
+        <span v-if="cartUnitCount > 0" class="nav-cart__badge">{{ cartUnitCount }}</span>
       </button>
     </div>
   </nav>

@@ -62,8 +62,7 @@ export const useCartStore = defineStore('cart', {
       }
       this.persist();
       if (import.meta.client) {
-        const { openCart } = useCartDrawer();
-        openCart();
+        useCartDrawer().openCart('retail');
       }
     },
 

@@ -7,6 +7,7 @@ const PAGE_SIZE = 24;
 
 const catalog = useCatalogData();
 const cart = useWholesaleCartStore();
+const { openCart } = useCartDrawer();
 const { session, logout, isAuthed, loaded } = useWholesaleSession();
 
 async function onLogout() {
@@ -81,7 +82,9 @@ useSeoMeta({ title: 'Catálogo mayorista — LUXTIMEE' });
         </p>
       </div>
       <div class="flex flex-wrap gap-3">
-        <NuxtLink to="/mayoristas/carrito" class="btn-ghost">Carrito ({{ cart.unitCount }})</NuxtLink>
+        <button type="button" class="btn-ghost" @click="openCart('wholesale')">
+          Carrito ({{ cart.unitCount }})
+        </button>
         <button type="button" class="btn-ghost" @click="onLogout">
           Cerrar acceso
         </button>

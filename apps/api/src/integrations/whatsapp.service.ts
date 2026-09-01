@@ -24,7 +24,7 @@ export class WhatsappService {
         const lineTotal = item.price * item.qty;
         return [
           `*${index + 1}.* ${item.label}`,
-          item.sku?.trim() ? `   SKU: ${item.sku.trim()}` : null,
+          item.sku?.trim() ? `   *SKU:* ${item.sku.trim()}` : null,
           `   _Cantidad:_ x${item.qty}  ·  _Precio unit.:_ $${item.price.toLocaleString('es-CO')}`,
           lineTotal !== item.price ? `   _Subtotal:_ $${lineTotal.toLocaleString('es-CO')}` : null,
           item.deliveryNote?.trim() ? `   _Nota entrega:_ ${item.deliveryNote.trim()}` : null,

@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import type { CartItemDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
+import type { CartDrawerChannel } from '~/composables/useCartDrawer';
 
 const props = defineProps<{
   item: CartItemDto;
+  channel: CartDrawerChannel;
 }>();
 
-const cart = useCartStore();
+const retailCart = useCartStore();
+const wholesaleCart = useWholesaleCartStore();
+
+const cart = computed(() => (props.channel === 'wholesale' ? wholesaleCart : retailCart));
 </script>
 
 <template>
