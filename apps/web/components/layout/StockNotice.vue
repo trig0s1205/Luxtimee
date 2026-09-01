@@ -6,7 +6,7 @@ const { t } = useLocale();
 <template>
   <Teleport to="body">
     <Transition name="stock-notice">
-      <div v-if="visible" class="stock-notice" role="alert">
+      <div v-if="visible" class="stock-notice lux-overlay-dark" role="alert">
         <p class="stock-notice-text">{{ t('cart.stockLimit') }}</p>
         <button type="button" class="stock-notice-close" aria-label="Cerrar" @click="hide">×</button>
       </div>
@@ -26,9 +26,14 @@ const { t } = useLocale();
   width: min(calc(100% - 32px), 480px);
   padding: 14px 18px;
   border: 1px solid rgba(200, 169, 110, 0.45);
-  background: rgba(17, 17, 17, 0.98);
+  background: var(--overlay-bg, rgba(10, 10, 10, 0.96));
   transform: translateX(-50%);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="light"] .stock-notice {
+  background: var(--overlay-bg, rgba(10, 10, 10, 0.96));
+  border-color: rgba(200, 169, 110, 0.45);
 }
 
 .stock-notice-text {
@@ -37,7 +42,7 @@ const { t } = useLocale();
   font-family: var(--font-body);
   font-size: 13px;
   line-height: 1.5;
-  color: var(--white-dim, #ccc);
+  color: rgba(255, 255, 255, 0.72);
   font-style: italic;
 }
 
@@ -46,7 +51,7 @@ const { t } = useLocale();
   padding: 0;
   border: none;
   background: transparent;
-  color: var(--gold, #c8a96e);
+  color: #c8a96e;
   font-size: 20px;
   line-height: 1;
   cursor: pointer;

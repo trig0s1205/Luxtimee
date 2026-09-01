@@ -158,7 +158,7 @@ watch(hiddenRoute, (hidden) => {
   <Transition name="social-proof">
     <aside
       v-if="visible && current && !hiddenRoute"
-      class="social-proof-toast"
+      class="social-proof-toast lux-overlay-dark"
       role="status"
       aria-live="polite"
     >
@@ -197,8 +197,14 @@ watch(hiddenRoute, (hidden) => {
   gap: 12px;
   max-width: min(360px, calc(100vw - 32px));
   padding: 12px 36px 12px 12px;
-  background: var(--black-2);
-  border: 1px solid rgba(200, 169, 110, 0.22);
+  background: var(--overlay-bg, rgba(10, 10, 10, 0.96));
+  border: 1px solid var(--overlay-border, rgba(200, 169, 110, 0.22));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="light"] .social-proof-toast {
+  background: var(--overlay-bg, rgba(10, 10, 10, 0.96));
+  border-color: var(--overlay-border, rgba(200, 169, 110, 0.22));
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
 }
 
@@ -215,23 +221,23 @@ watch(hiddenRoute, (hidden) => {
 .social-proof-toast__avatar--placeholder {
   display: grid;
   place-items: center;
-  color: var(--gold);
+  color: #c8a96e;
 }
 
 .social-proof-toast__text {
   margin: 0;
   font-size: 12px;
   line-height: 1.55;
-  color: var(--white-dim);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .social-proof-toast__text strong {
-  color: var(--white);
+  color: #ffffff;
   font-weight: 600;
 }
 
 .social-proof-toast__product {
-  color: var(--gold);
+  color: #c8a96e;
 }
 
 .social-proof-toast__close {
@@ -240,7 +246,7 @@ watch(hiddenRoute, (hidden) => {
   right: 8px;
   border: none;
   background: none;
-  color: var(--white-dim);
+  color: rgba(255, 255, 255, 0.62);
   font-size: 18px;
   cursor: pointer;
   line-height: 1;

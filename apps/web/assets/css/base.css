@@ -917,6 +917,16 @@ section {
 }
 
 /* —— Cookie banner —— */
+.cookie-banner,
+.lux-overlay-dark {
+  --overlay-bg: rgba(10, 10, 10, 0.96);
+  --overlay-border: rgba(200, 169, 110, 0.22);
+  --overlay-text: rgba(255, 255, 255, 0.72);
+  --overlay-text-strong: #ffffff;
+  --overlay-gold: #c8a96e;
+  --overlay-gold-hover: #d4b87e;
+}
+
 .cookie-banner {
   position: fixed;
   bottom: 24px;
@@ -929,9 +939,16 @@ section {
   gap: 20px;
   width: min(520px, calc(100% - 48px));
   padding: 14px 18px;
-  background: rgba(10, 10, 10, 0.92);
+  background: var(--overlay-bg);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(200, 169, 110, 0.15);
+  border: 1px solid var(--overlay-border);
+}
+
+[data-theme="light"] .cookie-banner,
+[data-theme="light"] .lux-overlay-dark {
+  background: var(--overlay-bg);
+  border-color: var(--overlay-border);
+  color: var(--overlay-text);
 }
 
 .cookie-banner-text {
@@ -939,17 +956,17 @@ section {
   font-size: 11px;
   line-height: 1.5;
   letter-spacing: 0.02em;
-  color: var(--white-dim);
+  color: var(--overlay-text);
 }
 
 .cookie-banner-link {
-  color: var(--gold);
+  color: var(--overlay-gold);
   text-decoration: none;
   transition: color 0.3s;
 }
 
 .cookie-banner-link:hover {
-  color: var(--gold-light);
+  color: var(--overlay-gold-hover);
 }
 
 .cookie-banner-btn {
@@ -961,14 +978,14 @@ section {
   font-size: 9px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--overlay-gold);
   cursor: pointer;
   transition: all 0.3s;
 }
 
 .cookie-banner-btn:hover {
-  border-color: var(--gold);
-  color: var(--gold-light);
+  border-color: var(--overlay-gold);
+  color: var(--overlay-gold-hover);
 }
 
 .cookie-fade-enter-active,

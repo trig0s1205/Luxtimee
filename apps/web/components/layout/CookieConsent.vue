@@ -1,6 +1,6 @@
 <template>
   <Transition name="cookie-fade">
-    <div v-if="visible" class="cookie-banner">
+    <div v-if="visible" class="cookie-banner lux-overlay-dark">
       <p class="cookie-banner-text">
         Usamos cookies para mejorar tu experiencia.
         <NuxtLink to="/politica-de-privacidad" class="cookie-banner-link">Política de datos</NuxtLink>
