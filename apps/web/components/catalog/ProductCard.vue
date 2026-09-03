@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { WatchPublicDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
+import { optimizeCloudinaryImageUrl } from '~/utils/media-url';
 
 const props = defineProps<{
   watch: WatchPublicDto;
@@ -17,7 +18,7 @@ const cart = useCartStore();
 const { t } = useLocale();
 const { watchPrimaryImage } = useMediaUrl();
 
-const imageUrl = computed(() => watchPrimaryImage(props.watch));
+const imageUrl = computed(() => optimizeCloudinaryImageUrl(watchPrimaryImage(props.watch), 480));
 
 const showLimitedEdition = computed(() => props.watch.isLimitedEdition && props.watch.stock > 0);
 const stockLabel = computed(() => {

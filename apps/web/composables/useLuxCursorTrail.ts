@@ -74,21 +74,33 @@ export function useLuxCursorTrail(enabled: Ref<boolean>) {
     if (!enabled.value || reducedMotion.value || !hasFinePointer.value) return;
     active.value = true;
     pushTrail(event.clientX, event.clientY);
+    ensureTick();
   }
 
   function onPointerLeave() {
     active.value = false;
+    ensureTick();
   }
 
   function tick() {
-    if (enabled.value && !reducedMotion.value) {
+    const hasTrail = trail.value.length > 0;
+
+    if (enabled.value && !reducedMotion.value && hasTrail) {
       const now = performance.now();
       trail.value = trail.value.filter((dot) => now - dot.born < TRAIL_LIFE_MS);
     } else if (trail.value.length) {
       trail.value = [];
     }
 
-    frameId = requestAnimationFrame(tick);
+    if (enabled.value && !reducedMotion.value && (hasTrail || active.value)) {
+      frameId = requestAnimationFrame(tick);
+    } else {
+      frameId = null;
+    }
+  }
+
+  function ensureTick() {
+    if (frameId === null) frameId = requestAnimationFrame(tick);
   }
 
   function bind() {
@@ -115,7 +127,6 @@ export function useLuxCursorTrail(enabled: Ref<boolean>) {
       && window.matchMedia('(min-width: 1024px)').matches;
 
     bind();
-    frameId = requestAnimationFrame(tick);
   });
 
   onBeforeUnmount(() => {

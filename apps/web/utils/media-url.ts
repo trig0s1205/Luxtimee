@@ -44,6 +44,14 @@ export function watchSecondaryImage(
 
 const CLOUDINARY_VIDEO_TRANSFORM = 'q_auto:good,f_mp4,w_1080,c_limit';
 
+export function optimizeCloudinaryImageUrl(url?: string | null, width = 800): string | undefined {
+  if (!url) return undefined;
+  if (!url.includes('res.cloudinary.com') || !url.includes('/image/upload/')) return url;
+  if (url.includes('/f_auto') || url.includes(',f_auto')) return url;
+  const transform = `f_auto,q_auto:good,w_${width},c_limit`;
+  return url.replace('/image/upload/', `/image/upload/${transform}/`);
+}
+
 export function optimizeCloudinaryVideoUrl(url?: string | null): string | undefined {
   if (!url) return undefined;
   if (!url.includes('res.cloudinary.com') || !url.includes('/video/upload/')) return url;

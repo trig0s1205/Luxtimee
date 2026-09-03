@@ -1,6 +1,8 @@
 <template>
   <div class="min-h-screen bg-lux-black">
-    <LayoutLuxCursorTrail />
+    <ClientOnly>
+      <LazyLayoutLuxCursorTrail />
+    </ClientOnly>
     <LayoutAppNav />
     <main class="pt-28">
       <slot />
@@ -10,7 +12,9 @@
     <LayoutCartDrawer />
     <LayoutStockNotice />
     <CatalogProductDetailModal />
-    <StorefrontSocialProofToast />
+    <ClientOnly>
+      <LazyStorefrontSocialProofToast />
+    </ClientOnly>
     <LayoutCookieConsent />
     <UiToastContainer />
     <UiConfirmDialog />

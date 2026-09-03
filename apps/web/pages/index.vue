@@ -12,23 +12,19 @@ const { data: heroWatches } = await useCachedAsyncData(
   () => catalog.getBestSellers(6),
   { staleTime: STOREFRONT_CACHE_MS.catalog },
 );
-const { data: limitedWatches } = await useCachedAsyncData(
+const { data: limitedWatches } = useLazyAsyncData(
   'home-limited-editions',
   async () => {
-    const res = await catalog.listCatalog({ limit: 100, available: 'true' });
+    const res = await catalog.listCatalog({ limit: 24, available: 'true' });
     return res.data.filter((w) => w.isLimitedEdition && w.stock > 0);
   },
-  { staleTime: STOREFRONT_CACHE_MS.catalog },
+  { server: false, staleTime: STOREFRONT_CACHE_MS.catalog },
 );
-const { data: homeCms, refresh: refreshHomeCms } = await useCachedAsyncData<HomepageConfigDto>(
+const { data: homeCms } = await useCachedAsyncData<HomepageConfigDto>(
   'home-cms-config',
   () => fetchConfig(),
-  { default: (): HomepageConfigDto => structuredClone(DEFAULT_HOMEPAGE_CONFIG), staleTime: 60_000 },
+  { default: (): HomepageConfigDto => structuredClone(DEFAULT_HOMEPAGE_CONFIG), staleTime: STOREFRONT_CACHE_MS.catalog },
 );
-
-onMounted(() => {
-  void refreshHomeCms();
-});
 
 const cms = computed<HomepageConfigDto>(() => homeCms.value ?? DEFAULT_HOMEPAGE_CONFIG);
 

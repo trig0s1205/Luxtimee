@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { WatchPublicDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
+import { optimizeCloudinaryImageUrl } from '~/utils/media-url';
 
 const props = defineProps<{
   watches: WatchPublicDto[];
@@ -28,8 +29,12 @@ const nextWatch = computed(() => {
   return list.value[i] ?? null;
 });
 
-const primaryUrl = computed(() => (active.value ? watchPrimaryImage(active.value) : null));
-const insetUrl = computed(() => (active.value ? watchSecondaryImage(active.value) : null));
+const primaryUrl = computed(() => (
+  active.value ? optimizeCloudinaryImageUrl(watchPrimaryImage(active.value), 760) : null
+));
+const insetUrl = computed(() => (
+  active.value ? optimizeCloudinaryImageUrl(watchSecondaryImage(active.value), 220) : null
+));
 const swapped = ref(false);
 
 const mainDisplayUrl = computed(() => (swapped.value ? insetUrl.value : primaryUrl.value));
@@ -70,6 +75,7 @@ const stockBadge = computed(() => {
 const {
   visualEl,
   reducedMotion,
+  tiltEnabled,
   tiltStyle,
   shineStyle,
   reflectionStyle,
@@ -134,8 +140,29 @@ watch(() => props.watches, () => {
   restartTimer();
 });
 
-watch(() => active.value?.id, () => {
+watch(() => active.value?.id, (id) => {
   swapped.value = false;
+  if (!import.meta.client || !id) return;
+  const next = nextWatch.value;
+  const prev = prevWatch.value;
+  for (const watch of [next, prev]) {
+    if (!watch) continue;
+    const href = optimizeCloudinaryImageUrl(watchPrimaryImage(watch), 760);
+    if (!href) continue;
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.as = 'image';
+    link.href = href;
+    document.head.appendChild(link);
+  }
+});
+
+useHead(() => {
+  const href = primaryUrl.value;
+  if (!href) return {};
+  return {
+    link: [{ rel: 'preload', as: 'image', href, fetchpriority: 'high' }],
+  };
 });
 
 onMounted(() => startTimer());
@@ -148,8 +175,6 @@ onBeforeUnmount(() => stopTimer());
     class="lux-hero"
     @mouseenter="onHeroEnter"
     @mouseleave="onHeroLeave"
-    @mousemove="onPointerMove"
-    @touchmove.passive="onTouchMove"
   >
     <div class="lux-hero__veil" aria-hidden="true" />
 
@@ -191,8 +216,11 @@ onBeforeUnmount(() => stopTimer());
       <div
         ref="visualEl"
         class="lux-hero__visual"
+        @mousemove="onPointerMove"
+        @mouseleave="onPointerLeave"
+        @touchmove.passive="onTouchMove"
       >
-        <Transition name="hero-rise" mode="out-in" appear>
+        <Transition name="hero-rise" mode="out-in">
           <div :key="active.id" class="lux-hero__watch-scene">
             <div class="lux-hero__watch-stage" :style="tiltStyle">
               <div class="lux-hero__watch-wrap">
@@ -208,17 +236,26 @@ onBeforeUnmount(() => stopTimer());
                     :alt="`${active.brand.name} ${active.model}`"
                     class="lux-hero__watch"
                     draggable="false"
+                    fetchpriority="high"
+                    decoding="async"
+                    :loading="activeIndex === 0 ? 'eager' : 'lazy'"
                   >
                   <div v-else class="lux-hero__watch-placeholder" />
                 </Transition>
               </div>
             </div>
-            <div class="lux-hero__watch-reflection" :style="reflectionStyle" aria-hidden="true">
+            <div
+              v-if="mainDisplayUrl && tiltEnabled"
+              class="lux-hero__watch-reflection"
+              :style="reflectionStyle"
+              aria-hidden="true"
+            >
               <img
-                v-if="mainDisplayUrl"
                 :src="mainDisplayUrl"
                 alt=""
                 draggable="false"
+                loading="lazy"
+                decoding="async"
               >
             </div>
           </div>
@@ -496,7 +533,6 @@ section.lux-hero {
 .lux-hero__watch-stage {
   position: relative;
   transform-style: preserve-3d;
-  will-change: transform, filter;
   transition: filter 0.35s ease;
 }
 
@@ -760,19 +796,19 @@ section.lux-hero {
 
 .hero-rise-enter-active {
   transition:
-    opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 1s cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .hero-rise-leave-active {
   transition:
-    opacity 0.4s ease,
-    transform 0.45s ease;
+    opacity 0.28s ease,
+    transform 0.32s ease;
 }
 
 .hero-rise-enter-from {
   opacity: 0;
-  transform: translateY(72px) scale(0.9);
+  transform: translateY(28px) scale(0.96);
 }
 
 .hero-rise-leave-to {

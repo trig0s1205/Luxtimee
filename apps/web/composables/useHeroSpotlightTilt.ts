@@ -13,11 +13,12 @@ export function useHeroSpotlightTilt() {
   const current = ref({ x: 0.5, y: 0.5 });
   const pointerActive = ref(false);
   const reducedMotion = ref(false);
+  const tiltEnabled = ref(false);
 
   let frameId: number | null = null;
 
   const tiltStyle = computed(() => {
-    if (reducedMotion.value) return {};
+    if (reducedMotion.value || !tiltEnabled.value) return {};
 
     const dx = (current.value.x - 0.5) * 2;
     const dy = (current.value.y - 0.5) * 2;
@@ -34,7 +35,7 @@ export function useHeroSpotlightTilt() {
   });
 
   const shineStyle = computed(() => {
-    if (reducedMotion.value || !pointerActive.value) return { opacity: '0' };
+    if (reducedMotion.value || !tiltEnabled.value || !pointerActive.value) return { opacity: '0' };
 
     const x = current.value.x * 100;
     const y = current.value.y * 100;
@@ -46,7 +47,7 @@ export function useHeroSpotlightTilt() {
   });
 
   const reflectionStyle = computed(() => {
-    if (reducedMotion.value) return { opacity: '0' };
+    if (reducedMotion.value || !tiltEnabled.value) return { opacity: '0' };
 
     const dx = (current.value.x - 0.5) * 2;
     return {
@@ -65,6 +66,7 @@ export function useHeroSpotlightTilt() {
       y: clamp((clientY - visualRect.top) / visualRect.height, 0, 1),
     };
     pointerActive.value = true;
+    startAnimation();
   }
 
   function onPointerMove(event: MouseEvent) {
@@ -80,23 +82,42 @@ export function useHeroSpotlightTilt() {
   function onPointerLeave() {
     pointerActive.value = false;
     target.value = { x: 0.5, y: 0.5 };
+    startAnimation();
+  }
+
+  function isSettled() {
+    return Math.abs(current.value.x - 0.5) < 0.002
+      && Math.abs(current.value.y - 0.5) < 0.002
+      && !pointerActive.value;
   }
 
   function animate() {
-    if (!reducedMotion.value) {
-      current.value = {
-        x: lerp(current.value.x, target.value.x, pointerActive.value ? 0.16 : 0.08),
-        y: lerp(current.value.y, target.value.y, pointerActive.value ? 0.16 : 0.08),
-      };
-    }
+    frameId = null;
 
+    if (reducedMotion.value || !tiltEnabled.value) return;
+
+    current.value = {
+      x: lerp(current.value.x, target.value.x, pointerActive.value ? 0.16 : 0.08),
+      y: lerp(current.value.y, target.value.y, pointerActive.value ? 0.16 : 0.08),
+    };
+
+    if (!isSettled()) {
+      frameId = requestAnimationFrame(animate);
+    } else {
+      current.value = { x: 0.5, y: 0.5 };
+    }
+  }
+
+  function startAnimation() {
+    if (frameId !== null || reducedMotion.value || !tiltEnabled.value) return;
     frameId = requestAnimationFrame(animate);
   }
 
   onMounted(() => {
     if (!import.meta.client) return;
     reducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    frameId = requestAnimationFrame(animate);
+    tiltEnabled.value = window.matchMedia('(pointer: fine)').matches
+      && window.matchMedia('(min-width: 1024px)').matches;
   });
 
   onBeforeUnmount(() => {
@@ -106,6 +127,7 @@ export function useHeroSpotlightTilt() {
   return {
     visualEl,
     reducedMotion,
+    tiltEnabled,
     tiltStyle,
     shineStyle,
     reflectionStyle,
