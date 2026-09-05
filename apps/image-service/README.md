@@ -10,15 +10,16 @@ POST /api/v1/process-watch
 
 **Entrada:** `multipart/form-data` con campo `file` (JPG, PNG, WEBP)
 
-**Salida:** Imagen WEBP de 800×1200 px con fondo transparente, reloj centrado y optimizado (calidad 90)
+**Salida:** Imagen WEBP de 1200×1800 px con **fondo blanco**, reloj centrado y optimizado (calidad 88)
 
 ## Algoritmo
 
-1. Remoción de fondo con `rembg`
-2. Recorte automático del bounding box
-3. Redimensionado proporcional al 80% del canvas (máx. 640×960 px)
-4. Centrado matemático en canvas transparente 800×1200 px
-5. Exportación como WEBP con transparencia
+1. **Paso 1 — rembg:** recorte inicial del reloj (fondo complejo).
+2. Aplanado sobre **fondo blanco** con margen.
+3. **Paso 2 — rembg:** recorte preciso sobre blanco (donde rembg rinde mejor).
+4. Redimensionado proporcional al 84% del canvas (máx. 1008×1512 px).
+5. Centrado en canvas blanco 1200×1800 px.
+6. Exportación como WEBP (calidad 88).
 
 ## Ejecución
 

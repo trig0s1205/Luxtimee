@@ -63,6 +63,7 @@ CANVAS_WIDTH = 1200
 CANVAS_HEIGHT = 1800
 MAX_WATCH_WIDTH = int(CANVAS_WIDTH * 0.84)
 MAX_WATCH_HEIGHT = int(CANVAS_HEIGHT * 0.84)
+BACKGROUND_RGB = (255, 255, 255)
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 ALLOWED_FORMATS = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 REMBG_MODEL = os.getenv("REMBG_MODEL", "u2netp")
@@ -127,25 +128,57 @@ def _scale_to_fill(img: Image.Image, max_w: int, max_h: int) -> Image.Image:
     return img.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
 
+def _crop_rgba(img: Image.Image) -> Image.Image:
+    bbox = img.getbbox()
+    return img.crop(bbox) if bbox else img
+
+
+def _flatten_on_white(img: Image.Image) -> Image.Image:
+    rgba = img.convert("RGBA")
+    white_layer = Image.new("RGBA", rgba.size, (*BACKGROUND_RGB, 255))
+    return Image.alpha_composite(white_layer, rgba)
+
+
+def _pad_on_white(img: Image.Image, ratio: float = 0.12) -> Image.Image:
+    rgb = _flatten_on_white(img).convert("RGB")
+    width, height = rgb.size
+    pad = max(24, int(max(width, height) * ratio))
+    canvas = Image.new("RGB", (width + pad * 2, height + pad * 2), BACKGROUND_RGB)
+    canvas.paste(rgb, (pad, pad))
+    return canvas
+
+
 def process_watch_image(data: bytes) -> bytes:
     started = time.perf_counter()
     try:
-        logger.info("rembg remove() inicio bytes=%s model=%s", len(data), REMBG_MODEL)
-        no_bg = remove(data, session=_rembg_session)
+        logger.info("rembg pass-1 inicio bytes=%s model=%s", len(data), REMBG_MODEL)
+        rough_cut = remove(data, session=_rembg_session)
+        watch_rough = _crop_rgba(Image.open(io.BytesIO(rough_cut)).convert("RGBA"))
         logger.info(
-            "rembg remove() ok in %.2fs out_bytes=%s",
+            "rembg pass-1 ok in %.2fs size=%sx%s",
             time.perf_counter() - started,
-            len(no_bg),
+            watch_rough.width,
+            watch_rough.height,
         )
-        watch = Image.open(io.BytesIO(no_bg)).convert("RGBA")
 
-        bbox = watch.getbbox()
-        if bbox:
-            watch = watch.crop(bbox)
+        on_white = _pad_on_white(watch_rough)
+        white_png = io.BytesIO()
+        on_white.save(white_png, format="PNG")
+
+        pass2_started = time.perf_counter()
+        logger.info("rembg pass-2 inicio bytes=%s", len(white_png.getvalue()))
+        refined_cut = remove(white_png.getvalue(), session=_rembg_session)
+        watch = _flatten_on_white(_crop_rgba(Image.open(io.BytesIO(refined_cut)).convert("RGBA")))
+        logger.info(
+            "rembg pass-2 ok in %.2fs size=%sx%s",
+            time.perf_counter() - pass2_started,
+            watch.width,
+            watch.height,
+        )
 
         watch = _scale_to_fill(watch, MAX_WATCH_WIDTH, MAX_WATCH_HEIGHT)
 
-        canvas = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), (0, 0, 0, 0))
+        canvas = Image.new("RGB", (CANVAS_WIDTH, CANVAS_HEIGHT), BACKGROUND_RGB)
 
         watch_width, watch_height = watch.size
         x = (CANVAS_WIDTH - watch_width) // 2
