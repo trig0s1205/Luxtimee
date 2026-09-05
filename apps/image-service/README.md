@@ -10,16 +10,13 @@ POST /api/v1/process-watch
 
 **Entrada:** `multipart/form-data` con campo `file` (JPG, PNG, WEBP)
 
-**Salida:** Imagen WEBP de 1200×1800 px con **fondo blanco**, reloj centrado y optimizado (calidad 88)
-
-## Algoritmo
+**Salida:** Imagen WEBP 1200×1800 px, reloj recortado con **fondo transparente** (el blanco solo se usa en el paso intermedio). En la tienda se ve sobre el fondo oscuro con sombra.
 
 1. **Paso 1 — rembg:** recorte inicial del reloj (fondo complejo).
-2. Aplanado sobre **fondo blanco** con margen.
-3. **Paso 2 — rembg:** recorte preciso sobre blanco (donde rembg rinde mejor).
-4. Redimensionado proporcional al 84% del canvas (máx. 1008×1512 px).
-5. Centrado en canvas blanco 1200×1800 px.
-6. Exportación como WEBP (calidad 88).
+2. Fondo blanco temporal con margen (solo para el paso 2).
+3. **Paso 2 — rembg + alpha matting:** recorte fino del reloj sobre blanco.
+4. Canvas final **transparente** 1200×1800, reloj centrado al 84%.
+5. Exportación WEBP con transparencia (calidad 88).
 
 ## Ejecución
 

@@ -167,8 +167,16 @@ def process_watch_image(data: bytes) -> bytes:
 
         pass2_started = time.perf_counter()
         logger.info("rembg pass-2 inicio bytes=%s", len(white_png.getvalue()))
-        refined_cut = remove(white_png.getvalue(), session=_rembg_session)
-        watch = _flatten_on_white(_crop_rgba(Image.open(io.BytesIO(refined_cut)).convert("RGBA")))
+        refined_cut = remove(
+            white_png.getvalue(),
+            session=_rembg_session,
+            alpha_matting=True,
+            alpha_matting_foreground_threshold=250,
+            alpha_matting_background_threshold=10,
+            alpha_matting_erode_size=12,
+            post_process_mask=True,
+        )
+        watch = _crop_rgba(Image.open(io.BytesIO(refined_cut)).convert("RGBA"))
         logger.info(
             "rembg pass-2 ok in %.2fs size=%sx%s",
             time.perf_counter() - pass2_started,
@@ -178,7 +186,7 @@ def process_watch_image(data: bytes) -> bytes:
 
         watch = _scale_to_fill(watch, MAX_WATCH_WIDTH, MAX_WATCH_HEIGHT)
 
-        canvas = Image.new("RGB", (CANVAS_WIDTH, CANVAS_HEIGHT), BACKGROUND_RGB)
+        canvas = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), (0, 0, 0, 0))
 
         watch_width, watch_height = watch.size
         x = (CANVAS_WIDTH - watch_width) // 2
