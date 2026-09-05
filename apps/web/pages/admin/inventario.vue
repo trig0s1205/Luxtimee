@@ -166,7 +166,10 @@ async function handleSubmit(form: WatchFormPayload) {
 
   const isCreate = !editingWatch.value;
   const hasNewImages = !!(form.primaryImageFile && form.secondaryImageFile);
+  const hasNewPrimaryImage = !!form.primaryImageFile;
+  const hasNewSecondaryImage = !!form.secondaryImageFile;
   const hasVideo = !!form.videoFile;
+  const hasNewMedia = hasNewPrimaryImage || hasNewSecondaryImage || hasVideo;
   const imagesOnly = !!(auth.isSuperAdmin && form.imagesOnly && isCreate);
 
   if (isCreate && !hasNewImages) {
@@ -192,30 +195,39 @@ async function handleSubmit(form: WatchFormPayload) {
     }
   }
 
+  if (imagesOnly && !(form.brandId || brands.value?.[0]?.id)) {
+    submitError.value = 'No hay marcas registradas. Crea una marca antes de subir imágenes.';
+    toast.warning(submitError.value);
+    return;
+  }
+
   saving.value = true;
   submitError.value = '';
 
   try {
     let watchId = editingWatch.value?.id;
 
+    const draftMode = imagesOnly;
+    const fallbackBrandId = form.brandId || brands.value?.[0]?.id;
+
     const payload: Record<string, unknown> = {
-      brandId: form.brandId || undefined,
+      brandId: draftMode ? fallbackBrandId : form.brandId,
       categoryId: form.categoryId || undefined,
       mechanismId: form.mechanismId || undefined,
       movementType: form.movementType || undefined,
-      model: form.model || undefined,
+      model: draftMode ? (form.model?.trim() || 'Pendiente de completar') : form.model,
       description: form.description,
       gender: form.gender,
       warrantyMonths: Number(form.warrantyMonths),
-      retailPrice: Number(form.retailPrice),
-      wholesalePrice: Number(form.wholesalePrice),
-      stock: Number(form.stock),
-      status: form.status,
+      retailPrice: draftMode ? 0 : Number(form.retailPrice),
+      wholesalePrice: draftMode ? 0 : Number(form.wholesalePrice),
+      stock: draftMode ? 0 : Number(form.stock),
+      status: draftMode ? WatchStatus.AGOTADO : form.status,
       isLimitedEdition: form.isLimitedEdition,
       limitedEditionNumber: form.limitedEditionNumber,
       images: form.images,
       mainImageIndex: form.mainImageIndex,
-      ...(imagesOnly ? { imagesOnly: true, isPublished: false, showInCatalog: false } : {}),
+      ...(draftMode ? { isPublished: false, showInCatalog: false } : {}),
       ...(watchId
         ? { careTemplateId: form.careTemplateId || '' }
         : form.careTemplateId
@@ -229,30 +241,30 @@ async function handleSubmit(form: WatchFormPayload) {
       payload.cost = 0;
     }
 
-    let brandName = brands.value?.find((b) => b.id === form.brandId)?.name ?? '';
+    let brandName = brands.value?.find((b) => b.id === (draftMode ? fallbackBrandId : form.brandId))?.name ?? '';
 
     if (watchId) {
       await api.patch<WatchStaffDto>(`/watches/${watchId}`, payload);
-      toast.success(hasNewImages ? 'Reloj actualizado — multimedia en proceso...' : 'Reloj actualizado correctamente');
+      toast.success(hasNewMedia ? 'Reloj actualizado — multimedia en proceso...' : 'Reloj actualizado correctamente');
     } else {
       const created = await api.post<WatchStaffDto>('/watches', payload);
       watchId = created.id;
       brandName = created.brand?.name ?? brandName;
-      toast.success(imagesOnly ? 'Borrador creado — procesando imágenes...' : 'Reloj creado — multimedia en cola...');
+      toast.success(draftMode ? 'Borrador creado — procesando imágenes...' : 'Reloj creado — multimedia en cola...');
     }
 
     // Cerrar modal INMEDIATAMENTE
     showForm.value = false;
     editingWatch.value = null;
 
-    if (hasNewImages && watchId) {
+    if (hasNewMedia && watchId) {
       mediaQueue.enqueue({
         watchId,
         model: form.model || 'Borrador',
         brandName,
         files: {
-          image1: form.primaryImageFile!,
-          image2: form.secondaryImageFile!,
+          ...(form.primaryImageFile ? { image1: form.primaryImageFile } : {}),
+          ...(form.secondaryImageFile ? { image2: form.secondaryImageFile } : {}),
           ...(hasVideo ? { video: form.videoFile! } : {}),
         },
       });

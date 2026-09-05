@@ -10,7 +10,7 @@ export type UploadJob = {
   watchId: string;
   model: string;
   brandName: string;
-  files: { image1: File; image2: File; video?: File };
+  files: { image1?: File; image2?: File; video?: File };
   status: 'queue' | 'uploading' | 'done' | 'error';
   fileStatuses: { image1: MediaFileStatus; image2: MediaFileStatus; video: MediaFileStatus };
   errorMessage?: string;
@@ -42,14 +42,18 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
   },
   actions: {
     enqueue(job: Omit<UploadJob, 'id' | 'status' | 'fileStatuses' | 'createdAt'>) {
+      const hasImage1 = !!job.files.image1;
+      const hasImage2 = !!job.files.image2;
       const hasVideo = !!job.files.video;
+      if (!hasImage1 && !hasImage2 && !hasVideo) return;
+
       this.jobs.push({
         ...job,
         id: crypto.randomUUID(),
         status: 'queue',
         fileStatuses: {
-          image1: 'queue',
-          image2: 'queue',
+          image1: hasImage1 ? 'queue' : 'done',
+          image2: hasImage2 ? 'queue' : 'done',
           video: hasVideo ? 'queue' : 'done',
         },
         createdAt: Date.now(),
@@ -97,8 +101,12 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
 
         function buildFormData() {
           const fd = new FormData();
-          if (sendSlots.includes('image1')) fd.append('image1', activeJob.files.image1);
-          if (sendSlots.includes('image2')) fd.append('image2', activeJob.files.image2);
+          if (sendSlots.includes('image1') && activeJob.files.image1) {
+            fd.append('image1', activeJob.files.image1);
+          }
+          if (sendSlots.includes('image2') && activeJob.files.image2) {
+            fd.append('image2', activeJob.files.image2);
+          }
           if (sendSlots.includes('video') && activeJob.files.video) {
             fd.append('video', activeJob.files.video);
           }
