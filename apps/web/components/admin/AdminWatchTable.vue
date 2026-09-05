@@ -42,7 +42,6 @@ function closeLightbox() {
           <th>Imagen</th>
           <th>SKU</th>
           <th>Marca & Modelo</th>
-          <th>Referencia</th>
           <th>Precio público</th>
           <th>Stock</th>
           <th>Estado</th>
@@ -51,12 +50,12 @@ function closeLightbox() {
       </thead>
       <tbody>
         <tr v-if="loading">
-          <td colspan="8" class="admin-table-empty">
+          <td colspan="7" class="admin-table-empty">
             <span class="admin-spinner" /> Cargando inventario...
           </td>
         </tr>
         <tr v-else-if="!watches.length">
-          <td colspan="8" class="admin-table-empty">No hay relojes registrados.</td>
+          <td colspan="7" class="admin-table-empty">No hay relojes registrados.</td>
         </tr>
         <tr v-for="watch in watches" :key="watch.id" class="admin-table-row">
           <td>
@@ -82,7 +81,6 @@ function closeLightbox() {
               <span>{{ watch.model }}</span>
             </div>
           </td>
-          <td>{{ watch.reference || '—' }}</td>
           <td>{{ formatCop(watch.retailPrice) }}</td>
           <td>{{ watch.stock }}</td>
           <td>
