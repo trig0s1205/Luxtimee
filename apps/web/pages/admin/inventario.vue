@@ -35,6 +35,7 @@ type WatchFormPayload = {
   primaryImageFile?: File | null;
   secondaryImageFile?: File | null;
   videoFile?: File | null;
+  imagesOnly?: boolean;
 };
 
 useHead({ title: 'Inventario — LUXTIMEE Admin' });
@@ -164,9 +165,19 @@ async function handleSubmit(form: WatchFormPayload) {
   if (saving.value) return;
 
   const isCreate = !editingWatch.value;
-  const hasNewFiles = !!(form.primaryImageFile && form.secondaryImageFile && form.videoFile);
+  const hasNewImages = !!(form.primaryImageFile && form.secondaryImageFile);
+  const hasVideo = !!form.videoFile;
+  const imagesOnly = !!(auth.isSuperAdmin && form.imagesOnly && isCreate);
 
-  if (isCreate && !hasNewFiles) {
+  if (isCreate && !hasNewImages) {
+    submitError.value = imagesOnly
+      ? 'Debes subir foto principal y foto secundaria.'
+      : 'Debes subir foto principal, foto secundaria y video.';
+    toast.warning(submitError.value);
+    return;
+  }
+
+  if (isCreate && !imagesOnly && !hasVideo) {
     submitError.value = 'Debes subir foto principal, foto secundaria y video.';
     toast.warning(submitError.value);
     return;
@@ -188,11 +199,11 @@ async function handleSubmit(form: WatchFormPayload) {
     let watchId = editingWatch.value?.id;
 
     const payload: Record<string, unknown> = {
-      brandId: form.brandId,
+      brandId: form.brandId || undefined,
       categoryId: form.categoryId || undefined,
       mechanismId: form.mechanismId || undefined,
       movementType: form.movementType || undefined,
-      model: form.model,
+      model: form.model || undefined,
       description: form.description,
       gender: form.gender,
       warrantyMonths: Number(form.warrantyMonths),
@@ -204,6 +215,7 @@ async function handleSubmit(form: WatchFormPayload) {
       limitedEditionNumber: form.limitedEditionNumber,
       images: form.images,
       mainImageIndex: form.mainImageIndex,
+      ...(imagesOnly ? { imagesOnly: true, isPublished: false, showInCatalog: false } : {}),
       ...(watchId
         ? { careTemplateId: form.careTemplateId || '' }
         : form.careTemplateId
@@ -221,27 +233,27 @@ async function handleSubmit(form: WatchFormPayload) {
 
     if (watchId) {
       await api.patch<WatchStaffDto>(`/watches/${watchId}`, payload);
-      toast.success(hasNewFiles ? 'Reloj actualizado — multimedia en proceso...' : 'Reloj actualizado correctamente');
+      toast.success(hasNewImages ? 'Reloj actualizado — multimedia en proceso...' : 'Reloj actualizado correctamente');
     } else {
       const created = await api.post<WatchStaffDto>('/watches', payload);
       watchId = created.id;
       brandName = created.brand?.name ?? brandName;
-      toast.success('Reloj creado — multimedia en cola...');
+      toast.success(imagesOnly ? 'Borrador creado — procesando imágenes...' : 'Reloj creado — multimedia en cola...');
     }
 
     // Cerrar modal INMEDIATAMENTE
     showForm.value = false;
     editingWatch.value = null;
 
-    if (hasNewFiles && watchId) {
+    if (hasNewImages && watchId) {
       mediaQueue.enqueue({
         watchId,
-        model: form.model,
+        model: form.model || 'Borrador',
         brandName,
         files: {
           image1: form.primaryImageFile!,
           image2: form.secondaryImageFile!,
-          video: form.videoFile!,
+          ...(hasVideo ? { video: form.videoFile! } : {}),
         },
       });
     }

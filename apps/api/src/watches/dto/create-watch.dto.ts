@@ -8,6 +8,7 @@ import {
   IsString,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { UppercaseOptional } from '../../common/decorators/uppercase.decorator';
@@ -19,9 +20,15 @@ const WATCH_STATUS_VALUES = ['DISPONIBLE', 'AGOTADO'] as const;
 export type WatchStatusValue = (typeof WATCH_STATUS_VALUES)[number];
 
 export class CreateWatchDto {
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  imagesOnly?: boolean;
+
+  @ValidateIf((dto) => !dto.imagesOnly)
   @IsString()
   @MinLength(1)
-  brandId!: string;
+  brandId?: string;
 
   @IsOptional()
   @IsString()
@@ -31,9 +38,10 @@ export class CreateWatchDto {
   @IsString()
   mechanismId?: string;
 
+  @ValidateIf((dto) => !dto.imagesOnly)
   @IsString()
   @MinLength(2)
-  model!: string;
+  model?: string;
 
   @IsOptional()
   @IsString()
@@ -96,15 +104,17 @@ export class CreateWatchDto {
   @IsObject()
   specs?: Record<string, string>;
 
+  @ValidateIf((dto) => !dto.imagesOnly)
   @IsInt()
   @Min(0)
   @Type(() => Number)
-  retailPrice!: number;
+  retailPrice?: number;
 
+  @ValidateIf((dto) => !dto.imagesOnly)
   @IsInt()
   @Min(0)
   @Type(() => Number)
-  wholesalePrice!: number;
+  wholesalePrice?: number;
 
   @IsOptional()
   @IsInt()
@@ -130,10 +140,11 @@ export class CreateWatchDto {
   @Type(() => Number)
   secretaryCommissionPercentage?: number;
 
+  @ValidateIf((dto) => !dto.imagesOnly)
   @IsInt()
   @Min(0)
   @Type(() => Number)
-  stock!: number;
+  stock?: number;
 
   @IsOptional()
   @IsEnum(WATCH_STATUS_VALUES)

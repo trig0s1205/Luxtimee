@@ -10,7 +10,7 @@ export type UploadJob = {
   watchId: string;
   model: string;
   brandName: string;
-  files: { image1: File; image2: File; video: File };
+  files: { image1: File; image2: File; video?: File };
   status: 'queue' | 'uploading' | 'done' | 'error';
   fileStatuses: { image1: MediaFileStatus; image2: MediaFileStatus; video: MediaFileStatus };
   errorMessage?: string;
@@ -42,11 +42,16 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
   },
   actions: {
     enqueue(job: Omit<UploadJob, 'id' | 'status' | 'fileStatuses' | 'createdAt'>) {
+      const hasVideo = !!job.files.video;
       this.jobs.push({
         ...job,
         id: crypto.randomUUID(),
         status: 'queue',
-        fileStatuses: { image1: 'queue', image2: 'queue', video: 'queue' },
+        fileStatuses: {
+          image1: 'queue',
+          image2: 'queue',
+          video: hasVideo ? 'queue' : 'done',
+        },
         createdAt: Date.now(),
       });
       void this._processNext();
@@ -65,9 +70,9 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
         activeJob.fileStatuses[slot] = 'uploading';
       }
 
-      const skipVideo = !toUpload.includes('video');
+      const skipVideo = !activeJob.files.video || !toUpload.includes('video');
       let videoClientError: string | null = null;
-      if (!skipVideo) {
+      if (!skipVideo && activeJob.files.video) {
         videoClientError = await validateWatchVideoFile(activeJob.files.video);
         if (videoClientError) {
           activeJob.fileStatuses.video = 'error';
@@ -94,7 +99,9 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
           const fd = new FormData();
           if (sendSlots.includes('image1')) fd.append('image1', activeJob.files.image1);
           if (sendSlots.includes('image2')) fd.append('image2', activeJob.files.image2);
-          if (sendSlots.includes('video')) fd.append('video', activeJob.files.video);
+          if (sendSlots.includes('video') && activeJob.files.video) {
+            fd.append('video', activeJob.files.video);
+          }
           return fd;
         }
 

@@ -181,6 +181,14 @@ export class WatchesRepository {
     return !!brand;
   }
 
+  async findFirstBrandId() {
+    const brand = await this.prisma.brand.findFirst({
+      orderBy: { name: 'asc' },
+      select: { id: true },
+    });
+    return brand?.id ?? null;
+  }
+
   async categoryExists(id: string) {
     const category = await this.prisma.category.findUnique({ where: { id } });
     return !!category;

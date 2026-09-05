@@ -18,6 +18,7 @@
     "prisma:seed": "prisma db seed",
     "prisma:studio": "prisma studio",
     "backfill:warranties": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/scripts/backfill-warranty-histories.ts",
+    "wipe:test-data": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/scripts/wipe-transactional-data.ts",
     "migrate:videos": "node scripts/migrate-watch-videos.mjs"
   },
   "dependencies": {

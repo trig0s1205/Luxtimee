@@ -33,6 +33,7 @@ type WatchFormPayload = {
   primaryImageFile: File | null;
   secondaryImageFile: File | null;
   videoFile: File | null;
+  imagesOnly?: boolean;
 };
 
 const props = defineProps<{
@@ -119,6 +120,7 @@ watch([retailMarginPercentage, wholesaleMarginPercentage], ([retail, wholesale])
 });
 
 const mediaError = ref('');
+const imagesOnlyMode = ref(auth.isSuperAdmin && !props.watch?.id);
 const primaryInput = ref<HTMLInputElement | null>(null);
 const secondaryInput = ref<HTMLInputElement | null>(null);
 const videoInput = ref<HTMLInputElement | null>(null);
@@ -200,16 +202,28 @@ function hasRequiredMedia() {
   const hasPrimary = !!(form.primaryImageFile || form.primaryImageUrl);
   const hasSecondary = !!(form.secondaryImageFile || form.secondaryImageUrl);
   const hasVideo = !!(form.videoFile || form.videoUrl);
+
+  if (imagesOnlyMode.value && !isEdit.value) {
+    return hasPrimary && hasSecondary;
+  }
+  if (isEdit.value) {
+    return hasPrimary && hasSecondary;
+  }
   return hasPrimary && hasSecondary && hasVideo;
 }
 
 const isBusy = computed(() => props.saving);
+const isEdit = computed(() => !!props.watch?.id);
 
 async function onSubmit() {
   if (isBusy.value) return;
 
   if (!hasRequiredMedia()) {
-    mediaError.value = 'Debes cargar foto principal, foto secundaria y video.';
+    mediaError.value = imagesOnlyMode.value && !isEdit.value
+      ? 'Debes cargar foto principal y foto secundaria.'
+      : isEdit.value
+        ? 'Debes tener foto principal y foto secundaria.'
+        : 'Debes cargar foto principal, foto secundaria y video.';
     activeTab.value = 2;
     return;
   }
@@ -224,10 +238,9 @@ async function onSubmit() {
     }
   }
 
-  emit('submit', { ...form });
+  emit('submit', { ...form, imagesOnly: imagesOnlyMode.value });
 }
 
-const isEdit = computed(() => !!props.watch?.id);
 const skuPreview = computed(() => props.watch?.sku ?? 'Se generará automáticamente al guardar');
 
 const selectedCareTemplate = computed(() =>
@@ -262,12 +275,19 @@ const selectedCareTemplate = computed(() =>
     </div>
 
     <div class="admin-watch-form-body">
+      <div v-if="auth.isSuperAdmin && !isEdit" class="admin-images-only-banner">
+        <UiLuxCheckbox
+          v-model="imagesOnlyMode"
+          label="Solo imágenes (borrador) — la secretaria completa datos y video después"
+        />
+      </div>
+
       <!-- GENERAL -->
       <div v-show="activeTab === 0" class="admin-watch-tab-panel">
         <div class="admin-form-grid">
           <div class="admin-form-field">
-            <label>Marca <span class="admin-form-required">*</span></label>
-            <select v-model="form.brandId" required>
+            <label>Marca <span v-if="!imagesOnlyMode || isEdit" class="admin-form-required">*</span></label>
+            <select v-model="form.brandId" :required="!imagesOnlyMode || isEdit">
               <option value="" disabled>Seleccionar marca</option>
               <option v-for="brand in brands" :key="brand.id" :value="brand.id">{{ brand.name }}</option>
             </select>
@@ -290,7 +310,7 @@ const selectedCareTemplate = computed(() =>
           </div>
 
           <div class="admin-form-field">
-            <label>Nombre comercial (modelo) <span class="admin-form-required">*</span></label>
+            <label>Nombre comercial (modelo) <span v-if="!imagesOnlyMode || isEdit" class="admin-form-required">*</span></label>
             <UiLuxInput v-model="form.model" placeholder="Ej. Submariner Date" />
           </div>
 
@@ -397,6 +417,9 @@ const selectedCareTemplate = computed(() =>
 
       <!-- MULTIMEDIA -->
       <div v-show="activeTab === 2" class="admin-watch-tab-panel">
+        <p v-if="imagesOnlyMode && !isEdit" class="admin-form-hint admin-form-hint--media">
+          Sube las dos fotos. El video lo agrega la secretaria al editar el reloj.
+        </p>
         <p v-if="mediaError" class="admin-media-error">{{ mediaError }}</p>
 
         <div class="admin-media-grid">
@@ -421,9 +444,10 @@ const selectedCareTemplate = computed(() =>
           </div>
 
           <div class="admin-media-slot admin-media-slot--video">
-            <label>Video del reloj <span class="admin-form-required">*</span></label>
+            <label>Video del reloj <span v-if="!imagesOnlyMode && !isEdit" class="admin-form-required">*</span></label>
             <p class="admin-form-hint admin-form-hint--media">
               Máx. {{ MAX_VIDEO_DURATION_SEC }} s · MP4, MOV o WEBM · Se optimiza a 1080p (~10 MB)
+              <template v-if="imagesOnlyMode || isEdit"> · Opcional en borrador</template>
             </p>
             <div class="admin-media-preview admin-media-preview--video" @click="videoInput?.click()">
               <video v-if="videoPreview || form.videoUrl" :src="videoPreview || form.videoUrl" controls muted />
@@ -440,7 +464,9 @@ const selectedCareTemplate = computed(() =>
     <div class="admin-watch-form-footer">
       <UiLuxButton variant="ghost" type="button" :disabled="isBusy" @click="emit('cancel')">Cancelar</UiLuxButton>
       <UiLuxButton type="submit" :disabled="isBusy">
-        {{ saving ? 'Guardando...' : (isEdit ? 'Guardar cambios' : 'Crear reloj') }}
+        {{ saving
+          ? 'Guardando...'
+          : (imagesOnlyMode && !isEdit ? 'Guardar borrador con imágenes' : (isEdit ? 'Guardar cambios' : 'Crear reloj')) }}
       </UiLuxButton>
     </div>
   </form>
@@ -519,6 +545,13 @@ const selectedCareTemplate = computed(() =>
   flex: 1;
   overflow-y: auto;
   padding: 28px;
+}
+
+.admin-images-only-banner {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border: 1px solid rgba(200, 169, 110, 0.18);
+  background: rgba(200, 169, 110, 0.04);
 }
 
 .admin-watch-tab-panel {

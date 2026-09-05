@@ -1,4 +1,4 @@
-import { BadGatewayException, BadRequestException, HttpException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, ForbiddenException, HttpException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { WatchesRepository } from './watches.repository';
@@ -20,6 +20,7 @@ import { normalizeFaqItems } from '../common/utils/faq.util';
 const MAX_CATALOG_FEATURED = 6;
 const CATALOG_LIMIT_MESSAGE =
   'Límite alcanzado: Solo se permite mostrar un máximo de 6 relojes en el catálogo principal.';
+const DRAFT_WATCH_MODEL = 'Pendiente de completar';
 
 export type MediaSlot = 'image1' | 'image2' | 'video';
 export type MediaSlotResult =
@@ -109,7 +110,34 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     });
   }
 
-  async create(dto: CreateWatchDto, role: Role) {    if (!(await this.watchesRepository.brandExists(dto.brandId))) {
+  async create(dto: CreateWatchDto, role: Role) {
+    const imagesOnly = dto.imagesOnly === true;
+    if (imagesOnly && role !== Role.SUPER_ADMIN) {
+      throw new ForbiddenException('Solo Super Admin puede crear borradores solo con imágenes');
+    }
+
+    let brandId = dto.brandId;
+    let model = dto.model?.trim();
+    let retailPrice = dto.retailPrice;
+    let wholesalePrice = dto.wholesalePrice;
+    let stock = dto.stock;
+    let isPublished = dto.isPublished;
+    let showInCatalog = dto.showInCatalog;
+
+    if (imagesOnly) {
+      brandId = brandId || await this.watchesRepository.findFirstBrandId();
+      if (!brandId) {
+        throw new BadRequestException('No hay marcas registradas. Crea una marca antes de subir imágenes.');
+      }
+      model = model || DRAFT_WATCH_MODEL;
+      retailPrice = retailPrice ?? 0;
+      wholesalePrice = wholesalePrice ?? 0;
+      stock = stock ?? 0;
+      isPublished = false;
+      showInCatalog = false;
+    }
+
+    if (!(await this.watchesRepository.brandExists(brandId!))) {
       throw new BadRequestException('La marca seleccionada no existe');
     }
 
@@ -117,20 +145,20 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
       throw new BadRequestException('La clase seleccionada no existe');
     }
 
-    const brand = await this.watchesRepository.findBrandById(dto.brandId);
+    const brand = await this.watchesRepository.findBrandById(brandId!);
     if (!brand) throw new NotFoundException('Marca no encontrada');
     const reference = this.normalizeReference(dto.reference);
-    const sku = (await this.watchesRepository.allocateSku(dto.retailPrice, dto.gender)).trim().toUpperCase();
+    const sku = (await this.watchesRepository.allocateSku(retailPrice!, dto.gender)).trim().toUpperCase();
 
-    const slugBase = slugify(`${dto.model}-${Date.now()}`);
+    const slugBase = slugify(`${model}-${Date.now()}`);
     const uniqueSlug = await this.ensureUniqueSlug(slugBase);
 
-    const showInCatalog = dto.showInCatalog ?? false;
-    await this.assertCatalogFeaturedLimit(showInCatalog);
+    const resolvedShowInCatalog = showInCatalog ?? false;
+    await this.assertCatalogFeaturedLimit(resolvedShowInCatalog);
 
     const data: Prisma.WatchCreateInput = {      sku,
-      brand: { connect: { id: dto.brandId } },
-      model: dto.model,
+      brand: { connect: { id: brandId! } },
+      model: model!,
       reference,
       slug: uniqueSlug,
       gender: dto.gender,
@@ -146,13 +174,13 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
       waterResistance: dto.waterResistance,
       functions: dto.functions ?? [],
       specs: dto.specs ?? {},
-      retailPrice: dto.retailPrice,
-      wholesalePrice: dto.wholesalePrice,
-      stock: dto.stock,
-      status: dto.stock > 0 ? 'DISPONIBLE' : 'AGOTADO',
+      retailPrice: retailPrice!,
+      wholesalePrice: wholesalePrice!,
+      stock: stock!,
+      status: stock! > 0 ? 'DISPONIBLE' : 'AGOTADO',
       isActive: dto.isActive ?? true,
-      isPublished: dto.isPublished ?? true,
-      showInCatalog,
+      isPublished: imagesOnly ? false : (isPublished ?? true),
+      showInCatalog: resolvedShowInCatalog,
       isLimitedEdition: dto.isLimitedEdition ?? false,      limitedEditionNumber: dto.limitedEditionNumber,
       description: dto.description,
       faqs: normalizeFaqItems(dto.faqs),
@@ -166,8 +194,8 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     if (role === Role.SUPER_ADMIN) {
       this.applySuperAdminFinancials(data, {
         cost: dto.cost ?? null,
-        retailPrice: dto.retailPrice,
-        wholesalePrice: dto.wholesalePrice,
+        retailPrice: retailPrice!,
+        wholesalePrice: wholesalePrice!,
       });
     }
 
