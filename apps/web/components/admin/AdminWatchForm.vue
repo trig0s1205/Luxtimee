@@ -476,11 +476,12 @@ const selectedCareTemplate = computed(() =>
 .admin-watch-form {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  max-height: 90vh;
+  max-height: min(90vh, 900px);
+  min-height: 0;
 }
 
 .admin-watch-form-header {
+  flex-shrink: 0;
   padding: 24px 28px 16px;
   border-bottom: 1px solid rgba(200, 169, 110, 0.1);
 }
@@ -512,6 +513,7 @@ const selectedCareTemplate = computed(() =>
 }
 
 .admin-watch-tabs {
+  flex-shrink: 0;
   display: flex;
   gap: 0;
   padding: 0 28px;
@@ -906,6 +908,7 @@ const selectedCareTemplate = computed(() =>
 }
 
 .admin-watch-form-footer {
+  flex-shrink: 0;
   display: flex;
   justify-content: flex-end;
   gap: 12px;

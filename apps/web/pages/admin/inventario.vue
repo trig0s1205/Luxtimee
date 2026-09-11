@@ -362,6 +362,7 @@ async function handleDelete(watch: WatchStaffDto) {
       <div v-if="showForm" class="admin-modal-backdrop" @click.self="showForm = false">
         <div class="admin-modal admin-modal--wide">
           <AdminWatchFormLazy
+            :key="editingWatch?.id ?? 'new'"
             :watch="editingWatch"
             :brands="brands ?? []"
             :categories="categories ?? []"
@@ -468,6 +469,8 @@ async function handleDelete(watch: WatchStaffDto) {
 }
 
 .admin-modal {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: 720px;
   max-height: 90vh;
@@ -475,6 +478,7 @@ async function handleDelete(watch: WatchStaffDto) {
   border: 1px solid rgba(200, 169, 110, 0.2);
   box-shadow: 0 24px 64px rgba(20, 20, 20, 0.12);
   overflow: hidden;
+  min-height: 0;
 }
 
 .admin-modal--wide {

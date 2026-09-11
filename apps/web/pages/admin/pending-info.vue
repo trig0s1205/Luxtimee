@@ -297,6 +297,7 @@ useSeoMeta({ title: 'Pendientes de info — LUXTIMEE Admin' });
       <div v-if="showForm" class="admin-modal-backdrop" @click.self="showForm = false">
         <div class="admin-modal admin-modal--wide">
           <AdminWatchFormLazy
+            :key="editingWatch?.id ?? 'edit'"
             :watch="editingWatch"
             :brands="brands"
             :categories="categories"

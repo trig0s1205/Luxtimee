@@ -270,6 +270,35 @@
   }
 }
 
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(20, 20, 20, 0.35);
+  backdrop-filter: blur(4px);
+}
+
+.admin-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 720px;
+  max-height: 90vh;
+  min-height: 0;
+  background: var(--lux-black-2);
+  border: 1px solid rgba(200, 169, 110, 0.2);
+  box-shadow: 0 24px 64px rgba(20, 20, 20, 0.12);
+  overflow: hidden;
+}
+
+.admin-modal--wide {
+  max-width: 900px;
+}
+
 .admin-shell select,
 .admin-shell textarea,
 .admin-shell .admin-filter-select,
