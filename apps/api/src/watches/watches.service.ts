@@ -20,7 +20,7 @@ import {
   getMissingCostFields,
   getMissingGeneralFields,
   isWatchDraft,
-  isWatchGeneralInfoComplete,
+  isWatchCatalogReady,
   type WatchPendingShape,
 } from './utils/watch-pending.util';
 
@@ -155,7 +155,7 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     if (dto?.isPublished !== undefined) return;
     if (existing.isPublished) return;
     const merged = this.mergePendingShape(existing, data, dto);
-    if (!isWatchGeneralInfoComplete(merged)) return;
+    if (!isWatchCatalogReady(merged)) return;
     data.isPublished = true;
     data.isActive = true;
   }

@@ -2,6 +2,7 @@ import type { WatchStaffDto } from '@luxtime/shared';
 import { WatchStatus } from '@luxtime/shared';
 import { extractApiErrorMessage, isBadRequest } from '~/utils/api-error';
 import { validateWatchVideoFile } from '~/utils/video-validation';
+import { invalidateStorefrontCatalogCaches } from '~/utils/storefront-cache';
 
 export type AdminWatchFormPayload = {
   brandId: string;
@@ -93,6 +94,8 @@ export function useAdminWatchEditSubmit() {
             ? 'Reloj actualizado — multimedia en proceso...'
             : 'Reloj actualizado correctamente',
       );
+
+      invalidateStorefrontCatalogCaches();
 
       if (hasNewMedia) {
         mediaQueue.enqueue({

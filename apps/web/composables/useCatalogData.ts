@@ -164,11 +164,24 @@ export function useCatalogData() {
 
   async function getHeroSpotlight(limit = 6) {
     try {
-      return await api.get<WatchPublicDto[]>('/catalog/hero-spotlight', { limit });
+      const hero = await api.get<WatchPublicDto[]>('/catalog/hero-spotlight', { limit });
+      if (hero.length > 0) return hero;
+    } catch {
+      /* ruta antigua o API caída */
+    }
+    try {
+      const arrivals = await api.get<WatchPublicDto[]>('/catalog/new-arrivals');
+      if (arrivals.length > 0) return arrivals.slice(0, limit);
+    } catch {
+      /* siguiente fallback */
+    }
+    try {
+      const list = await api.get<PaginatedResponse<WatchPublicDto>>('/catalog', { limit, page: 1 });
+      if (list.data.length > 0) return list.data.slice(0, limit);
     } catch {
       if (import.meta.dev) return MOCK_CATALOG.slice(0, limit);
-      return [];
     }
+    return [];
   }
 
   async function listWholesaleCatalog(query: CatalogListQuery = {}) {

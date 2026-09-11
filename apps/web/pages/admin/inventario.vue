@@ -4,6 +4,7 @@ import { WatchStatus } from '@luxtime/shared';
 import { extractApiErrorMessage, isBadRequest } from '~/utils/api-error';
 import { invalidateAdminCache } from '~/utils/admin-cache';
 import { validateWatchVideoFile } from '~/utils/video-validation';
+import { invalidateStorefrontCatalogCaches } from '~/utils/storefront-cache';
 
 const AdminWatchFormLazy = defineAsyncComponent(() => import('~/components/admin/AdminWatchForm.vue'));
 
@@ -227,7 +228,9 @@ async function handleSubmit(form: WatchFormPayload) {
       limitedEditionNumber: form.limitedEditionNumber,
       images: form.images,
       mainImageIndex: form.mainImageIndex,
-      ...(draftMode ? { isPublished: false, showInCatalog: false } : {}),
+      ...(draftMode
+        ? { isPublished: false, showInCatalog: false }
+        : { isPublished: true, isActive: true }),
       ...(watchId
         ? { careTemplateId: form.careTemplateId || '' }
         : form.careTemplateId
@@ -280,6 +283,7 @@ async function handleSubmit(form: WatchFormPayload) {
 
     invalidateAdminCache(watchesKey.value);
     invalidateAdminCache('inventory-insights');
+    invalidateStorefrontCatalogCaches();
     // Refresh en background sin await para no bloquear el cierre
     void refresh();
     void refreshInsights();

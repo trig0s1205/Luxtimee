@@ -105,3 +105,15 @@ export function isWatchGeneralInfoComplete(watch: WatchPendingShape): boolean {
   if (getMissingGeneralFields(watch).length > 0) return false;
   return watch.stock > 0;
 }
+
+/** Mínimo para publicar en catálogo (sin categoría/género obligatorios). */
+export function isWatchCatalogReady(watch: WatchPendingShape): boolean {
+  const model = (watch.model ?? '').trim();
+  if (!model || model === DRAFT_WATCH_MODEL) return false;
+  if (!watch.retailPrice || watch.retailPrice <= 0) return false;
+  if (!watch.wholesalePrice || watch.wholesalePrice <= 0) return false;
+  if (watch.stock <= 0) return false;
+  if (!hasPrimaryImage(watch) || !hasSecondaryImage(watch)) return false;
+  if (!watch.videoUrl?.trim()) return false;
+  return true;
+}

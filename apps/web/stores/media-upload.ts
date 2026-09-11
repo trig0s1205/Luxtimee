@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { validateWatchVideoFile } from '~/utils/video-validation';
 import { extractApiErrorMessage } from '~/utils/api-error';
+import { invalidateStorefrontCatalogCaches } from '~/utils/storefront-cache';
 
 export type MediaFileStatus = 'queue' | 'uploading' | 'done' | 'error';
 export type MediaSlot = 'image1' | 'image2' | 'video';
@@ -180,6 +181,7 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
         if (allDone) {
           activeJob.status = 'done';
           activeJob.errorMessage = undefined;
+          invalidateStorefrontCatalogCaches();
 
           useToast().success(`Multimedia lista — ${activeJob.brandName} ${activeJob.model}`);
         } else {

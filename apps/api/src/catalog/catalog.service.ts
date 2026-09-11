@@ -247,7 +247,9 @@ export class CatalogService {
     const pinnedIds = new Set(pinned.map((w) => w.id as string));
     const best = await this.findBestSellers(safeLimit);
     const extra = best.filter((w) => !pinnedIds.has(w.id as string)).slice(0, safeLimit - pinned.length);
-    return [...pinned, ...extra];
+    const merged = [...pinned, ...extra];
+    if (merged.length > 0) return merged;
+    return this.findNewArrivals(safeLimit);
   }
 
   async listWholesale(query: CatalogQueryDto) {
