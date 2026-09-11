@@ -112,6 +112,16 @@ export interface CatalogListQuery {
   limit?: number;
 }
 
+export interface PendingWatchFieldDto {
+  code: string;
+  label: string;
+}
+
+export interface PendingWatchItemDto {
+  watch: WatchStaffDto;
+  missing: PendingWatchFieldDto[];
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;

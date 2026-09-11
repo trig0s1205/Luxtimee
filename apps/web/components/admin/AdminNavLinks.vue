@@ -21,7 +21,7 @@ const visibleDashboardLinks = computed(() =>
 const linksBeforePedidos = [
   { to: '/admin/inventario', label: 'Inventario' },
   { to: '/admin/catalog-settings', label: 'Marcas y clases' },
-  { to: '/admin/pending-costs', label: 'Pendientes de costo', superOnly: true },
+  { to: '/admin/pending-info', label: 'Pendientes de info' },
 ];
 
 const prePedidosLinks = [

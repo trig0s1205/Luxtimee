@@ -16,10 +16,16 @@ import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
 import { storefrontHideWhenEmpty } from '../common/utils/storefront-stock.util';
 import { normalizeFaqItems } from '../common/utils/faq.util';
+import {
+  getMissingCostFields,
+  getMissingGeneralFields,
+  isWatchDraft,
+} from './utils/watch-pending.util';
 
 const MAX_CATALOG_FEATURED = 6;
 const CATALOG_LIMIT_MESSAGE =
   'Límite alcanzado: Solo se permite mostrar un máximo de 6 relojes en el catálogo principal.';
+
 const DRAFT_WATCH_MODEL = 'Pendiente de completar';
 
 export type MediaSlot = 'image1' | 'image2' | 'video';
@@ -330,6 +336,27 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
 
   async findPendingCost(page = 1, limit = 10) {
     return this.watchesRepository.findPendingCost(page, limit);
+  }
+
+  async findPendingInfo(section: 'general' | 'cost', page = 1, limit = 10) {
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.min(50, Math.max(1, limit));
+    const watches = await this.watchesRepository.findAllForPendingReview();
+
+    const items = watches
+      .filter((watch) => !isWatchDraft(watch))
+      .map((watch) => {
+        const missing =
+          section === 'cost' ? getMissingCostFields(watch) : getMissingGeneralFields(watch);
+        return missing.length ? { watch, missing } : null;
+      })
+      .filter((item): item is { watch: typeof watches[number]; missing: ReturnType<typeof getMissingGeneralFields> } => item != null);
+
+    const total = items.length;
+    const start = (safePage - 1) * safeLimit;
+    const data = items.slice(start, start + safeLimit);
+
+    return { data, total, page: safePage, limit: safeLimit };
   }
 
   getInventoryInsights() {

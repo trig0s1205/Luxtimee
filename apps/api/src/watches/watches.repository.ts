@@ -156,6 +156,14 @@ export class WatchesRepository {
     return this.ensureUniqueSku(sku);
   }
 
+  async findAllForPendingReview() {
+    return this.prisma.watch.findMany({
+      where: { deletedAt: null },
+      include: watchInclude,
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
   async findPendingCost(page = 1, limit = 10) {
     const safePage = Math.max(1, page);
     const safeLimit = Math.min(50, Math.max(1, limit));
