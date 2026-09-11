@@ -40,7 +40,7 @@ export function useAdminWatchEditSubmit() {
     editingWatch: WatchStaffDto,
     form: AdminWatchFormPayload,
     brands: { id: string; name: string }[],
-  ): Promise<boolean> {
+  ): Promise<{ ok: boolean; publishedNow?: boolean }> {
     const hasNewPrimaryImage = !!form.primaryImageFile;
     const hasNewSecondaryImage = !!form.secondaryImageFile;
     const hasVideo = !!form.videoFile;
@@ -50,9 +50,11 @@ export function useAdminWatchEditSubmit() {
       const videoError = await validateWatchVideoFile(form.videoFile);
       if (videoError) {
         toast.warning(videoError);
-        return false;
+        return { ok: false };
       }
     }
+
+    const wasUnpublished = !editingWatch.isPublished;
 
     const payload: Record<string, unknown> = {
       brandId: form.brandId,
@@ -82,8 +84,15 @@ export function useAdminWatchEditSubmit() {
     const brandName = brands.find((b) => b.id === form.brandId)?.name ?? editingWatch.brand?.name ?? '';
 
     try {
-      await api.patch<WatchStaffDto>(`/watches/${watchId}`, payload);
-      toast.success(hasNewMedia ? 'Reloj actualizado — multimedia en proceso...' : 'Reloj actualizado correctamente');
+      const updated = await api.patch<WatchStaffDto>(`/watches/${watchId}`, payload);
+      const publishedNow = wasUnpublished && updated.isPublished;
+      toast.success(
+        publishedNow
+          ? 'Reloj completo — ya está publicado en el catálogo.'
+          : hasNewMedia
+            ? 'Reloj actualizado — multimedia en proceso...'
+            : 'Reloj actualizado correctamente',
+      );
 
       if (hasNewMedia) {
         mediaQueue.enqueue({
@@ -97,12 +106,12 @@ export function useAdminWatchEditSubmit() {
           },
         });
       }
-      return true;
+      return { ok: true, publishedNow };
     } catch (err: unknown) {
       const message = extractApiErrorMessage(err, 'Error al guardar el reloj');
       if (isBadRequest(err)) toast.warning(message);
       else toast.error(message);
-      return false;
+      return { ok: false };
     }
   }
 

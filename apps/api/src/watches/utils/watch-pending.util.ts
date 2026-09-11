@@ -100,3 +100,8 @@ export function getMissingCostFields(watch: WatchPendingShape): PendingFieldDto[
   }
   return [];
 }
+
+export function isWatchGeneralInfoComplete(watch: WatchPendingShape): boolean {
+  if (getMissingGeneralFields(watch).length > 0) return false;
+  return watch.stock > 0;
+}

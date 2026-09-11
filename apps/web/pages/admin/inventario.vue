@@ -244,8 +244,16 @@ async function handleSubmit(form: WatchFormPayload) {
     let brandName = brands.value?.find((b) => b.id === (draftMode ? fallbackBrandId : form.brandId))?.name ?? '';
 
     if (watchId) {
-      await api.patch<WatchStaffDto>(`/watches/${watchId}`, payload);
-      toast.success(hasNewMedia ? 'Reloj actualizado — multimedia en proceso...' : 'Reloj actualizado correctamente');
+      const wasUnpublished = !editingWatch.value?.isPublished;
+      const updated = await api.patch<WatchStaffDto>(`/watches/${watchId}`, payload);
+      const publishedNow = wasUnpublished && updated.isPublished;
+      toast.success(
+        publishedNow
+          ? 'Reloj completo — ya está publicado en el catálogo.'
+          : hasNewMedia
+            ? 'Reloj actualizado — multimedia en proceso...'
+            : 'Reloj actualizado correctamente',
+      );
     } else {
       const created = await api.post<WatchStaffDto>('/watches', payload);
       watchId = created.id;

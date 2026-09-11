@@ -20,6 +20,8 @@ import {
   getMissingCostFields,
   getMissingGeneralFields,
   isWatchDraft,
+  isWatchGeneralInfoComplete,
+  type WatchPendingShape,
 } from './utils/watch-pending.util';
 
 const MAX_CATALOG_FEATURED = 6;
@@ -114,6 +116,48 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
       wholesaleMarginPercentage: financials.wholesaleMarginPercentage,
       profitPercent: financials.profitPercent,
     });
+  }
+
+  private mergePendingShape(
+    existing: Awaited<ReturnType<WatchesRepository['findById']>>,
+    data: Prisma.WatchUpdateInput,
+    dto?: Pick<UpdateWatchDto, 'categoryId' | 'mechanismId'> | null,
+  ): WatchPendingShape {
+    const categoryId =
+      dto?.categoryId !== undefined ? (dto.categoryId || null) : existing.categoryId;
+    const mechanismId =
+      dto?.mechanismId !== undefined ? (dto.mechanismId || null) : existing.mechanismId;
+
+    return {
+      model: (data.model as string | undefined) ?? existing.model,
+      retailPrice: (data.retailPrice as number | undefined) ?? existing.retailPrice,
+      wholesalePrice: (data.wholesalePrice as number | undefined) ?? existing.wholesalePrice,
+      stock: (data.stock as number | undefined) ?? existing.stock,
+      isPublished: existing.isPublished,
+      categoryId,
+      gender: (data.gender as string | null | undefined) ?? existing.gender,
+      movementType: (data.movementType as string | undefined) ?? existing.movementType,
+      mechanismId,
+      primaryImageUrl: (data.primaryImageUrl as string | null | undefined) ?? existing.primaryImageUrl,
+      secondaryImageUrl: (data.secondaryImageUrl as string | null | undefined) ?? existing.secondaryImageUrl,
+      frontImageUrl: (data.frontImageUrl as string | null | undefined) ?? existing.frontImageUrl,
+      backImageUrl: (data.backImageUrl as string | null | undefined) ?? existing.backImageUrl,
+      videoUrl: (data.videoUrl as string | null | undefined) ?? existing.videoUrl,
+      images: (data.images as string[] | undefined) ?? existing.images,
+    };
+  }
+
+  private maybeAutoPublishDraft(
+    existing: Awaited<ReturnType<WatchesRepository['findById']>>,
+    data: Prisma.WatchUpdateInput,
+    dto?: UpdateWatchDto | null,
+  ) {
+    if (dto?.isPublished !== undefined) return;
+    if (existing.isPublished) return;
+    const merged = this.mergePendingShape(existing, data, dto);
+    if (!isWatchGeneralInfoComplete(merged)) return;
+    data.isPublished = true;
+    data.isActive = true;
   }
 
   async create(dto: CreateWatchDto, role: Role) {
@@ -328,6 +372,8 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
       delete (data as Partial<UpdateWatchDto>).secretaryCommissionPercentage;
     }
 
+    this.maybeAutoPublishDraft(existing, data, dto);
+
     const watch = await this.watchesRepository.update(id, data);
     this.logger.log(`[watches:update] ${watch.id} sku=${watch.sku}`);
     this.cache.invalidateTag(CACHE_TAGS.catalog);
@@ -462,6 +508,8 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
       data.mainImageIndex = 0;
       data.imageNeedsReview = imageNeedsReview;
     }
+
+    this.maybeAutoPublishDraft(existing, data, null);
 
     const updated = await this.watchesRepository.update(id, data);
     this.cache.invalidateTag(CACHE_TAGS.catalog);

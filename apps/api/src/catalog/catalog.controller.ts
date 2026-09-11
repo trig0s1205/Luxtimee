@@ -37,6 +37,14 @@ export class CatalogController {
     return this.catalogService.findFeatured(safeLimit);
   }
 
+  @Get('hero-spotlight')
+  @Cacheable({ ttlMs: 120_000, tag: CACHE_TAGS.catalog, maxAge: 120 })
+  heroSpotlight(@Query('limit') limit?: string) {
+    const parsed = Number(limit);
+    const safeLimit = Number.isFinite(parsed) ? Math.min(12, Math.max(1, parsed)) : 6;
+    return this.catalogService.findHeroSpotlight(safeLimit);
+  }
+
   @Get('new-arrivals')
   @Cacheable({ ttlMs: 120_000, tag: CACHE_TAGS.catalog, maxAge: 120 })
   newArrivals() {

@@ -118,9 +118,9 @@ async function handleSubmit(form: AdminWatchFormPayload) {
   if (!editingWatch.value || savingForm.value) return;
   savingForm.value = true;
   submitError.value = '';
-  const ok = await saveWatchEdit(editingWatch.value, form, brands.value);
+  const result = await saveWatchEdit(editingWatch.value, form, brands.value);
   savingForm.value = false;
-  if (!ok) return;
+  if (!result.ok) return;
   showForm.value = false;
   editingWatch.value = null;
   await refresh();

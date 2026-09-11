@@ -162,6 +162,15 @@ export function useCatalogData() {
     }
   }
 
+  async function getHeroSpotlight(limit = 6) {
+    try {
+      return await api.get<WatchPublicDto[]>('/catalog/hero-spotlight', { limit });
+    } catch {
+      if (import.meta.dev) return MOCK_CATALOG.slice(0, limit);
+      return [];
+    }
+  }
+
   async function listWholesaleCatalog(query: CatalogListQuery = {}) {
     const params = sanitizeCatalogQuery(query);
     const baseUrl = useApiBaseUrl();
@@ -184,6 +193,7 @@ export function useCatalogData() {
     getNewArrivals,
     listBrands,
     getBestSellers,
+    getHeroSpotlight,
     getFeatured,
     listWholesaleCatalog,
     getWholesaleBySlug,

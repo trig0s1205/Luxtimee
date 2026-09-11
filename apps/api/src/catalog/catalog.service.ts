@@ -196,7 +196,13 @@ export class CatalogService {
       .map(([id]) => id);
     if (!ids.length) return [];
     const watches = await this.prisma.watch.findMany({
-      where: { id: { in: ids }, isActive: true, stock: { gt: 0 } },
+      where: {
+        id: { in: ids },
+        isActive: true,
+        isPublished: true,
+        deletedAt: null,
+        stock: { gt: 0 },
+      },
       include: { brand: true, category: true, warrantyTemplate: true, careTemplate: true },
     });
     return ids
@@ -231,6 +237,17 @@ export class CatalogService {
     });
 
     return watches.map((w) => this.mapPublicWatch(w));
+  }
+
+  async findHeroSpotlight(limit = 6) {
+    const safeLimit = Math.min(12, Math.max(1, limit));
+    const pinned = await this.findFeatured(safeLimit);
+    if (pinned.length >= safeLimit) return pinned.slice(0, safeLimit);
+
+    const pinnedIds = new Set(pinned.map((w) => w.id as string));
+    const best = await this.findBestSellers(safeLimit);
+    const extra = best.filter((w) => !pinnedIds.has(w.id as string)).slice(0, safeLimit - pinned.length);
+    return [...pinned, ...extra];
   }
 
   async listWholesale(query: CatalogQueryDto) {

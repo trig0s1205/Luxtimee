@@ -8,8 +8,8 @@ const { observe } = useRevealObserver();
 const { fetchConfig, DEFAULT_HOMEPAGE_CONFIG } = useHomepageConfig();
 
 const { data: heroWatches } = await useCachedAsyncData(
-  'home-best-sellers',
-  () => catalog.getBestSellers(6),
+  'home-hero-spotlight',
+  () => catalog.getHeroSpotlight(6),
   { staleTime: STOREFRONT_CACHE_MS.catalog },
 );
 const { data: limitedWatches } = useLazyAsyncData(
