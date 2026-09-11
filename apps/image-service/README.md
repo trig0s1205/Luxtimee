@@ -12,11 +12,11 @@ POST /api/v1/process-watch
 
 **Salida:** Imagen WEBP 1200×1800 px, reloj recortado con **fondo transparente** (el blanco solo se usa en el paso intermedio). En la tienda se ve sobre el fondo oscuro con sombra.
 
-1. **Paso 1 — rembg:** recorte inicial del reloj (fondo complejo).
-2. Fondo blanco temporal con margen (solo para el paso 2).
-3. **Paso 2 — rembg + alpha matting:** recorte fino del reloj sobre blanco.
-4. Canvas final **transparente** 1200×1800, reloj centrado al 84%.
-5. Exportación WEBP con transparencia (calidad 88).
+1. Si la foto ya tiene **fondo claro/blanco** (caja de luz, base acrílica): recorte **directo** con rembg (sin paso 1 que arrastra la base).
+2. Si el fondo es sucio/complejo: **paso 1** rembg → blanco → **paso 2** rembg fino.
+3. Canvas final transparente 1200×1800, reloj al 84%, WEBP.
+
+**Foto con base transparente:** encuadra solo reloj + base mínima; evita mucho blanco vacío abajo. Corazón abierto: no uses doble paso sobre la base completa.
 
 ## Ejecución
 

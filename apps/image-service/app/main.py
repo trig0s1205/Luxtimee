@@ -148,55 +148,146 @@ def _pad_on_white(img: Image.Image, ratio: float = 0.12) -> Image.Image:
     return canvas
 
 
+def _pad_rgb_on_white(rgb: Image.Image, ratio: float = 0.08) -> Image.Image:
+    width, height = rgb.size
+    pad = max(32, int(max(width, height) * ratio))
+    canvas = Image.new("RGB", (width + pad * 2, height + pad * 2), BACKGROUND_RGB)
+    canvas.paste(rgb, (pad, pad))
+    return canvas
+
+
+def _is_studio_white_backdrop(rgb: Image.Image) -> bool:
+    width, height = rgb.size
+    step = max(1, min(width, height) // 48)
+    samples: list[tuple[int, int, int]] = []
+    for x in range(0, width, step):
+        samples.append(rgb.getpixel((x, 0)))
+        samples.append(rgb.getpixel((x, height - 1)))
+    for y in range(0, height, step):
+        samples.append(rgb.getpixel((0, y)))
+        samples.append(rgb.getpixel((width - 1, y)))
+    if not samples:
+        return False
+    bright = sum(1 for r, g, b in samples if min(r, g, b) >= 215)
+    return bright / len(samples) >= 0.72
+
+
+def _trim_white_margins(rgb: Image.Image, threshold: int = 235, max_ratio: float = 0.38) -> Image.Image:
+    width, height = rgb.size
+    pixels = rgb.load()
+
+    def row_mostly_white(y: int) -> bool:
+        white = sum(
+            1 for x in range(width)
+            if min(pixels[x, y]) >= threshold
+        )
+        return white / width >= 0.9
+
+    def col_mostly_white(x: int) -> bool:
+        white = sum(
+            1 for y in range(height)
+            if min(pixels[x, y]) >= threshold
+        )
+        return white / height >= 0.9
+
+    top = 0
+    bottom = height
+    left = 0
+    right = width
+
+    max_trim_y = int(height * max_ratio)
+    trimmed_y = 0
+    while bottom - top > 48 and trimmed_y < max_trim_y and row_mostly_white(bottom - 1):
+        bottom -= 1
+        trimmed_y += 1
+    trimmed_y = 0
+    while bottom - top > 48 and trimmed_y < max_trim_y and row_mostly_white(top):
+        top += 1
+        trimmed_y += 1
+
+    max_trim_x = int(width * 0.2)
+    trimmed_x = 0
+    while right - left > 48 and trimmed_x < max_trim_x and col_mostly_white(left):
+        left += 1
+        trimmed_x += 1
+    trimmed_x = 0
+    while right - left > 48 and trimmed_x < max_trim_x and col_mostly_white(right - 1):
+        right -= 1
+        trimmed_x += 1
+
+    if right - left < 32 or bottom - top < 32:
+        return rgb
+    return rgb.crop((left, top, right, bottom))
+
+
+def _rembg_refined(data: bytes) -> Image.Image:
+    refined_cut = remove(
+        data,
+        session=_rembg_session,
+        alpha_matting=True,
+        alpha_matting_foreground_threshold=240,
+        alpha_matting_background_threshold=10,
+        alpha_matting_erode_size=10,
+        post_process_mask=True,
+    )
+    return _crop_rgba(Image.open(io.BytesIO(refined_cut)).convert("RGBA"))
+
+
+def _compose_canvas(watch: Image.Image) -> bytes:
+    watch = _scale_to_fill(watch, MAX_WATCH_WIDTH, MAX_WATCH_HEIGHT)
+    canvas = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), (0, 0, 0, 0))
+    x = (CANVAS_WIDTH - watch.width) // 2
+    y = (CANVAS_HEIGHT - watch.height) // 2
+    canvas.paste(watch, (x, y), watch)
+    buffer = io.BytesIO()
+    canvas.save(buffer, format="WEBP", quality=88, method=4)
+    return buffer.getvalue()
+
+
 def process_watch_image(data: bytes) -> bytes:
     started = time.perf_counter()
     try:
-        logger.info("rembg pass-1 inicio bytes=%s model=%s", len(data), REMBG_MODEL)
-        rough_cut = remove(data, session=_rembg_session)
-        watch_rough = _crop_rgba(Image.open(io.BytesIO(rough_cut)).convert("RGBA"))
-        logger.info(
-            "rembg pass-1 ok in %.2fs size=%sx%s",
-            time.perf_counter() - started,
-            watch_rough.width,
-            watch_rough.height,
-        )
+        source_rgb = Image.open(io.BytesIO(data)).convert("RGB")
+        studio = _is_studio_white_backdrop(source_rgb)
 
-        on_white = _pad_on_white(watch_rough)
-        white_png = io.BytesIO()
-        on_white.save(white_png, format="PNG")
+        if studio:
+            logger.info("modo estudio: fondo claro detectado, recorte directo")
+            trimmed = _trim_white_margins(source_rgb)
+            studio_png = io.BytesIO()
+            _pad_rgb_on_white(trimmed).save(studio_png, format="PNG")
+            watch = _rembg_refined(studio_png.getvalue())
+            logger.info(
+                "rembg estudio ok in %.2fs size=%sx%s",
+                time.perf_counter() - started,
+                watch.width,
+                watch.height,
+            )
+            result = _compose_canvas(watch)
+        else:
+            logger.info("rembg pass-1 inicio bytes=%s model=%s", len(data), REMBG_MODEL)
+            rough_cut = remove(data, session=_rembg_session)
+            watch_rough = _crop_rgba(Image.open(io.BytesIO(rough_cut)).convert("RGBA"))
+            logger.info(
+                "rembg pass-1 ok in %.2fs size=%sx%s",
+                time.perf_counter() - started,
+                watch_rough.width,
+                watch_rough.height,
+            )
 
-        pass2_started = time.perf_counter()
-        logger.info("rembg pass-2 inicio bytes=%s", len(white_png.getvalue()))
-        refined_cut = remove(
-            white_png.getvalue(),
-            session=_rembg_session,
-            alpha_matting=True,
-            alpha_matting_foreground_threshold=250,
-            alpha_matting_background_threshold=10,
-            alpha_matting_erode_size=12,
-            post_process_mask=True,
-        )
-        watch = _crop_rgba(Image.open(io.BytesIO(refined_cut)).convert("RGBA"))
-        logger.info(
-            "rembg pass-2 ok in %.2fs size=%sx%s",
-            time.perf_counter() - pass2_started,
-            watch.width,
-            watch.height,
-        )
+            on_white = _pad_on_white(watch_rough)
+            white_png = io.BytesIO()
+            on_white.save(white_png, format="PNG")
 
-        watch = _scale_to_fill(watch, MAX_WATCH_WIDTH, MAX_WATCH_HEIGHT)
-
-        canvas = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), (0, 0, 0, 0))
-
-        watch_width, watch_height = watch.size
-        x = (CANVAS_WIDTH - watch_width) // 2
-        y = (CANVAS_HEIGHT - watch_height) // 2
-
-        canvas.paste(watch, (x, y), watch)
-
-        buffer = io.BytesIO()
-        canvas.save(buffer, format="WEBP", quality=88, method=4)
-        result = buffer.getvalue()
+            pass2_started = time.perf_counter()
+            logger.info("rembg pass-2 inicio bytes=%s", len(white_png.getvalue()))
+            watch = _rembg_refined(white_png.getvalue())
+            logger.info(
+                "rembg pass-2 ok in %.2fs size=%sx%s",
+                time.perf_counter() - pass2_started,
+                watch.width,
+                watch.height,
+            )
+            result = _compose_canvas(watch)
         logger.info(
             "Imagen lista in %.2fs canvas=%sx%s out_bytes=%s",
             time.perf_counter() - started,
