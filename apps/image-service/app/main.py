@@ -10,6 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from PIL import Image
 from rembg import new_session, remove
+from scipy import ndimage
+import numpy as np
 
 from app.video_processor import ALLOWED_VIDEO_MIMES, process_watch_video
 
@@ -66,7 +68,7 @@ MAX_WATCH_HEIGHT = int(CANVAS_HEIGHT * 0.84)
 BACKGROUND_RGB = (255, 255, 255)
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 ALLOWED_FORMATS = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
-REMBG_MODEL = os.getenv("REMBG_MODEL", "u2netp")
+REMBG_MODEL = os.getenv("REMBG_MODEL", "birefnet-general")
 API_KEY = os.getenv("IMAGE_SERVICE_API_KEY", "").strip()
 
 _rembg_session = None
@@ -158,6 +160,12 @@ def _pad_rgb_on_white(rgb: Image.Image, ratio: float = 0.08) -> Image.Image:
 
 def _is_studio_white_backdrop(rgb: Image.Image) -> bool:
     width, height = rgb.size
+    preview = rgb.resize((72, 72))
+    pixels = list(preview.getdata())
+    avg_lum = sum((r + g + b) / 3 for r, g, b in pixels) / len(pixels)
+    if avg_lum >= 188:
+        return True
+
     step = max(1, min(width, height) // 48)
     samples: list[tuple[int, int, int]] = []
     for x in range(0, width, step):
@@ -168,8 +176,8 @@ def _is_studio_white_backdrop(rgb: Image.Image) -> bool:
         samples.append(rgb.getpixel((width - 1, y)))
     if not samples:
         return False
-    bright = sum(1 for r, g, b in samples if min(r, g, b) >= 215)
-    return bright / len(samples) >= 0.72
+    bright = sum(1 for r, g, b in samples if min(r, g, b) >= 200)
+    return bright / len(samples) >= 0.55
 
 
 def _trim_white_margins(rgb: Image.Image, threshold: int = 235, max_ratio: float = 0.38) -> Image.Image:
@@ -220,6 +228,73 @@ def _trim_white_margins(rgb: Image.Image, threshold: int = 235, max_ratio: float
     return rgb.crop((left, top, right, bottom))
 
 
+def _tight_crop_subject(rgb: Image.Image, white_threshold: int = 232) -> Image.Image:
+    arr = np.asarray(rgb)
+    non_white = np.any(arr < white_threshold, axis=2)
+    if not np.any(non_white):
+        return rgb
+    ys, xs = np.where(non_white)
+    height, width = arr.shape[:2]
+    margin_y = max(8, int(height * 0.03))
+    margin_x = max(8, int(width * 0.03))
+    top = max(0, int(ys.min()) - margin_y)
+    bottom = min(height, int(ys.max()) + margin_y + 1)
+    left = max(0, int(xs.min()) - margin_x)
+    right = min(width, int(xs.max()) + margin_x + 1)
+    return rgb.crop((left, top, right, bottom))
+
+
+def _keep_largest_alpha_blob(rgba: Image.Image) -> Image.Image:
+    arr = np.asarray(rgba).copy()
+    mask = arr[:, :, 3] > 72
+    if not np.any(mask):
+        return rgba
+    labeled, count = ndimage.label(mask)
+    if count <= 1:
+        return rgba
+    sizes = ndimage.sum(mask, labeled, range(1, count + 1))
+    keep = int(np.argmax(sizes)) + 1
+    arr[:, :, 3] = np.where(labeled == keep, arr[:, :, 3], 0)
+    return Image.fromarray(arr)
+
+
+def _remove_bottom_pedestal(rgba: Image.Image) -> Image.Image:
+    arr = np.asarray(rgba).copy()
+    alpha = arr[:, :, 3] > 72
+    height, width = alpha.shape
+    if height < 80:
+        return rgba
+
+    fill = np.sum(alpha, axis=1) / max(width, 1)
+    peak_y = int(np.argmax(fill))
+    peak_fill = float(fill[peak_y])
+    if peak_fill < 0.04:
+        return rgba
+
+    cut_y = height
+    low_run = 0
+    min_run = max(10, height // 28)
+    for y in range(height - 1, peak_y + max(8, height // 12), -1):
+        if fill[y] < peak_fill * 0.28:
+            low_run += 1
+            if low_run >= min_run:
+                cut_y = y + low_run
+                break
+        else:
+            low_run = 0
+
+    if cut_y < height - 12:
+        arr[cut_y:, :, 3] = 0
+        logger.info("pedestal recortado filas=%s de %s", cut_y, height)
+    return Image.fromarray(arr)
+
+
+def _refine_watch_cut(rgba: Image.Image) -> Image.Image:
+    refined = _keep_largest_alpha_blob(rgba)
+    refined = _remove_bottom_pedestal(refined)
+    return _crop_rgba(refined)
+
+
 def _rembg_refined(data: bytes) -> Image.Image:
     refined_cut = remove(
         data,
@@ -230,7 +305,7 @@ def _rembg_refined(data: bytes) -> Image.Image:
         alpha_matting_erode_size=10,
         post_process_mask=True,
     )
-    return _crop_rgba(Image.open(io.BytesIO(refined_cut)).convert("RGBA"))
+    return _refine_watch_cut(_crop_rgba(Image.open(io.BytesIO(refined_cut)).convert("RGBA")))
 
 
 def _compose_canvas(watch: Image.Image) -> bytes:
@@ -253,8 +328,9 @@ def process_watch_image(data: bytes) -> bytes:
         if studio:
             logger.info("modo estudio: fondo claro detectado, recorte directo")
             trimmed = _trim_white_margins(source_rgb)
+            focused = _tight_crop_subject(trimmed)
             studio_png = io.BytesIO()
-            _pad_rgb_on_white(trimmed).save(studio_png, format="PNG")
+            _pad_rgb_on_white(focused).save(studio_png, format="PNG")
             watch = _rembg_refined(studio_png.getvalue())
             logger.info(
                 "rembg estudio ok in %.2fs size=%sx%s",
@@ -278,15 +354,9 @@ def process_watch_image(data: bytes) -> bytes:
             white_png = io.BytesIO()
             on_white.save(white_png, format="PNG")
 
-            pass2_started = time.perf_counter()
             logger.info("rembg pass-2 inicio bytes=%s", len(white_png.getvalue()))
             watch = _rembg_refined(white_png.getvalue())
-            logger.info(
-                "rembg pass-2 ok in %.2fs size=%sx%s",
-                time.perf_counter() - pass2_started,
-                watch.width,
-                watch.height,
-            )
+            logger.info("rembg pass-2 ok size=%sx%s", watch.width, watch.height)
             result = _compose_canvas(watch)
         logger.info(
             "Imagen lista in %.2fs canvas=%sx%s out_bytes=%s",
