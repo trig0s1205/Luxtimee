@@ -104,7 +104,7 @@ useSeoMeta({ title: 'Destacados en inicio — LUXTIMEE Admin' });
       @refresh="refresh()"
     />
     <p class="catalog-destacados-intro">
-      El hero mezcla estos relojes (hasta {{ featuredSlots.max }}) con los más vendidos.
+      Estos relojes tienen prioridad en el hero del inicio (hasta {{ featuredSlots.max }}).
       Úsalo para novedades sin ventas aún. Solo aparecen relojes publicados con stock.
     </p>
     <p class="catalog-destacados-slots">

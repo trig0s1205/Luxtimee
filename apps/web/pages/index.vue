@@ -7,11 +7,12 @@ const catalog = useCatalogData();
 const { observe } = useRevealObserver();
 const { fetchConfig, DEFAULT_HOMEPAGE_CONFIG } = useHomepageConfig();
 
-const { data: heroWatches } = await useCachedAsyncData(
+const { data: heroWatches, refresh: refreshHero } = await useCachedAsyncData(
   'home-hero-spotlight',
   () => catalog.getHeroSpotlight(6),
-  { staleTime: STOREFRONT_CACHE_MS.catalog },
+  { staleTime: 30_000 },
 );
+
 const { data: limitedWatches } = useLazyAsyncData(
   'home-limited-editions',
   async () => {
@@ -36,6 +37,7 @@ useSeoMeta({
 });
 
 onMounted(() => {
+  void refreshHero();
   nextTick(() => observe());
 });
 </script>

@@ -282,7 +282,7 @@ onBeforeUnmount(() => stopTimer());
       </div>
     </div>
 
-    <nav v-if="list.length > 1" class="lux-hero__nav" aria-label="Más vendidos">
+    <nav v-if="list.length > 1" class="lux-hero__nav" aria-label="Relojes destacados">
       <button type="button" class="lux-hero__nav-side lux-hero__nav-side--prev" @click="goPrev">
         <span class="lux-hero__nav-arrow">‹</span>
         <span class="lux-hero__nav-label">{{ prevWatch?.model }}</span>

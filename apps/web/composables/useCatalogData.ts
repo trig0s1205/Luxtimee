@@ -162,21 +162,32 @@ export function useCatalogData() {
     }
   }
 
+  async function fetchPublic<T>(path: string, query?: Record<string, string | number>) {
+    const baseUrl = useApiBaseUrl();
+    return $fetch<T>(`${baseUrl}${path}`, { query, credentials: 'omit' });
+  }
+
   async function getHeroSpotlight(limit = 6) {
     try {
-      const hero = await api.get<WatchPublicDto[]>('/catalog/hero-spotlight', { limit });
-      if (hero.length > 0) return hero;
+      const hero = await fetchPublic<WatchPublicDto[]>('/catalog/hero-spotlight', { limit });
+      if (Array.isArray(hero) && hero.length > 0) return hero;
     } catch {
-      /* ruta antigua o API caída */
+      /* API antigua sin hero-spotlight */
     }
     try {
-      const arrivals = await api.get<WatchPublicDto[]>('/catalog/new-arrivals');
+      const featured = await fetchPublic<WatchPublicDto[]>('/catalog/featured', { limit });
+      if (featured.length > 0) return featured.slice(0, limit);
+    } catch {
+      /* siguiente */
+    }
+    try {
+      const arrivals = await fetchPublic<WatchPublicDto[]>('/catalog/new-arrivals');
       if (arrivals.length > 0) return arrivals.slice(0, limit);
     } catch {
-      /* siguiente fallback */
+      /* siguiente */
     }
     try {
-      const list = await api.get<PaginatedResponse<WatchPublicDto>>('/catalog', { limit, page: 1 });
+      const list = await fetchPublic<PaginatedResponse<WatchPublicDto>>('/catalog', { limit, page: 1 });
       if (list.data.length > 0) return list.data.slice(0, limit);
     } catch {
       if (import.meta.dev) return MOCK_CATALOG.slice(0, limit);

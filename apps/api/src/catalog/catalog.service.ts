@@ -245,11 +245,11 @@ export class CatalogService {
     if (pinned.length >= safeLimit) return pinned.slice(0, safeLimit);
 
     const pinnedIds = new Set(pinned.map((w) => w.id as string));
-    const best = await this.findBestSellers(safeLimit);
-    const extra = best.filter((w) => !pinnedIds.has(w.id as string)).slice(0, safeLimit - pinned.length);
-    const merged = [...pinned, ...extra];
-    if (merged.length > 0) return merged;
-    return this.findNewArrivals(safeLimit);
+    const arrivals = await this.findNewArrivals(safeLimit);
+    const extra = arrivals
+      .filter((w) => !pinnedIds.has(w.id as string))
+      .slice(0, safeLimit - pinned.length);
+    return [...pinned, ...extra];
   }
 
   async listWholesale(query: CatalogQueryDto) {
