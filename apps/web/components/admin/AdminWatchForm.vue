@@ -34,6 +34,7 @@ type WatchFormPayload = {
   secondaryImageFile: File | null;
   videoFile: File | null;
   imagesOnly?: boolean;
+  showInCatalog: boolean;
 };
 
 const props = defineProps<{
@@ -53,6 +54,7 @@ const emit = defineEmits<{
 
 const auth = useAuthStore();
 const toast = useToast();
+const api = useApi();
 
 const activeTab = ref(0);
 const tabs = ['GENERAL', 'PRECIOS E INVENTARIO', 'MULTIMEDIA'];
@@ -87,6 +89,7 @@ const form = reactive<WatchFormPayload>({
   primaryImageFile: null,
   secondaryImageFile: null,
   videoFile: null,
+  showInCatalog: props.watch?.showInCatalog ?? false,
 });
 
 watch(
@@ -214,6 +217,7 @@ function hasRequiredMedia() {
 
 const isBusy = computed(() => props.saving);
 const isEdit = computed(() => !!props.watch?.id);
+const canPickHero = computed(() => !imagesOnlyMode.value || isEdit.value);
 
 async function onSubmit() {
   if (isBusy.value) return;
@@ -235,6 +239,21 @@ async function onSubmit() {
       toast.warning(validationError);
       activeTab.value = 2;
       return;
+    }
+  }
+
+  if (form.showInCatalog && !props.watch?.showInCatalog) {
+    try {
+      const { count, max } = await api.get<{ count: number; max: number }>('/watches/featured/count', {
+        excludeId: props.watch?.id,
+      });
+      if (count >= max) {
+        toast.warning(`Ya hay ${max} relojes en el hero. Quita uno en Destacados inicio.`);
+        activeTab.value = 1;
+        return;
+      }
+    } catch {
+      /* el API validará al guardar */
     }
   }
 
@@ -412,6 +431,17 @@ const selectedCareTemplate = computed(() =>
               >
             </div>
           </template>
+
+          <div v-if="canPickHero" class="admin-form-field admin-form-field--full admin-hero-spotlight-field">
+            <UiLuxCheckbox
+              v-model="form.showInCatalog"
+              label="Mostrar en el hero del inicio"
+            />
+            <p class="admin-form-hint admin-form-hint--hero">
+              Hasta 6 relojes con prioridad en la portada (además de los más vendidos).
+              Debe tener stock y estar publicado en catálogo.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -554,6 +584,19 @@ const selectedCareTemplate = computed(() =>
   padding: 14px 16px;
   border: 1px solid rgba(200, 169, 110, 0.18);
   background: rgba(200, 169, 110, 0.04);
+}
+
+.admin-hero-spotlight-field {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(200, 169, 110, 0.1);
+}
+
+.admin-form-hint--hero {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--lux-white-dim);
 }
 
 .admin-watch-tab-panel {
