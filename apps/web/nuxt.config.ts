@@ -69,6 +69,7 @@ export default defineNuxtConfig({
     },
   },
   app: {
+    pageTransition: { name: 'lux-page', mode: 'out-in' },
     head: {
       title: 'LuxTimee — Luxury Watches',
       link: [

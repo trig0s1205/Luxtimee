@@ -11,13 +11,18 @@ const { t } = useLocale();
 const product = ref<WatchPublicDto | null>(null);
 const loading = ref(false);
 const { watchPrimaryImage } = useMediaUrl();
+const { start: startProgress, finish: finishProgress } = useStorefrontRouteProgress();
+const detailImageReady = ref(false);
 
 watch(slug, async (s) => {
   if (!s) {
     product.value = null;
+    detailImageReady.value = false;
     return;
   }
   loading.value = true;
+  detailImageReady.value = false;
+  startProgress();
   try {
     product.value = await catalog.getBySlug(s);
   } catch {
@@ -25,6 +30,7 @@ watch(slug, async (s) => {
     closeProduct();
   } finally {
     loading.value = false;
+    finishProgress();
   }
 });
 
@@ -59,15 +65,26 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
           <span class="detail-back-btn__label">{{ t('nav.back') }}</span>
         </button>
         <button type="button" class="detail-close-btn" aria-label="Cerrar" @click="closeProduct">×</button>
-        <div v-if="loading" class="detail-loading">Cargando…</div>
-        <div v-else-if="product" class="detail-wrapper">
+        <div v-if="loading" class="detail-wrapper detail-wrapper--skeleton" aria-busy="true">
+          <div class="detail-skeleton-image storefront-shimmer" />
+          <div class="detail-skeleton-info">
+            <div class="detail-skeleton-line storefront-shimmer w-28" />
+            <div class="detail-skeleton-line storefront-shimmer w-full" />
+            <div class="detail-skeleton-line storefront-shimmer w-3/5" />
+            <div class="detail-skeleton-line storefront-shimmer w-40 h-8 mt-4" />
+            <div class="detail-skeleton-btn storefront-shimmer" />
+          </div>
+        </div>
+        <div v-else-if="product" class="detail-wrapper detail-wrapper--loaded">
           <div class="detail-image-col">
             <div id="detail-image-container" class="detail-image-box">
               <img
                 v-if="watchPrimaryImage(product)"
                 :src="watchPrimaryImage(product)"
                 :alt="`${product.brand.name} ${product.model}`"
-                class="product-real-img"
+                class="product-real-img media-reveal"
+                :class="{ 'media-reveal--ready': detailImageReady }"
+                @load="detailImageReady = true"
               >
             </div>
           </div>

@@ -40,6 +40,10 @@ onMounted(() => {
   void refreshHero();
   nextTick(() => observe());
 });
+
+watch(heroWatches, () => {
+  nextTick(() => observe());
+});
 </script>
 
 <template>

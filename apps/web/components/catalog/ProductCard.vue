@@ -19,6 +19,11 @@ const { t } = useLocale();
 const { watchPrimaryImage } = useMediaUrl();
 
 const imageUrl = computed(() => optimizeCloudinaryImageUrl(watchPrimaryImage(props.watch), 480));
+const imageReady = ref(false);
+
+watch(imageUrl, () => {
+  imageReady.value = false;
+});
 
 const showLimitedEdition = computed(() => props.watch.isLimitedEdition && props.watch.stock > 0);
 const stockLabel = computed(() => {
@@ -69,7 +74,10 @@ function onAdd(e: Event) {
         v-if="imageUrl"
         :src="imageUrl"
         :alt="`${watch.brand.name} ${watch.model}`"
+        class="media-reveal"
+        :class="{ 'media-reveal--ready': imageReady }"
         loading="lazy"
+        @load="imageReady = true"
       >
       <div v-else class="watch-placeholder" />
     </div>
