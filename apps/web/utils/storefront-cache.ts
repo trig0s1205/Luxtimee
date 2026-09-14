@@ -33,16 +33,15 @@ export function markHydratedCacheKey(key: string) {
   hydratedKeys.add(key);
 }
 
+/** No limpia hydratedKeys: el payload SSR ya se consumió y no debe volver a servirse. */
 export function invalidateClientCache(key: string) {
   clientStore.delete(key);
-  hydratedKeys.delete(key);
 }
 
 export function invalidateStorefrontCatalogCaches() {
   for (const key of [...clientStore.keys()]) {
     if (key.startsWith('catalog-') || key.startsWith('home-')) {
       clientStore.delete(key);
-      hydratedKeys.delete(key);
     }
   }
 }
