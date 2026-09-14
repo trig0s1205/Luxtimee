@@ -16,7 +16,10 @@ import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
 
 import { normalizeCustomerProofImages } from './homepage-images.util';
-import { DEFAULT_HOMEPAGE_FAQ_ITEMS, migrateHomepageFaqConfig } from '../common/utils/faq.util';
+import {
+  DEFAULT_HOMEPAGE_FAQ_ITEMS,
+  migrateHomepageFaqConfig,
+} from '../common/utils/faq.util';
 
 const HOMEPAGE_KEY = 'homepage_config';
 
@@ -42,7 +45,8 @@ const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
     label: 'Catálogo 2026',
     titleLead: 'Nuestros',
     titleEm: 'relojes',
-    intro: 'Explora la selección completa: piezas con carácter, acabados premium y stock real listo para envío a todo Colombia.',
+    intro:
+      'Explora la selección completa: piezas con carácter, acabados premium y stock real listo para envío a todo Colombia.',
     ctaText: 'Ver catálogo completo',
     ctaLink: '/catalogo',
   },
@@ -72,7 +76,8 @@ const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
     label: 'Entregas reales',
     title: 'Clientes que ya',
     titleEm: 'recibieron su pieza',
-    subtitle: 'Fotos de entregas locales y envíos nacionales. Sin renders ni stock de banco de imágenes.',
+    subtitle:
+      'Fotos de entregas locales y envíos nacionales. Sin renders ni stock de banco de imágenes.',
     images: [],
   },
   faq: {
@@ -89,7 +94,8 @@ const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
     titleEm: 'en específico?',
     body: 'Escríbenos el reloj, tu ciudad y si prefieres envío nacional o entrega local. Te respondemos con disponibilidad y tiempos reales.',
     ctaText: 'Abrir chat',
-    whatsappMessage: 'Hola LUXTIMEE, busco un reloj en particular. Mi ciudad es ',
+    whatsappMessage:
+      'Hola LUXTIMEE, busco un reloj en particular. Mi ciudad es ',
   },
 };
 
@@ -139,13 +145,16 @@ export class SettingsService {
   }
 
   async getProfitConfig(): Promise<ProfitConfigDto> {
-    const raw = await this.getJson<ProfitConfigDto & { defaultProfitPercent?: number }>('profit_config', {
+    const raw = await this.getJson<
+      ProfitConfigDto & { defaultProfitPercent?: number }
+    >('profit_config', {
       reinvestmentPercent: 35,
       ownerProfitPercent: 65,
     });
     return {
       reinvestmentPercent: raw.reinvestmentPercent ?? 35,
-      ownerProfitPercent: raw.ownerProfitPercent ?? (100 - (raw.reinvestmentPercent ?? 35)),
+      ownerProfitPercent:
+        raw.ownerProfitPercent ?? 100 - (raw.reinvestmentPercent ?? 35),
     };
   }
 
@@ -153,14 +162,24 @@ export class SettingsService {
     const reinvestment = Number(value.reinvestmentPercent);
     const owner = Number(value.ownerProfitPercent);
 
-    if (!Number.isFinite(reinvestment) || reinvestment < 0 || reinvestment > 100) {
-      throw new BadRequestException('El % de reinversión debe estar entre 0 y 100.');
+    if (
+      !Number.isFinite(reinvestment) ||
+      reinvestment < 0 ||
+      reinvestment > 100
+    ) {
+      throw new BadRequestException(
+        'El % de reinversión debe estar entre 0 y 100.',
+      );
     }
     if (!Number.isFinite(owner) || owner < 0 || owner > 100) {
-      throw new BadRequestException('El % de ganancia libre debe estar entre 0 y 100.');
+      throw new BadRequestException(
+        'El % de ganancia libre debe estar entre 0 y 100.',
+      );
     }
     if (Math.round(reinvestment + owner) !== 100) {
-      throw new BadRequestException('Reinversión y ganancia libre deben sumar 100%.');
+      throw new BadRequestException(
+        'Reinversión y ganancia libre deben sumar 100%.',
+      );
     }
 
     return this.setJson('profit_config', {
@@ -170,12 +189,22 @@ export class SettingsService {
   }
 
   getCommissionConfig() {
-    return this.getJson<CommissionConfigDto>('commission_percent', { percent: 5 });
+    return this.getJson<CommissionConfigDto>('commission_percent', {
+      percent: 5,
+    });
   }
 
-  async setCommissionConfig(value: CommissionConfigDto): Promise<CommissionUpdateResultDto> {
-    if (!Number.isFinite(value.percent) || value.percent < 0 || value.percent > 100) {
-      throw new BadRequestException('El porcentaje de comisión debe estar entre 0 y 100.');
+  async setCommissionConfig(
+    value: CommissionConfigDto,
+  ): Promise<CommissionUpdateResultDto> {
+    if (
+      !Number.isFinite(value.percent) ||
+      value.percent < 0 ||
+      value.percent > 100
+    ) {
+      throw new BadRequestException(
+        'El porcentaje de comisión debe estar entre 0 y 100.',
+      );
     }
 
     await this.setJson('commission_percent', value);
@@ -230,18 +259,30 @@ export class SettingsService {
     if (carouselImages.filter(Boolean).length < 5) {
       const legacy: string[] = [];
       if (rawFounder.mainImageUrl) legacy.push(rawFounder.mainImageUrl);
-      if (Array.isArray(rawFounder.galleryImages)) legacy.push(...rawFounder.galleryImages);
-      const merged = [...carouselImages.filter(Boolean), ...legacy.filter(Boolean)];
+      if (Array.isArray(rawFounder.galleryImages))
+        legacy.push(...rawFounder.galleryImages);
+      const merged = [
+        ...carouselImages.filter(Boolean),
+        ...legacy.filter(Boolean),
+      ];
       carouselImages = Array.from({ length: 5 }, (_, i) => merged[i] ?? '');
     } else {
-      carouselImages = Array.from({ length: 5 }, (_, i) => carouselImages[i] ?? '');
+      carouselImages = Array.from(
+        { length: 5 },
+        (_, i) => carouselImages[i] ?? '',
+      );
     }
 
-    const carouselFilled = carouselImages.filter((url) => typeof url === 'string' && url.trim()).length;
+    const carouselFilled = carouselImages.filter(
+      (url) => typeof url === 'string' && url.trim(),
+    ).length;
 
     return {
       hero: { ...DEFAULT_HOMEPAGE_CONFIG.hero, ...(stored.hero ?? {}) },
-      featured: { ...DEFAULT_HOMEPAGE_CONFIG.featured, ...(stored.featured ?? {}) },
+      featured: {
+        ...DEFAULT_HOMEPAGE_CONFIG.featured,
+        ...(stored.featured ?? {}),
+      },
       founder: {
         ...DEFAULT_HOMEPAGE_CONFIG.founder,
         enabled: carouselFilled === 5 ? true : Boolean(rawFounder.enabled),
@@ -249,30 +290,50 @@ export class SettingsService {
         title: rawFounder.title ?? DEFAULT_HOMEPAGE_CONFIG.founder.title,
         titleEm: rawFounder.titleEm ?? DEFAULT_HOMEPAGE_CONFIG.founder.titleEm,
         quote: rawFounder.quote ?? DEFAULT_HOMEPAGE_CONFIG.founder.quote,
-        storyParagraphs: rawFounder.storyParagraphs ?? DEFAULT_HOMEPAGE_CONFIG.founder.storyParagraphs,
-        signatureName: rawFounder.signatureName ?? DEFAULT_HOMEPAGE_CONFIG.founder.signatureName,
-        signatureRole: rawFounder.signatureRole ?? DEFAULT_HOMEPAGE_CONFIG.founder.signatureRole,
+        storyParagraphs:
+          rawFounder.storyParagraphs ??
+          DEFAULT_HOMEPAGE_CONFIG.founder.storyParagraphs,
+        signatureName:
+          rawFounder.signatureName ??
+          DEFAULT_HOMEPAGE_CONFIG.founder.signatureName,
+        signatureRole:
+          rawFounder.signatureRole ??
+          DEFAULT_HOMEPAGE_CONFIG.founder.signatureRole,
         signatureImageUrl: rawFounder.signatureImageUrl ?? '',
         carouselImages,
       },
-      valueProps: { ...DEFAULT_HOMEPAGE_CONFIG.valueProps, ...(stored.valueProps ?? {}) },
+      valueProps: {
+        ...DEFAULT_HOMEPAGE_CONFIG.valueProps,
+        ...(stored.valueProps ?? {}),
+      },
       customerProof: {
         ...DEFAULT_HOMEPAGE_CONFIG.customerProof,
         ...(stored.customerProof ?? {}),
         images: normalizeCustomerProofImages(stored.customerProof?.images),
       },
       faq: migrateHomepageFaqConfig(stored.faq, stored.statement),
-      contact: { ...DEFAULT_HOMEPAGE_CONFIG.contact, ...(stored.contact ?? {}) },
+      contact: {
+        ...DEFAULT_HOMEPAGE_CONFIG.contact,
+        ...(stored.contact ?? {}),
+      },
     };
   }
 
-  async setHomepageConfig(patch: Partial<HomepageConfigDto>): Promise<HomepageConfigDto> {
+  async setHomepageConfig(
+    patch: Partial<HomepageConfigDto>,
+  ): Promise<HomepageConfigDto> {
     const current = await this.getHomepageConfig();
     const merged: HomepageConfigDto = {
       hero: patch.hero ? { ...current.hero, ...patch.hero } : current.hero,
-      featured: patch.featured ? { ...current.featured, ...patch.featured } : current.featured,
-      founder: patch.founder ? { ...current.founder, ...patch.founder } : current.founder,
-      valueProps: patch.valueProps ? { ...current.valueProps, ...patch.valueProps } : current.valueProps,
+      featured: patch.featured
+        ? { ...current.featured, ...patch.featured }
+        : current.featured,
+      founder: patch.founder
+        ? { ...current.founder, ...patch.founder }
+        : current.founder,
+      valueProps: patch.valueProps
+        ? { ...current.valueProps, ...patch.valueProps }
+        : current.valueProps,
       customerProof: patch.customerProof
         ? {
             ...current.customerProof,
@@ -282,8 +343,16 @@ export class SettingsService {
             ),
           }
         : current.customerProof,
-      faq: patch.faq ? { ...current.faq, ...patch.faq, items: patch.faq.items ?? current.faq.items } : current.faq,
-      contact: patch.contact ? { ...current.contact, ...patch.contact } : current.contact,
+      faq: patch.faq
+        ? {
+            ...current.faq,
+            ...patch.faq,
+            items: patch.faq.items ?? current.faq.items,
+          }
+        : current.faq,
+      contact: patch.contact
+        ? { ...current.contact, ...patch.contact }
+        : current.contact,
     };
 
     if (patch.founder) {
@@ -306,12 +375,16 @@ export class SettingsService {
     return merged;
   }
 
-  async uploadFounderImage(file: Express.Multer.File): Promise<{ url: string }> {
+  async uploadFounderImage(
+    file: Express.Multer.File,
+  ): Promise<{ url: string }> {
     const url = await this.imageProcessing.uploadHomepageImage(file, 'founder');
     return { url };
   }
 
-  async uploadCustomerProofImage(file: Express.Multer.File): Promise<{ url: string }> {
+  async uploadCustomerProofImage(
+    file: Express.Multer.File,
+  ): Promise<{ url: string }> {
     const url = await this.imageProcessing.uploadHomepageImage(file, 'proof');
     return { url };
   }

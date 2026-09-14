@@ -60,13 +60,22 @@ export class AuthController {
   @Public()
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  async googleCallback(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async googleCallback(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const user = req.user as { id: string; email: string; role: Role };
     const tokens = await this.authService.issueTokens(user);
     this.authService.setAuthCookies(res, tokens);
 
-    const frontend = this.config.get<string>('FRONTEND_URL', 'http://localhost:3000');
-    const slug = this.config.get<string>('STAFF_LOGIN_SLUG', 'dev-portal-lx9k2');
+    const frontend = this.config.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+    const slug = this.config.get<string>(
+      'STAFF_LOGIN_SLUG',
+      'dev-portal-lx9k2',
+    );
     res.redirect(`${frontend}/acceso/${slug}/exito`);
   }
 
@@ -89,10 +98,15 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const clientIp = typeof req.headers['x-forwarded-for'] === 'string'
-      ? req.headers['x-forwarded-for'].split(',')[0]?.trim()
-      : req.ip;
-    const user = await this.authService.loginWithPassword(dto.email, dto.password, clientIp);
+    const clientIp =
+      typeof req.headers['x-forwarded-for'] === 'string'
+        ? req.headers['x-forwarded-for'].split(',')[0]?.trim()
+        : req.ip;
+    const user = await this.authService.loginWithPassword(
+      dto.email,
+      dto.password,
+      clientIp,
+    );
     const tokens = await this.authService.issueTokens(user);
     this.authService.setAuthCookies(res, tokens);
     return {
@@ -111,7 +125,10 @@ export class AuthController {
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('mock-login')
-  async mockLogin(@Body() dto: MockLoginDto, @Res({ passthrough: true }) res: Response) {
+  async mockLogin(
+    @Body() dto: MockLoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     if (this.config.get('NODE_ENV') === 'production') {
       throw new NotFoundException();
     }
@@ -171,7 +188,16 @@ export class AuthController {
   }
 
   @Get('me')
-  async me(@CurrentUser() user: { id: string; email: string; name: string; role: Role; phone?: string | null }) {
+  async me(
+    @CurrentUser()
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      role: Role;
+      phone?: string | null;
+    },
+  ) {
     return { user };
   }
 
@@ -189,7 +215,11 @@ export class AuthController {
     @CurrentUser() user: { id: string },
     @Body() dto: ChangeEmailDto,
   ) {
-    const updated = await this.authService.changeEmail(user.id, dto.email, dto.currentPassword);
+    const updated = await this.authService.changeEmail(
+      user.id,
+      dto.email,
+      dto.currentPassword,
+    );
     return { user: updated };
   }
 
@@ -198,7 +228,11 @@ export class AuthController {
     @CurrentUser() user: { id: string },
     @Body() dto: ChangePasswordDto,
   ) {
-    const updated = await this.authService.changePassword(user.id, dto.newPassword, dto.currentPassword);
+    const updated = await this.authService.changePassword(
+      user.id,
+      dto.newPassword,
+      dto.currentPassword,
+    );
     return { user: updated };
   }
 

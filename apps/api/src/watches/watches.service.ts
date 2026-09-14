@@ -1,4 +1,12 @@
-import { BadGatewayException, BadRequestException, ForbiddenException, HttpException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  ForbiddenException,
+  HttpException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { WatchesRepository } from './watches.repository';
@@ -32,8 +40,7 @@ const DRAFT_WATCH_MODEL = 'Pendiente de completar';
 
 export type MediaSlot = 'image1' | 'image2' | 'video';
 export type MediaSlotResult =
-  | { status: 'done' }
-  | { status: 'error'; message: string };
+  { status: 'done' } | { status: 'error'; message: string };
 
 function slotErrorMessage(error: unknown): string {
   if (error instanceof HttpException) {
@@ -49,7 +56,8 @@ function slotErrorMessage(error: unknown): string {
 }
 
 @Injectable()
-export class WatchesService {  private readonly logger = new Logger(WatchesService.name);
+export class WatchesService {
+  private readonly logger = new Logger(WatchesService.name);
 
   constructor(
     private watchesRepository: WatchesRepository,
@@ -71,7 +79,10 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     return { count, max: MAX_CATALOG_FEATURED };
   }
 
-  private async assertCatalogFeaturedLimit(showInCatalog: boolean, excludeId?: string) {
+  private async assertCatalogFeaturedLimit(
+    showInCatalog: boolean,
+    excludeId?: string,
+  ) {
     if (!showInCatalog) return;
     const count = await this.watchesRepository.countShowInCatalog(excludeId);
     if (count >= MAX_CATALOG_FEATURED) {
@@ -79,7 +90,9 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     }
   }
 
-  private async applyGlobalCommission(data: Prisma.WatchCreateInput | Prisma.WatchUpdateInput) {
+  private async applyGlobalCommission(
+    data: Prisma.WatchCreateInput | Prisma.WatchUpdateInput,
+  ) {
     const { percent } = await this.settingsService.getCommissionConfig();
     data.secretaryCommissionPercentage = percent;
   }
@@ -124,25 +137,41 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     dto?: Pick<UpdateWatchDto, 'categoryId' | 'mechanismId'> | null,
   ): WatchPendingShape {
     const categoryId =
-      dto?.categoryId !== undefined ? (dto.categoryId || null) : existing.categoryId;
+      dto?.categoryId !== undefined
+        ? dto.categoryId || null
+        : existing.categoryId;
     const mechanismId =
-      dto?.mechanismId !== undefined ? (dto.mechanismId || null) : existing.mechanismId;
+      dto?.mechanismId !== undefined
+        ? dto.mechanismId || null
+        : existing.mechanismId;
 
     return {
       model: (data.model as string | undefined) ?? existing.model,
-      retailPrice: (data.retailPrice as number | undefined) ?? existing.retailPrice,
-      wholesalePrice: (data.wholesalePrice as number | undefined) ?? existing.wholesalePrice,
+      retailPrice:
+        (data.retailPrice as number | undefined) ?? existing.retailPrice,
+      wholesalePrice:
+        (data.wholesalePrice as number | undefined) ?? existing.wholesalePrice,
       stock: (data.stock as number | undefined) ?? existing.stock,
       isPublished: existing.isPublished,
       categoryId,
       gender: (data.gender as string | null | undefined) ?? existing.gender,
-      movementType: (data.movementType as string | undefined) ?? existing.movementType,
+      movementType:
+        (data.movementType as string | undefined) ?? existing.movementType,
       mechanismId,
-      primaryImageUrl: (data.primaryImageUrl as string | null | undefined) ?? existing.primaryImageUrl,
-      secondaryImageUrl: (data.secondaryImageUrl as string | null | undefined) ?? existing.secondaryImageUrl,
-      frontImageUrl: (data.frontImageUrl as string | null | undefined) ?? existing.frontImageUrl,
-      backImageUrl: (data.backImageUrl as string | null | undefined) ?? existing.backImageUrl,
-      videoUrl: (data.videoUrl as string | null | undefined) ?? existing.videoUrl,
+      primaryImageUrl:
+        (data.primaryImageUrl as string | null | undefined) ??
+        existing.primaryImageUrl,
+      secondaryImageUrl:
+        (data.secondaryImageUrl as string | null | undefined) ??
+        existing.secondaryImageUrl,
+      frontImageUrl:
+        (data.frontImageUrl as string | null | undefined) ??
+        existing.frontImageUrl,
+      backImageUrl:
+        (data.backImageUrl as string | null | undefined) ??
+        existing.backImageUrl,
+      videoUrl:
+        (data.videoUrl as string | null | undefined) ?? existing.videoUrl,
       images: (data.images as string[] | undefined) ?? existing.images,
     };
   }
@@ -163,7 +192,9 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
   async create(dto: CreateWatchDto, role: Role) {
     const imagesOnly = dto.imagesOnly === true;
     if (imagesOnly && role !== Role.SUPER_ADMIN) {
-      throw new ForbiddenException('Solo Super Admin puede crear borradores solo con imágenes');
+      throw new ForbiddenException(
+        'Solo Super Admin puede crear borradores solo con imágenes',
+      );
     }
 
     let brandId = dto.brandId;
@@ -175,9 +206,11 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     let showInCatalog = dto.showInCatalog;
 
     if (imagesOnly) {
-      brandId = brandId || await this.watchesRepository.findFirstBrandId();
+      brandId = brandId || (await this.watchesRepository.findFirstBrandId());
       if (!brandId) {
-        throw new BadRequestException('No hay marcas registradas. Crea una marca antes de subir imágenes.');
+        throw new BadRequestException(
+          'No hay marcas registradas. Crea una marca antes de subir imágenes.',
+        );
       }
       model = model || DRAFT_WATCH_MODEL;
       retailPrice = retailPrice ?? 0;
@@ -191,14 +224,21 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
       throw new BadRequestException('La marca seleccionada no existe');
     }
 
-    if (dto.categoryId && !(await this.watchesRepository.categoryExists(dto.categoryId))) {
+    if (
+      dto.categoryId &&
+      !(await this.watchesRepository.categoryExists(dto.categoryId))
+    ) {
       throw new BadRequestException('La clase seleccionada no existe');
     }
 
     const brand = await this.watchesRepository.findBrandById(brandId!);
     if (!brand) throw new NotFoundException('Marca no encontrada');
     const reference = this.normalizeReference(dto.reference);
-    const sku = (await this.watchesRepository.allocateSku(retailPrice!, dto.gender)).trim().toUpperCase();
+    const sku = (
+      await this.watchesRepository.allocateSku(retailPrice!, dto.gender)
+    )
+      .trim()
+      .toUpperCase();
 
     const slugBase = slugify(`${model}-${Date.now()}`);
     const uniqueSlug = await this.ensureUniqueSlug(slugBase);
@@ -206,7 +246,8 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     const resolvedShowInCatalog = showInCatalog ?? false;
     await this.assertCatalogFeaturedLimit(resolvedShowInCatalog);
 
-    const data: Prisma.WatchCreateInput = {      sku,
+    const data: Prisma.WatchCreateInput = {
+      sku,
       brand: { connect: { id: brandId! } },
       model: model!,
       reference,
@@ -231,7 +272,8 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
       isActive: dto.isActive ?? true,
       isPublished: imagesOnly ? false : (isPublished ?? true),
       showInCatalog: resolvedShowInCatalog,
-      isLimitedEdition: dto.isLimitedEdition ?? false,      limitedEditionNumber: dto.limitedEditionNumber,
+      isLimitedEdition: dto.isLimitedEdition ?? false,
+      limitedEditionNumber: dto.limitedEditionNumber,
       description: dto.description,
       faqs: normalizeFaqItems(dto.faqs) as unknown as Prisma.InputJsonValue,
       images: dto.images ?? [],
@@ -271,11 +313,17 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
   async update(id: string, dto: UpdateWatchDto, role: Role) {
     const existing = await this.watchesRepository.findById(id);
 
-    if (dto.brandId && !(await this.watchesRepository.brandExists(dto.brandId))) {
+    if (
+      dto.brandId &&
+      !(await this.watchesRepository.brandExists(dto.brandId))
+    ) {
       throw new BadRequestException('La marca seleccionada no existe');
     }
 
-    if (dto.categoryId && !(await this.watchesRepository.categoryExists(dto.categoryId))) {
+    if (
+      dto.categoryId &&
+      !(await this.watchesRepository.categoryExists(dto.categoryId))
+    ) {
       throw new BadRequestException('La clase seleccionada no existe');
     }
 
@@ -297,24 +345,32 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     }
     if (dto.model) {
       data.model = dto.model;
-      data.slug = await this.ensureUniqueSlug(slugify(`${dto.model}-${id.slice(-6)}`), id);
+      data.slug = await this.ensureUniqueSlug(
+        slugify(`${dto.model}-${id.slice(-6)}`),
+        id,
+      );
     }
-    if (dto.reference !== undefined) data.reference = this.normalizeReference(dto.reference);
+    if (dto.reference !== undefined)
+      data.reference = this.normalizeReference(dto.reference);
     if (dto.gender !== undefined) data.gender = dto.gender;
-    if (dto.warrantyMonths !== undefined) data.warrantyMonths = dto.warrantyMonths;
+    if (dto.warrantyMonths !== undefined)
+      data.warrantyMonths = dto.warrantyMonths;
     if (dto.movementType) data.movementType = dto.movementType;
-    if (dto.movementCaliber !== undefined) data.movementCaliber = dto.movementCaliber;
+    if (dto.movementCaliber !== undefined)
+      data.movementCaliber = dto.movementCaliber;
     if (dto.caseDiameter !== undefined) data.caseDiameter = dto.caseDiameter;
     if (dto.caseMaterial !== undefined) data.caseMaterial = dto.caseMaterial;
     if (dto.bezelMaterial !== undefined) data.bezelMaterial = dto.bezelMaterial;
     if (dto.dialColor !== undefined) data.dialColor = dto.dialColor;
     if (dto.crystalType !== undefined) data.crystalType = dto.crystalType;
     if (dto.strapMaterial !== undefined) data.strapMaterial = dto.strapMaterial;
-    if (dto.waterResistance !== undefined) data.waterResistance = dto.waterResistance;
+    if (dto.waterResistance !== undefined)
+      data.waterResistance = dto.waterResistance;
     if (dto.functions) data.functions = dto.functions;
     if (dto.specs) data.specs = dto.specs;
     if (dto.retailPrice !== undefined) data.retailPrice = dto.retailPrice;
-    if (dto.wholesalePrice !== undefined) data.wholesalePrice = dto.wholesalePrice;
+    if (dto.wholesalePrice !== undefined)
+      data.wholesalePrice = dto.wholesalePrice;
     if (dto.stock !== undefined) {
       data.stock = dto.stock;
       if (dto.stock > 0) {
@@ -326,19 +382,27 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
     if (dto.isPublished !== undefined) data.isPublished = dto.isPublished;
     if (dto.showInCatalog !== undefined) data.showInCatalog = dto.showInCatalog;
-    if (dto.isLimitedEdition !== undefined) data.isLimitedEdition = dto.isLimitedEdition;    if (dto.limitedEditionNumber !== undefined) data.limitedEditionNumber = dto.limitedEditionNumber;
+    if (dto.isLimitedEdition !== undefined)
+      data.isLimitedEdition = dto.isLimitedEdition;
+    if (dto.limitedEditionNumber !== undefined)
+      data.limitedEditionNumber = dto.limitedEditionNumber;
     if (dto.description !== undefined) data.description = dto.description;
-    if (dto.faqs !== undefined) data.faqs = normalizeFaqItems(dto.faqs) as unknown as Prisma.InputJsonValue;
+    if (dto.faqs !== undefined)
+      data.faqs = normalizeFaqItems(
+        dto.faqs,
+      ) as unknown as Prisma.InputJsonValue;
     if (dto.images) {
       data.images = dto.images;
-      data.frontImageUrl = dto.images[dto.mainImageIndex ?? existing.mainImageIndex] ?? null;
+      data.frontImageUrl =
+        dto.images[dto.mainImageIndex ?? existing.mainImageIndex] ?? null;
     }
     if (dto.mainImageIndex !== undefined) {
       data.mainImageIndex = dto.mainImageIndex;
       const images = dto.images ?? existing.images;
       data.frontImageUrl = images[dto.mainImageIndex] ?? null;
     }
-    if (dto.warrantyTemplateId) data.warrantyTemplate = { connect: { id: dto.warrantyTemplateId } };
+    if (dto.warrantyTemplateId)
+      data.warrantyTemplate = { connect: { id: dto.warrantyTemplateId } };
     if (dto.careTemplateId !== undefined) {
       data.careTemplate = dto.careTemplateId
         ? { connect: { id: dto.careTemplateId } }
@@ -393,10 +457,19 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
       .filter((watch) => !isWatchDraft(watch))
       .map((watch) => {
         const missing =
-          section === 'cost' ? getMissingCostFields(watch) : getMissingGeneralFields(watch);
+          section === 'cost'
+            ? getMissingCostFields(watch)
+            : getMissingGeneralFields(watch);
         return missing.length ? { watch, missing } : null;
       })
-      .filter((item): item is { watch: typeof watches[number]; missing: ReturnType<typeof getMissingGeneralFields> } => item != null);
+      .filter(
+        (
+          item,
+        ): item is {
+          watch: (typeof watches)[number];
+          missing: ReturnType<typeof getMissingGeneralFields>;
+        } => item != null,
+      );
 
     const total = items.length;
     const start = (safePage - 1) * safeLimit;
@@ -419,12 +492,18 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
 
   async uploadMedia(
     id: string,
-    files: { image1?: Express.Multer.File; image2?: Express.Multer.File; video?: Express.Multer.File },
+    files: {
+      image1?: Express.Multer.File;
+      image2?: Express.Multer.File;
+      video?: Express.Multer.File;
+    },
     _baseUrl: string,
   ) {
     const existing = await this.watchesRepository.findById(id);
     if (!files.image1 && !files.image2 && !files.video) {
-      throw new BadRequestException('Debes enviar al menos un archivo (foto o video)');
+      throw new BadRequestException(
+        'Debes enviar al menos un archivo (foto o video)',
+      );
     }
 
     const isProd = process.env.NODE_ENV === 'production';
@@ -436,75 +515,129 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     const tasks: Array<Promise<void>> = [];
 
     if (files.image1) {
-      tasks.push((async () => {
-        try {
-          const stored = await this.processAndStoreWatchImage(files.image1!, isProd, writtenPaths);
-          data.primaryImageUrl = stored.url;
-          data.frontImageUrl = stored.url;
-          if (stored.needsReview) imageNeedsReview = true;
-          mediaResults.image1 = { status: 'done' };
-        } catch (error) {
-          this.logger.error(`uploadMedia image1: ${slotErrorMessage(error)}`);
-          mediaResults.image1 = { status: 'error', message: slotErrorMessage(error) };
-        }
-      })());
+      tasks.push(
+        (async () => {
+          try {
+            const stored = await this.processAndStoreWatchImage(
+              files.image1!,
+              isProd,
+              writtenPaths,
+            );
+            data.primaryImageUrl = stored.url;
+            data.frontImageUrl = stored.url;
+            if (stored.needsReview) imageNeedsReview = true;
+            mediaResults.image1 = { status: 'done' };
+          } catch (error) {
+            this.logger.error(`uploadMedia image1: ${slotErrorMessage(error)}`);
+            mediaResults.image1 = {
+              status: 'error',
+              message: slotErrorMessage(error),
+            };
+          }
+        })(),
+      );
     }
 
     if (files.image2) {
-      tasks.push((async () => {
-        try {
-          const stored = await this.processAndStoreWatchImage(files.image2!, isProd, writtenPaths);
-          data.secondaryImageUrl = stored.url;
-          data.backImageUrl = stored.url;
-          if (stored.needsReview) imageNeedsReview = true;
-          mediaResults.image2 = { status: 'done' };
-        } catch (error) {
-          this.logger.error(`uploadMedia image2: ${slotErrorMessage(error)}`);
-          mediaResults.image2 = { status: 'error', message: slotErrorMessage(error) };
-        }
-      })());
+      tasks.push(
+        (async () => {
+          try {
+            const stored = await this.processAndStoreWatchImage(
+              files.image2!,
+              isProd,
+              writtenPaths,
+            );
+            data.secondaryImageUrl = stored.url;
+            data.backImageUrl = stored.url;
+            if (stored.needsReview) imageNeedsReview = true;
+            mediaResults.image2 = { status: 'done' };
+          } catch (error) {
+            this.logger.error(`uploadMedia image2: ${slotErrorMessage(error)}`);
+            mediaResults.image2 = {
+              status: 'error',
+              message: slotErrorMessage(error),
+            };
+          }
+        })(),
+      );
     }
 
     if (files.video) {
-      tasks.push((async () => {
-        try {
-          assertMediaFile(files.video!, 'video');
-          const videoBuffer = await this.imageProcessing.processVideoWithMicroservice(files.video!);
-          const videoUrl = await this.persistWatchVideo(videoBuffer, isProd, writtenPaths);
-          data.videoUrl = videoUrl;
-          mediaResults.video = { status: 'done' };
-        } catch (error) {
-          this.logger.error(`uploadMedia video: ${slotErrorMessage(error)}`);
-          mediaResults.video = { status: 'error', message: slotErrorMessage(error) };
-        }
-      })());
+      tasks.push(
+        (async () => {
+          try {
+            assertMediaFile(files.video!, 'video');
+            const videoBuffer =
+              await this.imageProcessing.processVideoWithMicroservice(
+                files.video!,
+              );
+            const videoUrl = await this.persistWatchVideo(
+              videoBuffer,
+              isProd,
+              writtenPaths,
+            );
+            data.videoUrl = videoUrl;
+            mediaResults.video = { status: 'done' };
+          } catch (error) {
+            this.logger.error(`uploadMedia video: ${slotErrorMessage(error)}`);
+            mediaResults.video = {
+              status: 'error',
+              message: slotErrorMessage(error),
+            };
+          }
+        })(),
+      );
     }
 
     await Promise.all(tasks);
 
     const submitted = Object.keys(mediaResults) as MediaSlot[];
-    const failed = submitted.filter((slot) => mediaResults[slot]?.status === 'error');
-    const succeeded = submitted.filter((slot) => mediaResults[slot]?.status === 'done');
+    const failed = submitted.filter(
+      (slot) => mediaResults[slot]?.status === 'error',
+    );
+    const succeeded = submitted.filter(
+      (slot) => mediaResults[slot]?.status === 'done',
+    );
 
     if (succeeded.length === 0) {
       if (!isProd && writtenPaths.length) {
-        await Promise.all(writtenPaths.map((path) => unlink(path).catch(() => undefined)));
+        await Promise.all(
+          writtenPaths.map((path) => unlink(path).catch(() => undefined)),
+        );
       }
       throw new BadGatewayException(
-        failed.map((slot) => {
-          const result = mediaResults[slot];
-          const label = slot === 'video' ? 'Video' : slot === 'image1' ? 'Foto principal' : 'Foto secundaria';
-          return result?.status === 'error' ? `${label}: ${result.message}` : label;
-        }).join(' · ') || 'No se pudo procesar la multimedia',
+        failed
+          .map((slot) => {
+            const result = mediaResults[slot];
+            const label =
+              slot === 'video'
+                ? 'Video'
+                : slot === 'image1'
+                  ? 'Foto principal'
+                  : 'Foto secundaria';
+            return result?.status === 'error'
+              ? `${label}: ${result.message}`
+              : label;
+          })
+          .join(' · ') || 'No se pudo procesar la multimedia',
       );
     }
 
-    if (typeof data.primaryImageUrl === 'string' || typeof data.secondaryImageUrl === 'string') {
-      const primary = (typeof data.primaryImageUrl === 'string' ? data.primaryImageUrl : existing.primaryImageUrl)
-        ?? existing.frontImageUrl;
-      const secondary = (typeof data.secondaryImageUrl === 'string' ? data.secondaryImageUrl : existing.secondaryImageUrl)
-        ?? existing.backImageUrl;
-      data.images = [primary, secondary].filter((url): url is string => Boolean(url));
+    if (
+      typeof data.primaryImageUrl === 'string' ||
+      typeof data.secondaryImageUrl === 'string'
+    ) {
+      const primary =
+        (typeof data.primaryImageUrl === 'string'
+          ? data.primaryImageUrl
+          : existing.primaryImageUrl) ?? existing.frontImageUrl;
+      const secondary =
+        (typeof data.secondaryImageUrl === 'string'
+          ? data.secondaryImageUrl
+          : existing.secondaryImageUrl) ?? existing.backImageUrl;
+      data.images = [primary, secondary].filter((url): url is string =>
+        Boolean(url),
+      );
       data.mainImageIndex = 0;
       data.imageNeedsReview = imageNeedsReview;
     }
@@ -516,16 +649,23 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
 
     if (!isProd) {
       const keep = [
-        typeof data.primaryImageUrl === 'string' ? data.primaryImageUrl : existing.primaryImageUrl,
-        typeof data.secondaryImageUrl === 'string' ? data.secondaryImageUrl : existing.secondaryImageUrl,
+        typeof data.primaryImageUrl === 'string'
+          ? data.primaryImageUrl
+          : existing.primaryImageUrl,
+        typeof data.secondaryImageUrl === 'string'
+          ? data.secondaryImageUrl
+          : existing.secondaryImageUrl,
         typeof data.videoUrl === 'string' ? data.videoUrl : existing.videoUrl,
       ].filter((url): url is string => Boolean(url));
-      await this.bestEffortDeleteUrls([
-        existing.primaryImageUrl,
-        existing.secondaryImageUrl,
-        existing.videoUrl,
-        ...(existing.images ?? []),
-      ], keep);
+      await this.bestEffortDeleteUrls(
+        [
+          existing.primaryImageUrl,
+          existing.secondaryImageUrl,
+          existing.videoUrl,
+          ...(existing.images ?? []),
+        ],
+        keep,
+      );
     }
 
     return { ...updated, mediaResults };
@@ -543,17 +683,36 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     try {
       buffer = await this.imageProcessing.processWithMicroservice(file);
     } catch (error) {
-      this.logger.warn(`rembg falló, se sube original: ${slotErrorMessage(error)}`);
+      this.logger.warn(
+        `rembg falló, se sube original: ${slotErrorMessage(error)}`,
+      );
       buffer = file.buffer;
       needsReview = true;
     }
 
     try {
-      return { url: await this.persistWatchImage(buffer, file, needsReview, isProd, writtenPaths), needsReview };
+      return {
+        url: await this.persistWatchImage(
+          buffer,
+          file,
+          needsReview,
+          isProd,
+          writtenPaths,
+        ),
+        needsReview,
+      };
     } catch (cloudError) {
       if (!needsReview) {
-        this.logger.warn(`Cloudinary de imagen procesada falló, se sube original: ${slotErrorMessage(cloudError)}`);
-        const url = await this.persistWatchImage(file.buffer, file, true, isProd, writtenPaths);
+        this.logger.warn(
+          `Cloudinary de imagen procesada falló, se sube original: ${slotErrorMessage(cloudError)}`,
+        );
+        const url = await this.persistWatchImage(
+          file.buffer,
+          file,
+          true,
+          isProd,
+          writtenPaths,
+        );
         return { url, needsReview: true };
       }
       throw cloudError;
@@ -576,7 +735,9 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
 
     const uploadsDir = join(process.cwd(), 'uploads', 'watches');
     await mkdir(uploadsDir, { recursive: true });
-    const ext = needsReview ? (extname(file.originalname).toLowerCase() || '.jpg') : '.webp';
+    const ext = needsReview
+      ? extname(file.originalname).toLowerCase() || '.jpg'
+      : '.webp';
     const name = `watch-${randomUUID()}${ext}`;
     const path = join(uploadsDir, name);
     await writeFile(path, buffer);
@@ -590,7 +751,10 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     writtenPaths: string[],
   ): Promise<string> {
     if (isProd) {
-      return this.imageProcessing.uploadVideoToCloudinary(buffer, `watch-video-${randomUUID()}`);
+      return this.imageProcessing.uploadVideoToCloudinary(
+        buffer,
+        `watch-video-${randomUUID()}`,
+      );
     }
 
     const videosDir = join(process.cwd(), 'uploads', 'watches', 'videos');
@@ -602,7 +766,10 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     return `/uploads/watches/videos/${name}`;
   }
 
-  private async bestEffortDeleteUrls(urls: Array<string | null | undefined>, keep: string[]) {
+  private async bestEffortDeleteUrls(
+    urls: Array<string | null | undefined>,
+    keep: string[],
+  ) {
     const keepSet = new Set(keep);
     const cwd = process.cwd();
     for (const url of urls) {
@@ -612,9 +779,15 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     }
   }
 
-  async uploadImages(id: string, files: Express.Multer.File[], baseUrl: string) {
+  async uploadImages(
+    id: string,
+    files: Express.Multer.File[],
+    baseUrl: string,
+  ) {
     const watch = await this.watchesRepository.findById(id);
-    const uploadedUrls = files.map((file) => `${baseUrl}/uploads/watches/${file.filename}`);
+    const uploadedUrls = files.map(
+      (file) => `${baseUrl}/uploads/watches/${file.filename}`,
+    );
     const mergedImages = [...watch.images, ...uploadedUrls];
     const mainImageIndex = watch.images.length === 0 ? 0 : watch.mainImageIndex;
 
@@ -635,5 +808,4 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
       suffix++;
     }
   }
-
 }

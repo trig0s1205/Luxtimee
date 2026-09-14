@@ -58,7 +58,8 @@ export class ShippingService {
 
   async create(dto: CreateShippingZoneDto) {
     const name = dto.name.trim();
-    if (!name) throw new BadRequestException('El nombre de la zona es obligatorio');
+    if (!name)
+      throw new BadRequestException('El nombre de la zona es obligatorio');
     if (isAlwaysFreeShippingZone(name)) {
       throw new BadRequestException(
         `La zona ${FREE_SHIPPING_ZONE_NAME} ya existe con envío gratuito fijo.`,
@@ -68,8 +69,11 @@ export class ShippingService {
       throw new BadRequestException('El costo debe ser un número válido');
     }
 
-    const existing = await this.prisma.shippingZone.findUnique({ where: { name } });
-    if (existing) throw new BadRequestException('Ya existe una zona con ese nombre');
+    const existing = await this.prisma.shippingZone.findUnique({
+      where: { name },
+    });
+    if (existing)
+      throw new BadRequestException('Ya existe una zona con ese nombre');
 
     const zone = await this.prisma.shippingZone.create({
       data: {
@@ -84,7 +88,9 @@ export class ShippingService {
   }
 
   async update(id: string, cost?: number, isManualCost?: boolean) {
-    const existing = await this.prisma.shippingZone.findUnique({ where: { id } });
+    const existing = await this.prisma.shippingZone.findUnique({
+      where: { id },
+    });
     if (!existing) throw new BadRequestException('Zona no encontrada');
 
     if (isAlwaysFreeShippingZone(existing.name)) {
@@ -125,9 +131,13 @@ export class ShippingService {
       );
     }
 
-    const ordersCount = await this.prisma.order.count({ where: { shippingZoneId: id } });
+    const ordersCount = await this.prisma.order.count({
+      where: { shippingZoneId: id },
+    });
     if (ordersCount > 0) {
-      throw new BadRequestException('No se puede eliminar: hay pedidos asociados a esta zona');
+      throw new BadRequestException(
+        'No se puede eliminar: hay pedidos asociados a esta zona',
+      );
     }
 
     await this.prisma.shippingZone.delete({ where: { id } });

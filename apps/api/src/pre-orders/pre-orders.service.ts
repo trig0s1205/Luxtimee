@@ -4,19 +4,35 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { OrderStage, OrderSource, OrderType, Prisma, Role } from '@prisma/client';
-import { isAlwaysFreeShippingZone, PRE_ORDER_RESPONSE_HOURS } from '@luxtime/shared';
+import {
+  OrderStage,
+  OrderSource,
+  OrderType,
+  Prisma,
+  Role,
+} from '@prisma/client';
+import {
+  isAlwaysFreeShippingZone,
+  PRE_ORDER_RESPONSE_HOURS,
+} from '@luxtime/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../settings/settings.service';
 import { WhatsappService } from '../integrations/whatsapp.service';
-import { CreateManualPreOrderDto, CreatePreOrderDto, UpdatePreOrderDto } from './dto/pre-order.dto';
+import {
+  CreateManualPreOrderDto,
+  CreatePreOrderDto,
+  UpdatePreOrderDto,
+} from './dto/pre-order.dto';
 import {
   assertCanConfirmDeposit,
   assertPreOrderEditable,
   nextStatusAfterDeposit,
 } from '../orders/state-machine';
-import { generateReadableId, priceOrderLines } from '../orders/order-pricing.util';
+import {
+  generateReadableId,
+  priceOrderLines,
+} from '../orders/order-pricing.util';
 import { formatWatchOrderLabel } from '../orders/watch-description.util';
 import { WholesaleAccessService } from '../wholesale-access/wholesale-access.service';
 import { storefrontHideWhenEmpty } from '../common/utils/storefront-stock.util';
@@ -44,7 +60,9 @@ const orderInclude = {
   shippingZone: true,
 } as const;
 
-type OrderWithRelations = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
+type OrderWithRelations = Prisma.OrderGetPayload<{
+  include: typeof orderInclude;
+}>;
 
 @Injectable()
 export class PreOrdersService {
@@ -96,7 +114,13 @@ export class PreOrdersService {
     return new Date(Date.now() - PRE_ORDER_RESPONSE_HOURS * 60 * 60 * 1000);
   }
 
-  private async buildLines(items: { watchId: string; quantity: number; deliveryNote?: string | null }[]) {
+  private async buildLines(
+    items: {
+      watchId: string;
+      quantity: number;
+      deliveryNote?: string | null;
+    }[],
+  ) {
     if (!items.length) throw new BadRequestException('El carrito está vacío');
     const watches = await this.prisma.watch.findMany({
       where: { id: { in: items.map((i) => i.watchId) }, isActive: true },
@@ -104,7 +128,8 @@ export class PreOrdersService {
     });
     const lines = items.map((item) => {
       const watch = watches.find((w) => w.id === item.watchId);
-      if (!watch) throw new BadRequestException(`Reloj no disponible: ${item.watchId}`);
+      if (!watch)
+        throw new BadRequestException(`Reloj no disponible: ${item.watchId}`);
       if (watch.stock < item.quantity) {
         throw new BadRequestException(`Stock insuficiente para ${watch.model}`);
       }
@@ -161,17 +186,26 @@ export class PreOrdersService {
     return generateReadableId(count + 1);
   }
 
-  async createPublic(dto: CreatePreOrderDto, userId?: string, wholesaleToken?: string) {
+  async createPublic(
+    dto: CreatePreOrderDto,
+    userId?: string,
+    wholesaleToken?: string,
+  ) {
     if (!dto.consentAccepted) {
-      throw new BadRequestException('Debe aceptar términos y política de datos');
+      throw new BadRequestException(
+        'Debe aceptar términos y política de datos',
+      );
     }
     let channel: 'retail' | 'wholesale' = 'retail';
     let wholesaleAccessId: string | undefined;
     let source: OrderSource = OrderSource.WEB;
     if (wholesaleToken) {
-      const session = await this.wholesaleAccessService.getSessionFromToken(wholesaleToken);
+      const session =
+        await this.wholesaleAccessService.getSessionFromToken(wholesaleToken);
       if (!session) {
-        throw new UnauthorizedException('Acceso mayorista requerido para este pedido');
+        throw new UnauthorizedException(
+          'Acceso mayorista requerido para este pedido',
+        );
       }
       channel = 'wholesale';
       wholesaleAccessId = session.id;
@@ -219,7 +253,9 @@ export class PreOrdersService {
     const match = orders.find((order) => {
       const orderDigits = order.customerPhone?.replace(/\D/g, '') ?? '';
       if (!orderDigits) return false;
-      return orderDigits.endsWith(suffix) || suffix.endsWith(orderDigits.slice(-10));
+      return (
+        orderDigits.endsWith(suffix) || suffix.endsWith(orderDigits.slice(-10))
+      );
     });
     if (!match) return null;
     return {
@@ -238,18 +274,29 @@ export class PreOrdersService {
     source: OrderSource;
     includeWhatsappUrl: boolean;
   }) {
-    const { dto, userId, wholesaleAccessId, channel, source, includeWhatsappUrl } = options;
+    const {
+      dto,
+      userId,
+      wholesaleAccessId,
+      channel,
+      source,
+      includeWhatsappUrl,
+    } = options;
     if (channel === 'wholesale') {
       const totalQty = dto.items.reduce((sum, i) => sum + i.quantity, 0);
       if (totalQty < 4) {
-        throw new BadRequestException('El pedido mínimo mayorista es de 4 unidades');
+        throw new BadRequestException(
+          'El pedido mínimo mayorista es de 4 unidades',
+        );
       }
     }
     const lineInputs = await this.buildLines(dto.items);
     let shippingCost = 0;
     let shippingZoneName: string | undefined;
     if (dto.shippingZoneId) {
-      const zone = await this.prisma.shippingZone.findUnique({ where: { id: dto.shippingZoneId } });
+      const zone = await this.prisma.shippingZone.findUnique({
+        where: { id: dto.shippingZoneId },
+      });
       if (!zone) throw new BadRequestException('Zona de envío inválida');
       if (isAlwaysFreeShippingZone(zone.name)) {
         shippingCost = 0;
@@ -347,7 +394,10 @@ export class PreOrdersService {
     if (!includeWhatsappUrl) {
       return { order: mapped };
     }
-    const whatsappUrl = this.whatsappService.buildRedirectUrl(whatsapp.url, message);
+    const whatsappUrl = this.whatsappService.buildRedirectUrl(
+      whatsapp.url,
+      message,
+    );
     return { order: mapped, whatsappUrl };
   }
 
@@ -398,13 +448,19 @@ export class PreOrdersService {
   }
 
   async findOne(id: string) {
-    const order = await this.prisma.order.findUnique({ where: { id }, include: orderInclude });
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: orderInclude,
+    });
     if (!order) throw new NotFoundException('Pedido no encontrado');
     return this.mapOrder(order);
   }
 
   async updatePreOrder(id: string, dto: UpdatePreOrderDto) {
-    const existing = await this.prisma.order.findUnique({ where: { id }, include: orderInclude });
+    const existing = await this.prisma.order.findUnique({
+      where: { id },
+      include: orderInclude,
+    });
     if (!existing) throw new NotFoundException('Pre-pedido no encontrado');
     assertPreOrderEditable(existing.stage, existing.canceledAt);
 
@@ -412,7 +468,11 @@ export class PreOrdersService {
 
     let pricingPatch: Record<string, unknown> = {};
     let autoReactivate = false;
-    let stockLines: Array<{ watchId: string; quantity: number; productName: string }> = [];
+    let stockLines: Array<{
+      watchId: string;
+      quantity: number;
+      productName: string;
+    }> = [];
 
     if (dto.items) {
       const lineInputs = await this.buildLines(dto.items);
@@ -423,7 +483,9 @@ export class PreOrdersService {
       }));
       let shippingCost = existing.shippingCost;
       if (dto.shippingZoneId) {
-        const zone = await this.prisma.shippingZone.findUnique({ where: { id: dto.shippingZoneId } });
+        const zone = await this.prisma.shippingZone.findUnique({
+          where: { id: dto.shippingZoneId },
+        });
         if (zone) {
           if (isAlwaysFreeShippingZone(zone.name)) {
             shippingCost = 0;
@@ -435,13 +497,16 @@ export class PreOrdersService {
         }
       } else if (dto.manualShippingCost !== undefined) {
         const currentZone = existing.shippingZoneId
-          ? await this.prisma.shippingZone.findUnique({ where: { id: existing.shippingZoneId } })
+          ? await this.prisma.shippingZone.findUnique({
+              where: { id: existing.shippingZoneId },
+            })
           : null;
         if (currentZone?.isManualCost) {
           shippingCost = Math.max(0, Math.round(dto.manualShippingCost));
         }
       }
-      const channel = existing.type === OrderType.MAYORISTA ? 'wholesale' : 'retail';
+      const channel =
+        existing.type === OrderType.MAYORISTA ? 'wholesale' : 'retail';
       const priced = priceOrderLines(lineInputs, shippingCost, channel);
       pricingPatch = {
         type: priced.type,
@@ -468,32 +533,45 @@ export class PreOrdersService {
         autoReactivate = true;
       }
     } else if (isSuspended) {
-      throw new BadRequestException('Reactiva el pre-pedido suspendido antes de editarlo');
+      throw new BadRequestException(
+        'Reactiva el pre-pedido suspendido antes de editarlo',
+      );
     }
 
     const updateData = {
-      ...(dto.customerName !== undefined && !isSuspended ? { customerName: dto.customerName } : {}),
-      ...(dto.customerAddress !== undefined && !isSuspended ? { customerAddress: dto.customerAddress } : {}),
-      ...(dto.customerPhone !== undefined && !isSuspended ? { customerPhone: dto.customerPhone } : {}),
-      ...(dto.shippingZoneId !== undefined ? { shippingZoneId: dto.shippingZoneId } : {}),
-      ...(autoReactivate ? { suspendedAt: null, preOrderActiveAt: new Date() } : {}),
+      ...(dto.customerName !== undefined && !isSuspended
+        ? { customerName: dto.customerName }
+        : {}),
+      ...(dto.customerAddress !== undefined && !isSuspended
+        ? { customerAddress: dto.customerAddress }
+        : {}),
+      ...(dto.customerPhone !== undefined && !isSuspended
+        ? { customerPhone: dto.customerPhone }
+        : {}),
+      ...(dto.shippingZoneId !== undefined
+        ? { shippingZoneId: dto.shippingZoneId }
+        : {}),
+      ...(autoReactivate
+        ? { suspendedAt: null, preOrderActiveAt: new Date() }
+        : {}),
       ...pricingPatch,
     };
 
-    const order = autoReactivate && dto.items
-      ? await this.prisma.$transaction(async (tx) => {
-          await this.reserveStockForItems(tx, stockLines);
-          return tx.order.update({
+    const order =
+      autoReactivate && dto.items
+        ? await this.prisma.$transaction(async (tx) => {
+            await this.reserveStockForItems(tx, stockLines);
+            return tx.order.update({
+              where: { id },
+              data: updateData,
+              include: orderInclude,
+            });
+          })
+        : await this.prisma.order.update({
             where: { id },
             data: updateData,
             include: orderInclude,
           });
-        })
-      : await this.prisma.order.update({
-          where: { id },
-          data: updateData,
-          include: orderInclude,
-        });
     return this.mapOrder(order);
   }
 
@@ -508,11 +586,20 @@ export class PreOrdersService {
   }
 
   async confirmDeposit(id: string) {
-    const existing = await this.prisma.order.findUnique({ where: { id }, include: orderInclude });
+    const existing = await this.prisma.order.findUnique({
+      where: { id },
+      include: orderInclude,
+    });
     if (!existing) throw new NotFoundException('Pre-pedido no encontrado');
-    assertCanConfirmDeposit(existing.stage, existing.depositConfirmed, existing.canceledAt);
+    assertCanConfirmDeposit(
+      existing.stage,
+      existing.depositConfirmed,
+      existing.canceledAt,
+    );
     if (existing.suspendedAt) {
-      throw new BadRequestException('Reactiva el pre-pedido antes de confirmar el abono');
+      throw new BadRequestException(
+        'Reactiva el pre-pedido antes de confirmar el abono',
+      );
     }
 
     const order = await this.prisma.order.update({

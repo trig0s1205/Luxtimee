@@ -6,7 +6,19 @@ import { ReportsService } from './reports.service';
 import { ResendService } from './resend.service';
 
 @Module({
-  providers: [ImageProcessingService, WhatsappService, Ga4Service, ReportsService, ResendService],
-  exports: [ImageProcessingService, WhatsappService, Ga4Service, ReportsService, ResendService],
+  providers: [
+    ImageProcessingService,
+    WhatsappService,
+    Ga4Service,
+    ReportsService,
+    ResendService,
+  ],
+  exports: [
+    ImageProcessingService,
+    WhatsappService,
+    Ga4Service,
+    ReportsService,
+    ResendService,
+  ],
 })
 export class IntegrationsModule {}

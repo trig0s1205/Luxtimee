@@ -23,26 +23,38 @@ export class CatalogService {
   }
 
   private mapPublicWatch(watch: Record<string, unknown>) {
-    const { cost, profitPercent, wholesalePrice: _wholesalePrice, imageNeedsReview, ...rest } = watch;
+    const {
+      cost,
+      profitPercent,
+      wholesalePrice: _wholesalePrice,
+      imageNeedsReview,
+      ...rest
+    } = watch;
 
-    const primaryImageUrl = this.normalizeMediaUrl(rest.primaryImageUrl as string | null);
-    const secondaryImageUrl = this.normalizeMediaUrl(rest.secondaryImageUrl as string | null);
+    const primaryImageUrl = this.normalizeMediaUrl(
+      rest.primaryImageUrl as string | null,
+    );
+    const secondaryImageUrl = this.normalizeMediaUrl(
+      rest.secondaryImageUrl as string | null,
+    );
     const videoUrl = this.normalizeMediaUrl(rest.videoUrl as string | null);
     const images = Array.isArray(rest.images)
-      ? (rest.images as string[]).map((item) => this.normalizeMediaUrl(item)).filter((item): item is string => !!item)
+      ? (rest.images as string[])
+          .map((item) => this.normalizeMediaUrl(item))
+          .filter((item): item is string => !!item)
       : [];
 
     const frontImageUrl =
-      this.normalizeMediaUrl(rest.frontImageUrl as string | null)
-      ?? primaryImageUrl
-      ?? images[0]
-      ?? null;
+      this.normalizeMediaUrl(rest.frontImageUrl as string | null) ??
+      primaryImageUrl ??
+      images[0] ??
+      null;
 
     const backImageUrl =
-      this.normalizeMediaUrl(rest.backImageUrl as string | null)
-      ?? secondaryImageUrl
-      ?? images[1]
-      ?? null;
+      this.normalizeMediaUrl(rest.backImageUrl as string | null) ??
+      secondaryImageUrl ??
+      images[1] ??
+      null;
 
     return {
       ...rest,
@@ -69,7 +81,9 @@ export class CatalogService {
     return trimmed;
   }
 
-  private async buildWhere(query: CatalogQueryDto): Promise<Prisma.WatchWhereInput> {
+  private async buildWhere(
+    query: CatalogQueryDto,
+  ): Promise<Prisma.WatchWhereInput> {
     const where: Prisma.WatchWhereInput = {
       isActive: true,
       isPublished: true,
@@ -111,7 +125,11 @@ export class CatalogService {
 
     const search = query.search?.trim();
     if (search) {
-      const skuIds = await findWatchIdsByFlexibleSkuSearch(this.prisma, search, { catalogOnly: true });
+      const skuIds = await findWatchIdsByFlexibleSkuSearch(
+        this.prisma,
+        search,
+        { catalogOnly: true },
+      );
       where.OR = [
         { model: { contains: search, mode: 'insensitive' } },
         { reference: { contains: search, mode: 'insensitive' } },
@@ -146,12 +164,20 @@ export class CatalogService {
     const orderBy = this.buildOrderBy(query.sort);
 
     this.logger.debug(`[catalog:list] query=${JSON.stringify(query)}`);
-    this.logger.debug(`[catalog:list] where=${JSON.stringify(where)} orderBy=${JSON.stringify(orderBy)}`);
+    this.logger.debug(
+      `[catalog:list] where=${JSON.stringify(where)} orderBy=${JSON.stringify(orderBy)}`,
+    );
 
     const [data, total] = await Promise.all([
       this.prisma.watch.findMany({
         where,
-        include: { brand: true, category: true, mechanism: true, warrantyTemplate: true, careTemplate: true },
+        include: {
+          brand: true,
+          category: true,
+          mechanism: true,
+          warrantyTemplate: true,
+          careTemplate: true,
+        },
         orderBy,
         skip,
         take: limit,
@@ -171,8 +197,20 @@ export class CatalogService {
 
   async findBySlug(slug: string) {
     const watch = await this.prisma.watch.findFirst({
-      where: { slug, isActive: true, isPublished: true, deletedAt: null, stock: { gt: 0 } },
-      include: { brand: true, category: true, mechanism: true, warrantyTemplate: true, careTemplate: true },
+      where: {
+        slug,
+        isActive: true,
+        isPublished: true,
+        deletedAt: null,
+        stock: { gt: 0 },
+      },
+      include: {
+        brand: true,
+        category: true,
+        mechanism: true,
+        warrantyTemplate: true,
+        careTemplate: true,
+      },
     });
 
     if (!watch) throw new NotFoundException('Producto no encontrado');
@@ -203,7 +241,12 @@ export class CatalogService {
         deletedAt: null,
         stock: { gt: 0 },
       },
-      include: { brand: true, category: true, warrantyTemplate: true, careTemplate: true },
+      include: {
+        brand: true,
+        category: true,
+        warrantyTemplate: true,
+        careTemplate: true,
+      },
     });
     return ids
       .map((id) => watches.find((w) => w.id === id))
@@ -213,7 +256,12 @@ export class CatalogService {
 
   async findNewArrivals(limit = 8) {
     const watches = await this.prisma.watch.findMany({
-      where: { isActive: true, isPublished: true, deletedAt: null, stock: { gt: 0 } },
+      where: {
+        isActive: true,
+        isPublished: true,
+        deletedAt: null,
+        stock: { gt: 0 },
+      },
       include: { brand: true, category: true },
       orderBy: { createdAt: 'desc' },
       take: limit,
@@ -231,7 +279,12 @@ export class CatalogService {
         deletedAt: null,
         stock: { gt: 0 },
       },
-      include: { brand: true, category: true, warrantyTemplate: true, careTemplate: true },
+      include: {
+        brand: true,
+        category: true,
+        warrantyTemplate: true,
+        careTemplate: true,
+      },
       orderBy: { updatedAt: 'desc' },
       take: limit,
     });
@@ -254,7 +307,12 @@ export class CatalogService {
     const [data, total] = await Promise.all([
       this.prisma.watch.findMany({
         where,
-        include: { brand: true, category: true, warrantyTemplate: true, careTemplate: true },
+        include: {
+          brand: true,
+          category: true,
+          warrantyTemplate: true,
+          careTemplate: true,
+        },
         orderBy,
         skip,
         take: limit,
@@ -272,8 +330,19 @@ export class CatalogService {
 
   async findWholesaleBySlug(slug: string) {
     const watch = await this.prisma.watch.findFirst({
-      where: { slug, isActive: true, isPublished: true, deletedAt: null, stock: { gt: 0 } },
-      include: { brand: true, category: true, warrantyTemplate: true, careTemplate: true },
+      where: {
+        slug,
+        isActive: true,
+        isPublished: true,
+        deletedAt: null,
+        stock: { gt: 0 },
+      },
+      include: {
+        brand: true,
+        category: true,
+        warrantyTemplate: true,
+        careTemplate: true,
+      },
     });
 
     if (!watch) throw new NotFoundException('Producto no encontrado');

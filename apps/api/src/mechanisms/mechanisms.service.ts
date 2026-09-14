@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMechanismDto, UpdateMechanismDto } from './dto/mechanism.dto';
 import { slugify } from '../common/utils/slug.util';
@@ -43,7 +47,9 @@ export class MechanismsService {
     await this.ensureExists(id);
     const inUse = await this.prisma.watch.count({ where: { mechanismId: id } });
     if (inUse > 0) {
-      throw new BadRequestException('No se puede eliminar: hay relojes asociados a este mecanismo.');
+      throw new BadRequestException(
+        'No se puede eliminar: hay relojes asociados a este mecanismo.',
+      );
     }
     const mechanism = await this.prisma.mechanism.delete({ where: { id } });
     this.cache.invalidateTags([CACHE_TAGS.mechanisms, CACHE_TAGS.catalog]);

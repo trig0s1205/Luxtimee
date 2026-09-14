@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
 import { slugify } from '../common/utils/slug.util';
@@ -43,7 +47,9 @@ export class CategoriesService {
     await this.ensureExists(id);
     const inUse = await this.prisma.watch.count({ where: { categoryId: id } });
     if (inUse > 0) {
-      throw new BadRequestException('No se puede eliminar: hay relojes asociados a esta clase.');
+      throw new BadRequestException(
+        'No se puede eliminar: hay relojes asociados a esta clase.',
+      );
     }
     const category = await this.prisma.category.delete({ where: { id } });
     this.cache.invalidateTags([CACHE_TAGS.categories, CACHE_TAGS.catalog]);

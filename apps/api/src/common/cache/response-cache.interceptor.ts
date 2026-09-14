@@ -54,7 +54,11 @@ export class ResponseCacheInterceptor implements NestInterceptor {
   }
 
   private setCacheHeaders(res: Response, options: CacheableOptions) {
-    const maxAge = options.maxAge ?? Math.max(1, Math.floor(options.ttlMs / 1000));
-    res.setHeader('Cache-Control', `public, max-age=${maxAge}, stale-while-revalidate=30`);
+    const maxAge =
+      options.maxAge ?? Math.max(1, Math.floor(options.ttlMs / 1000));
+    res.setHeader(
+      'Cache-Control',
+      `public, max-age=${maxAge}, stale-while-revalidate=30`,
+    );
   }
 }

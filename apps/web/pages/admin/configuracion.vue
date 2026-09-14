@@ -50,7 +50,7 @@ const commission = reactive<CommissionConfigDto>({ percent: 5 });
 
 const home = reactive<HomepageConfigDto>(structuredClone(DEFAULT_HOMEPAGE_CONFIG));
 home.customerProof.images = Array.from({ length: 12 }, () => ({ url: '', caption: '' }));
-const indexSubTab = ref<'featured' | 'founder' | 'proof' | 'statement' | 'contact'>('founder');
+const indexSubTab = ref<'featured' | 'founder' | 'proof' | 'faq' | 'contact'>('founder');
 
 const profitSplitTotal = computed(() =>
   Number(profit.reinvestmentPercent || 0) + Number(profit.ownerProfitPercent || 0),
@@ -72,7 +72,7 @@ const savingProfile = ref(false);
 const savingEmail = ref(false);
 const savingPassword = ref(false);
 const savingPlatform = ref(false);
-const savingIndexSection = ref<'founder' | 'featured' | 'proof' | 'statement' | 'contact' | null>(null);
+const savingIndexSection = ref<'founder' | 'featured' | 'proof' | 'faq' | 'contact' | null>(null);
 const uploadingSlot = ref<number | null>(null);
 
 const carouselFilled = computed(
@@ -105,8 +105,11 @@ useAsyncData('admin-config', async () => {
     Object.assign(home.featured, homepageRes.featured);
     Object.assign(home.founder, homepageRes.founder);
     Object.assign(home.valueProps, homepageRes.valueProps);
-    Object.assign(home.statement, homepageRes.statement);
+    Object.assign(home.faq, homepageRes.faq);
     Object.assign(home.contact, homepageRes.contact);
+    home.faq.items = homepageRes.faq?.items?.length
+      ? homepageRes.faq.items.map((item) => ({ ...item }))
+      : [];
     home.founder.carouselImages = Array.from(
       { length: 5 },
       (_, i) => homepageRes.founder.carouselImages?.[i] ?? '',
@@ -218,7 +221,7 @@ function buildProofImages() {
 }
 
 async function saveHomepageSection(
-  section: 'founder' | 'featured' | 'proof' | 'statement' | 'contact',
+  section: 'founder' | 'featured' | 'proof' | 'faq' | 'contact',
   payload: Partial<HomepageConfigDto>,
   successMessage: string,
 ) {
@@ -280,11 +283,23 @@ async function saveProofSection() {
   );
 }
 
-async function saveStatementSection() {
+function addFaqItem() {
+  home.faq.items.push({ question: '', answer: '' });
+}
+
+function removeFaqItem(index: number) {
+  home.faq.items.splice(index, 1);
+}
+
+async function saveFaqSection() {
+  const items = home.faq.items
+    .map((item) => ({ question: item.question.trim(), answer: item.answer.trim() }))
+    .filter((item) => item.question && item.answer);
+
   await saveHomepageSection(
-    'statement',
-    { statement: { ...home.statement } },
-    'Statement guardado.',
+    'faq',
+    { faq: { ...home.faq, items } },
+    'Preguntas frecuentes guardadas.',
   );
 }
 
@@ -645,7 +660,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
             { id: 'founder', label: 'Fundador' },
             { id: 'featured', label: 'Catálogo' },
             { id: 'proof', label: 'Reseñas visuales' },
-            { id: 'statement', label: 'Statement' },
+            { id: 'faq', label: 'Preguntas frecuentes' },
             { id: 'contact', label: 'Contacto' },
           ]"
           :key="tab.id"
@@ -896,26 +911,47 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
         </div>
       </section>
 
-      <!-- Statement -->
-      <section v-else-if="indexSubTab === 'statement'" class="admin-config-card">
+      <!-- Preguntas frecuentes -->
+      <section v-else-if="indexSubTab === 'faq'" class="admin-config-card">
         <div class="admin-card-head">
-          <h2>Statement</h2>
+          <h2>Preguntas frecuentes</h2>
           <label class="admin-toggle-label">
-            <input v-model="home.statement.enabled" type="checkbox" />
+            <input v-model="home.faq.enabled" type="checkbox" />
             Activo
           </label>
         </div>
         <div class="admin-config-fields">
-          <label><span>Texto</span><UiLuxInput v-model="home.statement.text" /></label>
-          <label><span>Énfasis</span><UiLuxInput v-model="home.statement.textEm" /></label>
-          <label><span>Sub</span><UiLuxInput v-model="home.statement.sub" /></label>
+          <label><span>Etiqueta</span><UiLuxInput v-model="home.faq.label" /></label>
+          <label><span>Título</span><UiLuxInput v-model="home.faq.title" /></label>
+          <label><span>Énfasis</span><UiLuxInput v-model="home.faq.titleEm" /></label>
+        </div>
+        <div class="admin-field-group">
+          <span class="admin-field-group-label">Preguntas</span>
+          <p class="admin-config-hint">
+            Solo se publican las preguntas que tengan pregunta y respuesta completas.
+          </p>
+          <div
+            v-for="(item, i) in home.faq.items"
+            :key="i"
+            class="admin-paragraph-row"
+          >
+            <div class="admin-config-fields">
+              <label><span>Pregunta</span><UiLuxInput v-model="item.question" /></label>
+              <label>
+                <span>Respuesta</span>
+                <textarea v-model="item.answer" class="admin-textarea" rows="3" />
+              </label>
+            </div>
+            <button type="button" class="admin-icon-btn" @click="removeFaqItem(i)">✕</button>
+          </div>
+          <button type="button" class="admin-add-btn" @click="addFaqItem">+ Pregunta</button>
         </div>
         <div class="admin-section-save">
           <UiLuxButton
             :disabled="savingIndexSection !== null"
-            @click="saveStatementSection"
+            @click="saveFaqSection"
           >
-            {{ savingIndexSection === 'statement' ? 'Guardando...' : 'Guardar Statement' }}
+            {{ savingIndexSection === 'faq' ? 'Guardando...' : 'Guardar preguntas' }}
           </UiLuxButton>
         </div>
       </section>

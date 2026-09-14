@@ -14,7 +14,13 @@ export class WhatsappService {
     customerPhone?: string;
     shippingZoneName?: string;
     shippingCost?: number;
-    items: Array<{ label: string; sku?: string | null; qty: number; price: number; deliveryNote?: string | null }>;
+    items: Array<{
+      label: string;
+      sku?: string | null;
+      qty: number;
+      price: number;
+      deliveryNote?: string | null;
+    }>;
     total: number;
     type: string;
   }) {
@@ -26,8 +32,12 @@ export class WhatsappService {
           `*${index + 1}.* ${item.label}`,
           item.sku?.trim() ? `   *SKU:* ${item.sku.trim()}` : null,
           `   _Cantidad:_ x${item.qty}  ·  _Precio unit.:_ $${item.price.toLocaleString('es-CO')}`,
-          lineTotal !== item.price ? `   _Subtotal:_ $${lineTotal.toLocaleString('es-CO')}` : null,
-          item.deliveryNote?.trim() ? `   _Nota entrega:_ ${item.deliveryNote.trim()}` : null,
+          lineTotal !== item.price
+            ? `   _Subtotal:_ $${lineTotal.toLocaleString('es-CO')}`
+            : null,
+          item.deliveryNote?.trim()
+            ? `   _Nota entrega:_ ${item.deliveryNote.trim()}`
+            : null,
         ]
           .filter(Boolean)
           .join('\n');

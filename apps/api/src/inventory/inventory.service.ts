@@ -40,7 +40,9 @@ export class InventoryService {
     }
 
     if (dto.stock === 0 && previousStock > 0) {
-      this.logger.log(`[inventory:out-of-stock] watchId=${watch.id} slug=${watch.slug}`);
+      this.logger.log(
+        `[inventory:out-of-stock] watchId=${watch.id} slug=${watch.slug}`,
+      );
     }
 
     this.cache.invalidateTag(CACHE_TAGS.catalog);

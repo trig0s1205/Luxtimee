@@ -1,4 +1,12 @@
-import { Controller, Get, Logger, Param, Query, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Logger,
+  Param,
+  Query,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { CatalogService } from './catalog.service';
 import { CatalogQueryDto } from './dto/catalog-query.dto';
 import { CACHE_TAGS, Cacheable } from '../common/cache/cache.decorator';
@@ -25,7 +33,9 @@ export class CatalogController {
   @Cacheable({ ttlMs: 120_000, tag: CACHE_TAGS.catalog, maxAge: 120 })
   bestSellers(@Query('limit') limit?: string) {
     const parsed = Number(limit);
-    const safeLimit = Number.isFinite(parsed) ? Math.min(12, Math.max(1, parsed)) : 6;
+    const safeLimit = Number.isFinite(parsed)
+      ? Math.min(12, Math.max(1, parsed))
+      : 6;
     return this.catalogService.findBestSellers(safeLimit);
   }
 
@@ -33,7 +43,9 @@ export class CatalogController {
   @Cacheable({ ttlMs: 120_000, tag: CACHE_TAGS.catalog, maxAge: 120 })
   featured(@Query('limit') limit?: string) {
     const parsed = Number(limit);
-    const safeLimit = Number.isFinite(parsed) ? Math.min(24, Math.max(1, parsed)) : 12;
+    const safeLimit = Number.isFinite(parsed)
+      ? Math.min(24, Math.max(1, parsed))
+      : 12;
     return this.catalogService.findFeatured(safeLimit);
   }
 
@@ -41,7 +53,9 @@ export class CatalogController {
   @Cacheable({ ttlMs: 120_000, tag: CACHE_TAGS.catalog, maxAge: 120 })
   heroSpotlight(@Query('limit') limit?: string) {
     const parsed = Number(limit);
-    const safeLimit = Number.isFinite(parsed) ? Math.min(12, Math.max(1, parsed)) : 6;
+    const safeLimit = Number.isFinite(parsed)
+      ? Math.min(12, Math.max(1, parsed))
+      : 6;
     return this.catalogService.findHeroSpotlight(safeLimit);
   }
 

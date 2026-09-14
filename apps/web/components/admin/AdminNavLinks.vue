@@ -8,7 +8,9 @@ const emit = defineEmits<{ navigate: [] }>();
 const prePedidosOpen = ref(false);
 const pedidosOpen = ref(false);
 
-const dashboardLinks = [
+type AdminNavLink = { to: string; label: string; superOnly?: boolean };
+
+const dashboardLinks: AdminNavLink[] = [
   { to: '/admin/dashboards/ganancia', label: 'Ganancia', superOnly: true },
   { to: '/admin/dashboards/salud', label: 'Panel de salud' },
   { to: '/admin/dashboards/analytics', label: 'Tráfico web' },
@@ -18,7 +20,7 @@ const visibleDashboardLinks = computed(() =>
   dashboardLinks.filter((link) => !link.superOnly || auth.isSuperAdmin),
 );
 
-const linksBeforePedidos = [
+const linksBeforePedidos: AdminNavLink[] = [
   { to: '/admin/inventario', label: 'Inventario' },
   { to: '/admin/catalog-settings', label: 'Marcas y clases' },
   { to: '/admin/catalog-destacados', label: 'Destacados inicio' },
@@ -31,7 +33,7 @@ const prePedidosLinks = [
   { to: '/admin/pre-pedidos/suspendidos', label: 'Suspendidos' },
 ];
 
-const linksAfterPedidos = [
+const linksAfterPedidos: AdminNavLink[] = [
   { to: '/admin/socios-mayoristas', label: 'Mayoristas' },
   { to: '/admin/garantias', label: 'Garantías' },
   { to: '/admin/envios', label: 'Envíos', superOnly: true },
@@ -57,7 +59,7 @@ watch(isPedidosActive, (active) => {
   if (active) pedidosOpen.value = true;
 }, { immediate: true });
 
-function visibleLinks(links: typeof linksBeforePedidos) {
+function visibleLinks(links: AdminNavLink[]) {
   return links.filter((item) => !item.superOnly || auth.isSuperAdmin);
 }
 

@@ -9,8 +9,15 @@ export class MarketingService {
   async captureCheckoutEmail(email: string) {
     await this.prisma.marketingContact.upsert({
       where: { email },
-      update: { status: MarketingContactStatus.PENDING_VALIDATION, source: 'checkout' },
-      create: { email, status: MarketingContactStatus.PENDING_VALIDATION, source: 'checkout' },
+      update: {
+        status: MarketingContactStatus.PENDING_VALIDATION,
+        source: 'checkout',
+      },
+      create: {
+        email,
+        status: MarketingContactStatus.PENDING_VALIDATION,
+        source: 'checkout',
+      },
     });
   }
 
@@ -25,7 +32,9 @@ export class MarketingService {
     return this.prisma.marketingContact.update({
       where: { id },
       data: {
-        status: approve ? MarketingContactStatus.VALIDATED : MarketingContactStatus.REJECTED,
+        status: approve
+          ? MarketingContactStatus.VALIDATED
+          : MarketingContactStatus.REJECTED,
         validatedById: userId,
       },
     });

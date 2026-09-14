@@ -1,7 +1,5 @@
 import { DEFAULT_HOMEPAGE_CONFIG, mergeHomepageConfig } from '~/utils/homepage-config';
 
-export { DEFAULT_HOMEPAGE_CONFIG };
-
 export function useHomepageConfig() {
   const baseUrl = useApiBaseUrl();
 

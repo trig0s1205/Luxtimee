@@ -22,7 +22,10 @@ import {
 } from './dto/warranty-history.dto';
 import { Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
-import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import {
+  CurrentUser,
+  AuthenticatedUser,
+} from '../common/decorators/current-user.decorator';
 
 @Controller({ path: 'warranty-histories', version: '1' })
 @Roles(Role.ADMIN, Role.SUPER_ADMIN)
@@ -34,28 +37,53 @@ export class WarrantyHistoriesController {
   ) {}
 
   @Get('export/excel')
-  async exportExcel(@CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
+  async exportExcel(
+    @CurrentUser() user: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
     const data = await this.warrantyHistoriesService.findForExport('day');
     if (!data.items.length) {
-      throw new BadRequestException('No hay garantías registradas hoy para exportar.');
+      throw new BadRequestException(
+        'No hay garantías registradas hoy para exportar.',
+      );
     }
-    const buffer = await this.reportsService.buildWarrantyExcel(data, this.toReportOwner(user));
+    const buffer = await this.reportsService.buildWarrantyExcel(
+      data,
+      this.toReportOwner(user),
+    );
     await this.warrantyHistoriesService.purgeTodayRegistered();
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="LUXTIMEE-garantias-hoy.xlsx"');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="LUXTIMEE-garantias-hoy.xlsx"',
+    );
     res.send(buffer);
   }
 
   @Get('export/pdf')
-  async exportPdf(@CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
+  async exportPdf(
+    @CurrentUser() user: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
     const data = await this.warrantyHistoriesService.findForExport('day');
     if (!data.items.length) {
-      throw new BadRequestException('No hay garantías registradas hoy para exportar.');
+      throw new BadRequestException(
+        'No hay garantías registradas hoy para exportar.',
+      );
     }
-    const buffer = await this.reportsService.buildWarrantyPdf(data, this.toReportOwner(user));
+    const buffer = await this.reportsService.buildWarrantyPdf(
+      data,
+      this.toReportOwner(user),
+    );
     await this.warrantyHistoriesService.purgeTodayRegistered();
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename="LUXTIMEE-garantias-hoy.pdf"');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="LUXTIMEE-garantias-hoy.pdf"',
+    );
     res.send(buffer);
   }
 
@@ -69,7 +97,10 @@ export class WarrantyHistoriesController {
 
   @Post()
   @Audit('CREATE', 'WarrantyHistory')
-  create(@Body() dto: CreateWarrantyHistoryDto, @CurrentUser() user: AuthenticatedUser) {
+  create(
+    @Body() dto: CreateWarrantyHistoryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
     if (dto.replacementType === 'OTHER_WATCH' && !dto.replacementSku?.trim()) {
       throw new BadRequestException('Indique el SKU del reloj de reemplazo.');
     }

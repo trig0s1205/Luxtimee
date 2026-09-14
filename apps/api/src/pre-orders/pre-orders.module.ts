@@ -8,7 +8,13 @@ import { IntegrationsModule } from '../integrations/integrations.module';
 import { WholesaleAccessModule } from '../wholesale-access/wholesale-access.module';
 
 @Module({
-  imports: [MarketingModule, NotificationsModule, SettingsModule, IntegrationsModule, WholesaleAccessModule],
+  imports: [
+    MarketingModule,
+    NotificationsModule,
+    SettingsModule,
+    IntegrationsModule,
+    WholesaleAccessModule,
+  ],
   controllers: [PreOrdersController],
   providers: [PreOrdersService],
   exports: [PreOrdersService],

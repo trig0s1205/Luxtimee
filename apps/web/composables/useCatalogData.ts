@@ -23,6 +23,7 @@ function mockToPublic(watch: (typeof mockWatches)[number]): WatchPublicDto {
     isPublished: true,
     showInCatalog: false,
     isLimitedEdition: false,
+    faqs: [],
     images: [watch.image].filter(Boolean),
     mainImageIndex: 0,
     frontImageUrl: watch.image,

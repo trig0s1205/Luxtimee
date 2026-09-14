@@ -10,7 +10,10 @@ import {
 } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { WarrantiesService } from './warranties.service';
-import { CreateWarrantyTemplateDto, UpdateWarrantyTemplateDto } from './dto/warranty.dto';
+import {
+  CreateWarrantyTemplateDto,
+  UpdateWarrantyTemplateDto,
+} from './dto/warranty.dto';
 import { Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 

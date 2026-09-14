@@ -29,7 +29,9 @@ export class CertificatesService {
 
     for (const item of order.items) {
       for (let unit = 0; unit < item.quantity; unit++) {
-        const slug = slugify(`${order.readableId}-${item.productRef}-${unit + 1}-${Date.now()}`);
+        const slug = slugify(
+          `${order.readableId}-${item.productRef}-${unit + 1}-${Date.now()}`,
+        );
         const publicUrl = `${siteUrl}/certificado/${slug}`;
         const qrPayload = await QRCode.toDataURL(publicUrl);
         const certificate = await this.prisma.certificate.create({
@@ -54,7 +56,9 @@ export class CertificatesService {
         watch: { include: { brand: true } },
         orderItem: {
           include: {
-            order: { select: { customerName: true, paidAt: true, readableId: true } },
+            order: {
+              select: { customerName: true, paidAt: true, readableId: true },
+            },
           },
         },
       },

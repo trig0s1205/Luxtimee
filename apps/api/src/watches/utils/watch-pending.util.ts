@@ -40,10 +40,10 @@ export type WatchPendingShape = {
 export function isWatchDraft(watch: WatchPendingShape): boolean {
   const model = (watch.model ?? '').trim();
   return (
-    !watch.isPublished
-    && watch.retailPrice === 0
-    && watch.wholesalePrice === 0
-    && (model === '' || model === DRAFT_WATCH_MODEL)
+    !watch.isPublished &&
+    watch.retailPrice === 0 &&
+    watch.wholesalePrice === 0 &&
+    (model === '' || model === DRAFT_WATCH_MODEL)
   );
 }
 
@@ -55,7 +55,9 @@ function hasSecondaryImage(watch: WatchPendingShape): boolean {
   return !!(watch.secondaryImageUrl || watch.backImageUrl || watch.images?.[1]);
 }
 
-export function getMissingGeneralFields(watch: WatchPendingShape): PendingFieldDto[] {
+export function getMissingGeneralFields(
+  watch: WatchPendingShape,
+): PendingFieldDto[] {
   const missing: PendingFieldDto[] = [];
   const model = (watch.model ?? '').trim();
 
@@ -94,7 +96,9 @@ export function getMissingGeneralFields(watch: WatchPendingShape): PendingFieldD
   return missing;
 }
 
-export function getMissingCostFields(watch: WatchPendingShape): PendingFieldDto[] {
+export function getMissingCostFields(
+  watch: WatchPendingShape,
+): PendingFieldDto[] {
   if (watch.cost == null || watch.cost <= 0) {
     return [{ code: 'cost', label: 'Costo (COP)' }];
   }

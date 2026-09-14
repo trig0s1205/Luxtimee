@@ -9,7 +9,10 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Uppercase, UppercaseOptional } from '../../common/decorators/uppercase.decorator';
+import {
+  Uppercase,
+  UppercaseOptional,
+} from '../../common/decorators/uppercase.decorator';
 import { sanitizePlainTextOptional } from '../../common/utils/sanitize-text.util';
 import { Transform } from 'class-transformer';
 

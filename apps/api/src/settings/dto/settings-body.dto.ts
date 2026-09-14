@@ -103,4 +103,3 @@ export class DeleteFounderImageBodyDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : ''))
   url!: string;
 }
-

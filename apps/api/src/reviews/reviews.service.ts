@@ -7,7 +7,12 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ReviewsService {
   constructor(private prisma: PrismaService) {}
 
-  createPublic(dto: { customerName: string; watchId?: string; rating: number; body: string }) {
+  createPublic(dto: {
+    customerName: string;
+    watchId?: string;
+    rating: number;
+    body: string;
+  }) {
     return this.prisma.review.create({
       data: {
         customerName: toUpperText(dto.customerName),

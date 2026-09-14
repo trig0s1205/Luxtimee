@@ -11,8 +11,10 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     private authService: AuthService,
   ) {
     super({
-      clientID: config.get<string>('GOOGLE_OAUTH_CLIENT_ID') || 'mock-client-id',
-      clientSecret: config.get<string>('GOOGLE_OAUTH_CLIENT_SECRET') || 'mock-secret',
+      clientID:
+        config.get<string>('GOOGLE_OAUTH_CLIENT_ID') || 'mock-client-id',
+      clientSecret:
+        config.get<string>('GOOGLE_OAUTH_CLIENT_SECRET') || 'mock-secret',
       callbackURL: config.get<string>('GOOGLE_OAUTH_CALLBACK_URL'),
       scope: ['email', 'profile'],
     });

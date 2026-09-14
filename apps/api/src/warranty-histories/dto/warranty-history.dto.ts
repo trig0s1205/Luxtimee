@@ -1,6 +1,9 @@
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-import { Uppercase, UppercaseOptional } from '../../common/decorators/uppercase.decorator';
+import {
+  Uppercase,
+  UppercaseOptional,
+} from '../../common/decorators/uppercase.decorator';
 
 const PERIODS = ['day', 'week', 'month', 'all'] as const;
 

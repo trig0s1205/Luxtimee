@@ -26,7 +26,8 @@ export class CareService {
 
   private async ensureExists(id: string) {
     const item = await this.prisma.careTemplate.findUnique({ where: { id } });
-    if (!item) throw new NotFoundException('Plantilla de cuidado no encontrada');
+    if (!item)
+      throw new NotFoundException('Plantilla de cuidado no encontrada');
     return item;
   }
 }

@@ -14,7 +14,10 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileFieldsInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import {
+  FileFieldsInterceptor,
+  FilesInterceptor,
+} from '@nestjs/platform-express';
 import { diskStorage, memoryStorage } from 'multer';
 import { existsSync, mkdirSync } from 'fs';
 import { extname, join } from 'path';
@@ -27,10 +30,18 @@ import { Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { FinancialStripInterceptor } from '../common/interceptors/financial-strip.interceptor';
-import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from '../common/utils/file-magic.util';
+import {
+  MAX_IMAGE_BYTES,
+  MAX_VIDEO_BYTES,
+} from '../common/utils/file-magic.util';
 
 const UPLOAD_DIR = join(process.cwd(), 'uploads', 'watches');
-const ALLOWED_IMAGE_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+const ALLOWED_IMAGE_MIME = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+]);
 
 if (!existsSync(UPLOAD_DIR)) {
   mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -42,14 +53,21 @@ function imageFileFilter(
   cb: (error: Error | null, acceptFile: boolean) => void,
 ) {
   if (!ALLOWED_IMAGE_MIME.has(file.mimetype)) {
-    cb(new BadRequestException('Solo se permiten imágenes JPEG, PNG o WEBP'), false);
+    cb(
+      new BadRequestException('Solo se permiten imágenes JPEG, PNG o WEBP'),
+      false,
+    );
     return;
   }
   cb(null, true);
 }
 
 function isGenericUploadMime(mime?: string) {
-  return !mime || mime === 'application/octet-stream' || mime === 'binary/octet-stream';
+  return (
+    !mime ||
+    mime === 'application/octet-stream' ||
+    mime === 'binary/octet-stream'
+  );
 }
 
 function mediaFileFilter(
@@ -59,8 +77,10 @@ function mediaFileFilter(
 ) {
   if (file.fieldname === 'video') {
     if (
-      isGenericUploadMime(file.mimetype)
-      || ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'].includes(file.mimetype)
+      isGenericUploadMime(file.mimetype) ||
+      ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'].includes(
+        file.mimetype,
+      )
     ) {
       cb(null, true);
       return;
@@ -69,12 +89,18 @@ function mediaFileFilter(
     return;
   }
 
-  if (isGenericUploadMime(file.mimetype) || ALLOWED_IMAGE_MIME.has(file.mimetype)) {
+  if (
+    isGenericUploadMime(file.mimetype) ||
+    ALLOWED_IMAGE_MIME.has(file.mimetype)
+  ) {
     cb(null, true);
     return;
   }
 
-  cb(new BadRequestException('image1 e image2 deben ser JPEG, PNG o WEBP'), false);
+  cb(
+    new BadRequestException('image1 e image2 deben ser JPEG, PNG o WEBP'),
+    false,
+  );
 }
 
 @Controller({ path: 'watches', version: '1' })
@@ -96,8 +122,14 @@ export class WatchesController {
 
   @Get('pending-cost')
   @Roles(Role.SUPER_ADMIN)
-  findPendingCost(@Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.watchesService.findPendingCost(Number(page) || 1, Number(limit) || 10);
+  findPendingCost(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.watchesService.findPendingCost(
+      Number(page) || 1,
+      Number(limit) || 10,
+    );
   }
 
   @Get('pending-info')
@@ -109,9 +141,15 @@ export class WatchesController {
   ) {
     const kind = section === 'cost' ? 'cost' : 'general';
     if (kind === 'cost' && user?.role !== Role.SUPER_ADMIN) {
-      throw new ForbiddenException('Solo Super Admin puede ver pendientes de costo');
+      throw new ForbiddenException(
+        'Solo Super Admin puede ver pendientes de costo',
+      );
     }
-    return this.watchesService.findPendingInfo(kind, Number(page) || 1, Number(limit) || 10);
+    return this.watchesService.findPendingInfo(
+      kind,
+      Number(page) || 1,
+      Number(limit) || 10,
+    );
   }
 
   @Get('inventory-insights')
@@ -178,11 +216,17 @@ export class WatchesController {
     const video = files?.video?.[0];
 
     if (!image1 && !image2 && !video) {
-      throw new BadRequestException('Debes enviar al menos un archivo (foto o video)');
+      throw new BadRequestException(
+        'Debes enviar al menos un archivo (foto o video)',
+      );
     }
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;
-    return this.watchesService.uploadMedia(id, { image1, image2, video }, baseUrl);
+    return this.watchesService.uploadMedia(
+      id,
+      { image1, image2, video },
+      baseUrl,
+    );
   }
 
   @Post(':id/upload-images')
@@ -205,7 +249,8 @@ export class WatchesController {
     @UploadedFiles() files: Express.Multer.File[],
     @Req() req: Request,
   ) {
-    if (!files?.length) throw new BadRequestException('No se recibieron imágenes');
+    if (!files?.length)
+      throw new BadRequestException('No se recibieron imágenes');
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     return this.watchesService.uploadImages(id, files, baseUrl);
   }

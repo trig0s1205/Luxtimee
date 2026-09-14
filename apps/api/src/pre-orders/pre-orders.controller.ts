@@ -1,10 +1,26 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards, BadRequestException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+  BadRequestException,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { WHOLESALE_ACCESS_COOKIE } from '@luxtime/shared';
 import { PreOrdersService } from './pre-orders.service';
-import { CreateManualPreOrderDto, CreatePreOrderDto, UpdatePreOrderDto } from './dto/pre-order.dto';
+import {
+  CreateManualPreOrderDto,
+  CreatePreOrderDto,
+  UpdatePreOrderDto,
+} from './dto/pre-order.dto';
 import { Public, Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -16,8 +32,13 @@ export class PreOrdersController {
   @Public()
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post()
-  create(@Body() dto: CreatePreOrderDto, @Req() req: Request, @CurrentUser() user?: { id: string }) {
-    const wholesaleToken = req.cookies?.[WHOLESALE_ACCESS_COOKIE] as string | undefined;
+  create(
+    @Body() dto: CreatePreOrderDto,
+    @Req() req: Request,
+    @CurrentUser() user?: { id: string },
+  ) {
+    const wholesaleToken = req.cookies?.[WHOLESALE_ACCESS_COOKIE] as
+      string | undefined;
     return this.preOrdersService.createPublic(dto, user?.id, wholesaleToken);
   }
 

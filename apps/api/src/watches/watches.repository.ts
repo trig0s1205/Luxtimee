@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { OrderStage, OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import type { InventoryInsightWatchDto, InventoryInsightsDto } from '@luxtime/shared';
+import type {
+  InventoryInsightWatchDto,
+  InventoryInsightsDto,
+} from '@luxtime/shared';
 import { findWatchIdsByFlexibleSkuSearch } from '../common/utils/sku-search.util';
 import { formatWatchSku, resolveSkuPrefix } from './utils/sku.util';
 import { CreateWatchDto, UpdateWatchDto } from './dto';
@@ -104,7 +107,12 @@ export class WatchesRepository {
   async softDelete(id: string) {
     return this.prisma.watch.update({
       where: { id },
-      data: { deletedAt: new Date(), isActive: false, isPublished: false, showInCatalog: false },
+      data: {
+        deletedAt: new Date(),
+        isActive: false,
+        isPublished: false,
+        showInCatalog: false,
+      },
       include: watchInclude,
     });
   }
@@ -149,7 +157,10 @@ export class WatchesRepository {
     return max + 1;
   }
 
-  async allocateSku(retailPrice: number, gender?: string | null): Promise<string> {
+  async allocateSku(
+    retailPrice: number,
+    gender?: string | null,
+  ): Promise<string> {
     const prefix = resolveSkuPrefix(retailPrice, gender);
     const sequence = await this.getNextSkuSequence(prefix);
     const sku = formatWatchSku(prefix, sequence);
@@ -221,7 +232,13 @@ export class WatchesRepository {
         where: {
           order: {
             stage: OrderStage.ORDER,
-            status: { in: [OrderStatus.PAGADO, OrderStatus.ENVIADO, OrderStatus.ENTREGADO] },
+            status: {
+              in: [
+                OrderStatus.PAGADO,
+                OrderStatus.ENVIADO,
+                OrderStatus.ENTREGADO,
+              ],
+            },
             canceledAt: null,
           },
         },
@@ -234,18 +251,26 @@ export class WatchesRepository {
       this.prisma.watch.count({ where: { ...watchWhere, stock: 0 } }),
     ]);
 
-    const salesMap = new Map(salesAgg.map((row) => [row.watchId, row._sum.quantity ?? 0]));
+    const salesMap = new Map(
+      salesAgg.map((row) => [row.watchId, row._sum.quantity ?? 0]),
+    );
 
-    const toInsight = (watch: (typeof watches)[number]): InventoryInsightWatchDto => ({
+    const toInsight = (
+      watch: (typeof watches)[number],
+    ): InventoryInsightWatchDto => ({
       id: watch.id,
       model: watch.model,
       brand: watch.brand.name,
       reference: watch.reference,
-      image: watch.frontImageUrl ?? watch.primaryImageUrl ?? watch.images[0] ?? null,
+      image:
+        watch.frontImageUrl ?? watch.primaryImageUrl ?? watch.images[0] ?? null,
       stock: watch.stock,
       unitsSold: salesMap.get(watch.id) ?? 0,
       createdAt: watch.createdAt.toISOString(),
-      daysInInventory: Math.max(0, Math.floor((now - watch.createdAt.getTime()) / 86400000)),
+      daysInInventory: Math.max(
+        0,
+        Math.floor((now - watch.createdAt.getTime()) / 86400000),
+      ),
     });
 
     const pickExtreme = <T>(
@@ -253,7 +278,9 @@ export class WatchesRepository {
       compare: (a: T, b: T) => boolean,
     ): T | null => {
       if (!items.length) return null;
-      return items.reduce((best, current) => (compare(current, best) ? current : best));
+      return items.reduce((best, current) =>
+        compare(current, best) ? current : best,
+      );
     };
 
     const withStock = watches.filter((watch) => watch.stock > 0);
@@ -261,8 +288,14 @@ export class WatchesRepository {
     const lowest = pickExtreme(watches, (a, b) => a.stock <= b.stock);
     const highest = pickExtreme(watches, (a, b) => a.stock >= b.stock);
     const oldest = pickExtreme(withStock, (a, b) => a.createdAt <= b.createdAt);
-    const least = pickExtreme(watches, (a, b) => (salesMap.get(a.id) ?? 0) <= (salesMap.get(b.id) ?? 0));
-    const most = pickExtreme(watches, (a, b) => (salesMap.get(a.id) ?? 0) >= (salesMap.get(b.id) ?? 0));
+    const least = pickExtreme(
+      watches,
+      (a, b) => (salesMap.get(a.id) ?? 0) <= (salesMap.get(b.id) ?? 0),
+    );
+    const most = pickExtreme(
+      watches,
+      (a, b) => (salesMap.get(a.id) ?? 0) >= (salesMap.get(b.id) ?? 0),
+    );
 
     return {
       totalUnits: stockSum._sum.stock ?? 0,

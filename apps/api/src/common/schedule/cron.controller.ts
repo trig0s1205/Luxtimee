@@ -40,12 +40,15 @@ export class CronController {
       if (isProd) {
         throw new ServiceUnavailableException('CRON_SECRET no configurado');
       }
-      this.logger.warn('CRON_SECRET ausente: cron permitido solo en desarrollo');
+      this.logger.warn(
+        'CRON_SECRET ausente: cron permitido solo en desarrollo',
+      );
       return this.reminders.runManual();
     }
 
-    const bearer =
-      authorization?.startsWith('Bearer ') ? authorization.slice(7).trim() : undefined;
+    const bearer = authorization?.startsWith('Bearer ')
+      ? authorization.slice(7).trim()
+      : undefined;
     const provided = (cronSecretHeader ?? bearer ?? '').trim();
 
     if (!provided || !secretsMatch(provided, expected)) {

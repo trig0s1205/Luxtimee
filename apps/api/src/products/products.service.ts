@@ -44,7 +44,9 @@ export class ProductsService {
   }
 
   async create(dto: CreateWatchDto, role: Role) {
-    const brand = await this.prisma.brand.findUnique({ where: { id: dto.brandId } });
+    const brand = await this.prisma.brand.findUnique({
+      where: { id: dto.brandId },
+    });
     if (!brand) throw new NotFoundException('Marca no encontrada');
 
     const sku = await this.watchesRepository.allocateSku(dto.retailPrice);
@@ -88,20 +90,27 @@ export class ProductsService {
     if (dto.brandId) data.brand = { connect: { id: dto.brandId } };
     if (dto.model) {
       data.model = dto.model;
-      data.slug = await this.ensureUniqueSlug(slugify(`${dto.model}-${id.slice(-6)}`), id);
+      data.slug = await this.ensureUniqueSlug(
+        slugify(`${dto.model}-${id.slice(-6)}`),
+        id,
+      );
     }
     if (dto.movementType) data.movementType = dto.movementType;
     if (dto.specs) data.specs = dto.specs;
     if (dto.retailPrice !== undefined) data.retailPrice = dto.retailPrice;
-    if (dto.wholesalePrice !== undefined) data.wholesalePrice = dto.wholesalePrice;
+    if (dto.wholesalePrice !== undefined)
+      data.wholesalePrice = dto.wholesalePrice;
     if (dto.stock !== undefined) data.stock = dto.stock;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
-    if (dto.warrantyTemplateId) data.warrantyTemplate = { connect: { id: dto.warrantyTemplateId } };
-    if (dto.careTemplateId) data.careTemplate = { connect: { id: dto.careTemplateId } };
+    if (dto.warrantyTemplateId)
+      data.warrantyTemplate = { connect: { id: dto.warrantyTemplateId } };
+    if (dto.careTemplateId)
+      data.careTemplate = { connect: { id: dto.careTemplateId } };
 
     if (role === Role.SUPER_ADMIN) {
       if (dto.cost !== undefined) data.cost = dto.cost;
-      if (dto.profitPercent !== undefined) data.profitPercent = dto.profitPercent;
+      if (dto.profitPercent !== undefined)
+        data.profitPercent = dto.profitPercent;
     }
 
     const watch = await this.prisma.watch.update({
@@ -119,7 +128,11 @@ export class ProductsService {
 
   async updateImages(
     id: string,
-    images: { frontImageUrl?: string; backImageUrl?: string; imageNeedsReview?: boolean },
+    images: {
+      frontImageUrl?: string;
+      backImageUrl?: string;
+      imageNeedsReview?: boolean;
+    },
     role: Role,
   ) {
     const watch = await this.prisma.watch.update({
@@ -134,7 +147,9 @@ export class ProductsService {
     let candidate = slug;
     let suffix = 1;
     while (true) {
-      const existing = await this.prisma.watch.findUnique({ where: { slug: candidate } });
+      const existing = await this.prisma.watch.findUnique({
+        where: { slug: candidate },
+      });
       if (!existing || existing.id === excludeId) return candidate;
       candidate = `${slug}-${suffix.toString(36).toUpperCase()}`;
       suffix++;

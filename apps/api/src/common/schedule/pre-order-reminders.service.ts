@@ -26,7 +26,9 @@ export class PreOrderRemindersService {
     }
 
     const reminderThreshold = new Date(Date.now() - 2 * 60 * 60 * 1000);
-    const activeThreshold = new Date(Date.now() - PRE_ORDER_RESPONSE_HOURS * 60 * 60 * 1000);
+    const activeThreshold = new Date(
+      Date.now() - PRE_ORDER_RESPONSE_HOURS * 60 * 60 * 1000,
+    );
     const preOrders = await this.prisma.order.findMany({
       where: {
         stage: OrderStage.PRE_ORDER,

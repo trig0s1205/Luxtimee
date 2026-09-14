@@ -1,7 +1,12 @@
 import { Transform, Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
-const CATALOG_SORT_VALUES = ['newest', 'oldest', 'price_asc', 'price_desc'] as const;
+const CATALOG_SORT_VALUES = [
+  'newest',
+  'oldest',
+  'price_asc',
+  'price_desc',
+] as const;
 export type CatalogSortValue = (typeof CATALOG_SORT_VALUES)[number];
 
 function trimOptional({ value }: { value: unknown }) {

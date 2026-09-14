@@ -1,6 +1,8 @@
 import type { HomepageCustomerProofImage } from '@luxtime/shared';
 
-export function normalizeCustomerProofImages(raw: unknown): HomepageCustomerProofImage[] {
+export function normalizeCustomerProofImages(
+  raw: unknown,
+): HomepageCustomerProofImage[] {
   if (!Array.isArray(raw)) return [];
 
   return raw

@@ -1,5 +1,15 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { OrderStage, OrderStatus, OrderType, Prisma, Role } from '@prisma/client';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  OrderStage,
+  OrderStatus,
+  OrderType,
+  Prisma,
+  Role,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CertificatesService } from '../certificates/certificates.service';
@@ -30,7 +40,9 @@ function isInventoryDeducted(status: OrderStatus | null): boolean {
   return status !== null && inventoryDeductedStatuses.includes(status);
 }
 
-type OrderWithRelations = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
+type OrderWithRelations = Prisma.OrderGetPayload<{
+  include: typeof orderInclude;
+}>;
 
 @Injectable()
 export class OrdersService {
@@ -76,13 +88,15 @@ export class OrdersService {
     };
   }
 
-  async findAllOrders(options: {
-    period?: OrdersPeriod;
-    status?: OrderStatus;
-    type?: OrderType;
-    page?: number;
-    limit?: number;
-  } = {}) {
+  async findAllOrders(
+    options: {
+      period?: OrdersPeriod;
+      status?: OrderStatus;
+      type?: OrderType;
+      page?: number;
+      limit?: number;
+    } = {},
+  ) {
     const period = options.period ?? 'day';
     const page = options.page ?? 1;
     const limit = options.limit ?? 15;
@@ -128,9 +142,11 @@ export class OrdersService {
 
   private periodStart(period: OrdersPeriod) {
     const now = new Date();
-    if (period === 'day') return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (period === 'day')
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate());
     if (period === 'week') return new Date(now.getTime() - 7 * 86400000);
-    if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1);
+    if (period === 'month')
+      return new Date(now.getFullYear(), now.getMonth(), 1);
     return null;
   }
 
@@ -211,7 +227,10 @@ export class OrdersService {
   }
 
   async updateOrder(id: string, dto: UpdateOrderDto) {
-    const order = await this.prisma.order.findUnique({ where: { id }, include: orderInclude });
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: orderInclude,
+    });
     if (!order || order.stage !== OrderStage.ORDER) {
       throw new NotFoundException('Pedido no encontrado');
     }
@@ -236,7 +255,10 @@ export class OrdersService {
             await this.restoreInventory(order.items);
           }
           data.canceledAt = new Date();
-        } else if (next === OrderStatus.PAGADO && order.status !== OrderStatus.PAGADO) {
+        } else if (
+          next === OrderStatus.PAGADO &&
+          order.status !== OrderStatus.PAGADO
+        ) {
           data.paidAt = new Date();
           await this.deductInventory(order.items);
         } else if (next === OrderStatus.ENVIADO) {
@@ -248,12 +270,20 @@ export class OrdersService {
       }
     }
 
-    const updated = await this.prisma.order.update({ where: { id }, data, include: orderInclude });
+    const updated = await this.prisma.order.update({
+      where: { id },
+      data,
+      include: orderInclude,
+    });
 
     await this.notificationsService.emit({
       type: 'ORDER_STATUS_CHANGED',
       targetRole: Role.ADMIN,
-      payload: { orderId: id, status: updated.status ?? '', readableId: updated.readableId },
+      payload: {
+        orderId: id,
+        status: updated.status ?? '',
+        readableId: updated.readableId,
+      },
     });
 
     this.cache.invalidateTag(CACHE_TAGS.catalog);
@@ -261,7 +291,10 @@ export class OrdersService {
   }
 
   async deleteOrder(id: string) {
-    const order = await this.prisma.order.findUnique({ where: { id }, include: orderInclude });
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: orderInclude,
+    });
     if (!order || order.stage !== OrderStage.ORDER) {
       throw new NotFoundException('Pedido no encontrado');
     }
@@ -277,7 +310,9 @@ export class OrdersService {
     return { id, deleted: true };
   }
 
-  private async restoreInventory(items: { watchId: string; quantity: number }[]) {
+  private async restoreInventory(
+    items: { watchId: string; quantity: number }[],
+  ) {
     for (const item of items) {
       await this.prisma.watch.update({
         where: { id: item.watchId },
@@ -290,7 +325,9 @@ export class OrdersService {
     this.cache.invalidateTag(CACHE_TAGS.catalog);
   }
 
-  private async deductInventory(items: { watchId: string; quantity: number }[]) {
+  private async deductInventory(
+    items: { watchId: string; quantity: number }[],
+  ) {
     for (const item of items) {
       await this.prisma.watch.update({
         where: { id: item.watchId },

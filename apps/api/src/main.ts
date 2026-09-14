@@ -23,7 +23,9 @@ async function bootstrap() {
       } else {
         allowedOrigins.add(`${parsed.protocol}//www.${parsed.hostname}`);
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
@@ -43,14 +45,20 @@ async function bootstrap() {
               imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
               mediaSrc: ["'self'", 'blob:', 'https:'],
               scriptSrc: ["'self'"],
-              styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+              styleSrc: [
+                "'self'",
+                "'unsafe-inline'",
+                'https://fonts.googleapis.com',
+              ],
               fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
               connectSrc: ["'self'", ...frontendOrigins],
               frameAncestors: ["'none'"],
             },
           }
         : false,
-      hsts: isProd ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
+      hsts: isProd
+        ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+        : false,
       referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
       frameguard: { action: 'deny' },
     }),
@@ -76,7 +84,13 @@ async function bootstrap() {
         }
       : true,
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'Origin',
+      'X-Requested-With',
+    ],
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     maxAge: 86400,
   });
@@ -85,7 +99,9 @@ async function bootstrap() {
   const host = process.env.HOST ?? '0.0.0.0';
   await app.listen(port, host);
   // eslint-disable-next-line no-console
-  console.log(`LUXTIMEE API escuchando en http://${host}:${port}/api/v1/health`);
+  console.log(
+    `LUXTIMEE API escuchando en http://${host}:${port}/api/v1/health`,
+  );
 }
 
 bootstrap();

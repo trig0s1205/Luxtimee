@@ -23,7 +23,10 @@ export interface PricedLine extends PricedLineInput {
   lineTotal: number;
 }
 
-export function resolveOrderType(_unitCount: number, channel: PricingChannel = 'retail'): OrderType {
+export function resolveOrderType(
+  _unitCount: number,
+  channel: PricingChannel = 'retail',
+): OrderType {
   return channel === 'wholesale' ? OrderType.MAYORISTA : OrderType.DETAL;
 }
 
@@ -43,8 +46,10 @@ export function priceOrderLines(
   const unitCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const type = resolveOrderType(unitCount, channel);
   const lines: PricedLine[] = items.map((item) => {
-    const unitPrice = type === OrderType.MAYORISTA ? item.wholesalePrice : item.retailPrice;
-    const priceType = type === OrderType.MAYORISTA ? PriceType.WHOLESALE : PriceType.RETAIL;
+    const unitPrice =
+      type === OrderType.MAYORISTA ? item.wholesalePrice : item.retailPrice;
+    const priceType =
+      type === OrderType.MAYORISTA ? PriceType.WHOLESALE : PriceType.RETAIL;
     return {
       ...item,
       unitPrice,
@@ -55,7 +60,15 @@ export function priceOrderLines(
   const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
   const depositExpected = DEPOSIT_PER_UNIT_COP * unitCount;
   const total = subtotal + shippingCost;
-  return { type, unitCount, subtotal, shippingCost, total, depositExpected, lines };
+  return {
+    type,
+    unitCount,
+    subtotal,
+    shippingCost,
+    total,
+    depositExpected,
+    lines,
+  };
 }
 
 export function generateReadableId(sequence: number): string {

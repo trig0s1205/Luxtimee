@@ -1,7 +1,11 @@
 import { createPrivateKey, createSign } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { Ga4EngagementDto, Ga4StatusDto, HealthMetricDto } from '@luxtime/shared';
+import type {
+  Ga4EngagementDto,
+  Ga4StatusDto,
+  HealthMetricDto,
+} from '@luxtime/shared';
 
 type ReportValue = { current: number; previous: number };
 
@@ -12,8 +16,10 @@ export class Ga4Service {
   constructor(private config: ConfigService) {}
 
   async getStatus(): Promise<Ga4StatusDto> {
-    const propertyId = this.config.get<string>('GA4_PROPERTY_ID')?.trim() || null;
-    const clientEmail = this.config.get<string>('GA4_CLIENT_EMAIL')?.trim() || null;
+    const propertyId =
+      this.config.get<string>('GA4_PROPERTY_ID')?.trim() || null;
+    const clientEmail =
+      this.config.get<string>('GA4_CLIENT_EMAIL')?.trim() || null;
     const privateKey = this.getPrivateKey();
 
     if (!propertyId || !clientEmail || !privateKey) {
@@ -22,33 +28,53 @@ export class Ga4Service {
         connected: false,
         propertyId,
         clientEmail,
-        error: 'Faltan GA4_PROPERTY_ID, GA4_CLIENT_EMAIL o GA4_PRIVATE_KEY en la API.',
+        error:
+          'Faltan GA4_PROPERTY_ID, GA4_CLIENT_EMAIL o GA4_PRIVATE_KEY en la API.',
       };
     }
 
     try {
       await this.fetchReport(propertyId, [{ name: 'sessions' }]);
-      return { configured: true, connected: true, propertyId, clientEmail, error: null };
+      return {
+        configured: true,
+        connected: true,
+        propertyId,
+        clientEmail,
+        error: null,
+      };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo conectar con GA4';
+      const message =
+        error instanceof Error ? error.message : 'No se pudo conectar con GA4';
       this.logger.warn(`GA4 status check failed: ${message}`);
-      return { configured: true, connected: false, propertyId, clientEmail, error: message };
+      return {
+        configured: true,
+        connected: false,
+        propertyId,
+        clientEmail,
+        error: message,
+      };
     }
   }
 
-  async getEngagementMetrics(periodLabel = 'Últimos 30 días'): Promise<Ga4EngagementDto> {
+  async getEngagementMetrics(
+    periodLabel = 'Últimos 30 días',
+  ): Promise<Ga4EngagementDto> {
     const label = `${periodLabel} vs periodo anterior`;
     const propertyId = this.config.get<string>('GA4_PROPERTY_ID')?.trim();
     const clientEmail = this.config.get<string>('GA4_CLIENT_EMAIL')?.trim();
     const privateKey = this.getPrivateKey();
 
     if (
-      this.config.get('USE_MOCKS') === 'true'
-      || !propertyId
-      || !clientEmail
-      || !privateKey
+      this.config.get('USE_MOCKS') === 'true' ||
+      !propertyId ||
+      !clientEmail ||
+      !privateKey
     ) {
-      return { periodLabel: label, source: 'mock', metrics: this.mockMetrics() };
+      return {
+        periodLabel: label,
+        source: 'mock',
+        metrics: this.mockMetrics(),
+      };
     }
 
     try {
@@ -58,22 +84,36 @@ export class Ga4Service {
         { name: 'averageSessionDuration' },
       ]);
       const addToCart = await this.fetchEventCount(propertyId, 'add_to_cart');
-      const checkout = await this.fetchEventCount(propertyId, 'checkout_complete');
+      const checkout = await this.fetchEventCount(
+        propertyId,
+        'checkout_complete',
+      );
 
-      const cartCurrent = addToCart.current > 0
-        ? Math.round((1 - checkout.current / addToCart.current) * 1000) / 10
-        : 0;
-      const cartPrevious = addToCart.previous > 0
-        ? Math.round((1 - checkout.previous / addToCart.previous) * 1000) / 10
-        : 0;
+      const cartCurrent =
+        addToCart.current > 0
+          ? Math.round((1 - checkout.current / addToCart.current) * 1000) / 10
+          : 0;
+      const cartPrevious =
+        addToCart.previous > 0
+          ? Math.round((1 - checkout.previous / addToCart.previous) * 1000) / 10
+          : 0;
 
       return {
         periodLabel: label,
         source: 'live',
         metrics: [
           this.toMetric('sessions', 'Sesiones', baseMetrics.sessions),
-          this.toMetric('product_views', 'Vistas de página', baseMetrics.screenPageViews),
-          this.toMetric('avg_session', 'Duración media (s)', baseMetrics.averageSessionDuration, true),
+          this.toMetric(
+            'product_views',
+            'Vistas de página',
+            baseMetrics.screenPageViews,
+          ),
+          this.toMetric(
+            'avg_session',
+            'Duración media (s)',
+            baseMetrics.averageSessionDuration,
+            true,
+          ),
           {
             key: 'cart_abandon',
             label: 'Abandono carrito (%)',
@@ -84,7 +124,8 @@ export class Ga4Service {
         ],
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Error consultando GA4';
+      const message =
+        error instanceof Error ? error.message : 'Error consultando GA4';
       this.logger.error(message);
       return {
         periodLabel: label,
@@ -97,10 +138,34 @@ export class Ga4Service {
 
   private mockMetrics(): HealthMetricDto[] {
     return [
-      { key: 'sessions', label: 'Sesiones', current: 1240, previous: 980, changePercent: 26.5 },
-      { key: 'product_views', label: 'Vistas de página', current: 3420, previous: 2900, changePercent: 17.9 },
-      { key: 'avg_session', label: 'Duración media (s)', current: 142, previous: 128, changePercent: 10.9 },
-      { key: 'cart_abandon', label: 'Abandono carrito (%)', current: 62, previous: 68, changePercent: -8.8 },
+      {
+        key: 'sessions',
+        label: 'Sesiones',
+        current: 1240,
+        previous: 980,
+        changePercent: 26.5,
+      },
+      {
+        key: 'product_views',
+        label: 'Vistas de página',
+        current: 3420,
+        previous: 2900,
+        changePercent: 17.9,
+      },
+      {
+        key: 'avg_session',
+        label: 'Duración media (s)',
+        current: 142,
+        previous: 128,
+        changePercent: 10.9,
+      },
+      {
+        key: 'cart_abandon',
+        label: 'Abandono carrito (%)',
+        current: 62,
+        previous: 68,
+        changePercent: -8.8,
+      },
     ];
   }
 
@@ -146,8 +211,14 @@ export class Ga4Service {
       raw = raw
         .replace('-----BEGIN PRIVATE KEY-----', '-----BEGIN PRIVATE KEY-----\n')
         .replace('-----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----')
-        .replace('-----BEGIN RSA PRIVATE KEY-----', '-----BEGIN RSA PRIVATE KEY-----\n')
-        .replace('-----END RSA PRIVATE KEY-----', '\n-----END RSA PRIVATE KEY-----');
+        .replace(
+          '-----BEGIN RSA PRIVATE KEY-----',
+          '-----BEGIN RSA PRIVATE KEY-----\n',
+        )
+        .replace(
+          '-----END RSA PRIVATE KEY-----',
+          '\n-----END RSA PRIVATE KEY-----',
+        );
     }
 
     try {
@@ -169,14 +240,18 @@ export class Ga4Service {
     }
 
     const now = Math.floor(Date.now() / 1000);
-    const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
-    const claim = Buffer.from(JSON.stringify({
-      iss: clientEmail,
-      scope: 'https://www.googleapis.com/auth/analytics.readonly',
-      aud: 'https://oauth2.googleapis.com/token',
-      exp: now + 3600,
-      iat: now,
-    })).toString('base64url');
+    const header = Buffer.from(
+      JSON.stringify({ alg: 'RS256', typ: 'JWT' }),
+    ).toString('base64url');
+    const claim = Buffer.from(
+      JSON.stringify({
+        iss: clientEmail,
+        scope: 'https://www.googleapis.com/auth/analytics.readonly',
+        aud: 'https://oauth2.googleapis.com/token',
+        exp: now + 3600,
+        iat: now,
+      }),
+    ).toString('base64url');
 
     const signer = createSign('RSA-SHA256');
     signer.update(`${header}.${claim}`);
@@ -193,9 +268,14 @@ export class Ga4Service {
       }),
     });
 
-    const data = await response.json() as { access_token?: string; error_description?: string };
+    const data = (await response.json()) as {
+      access_token?: string;
+      error_description?: string;
+    };
     if (!response.ok || !data.access_token) {
-      throw new Error(data.error_description ?? 'No se pudo obtener token de GA4');
+      throw new Error(
+        data.error_description ?? 'No se pudo obtener token de GA4',
+      );
     }
     return data.access_token;
   }
@@ -223,13 +303,15 @@ export class Ga4Service {
       },
     );
 
-    const data = await response.json() as {
+    const data = (await response.json()) as {
       rows?: Array<{ metricValues?: Array<{ value?: string }> }>;
       error?: { message?: string };
     };
 
     if (!response.ok) {
-      throw new Error(data.error?.message ?? `GA4 respondió ${response.status}`);
+      throw new Error(
+        data.error?.message ?? `GA4 respondió ${response.status}`,
+      );
     }
 
     const values = data.rows?.[0]?.metricValues ?? [];
@@ -245,7 +327,10 @@ export class Ga4Service {
     return result;
   }
 
-  private async fetchEventCount(propertyId: string, eventName: string): Promise<ReportValue> {
+  private async fetchEventCount(
+    propertyId: string,
+    eventName: string,
+  ): Promise<ReportValue> {
     const token = await this.getAccessToken();
     const response = await fetch(
       `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
@@ -271,13 +356,16 @@ export class Ga4Service {
       },
     );
 
-    const data = await response.json() as {
+    const data = (await response.json()) as {
       rows?: Array<{ metricValues?: Array<{ value?: string }> }>;
       error?: { message?: string };
     };
 
     if (!response.ok) {
-      throw new Error(data.error?.message ?? `GA4 event ${eventName} respondió ${response.status}`);
+      throw new Error(
+        data.error?.message ??
+          `GA4 event ${eventName} respondió ${response.status}`,
+      );
     }
 
     const values = data.rows?.[0]?.metricValues ?? [];

@@ -6,7 +6,11 @@ import { PrismaService } from '../prisma/prisma.service';
 export class NotificationsService {
   constructor(private prisma: PrismaService) {}
 
-  async emit(input: { type: string; payload: Record<string, unknown>; targetRole?: Role }) {
+  async emit(input: {
+    type: string;
+    payload: Record<string, unknown>;
+    targetRole?: Role;
+  }) {
     return this.prisma.notification.create({
       data: {
         type: input.type,

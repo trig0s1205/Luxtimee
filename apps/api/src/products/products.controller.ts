@@ -1,19 +1,43 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UploadedFiles,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { Role } from '@prisma/client';
 import { memoryStorage } from 'multer';
 import type { Request } from 'express';
 import { ProductsService } from './products.service';
 import { CreateWatchDto, UpdateWatchDto } from './dto/watch.dto';
-import { Roles, Audit, Financial } from '../common/decorators/metadata.decorators';
+import {
+  Roles,
+  Audit,
+  Financial,
+} from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { FinancialGuard } from '../common/guards/financial.guard';
 import { FinancialStripInterceptor } from '../common/interceptors/financial-strip.interceptor';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ImageProcessingService } from '../integrations/image-processing.service';
-import { assertMediaFile, MAX_IMAGE_BYTES } from '../common/utils/file-magic.util';
+import {
+  assertMediaFile,
+  MAX_IMAGE_BYTES,
+} from '../common/utils/file-magic.util';
 
-const ALLOWED_IMAGE_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+const ALLOWED_IMAGE_MIME = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+]);
 
 function productImageFilter(
   _req: Request,
@@ -21,7 +45,10 @@ function productImageFilter(
   cb: (error: Error | null, acceptFile: boolean) => void,
 ) {
   if (!ALLOWED_IMAGE_MIME.has(file.mimetype)) {
-    cb(new BadRequestException('Solo se permiten imágenes JPEG, PNG o WEBP'), false);
+    cb(
+      new BadRequestException('Solo se permiten imágenes JPEG, PNG o WEBP'),
+      false,
+    );
     return;
   }
   cb(null, true);
@@ -110,7 +137,8 @@ export class ProductsController {
       const side = sides[i];
 
       try {
-        const processed = await this.imageProcessing.processWithMicroservice(file);
+        const processed =
+          await this.imageProcessing.processWithMicroservice(file);
         const url = await this.imageProcessing.uploadToCloudinary(
           processed,
           `${id}-${side}-${Date.now()}`,

@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Role } from '@prisma/client';
@@ -14,7 +20,10 @@ export interface JwtPayload {
 
 const STAFF_ROLES = new Set<Role>([Role.ADMIN, Role.SUPER_ADMIN]);
 
-function parseDurationMs(value: string | undefined, fallbackMs: number): number {
+function parseDurationMs(
+  value: string | undefined,
+  fallbackMs: number,
+): number {
   if (!value) return fallbackMs;
   const match = /^(\d+(?:\.\d+)?)(ms|s|m|h|d)$/i.exec(value.trim());
   if (!match) return fallbackMs;
@@ -43,7 +52,9 @@ export class AuthService {
 
   private assertStaffRole(role: Role) {
     if (!STAFF_ROLES.has(role)) {
-      throw new UnauthorizedException('No tienes acceso al panel de administración');
+      throw new UnauthorizedException(
+        'No tienes acceso al panel de administración',
+      );
     }
   }
 
@@ -59,7 +70,9 @@ export class AuthService {
     });
 
     if (!existing) {
-      throw new UnauthorizedException('No tienes acceso al panel de administración');
+      throw new UnauthorizedException(
+        'No tienes acceso al panel de administración',
+      );
     }
 
     this.assertStaffRole(existing.role);
@@ -93,7 +106,9 @@ export class AuthService {
     const masked = normalized.includes('@')
       ? `${normalized[0]}***@${normalized.split('@')[1]}`
       : '***';
-    this.logger.warn(`Login fallido ip=${clientIp ?? 'unknown'} email=${masked}`);
+    this.logger.warn(
+      `Login fallido ip=${clientIp ?? 'unknown'} email=${masked}`,
+    );
   }
 
   async updateProfile(userId: string, data: { name?: string; phone?: string }) {
@@ -101,7 +116,9 @@ export class AuthService {
       where: { id: userId },
       data: {
         ...(data.name !== undefined ? { name: data.name.trim() } : {}),
-        ...(data.phone !== undefined ? { phone: data.phone.trim() || null } : {}),
+        ...(data.phone !== undefined
+          ? { phone: data.phone.trim() || null }
+          : {}),
       },
       select: { id: true, email: true, name: true, role: true, phone: true },
     });
@@ -112,13 +129,18 @@ export class AuthService {
     if (!user) throw new UnauthorizedException();
 
     if (user.passwordHash) {
-      if (!currentPassword || !verifyPassword(currentPassword, user.passwordHash)) {
+      if (
+        !currentPassword ||
+        !verifyPassword(currentPassword, user.passwordHash)
+      ) {
         throw new UnauthorizedException('La contraseña actual no es correcta');
       }
     }
 
     const normalized = email.trim().toLowerCase();
-    const existing = await this.prisma.user.findUnique({ where: { email: normalized } });
+    const existing = await this.prisma.user.findUnique({
+      where: { email: normalized },
+    });
     if (existing && existing.id !== userId) {
       throw new ConflictException('Ese correo ya está en uso');
     }
@@ -130,18 +152,27 @@ export class AuthService {
     });
   }
 
-  async changePassword(userId: string, newPassword: string, currentPassword?: string) {
+  async changePassword(
+    userId: string,
+    newPassword: string,
+    currentPassword?: string,
+  ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
 
     if (user.passwordHash) {
-      if (!currentPassword || !verifyPassword(currentPassword, user.passwordHash)) {
+      if (
+        !currentPassword ||
+        !verifyPassword(currentPassword, user.passwordHash)
+      ) {
         throw new UnauthorizedException('La contraseña actual no es correcta');
       }
     }
 
     if (newPassword.length < 6) {
-      throw new BadRequestException('La nueva contraseña debe tener al menos 6 caracteres');
+      throw new BadRequestException(
+        'La nueva contraseña debe tener al menos 6 caracteres',
+      );
     }
 
     return this.prisma.user.update({
@@ -154,7 +185,9 @@ export class AuthService {
   async mockLogin(email: string, name: string) {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (!existing) {
-      throw new UnauthorizedException('Solo personal autorizado puede iniciar sesión');
+      throw new UnauthorizedException(
+        'Solo personal autorizado puede iniciar sesión',
+      );
     }
 
     this.assertStaffRole(existing.role);
@@ -185,9 +218,14 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  setAuthCookies(res: Response, tokens: { accessToken: string; refreshToken: string }) {
+  setAuthCookies(
+    res: Response,
+    tokens: { accessToken: string; refreshToken: string },
+  ) {
     const isProd = this.config.get('NODE_ENV') === 'production';
-    const configuredSameSite = this.config.get<'lax' | 'none'>('COOKIE_SAME_SITE');
+    const configuredSameSite = this.config.get<'lax' | 'none'>(
+      'COOKIE_SAME_SITE',
+    );
     const accessMaxAge = parseDurationMs(
       this.config.get<string>('JWT_ACCESS_EXPIRES'),
       15 * 60 * 1000,
@@ -221,7 +259,9 @@ export class AuthService {
 
   clearAuthCookies(res: Response) {
     const isProd = this.config.get('NODE_ENV') === 'production';
-    const configuredSameSite = this.config.get<'lax' | 'none'>('COOKIE_SAME_SITE');
+    const configuredSameSite = this.config.get<'lax' | 'none'>(
+      'COOKIE_SAME_SITE',
+    );
     const cookieOptions: {
       httpOnly: boolean;
       secure: boolean;

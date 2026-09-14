@@ -17,10 +17,18 @@ import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { SettingsService } from './settings.service';
 import { CACHE_TAGS, Cacheable } from '../common/cache/cache.decorator';
-import { Public, Roles, Audit, Financial } from '../common/decorators/metadata.decorators';
+import {
+  Public,
+  Roles,
+  Audit,
+  Financial,
+} from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { FinancialGuard } from '../common/guards/financial.guard';
-import { assertImageBuffer, MAX_IMAGE_BYTES } from '../common/utils/file-magic.util';
+import {
+  assertImageBuffer,
+  MAX_IMAGE_BYTES,
+} from '../common/utils/file-magic.util';
 import {
   DeleteFounderImageBodyDto,
   SetCommissionBodyDto,
@@ -154,7 +162,8 @@ export class SettingsController {
   async uploadFounderImages(
     @UploadedFiles() files: Express.Multer.File[],
   ): Promise<{ urls: string[] }> {
-    if (!files?.length) throw new BadRequestException('No se recibieron imágenes');
+    if (!files?.length)
+      throw new BadRequestException('No se recibieron imágenes');
     const urls: string[] = [];
     for (const file of files) {
       assertImageBuffer(file.buffer, file.mimetype);
@@ -177,7 +186,8 @@ export class SettingsController {
   async uploadCustomerProofImages(
     @UploadedFiles() files: Express.Multer.File[],
   ): Promise<{ urls: string[] }> {
-    if (!files?.length) throw new BadRequestException('No se recibió la imagen');
+    if (!files?.length)
+      throw new BadRequestException('No se recibió la imagen');
     const urls: string[] = [];
     for (const file of files) {
       assertImageBuffer(file.buffer, file.mimetype);

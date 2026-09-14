@@ -13,13 +13,13 @@ const { data: heroWatches, refresh: refreshHero } = await useCachedAsyncData(
   { staleTime: 30_000 },
 );
 
-const { data: limitedWatches } = useLazyAsyncData(
+const { data: limitedWatches } = useCachedAsyncData(
   'home-limited-editions',
   async () => {
     const res = await catalog.listCatalog({ limit: 24, available: 'true' });
     return res.data.filter((w) => w.isLimitedEdition && w.stock > 0);
   },
-  { server: false, staleTime: STOREFRONT_CACHE_MS.catalog },
+  { server: false, lazy: true, staleTime: STOREFRONT_CACHE_MS.catalog },
 );
 const { data: homeCms } = await useCachedAsyncData<HomepageConfigDto>(
   'home-cms-config',
@@ -68,9 +68,9 @@ onMounted(() => {
       :config="cms.customerProof"
     />
 
-    <LazyHomeStatementSection
-      v-if="cms.statement.enabled"
-      :config="cms.statement"
+    <LazyHomeFaqSection
+      v-if="cms.faq.enabled"
+      :config="cms.faq"
     />
 
     <LazyHomeContactSection

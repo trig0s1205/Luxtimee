@@ -40,9 +40,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const isProd = process.env.NODE_ENV === 'production';
 
     const isPrisma =
-      exception instanceof Prisma.PrismaClientKnownRequestError
-      || exception instanceof Prisma.PrismaClientValidationError
-      || exception instanceof Prisma.PrismaClientInitializationError;
+      exception instanceof Prisma.PrismaClientKnownRequestError ||
+      exception instanceof Prisma.PrismaClientValidationError ||
+      exception instanceof Prisma.PrismaClientInitializationError;
 
     let status =
       exception instanceof HttpException
@@ -59,12 +59,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
             : 'Error interno del servidor';
 
     const preserveUpstream =
-      exception instanceof HttpException
-      && (
-        status === HttpStatus.BAD_GATEWAY
-        || status === HttpStatus.SERVICE_UNAVAILABLE
-        || status === HttpStatus.GATEWAY_TIMEOUT
-      );
+      exception instanceof HttpException &&
+      (status === HttpStatus.BAD_GATEWAY ||
+        status === HttpStatus.SERVICE_UNAVAILABLE ||
+        status === HttpStatus.GATEWAY_TIMEOUT);
 
     if (isProd && isPrisma) {
       this.logger.error(exception);

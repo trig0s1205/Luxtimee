@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  NestMiddleware,
-} from '@nestjs/common';
+import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 
 const ABUSE_PATTERNS: RegExp[] = [
@@ -25,7 +21,11 @@ const BLOCK_MS = 15 * 60 * 1000;
 const STRIKE_WINDOW_MS = 10 * 60 * 1000;
 const MAX_STRIKES = 8;
 
-type StrikeState = { count: number; windowStarted: number; blockedUntil?: number };
+type StrikeState = {
+  count: number;
+  windowStarted: number;
+  blockedUntil?: number;
+};
 
 @Injectable()
 export class AbuseGuardMiddleware implements NestMiddleware {
@@ -49,7 +49,9 @@ export class AbuseGuardMiddleware implements NestMiddleware {
     const haystack = this.buildHaystack(req);
     if (this.matchesAbuse(haystack)) {
       this.registerStrike(ip, now);
-      this.logger.warn(`Patrón de abuso detectado desde ${ip} ${req.method} ${req.originalUrl}`);
+      this.logger.warn(
+        `Patrón de abuso detectado desde ${ip} ${req.method} ${req.originalUrl}`,
+      );
       res.status(403).json({
         statusCode: 403,
         message: 'Petición bloqueada',
@@ -79,7 +81,11 @@ export class AbuseGuardMiddleware implements NestMiddleware {
       // keep raw
     }
     const parts = [url];
-    if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
+    if (
+      req.body &&
+      typeof req.body === 'object' &&
+      !Buffer.isBuffer(req.body)
+    ) {
       try {
         parts.push(JSON.stringify(req.body));
       } catch {

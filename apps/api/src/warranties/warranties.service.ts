@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateWarrantyTemplateDto, UpdateWarrantyTemplateDto } from './dto/warranty.dto';
+import {
+  CreateWarrantyTemplateDto,
+  UpdateWarrantyTemplateDto,
+} from './dto/warranty.dto';
 
 @Injectable()
 export class WarrantiesService {
@@ -25,8 +28,11 @@ export class WarrantiesService {
   }
 
   private async ensureExists(id: string) {
-    const item = await this.prisma.warrantyTemplate.findUnique({ where: { id } });
-    if (!item) throw new NotFoundException('Plantilla de garantía no encontrada');
+    const item = await this.prisma.warrantyTemplate.findUnique({
+      where: { id },
+    });
+    if (!item)
+      throw new NotFoundException('Plantilla de garantía no encontrada');
     return item;
   }
 }

@@ -11,7 +11,8 @@ export interface CacheableOptions {
   maxAge?: number;
 }
 
-export const Cacheable = (options: CacheableOptions) => SetMetadata(CACHEABLE_KEY, options);
+export const Cacheable = (options: CacheableOptions) =>
+  SetMetadata(CACHEABLE_KEY, options);
 
 export const CACHE_TAGS = {
   catalog: 'catalog',

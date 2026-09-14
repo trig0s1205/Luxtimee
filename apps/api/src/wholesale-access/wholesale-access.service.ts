@@ -15,7 +15,10 @@ import type {
   WholesaleAccessDto,
   WholesaleSessionDto,
 } from '@luxtime/shared';
-import { WHOLESALE_ACCESS_COOKIE, DEFAULT_WHOLESALE_COOKIE_DAYS } from '@luxtime/shared';
+import {
+  WHOLESALE_ACCESS_COOKIE,
+  DEFAULT_WHOLESALE_COOKIE_DAYS,
+} from '@luxtime/shared';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -27,7 +30,10 @@ export class WholesaleAccessService {
   ) {}
 
   private buildAccessUrl(token: string) {
-    const base = this.config.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    const base = this.config.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
     return `${base.replace(/\/$/, '')}/mayoristas/acceso/${token}`;
   }
 
@@ -73,7 +79,8 @@ export class WholesaleAccessService {
         phone: dto.phone?.trim() || null,
         notes: dto.notes?.trim() || null,
         accessToken: token,
-        cookieDurationDays: dto.cookieDurationDays ?? DEFAULT_WHOLESALE_COOKIE_DAYS,
+        cookieDurationDays:
+          dto.cookieDurationDays ?? DEFAULT_WHOLESALE_COOKIE_DAYS,
         grantedById,
       },
     });
@@ -81,8 +88,11 @@ export class WholesaleAccessService {
   }
 
   async update(id: string, dto: UpdateWholesaleAccessDto) {
-    const existing = await this.prisma.wholesaleAccess.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException('Acceso mayorista no encontrado');
+    const existing = await this.prisma.wholesaleAccess.findUnique({
+      where: { id },
+    });
+    if (!existing)
+      throw new NotFoundException('Acceso mayorista no encontrado');
 
     const record = await this.prisma.wholesaleAccess.update({
       where: { id },
@@ -111,7 +121,10 @@ export class WholesaleAccessService {
     return this.update(id, { isActive: false });
   }
 
-  async activateSession(token: string, res: Response): Promise<WholesaleSessionDto> {
+  async activateSession(
+    token: string,
+    res: Response,
+  ): Promise<WholesaleSessionDto> {
     const record = await this.prisma.wholesaleAccess.findUnique({
       where: { accessToken: token },
     });
@@ -125,7 +138,8 @@ export class WholesaleAccessService {
     });
 
     const isProd = this.config.get('NODE_ENV') === 'production';
-    const maxAge = (record.cookieDurationDays ?? DEFAULT_WHOLESALE_COOKIE_DAYS) * MS_PER_DAY;
+    const maxAge =
+      (record.cookieDurationDays ?? DEFAULT_WHOLESALE_COOKIE_DAYS) * MS_PER_DAY;
     res.cookie(WHOLESALE_ACCESS_COOKIE, record.accessToken, {
       httpOnly: true,
       secure: isProd,
@@ -146,7 +160,9 @@ export class WholesaleAccessService {
     res.clearCookie(WHOLESALE_ACCESS_COOKIE, { path: '/' });
   }
 
-  async getSessionFromToken(token?: string | null): Promise<WholesaleSessionDto | null> {
+  async getSessionFromToken(
+    token?: string | null,
+  ): Promise<WholesaleSessionDto | null> {
     if (!token) return null;
     const record = await this.prisma.wholesaleAccess.findUnique({
       where: { accessToken: token },
@@ -169,8 +185,11 @@ export class WholesaleAccessService {
   }
 
   async regenerateToken(id: string) {
-    const existing = await this.prisma.wholesaleAccess.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException('Acceso mayorista no encontrado');
+    const existing = await this.prisma.wholesaleAccess.findUnique({
+      where: { id },
+    });
+    if (!existing)
+      throw new NotFoundException('Acceso mayorista no encontrado');
     const token = randomBytes(24).toString('hex');
     const record = await this.prisma.wholesaleAccess.update({
       where: { id },
@@ -180,8 +199,11 @@ export class WholesaleAccessService {
   }
 
   async remove(id: string) {
-    const existing = await this.prisma.wholesaleAccess.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException('Acceso mayorista no encontrado');
+    const existing = await this.prisma.wholesaleAccess.findUnique({
+      where: { id },
+    });
+    if (!existing)
+      throw new NotFoundException('Acceso mayorista no encontrado');
     if (existing.isActive) {
       throw new BadRequestException('Revoca el acceso antes de eliminarlo.');
     }

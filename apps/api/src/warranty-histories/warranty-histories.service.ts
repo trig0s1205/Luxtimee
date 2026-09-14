@@ -46,12 +46,20 @@ export class WarrantyHistoriesService {
       throw new NotFoundException('Ítem de pedido no encontrado');
     }
     if (item.order.status !== OrderStatus.ENTREGADO) {
-      throw new BadRequestException('Solo se puede registrar garantía en pedidos entregados.');
+      throw new BadRequestException(
+        'Solo se puede registrar garantía en pedidos entregados.',
+      );
     }
-    if (item.warrantyHistory?.status === WarrantyHistoryStatus.GARANTIA_REGISTRADA) {
-      throw new ConflictException('La garantía de este ítem ya fue registrada.');
+    if (
+      item.warrantyHistory?.status === WarrantyHistoryStatus.GARANTIA_REGISTRADA
+    ) {
+      throw new ConflictException(
+        'La garantía de este ítem ya fue registrada.',
+      );
     }
-    if (item.warrantyHistory?.status === WarrantyHistoryStatus.VENTA_ENTREGADA) {
+    if (
+      item.warrantyHistory?.status === WarrantyHistoryStatus.VENTA_ENTREGADA
+    ) {
       return this.register(item.warrantyHistory.id, dto, userId);
     }
 
@@ -71,7 +79,7 @@ export class WarrantyHistoriesService {
         replacementType: dto.replacementType,
         replacementSku:
           dto.replacementType === 'OTHER_WATCH'
-            ? toUpperTextOptional(dto.replacementSku) ?? null
+            ? (toUpperTextOptional(dto.replacementSku) ?? null)
             : item.watch.sku,
         replacementNotes: toUpperTextOptional(dto.replacementNotes) ?? null,
         status: WarrantyHistoryStatus.GARANTIA_REGISTRADA,
@@ -147,8 +155,11 @@ export class WarrantyHistoriesService {
   }
 
   async register(id: string, dto: RegisterWarrantyHistoryDto, userId: string) {
-    const existing = await this.prisma.warrantyHistory.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException('Historia de garantía no encontrada');
+    const existing = await this.prisma.warrantyHistory.findUnique({
+      where: { id },
+    });
+    if (!existing)
+      throw new NotFoundException('Historia de garantía no encontrada');
 
     const updated = await this.prisma.warrantyHistory.update({
       where: { id },
@@ -157,7 +168,7 @@ export class WarrantyHistoriesService {
         replacementType: dto.replacementType,
         replacementSku:
           dto.replacementType === 'OTHER_WATCH'
-            ? toUpperTextOptional(dto.replacementSku) ?? null
+            ? (toUpperTextOptional(dto.replacementSku) ?? null)
             : existing.productSku,
         replacementNotes: toUpperTextOptional(dto.replacementNotes) ?? null,
         serviceDate: new Date(),
@@ -171,9 +182,11 @@ export class WarrantyHistoriesService {
 
   private periodStart(period: WarrantyHistoryPeriod) {
     const now = new Date();
-    if (period === 'day') return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (period === 'day')
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate());
     if (period === 'week') return new Date(now.getTime() - 7 * 86400000);
-    if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1);
+    if (period === 'month')
+      return new Date(now.getFullYear(), now.getMonth(), 1);
     return null;
   }
 

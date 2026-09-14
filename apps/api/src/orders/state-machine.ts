@@ -2,7 +2,10 @@ import { BadRequestException } from '@nestjs/common';
 import { OrderStage, OrderStatus } from '@prisma/client';
 import { getOrderAllowedTransitions } from '@luxtime/shared';
 
-export function assertPreOrderEditable(stage: OrderStage, canceledAt: Date | null) {
+export function assertPreOrderEditable(
+  stage: OrderStage,
+  canceledAt: Date | null,
+) {
   if (stage !== OrderStage.PRE_ORDER || canceledAt) {
     throw new BadRequestException('Solo se pueden editar pre-pedidos activos');
   }
@@ -14,7 +17,9 @@ export function assertCanConfirmDeposit(
   canceledAt: Date | null,
 ) {
   if (stage !== OrderStage.PRE_ORDER || depositConfirmed || canceledAt) {
-    throw new BadRequestException('No se puede confirmar el abono de este pre-pedido');
+    throw new BadRequestException(
+      'No se puede confirmar el abono de este pre-pedido',
+    );
   }
 }
 

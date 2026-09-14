@@ -36,6 +36,8 @@ export class WaitlistService {
         data: { notified: true },
       });
     }
-    this.logger.log(`Waitlist notificada para watch ${watchId}: ${entries.length} correos`);
+    this.logger.log(
+      `Waitlist notificada para watch ${watchId}: ${entries.length} correos`,
+    );
   }
 }

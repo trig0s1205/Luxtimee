@@ -10,11 +10,18 @@ export class SegmentationService {
     const orders = await this.prisma.order.count({
       where: {
         userId,
-        status: { in: [OrderStatus.PAGADO, OrderStatus.ENVIADO, OrderStatus.ENTREGADO] },
+        status: {
+          in: [OrderStatus.PAGADO, OrderStatus.ENVIADO, OrderStatus.ENTREGADO],
+        },
       },
     });
     const total = await this.prisma.order.aggregate({
-      where: { userId, status: { in: [OrderStatus.PAGADO, OrderStatus.ENVIADO, OrderStatus.ENTREGADO] } },
+      where: {
+        userId,
+        status: {
+          in: [OrderStatus.PAGADO, OrderStatus.ENVIADO, OrderStatus.ENTREGADO],
+        },
+      },
       _sum: { total: true },
     });
     const spent = total._sum.total ?? 0;
@@ -28,7 +35,13 @@ export class SegmentationService {
   listCustomers() {
     return this.prisma.user.findMany({
       where: { role: 'CUSTOMER' },
-      select: { id: true, name: true, email: true, segment: true, createdAt: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        segment: true,
+        createdAt: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
   }

@@ -1,5 +1,8 @@
 import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
-import { Uppercase, UppercaseOptional } from '../../common/decorators/uppercase.decorator';
+import {
+  Uppercase,
+  UppercaseOptional,
+} from '../../common/decorators/uppercase.decorator';
 
 export class LoginCredentialsDto {
   @IsEmail()

@@ -1,6 +1,17 @@
-import { IsBoolean, IsEmail, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
-import { Uppercase, UppercaseOptional } from '../../common/decorators/uppercase.decorator';
+import {
+  Uppercase,
+  UppercaseOptional,
+} from '../../common/decorators/uppercase.decorator';
 import {
   MAX_WHOLESALE_COOKIE_DAYS,
   MIN_WHOLESALE_COOKIE_DAYS,

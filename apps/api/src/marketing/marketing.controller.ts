@@ -24,6 +24,10 @@ export class MarketingController {
     @CurrentUser() user: { id: string },
     @Body() body: ValidateMarketingContactBodyDto,
   ) {
-    return this.marketingService.validateContact(id, user.id, body.approve !== false);
+    return this.marketingService.validateContact(
+      id,
+      user.id,
+      body.approve !== false,
+    );
   }
 }
