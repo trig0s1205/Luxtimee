@@ -240,16 +240,8 @@ export class CatalogService {
   }
 
   async findHeroSpotlight(limit = 6) {
-    const safeLimit = Math.min(12, Math.max(1, limit));
-    const pinned = await this.findFeatured(safeLimit);
-    if (pinned.length >= safeLimit) return pinned.slice(0, safeLimit);
-
-    const pinnedIds = new Set(pinned.map((w) => w.id as string));
-    const arrivals = await this.findNewArrivals(safeLimit);
-    const extra = arrivals
-      .filter((w) => !pinnedIds.has(w.id as string))
-      .slice(0, safeLimit - pinned.length);
-    return [...pinned, ...extra];
+    // Solo mostrar los seleccionados manualmente (showInCatalog: true)
+    return this.findFeatured(limit);
   }
 
   async listWholesale(query: CatalogQueryDto) {
