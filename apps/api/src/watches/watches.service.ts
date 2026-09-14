@@ -233,7 +233,7 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
       showInCatalog: resolvedShowInCatalog,
       isLimitedEdition: dto.isLimitedEdition ?? false,      limitedEditionNumber: dto.limitedEditionNumber,
       description: dto.description,
-      faqs: normalizeFaqItems(dto.faqs),
+      faqs: normalizeFaqItems(dto.faqs) as unknown as Prisma.InputJsonValue,
       images: dto.images ?? [],
       mainImageIndex: dto.mainImageIndex ?? 0,
       frontImageUrl: dto.images?.[dto.mainImageIndex ?? 0] ?? null,
@@ -328,7 +328,7 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
     if (dto.showInCatalog !== undefined) data.showInCatalog = dto.showInCatalog;
     if (dto.isLimitedEdition !== undefined) data.isLimitedEdition = dto.isLimitedEdition;    if (dto.limitedEditionNumber !== undefined) data.limitedEditionNumber = dto.limitedEditionNumber;
     if (dto.description !== undefined) data.description = dto.description;
-    if (dto.faqs !== undefined) data.faqs = normalizeFaqItems(dto.faqs);
+    if (dto.faqs !== undefined) data.faqs = normalizeFaqItems(dto.faqs) as unknown as Prisma.InputJsonValue;
     if (dto.images) {
       data.images = dto.images;
       data.frontImageUrl = dto.images[dto.mainImageIndex ?? existing.mainImageIndex] ?? null;
@@ -364,12 +364,12 @@ export class WatchesService {  private readonly logger = new Logger(WatchesServi
           profitPercent: null,
         });
       } else {
-        delete (data as Partial<UpdateWatchDto>).cost;
-        delete (data as Partial<UpdateWatchDto>).profitPercent;
-        delete (data as Partial<UpdateWatchDto>).retailMarginPercentage;
-        delete (data as Partial<UpdateWatchDto>).wholesaleMarginPercentage;
+        delete (data as Record<string, unknown>).cost;
+        delete (data as Record<string, unknown>).profitPercent;
+        delete (data as Record<string, unknown>).retailMarginPercentage;
+        delete (data as Record<string, unknown>).wholesaleMarginPercentage;
       }
-      delete (data as Partial<UpdateWatchDto>).secretaryCommissionPercentage;
+      delete (data as Record<string, unknown>).secretaryCommissionPercentage;
     }
 
     this.maybeAutoPublishDraft(existing, data, dto);
