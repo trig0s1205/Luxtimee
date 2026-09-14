@@ -168,31 +168,19 @@ export function useCatalogData() {
   }
 
   async function getHeroSpotlight(limit = 6) {
+    // Solo mostrar los relojes seleccionados manualmente (showInCatalog: true)
     try {
       const hero = await fetchPublic<WatchPublicDto[]>('/catalog/hero-spotlight', { limit });
-      if (Array.isArray(hero) && hero.length > 0) return hero;
+      return Array.isArray(hero) ? hero : [];
     } catch {
-      /* API antigua sin hero-spotlight */
+      // Fallback a /catalog/featured si el endpoint no existe
+      try {
+        const featured = await fetchPublic<WatchPublicDto[]>('/catalog/featured', { limit });
+        return Array.isArray(featured) ? featured.slice(0, limit) : [];
+      } catch {
+        return [];
+      }
     }
-    try {
-      const featured = await fetchPublic<WatchPublicDto[]>('/catalog/featured', { limit });
-      if (featured.length > 0) return featured.slice(0, limit);
-    } catch {
-      /* siguiente */
-    }
-    try {
-      const arrivals = await fetchPublic<WatchPublicDto[]>('/catalog/new-arrivals');
-      if (arrivals.length > 0) return arrivals.slice(0, limit);
-    } catch {
-      /* siguiente */
-    }
-    try {
-      const list = await fetchPublic<PaginatedResponse<WatchPublicDto>>('/catalog', { limit, page: 1 });
-      if (list.data.length > 0) return list.data.slice(0, limit);
-    } catch {
-      if (import.meta.dev) return MOCK_CATALOG.slice(0, limit);
-    }
-    return [];
   }
 
   async function listWholesaleCatalog(query: CatalogListQuery = {}) {
