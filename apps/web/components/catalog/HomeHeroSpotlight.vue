@@ -314,8 +314,13 @@ onBeforeUnmount(() => stopTimer());
     </nav>
 
     <div class="lux-hero__footer-cta">
-      <NuxtLink to="/catalogo" class="btn-ghost">{{ t('home.viewCollection') }}</NuxtLink>
-      <NuxtLink to="/mayoristas" class="btn-ghost">{{ t('nav.wholesale') }}</NuxtLink>
+      <NuxtLink to="/catalogo" class="lux-hero__footer-btn lux-hero__footer-btn--primary">
+        <span>{{ t('home.viewCollection') }}</span>
+        <span class="lux-hero__footer-btn-arrow" aria-hidden="true">→</span>
+      </NuxtLink>
+      <NuxtLink to="/mayoristas" class="lux-hero__footer-btn lux-hero__footer-btn--secondary">
+        <span>{{ t('nav.wholesale') }}</span>
+      </NuxtLink>
     </div>
   </section>
 </template>
@@ -795,8 +800,71 @@ section.lux-hero {
 .lux-hero__footer-cta {
   display: flex;
   justify-content: center;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.85rem;
   margin-top: 1.5rem;
+}
+
+.lux-hero__footer-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  min-height: 48px;
+  padding: 0.85rem 1.65rem;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s ease,
+    border-color 0.35s ease,
+    background 0.35s ease;
+}
+
+.lux-hero__footer-btn--primary {
+  color: var(--black);
+  background: linear-gradient(135deg, var(--gold-light) 0%, var(--gold) 55%, var(--gold-dark) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 10px 32px rgba(200, 169, 110, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.lux-hero__footer-btn--primary:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 16px 40px rgba(200, 169, 110, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.lux-hero__footer-btn--secondary {
+  color: var(--gold-light);
+  background: rgba(10, 10, 10, 0.55);
+  border: 1px solid rgba(200, 169, 110, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.lux-hero__footer-btn--secondary:hover {
+  color: var(--white);
+  border-color: var(--gold);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+.lux-hero__footer-btn-arrow {
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: transform 0.35s ease;
+}
+
+.lux-hero__footer-btn--primary:hover .lux-hero__footer-btn-arrow {
+  transform: translateX(4px);
 }
 
 .hero-rise-enter-active {
@@ -925,11 +993,9 @@ section.lux-hero {
     gap: 10px;
   }
 
-  .lux-hero__footer-cta .btn-primary,
-  .lux-hero__footer-cta .btn-ghost {
+  .lux-hero__footer-btn {
     width: 100%;
-    text-align: center;
-    justify-content: center;
+    max-width: 320px;
   }
 }
 

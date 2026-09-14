@@ -22,8 +22,10 @@ function openActiveCart() {
   openCart(isWholesaleCatalogArea.value ? 'wholesale' : 'retail');
 }
 
-const navLinks = computed(() => [
-  { label: t('nav.collection'), to: '/catalogo' },
+type NavLinkItem = { label: string; to: string; highlight?: boolean };
+
+const navLinks = computed<NavLinkItem[]>(() => [
+  { label: t('nav.collection'), to: '/catalogo', highlight: true },
   { label: t('nav.wholesale'), to: '/mayoristas' },
   { label: t('nav.about'), to: '/#nosotros' },
   { label: t('nav.contact'), to: '/#contacto' },
@@ -106,7 +108,12 @@ watch(() => route.fullPath, closeMenu);
 
     <ul class="nav-links">
       <li v-for="link in navLinks" :key="link.to">
-        <NuxtLink :to="link.to">{{ link.label }}</NuxtLink>
+        <NuxtLink
+          :to="link.to"
+          :class="{ 'nav-link--catalog': link.highlight }"
+        >
+          {{ link.label }}
+        </NuxtLink>
       </li>
     </ul>
 
@@ -138,6 +145,7 @@ watch(() => route.fullPath, closeMenu);
       v-for="link in navLinks"
       :key="`m-${link.to}`"
       :to="link.to"
+      :class="{ 'nav-menu-mobile__link--catalog': link.highlight }"
       @click="closeMenu"
     >
       {{ link.label }}
