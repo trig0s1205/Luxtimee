@@ -308,8 +308,34 @@ def _rembg_refined(data: bytes) -> Image.Image:
     return _refine_watch_cut(_crop_rgba(Image.open(io.BytesIO(refined_cut)).convert("RGBA")))
 
 
+def _normalize_watch_for_canvas(watch: Image.Image) -> Image.Image:
+    """Escala el reloj para que el sujeto visible ocupe la misma proporción en frente y reverso."""
+    bbox = watch.getbbox()
+    if bbox:
+        left, top, right, bottom = bbox
+        subject_w = right - left
+        subject_h = bottom - top
+    else:
+        subject_w, subject_h = watch.size
+
+    if subject_w <= 0 or subject_h <= 0:
+        return _scale_to_fill(watch, MAX_WATCH_WIDTH, MAX_WATCH_HEIGHT)
+
+    target_max = min(MAX_WATCH_WIDTH, MAX_WATCH_HEIGHT)
+    scale = target_max / max(subject_w, subject_h)
+    new_w = max(1, round(watch.width * scale))
+    new_h = max(1, round(watch.height * scale))
+    scaled = watch.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+    panel = Image.new("RGBA", (MAX_WATCH_WIDTH, MAX_WATCH_HEIGHT), (0, 0, 0, 0))
+    x = (MAX_WATCH_WIDTH - scaled.width) // 2
+    y = (MAX_WATCH_HEIGHT - scaled.height) // 2
+    panel.paste(scaled, (x, y), scaled)
+    return panel
+
+
 def _compose_canvas(watch: Image.Image) -> bytes:
-    watch = _scale_to_fill(watch, MAX_WATCH_WIDTH, MAX_WATCH_HEIGHT)
+    watch = _normalize_watch_for_canvas(watch)
     canvas = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), (0, 0, 0, 0))
     x = (CANVAS_WIDTH - watch.width) // 2
     y = (CANVAS_HEIGHT - watch.height) // 2

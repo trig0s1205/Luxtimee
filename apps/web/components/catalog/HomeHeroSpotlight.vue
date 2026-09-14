@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { WatchPublicDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
-import { optimizeCloudinaryImageUrl } from '~/utils/media-url';
+import { optimizeCloudinaryHeroWatchUrl } from '~/utils/media-url';
 
 const props = defineProps<{
   watches: WatchPublicDto[];
@@ -29,11 +29,13 @@ const nextWatch = computed(() => {
   return list.value[i] ?? null;
 });
 
+const HERO_IMAGE_WIDTH = 760;
+
 const primaryUrl = computed(() => (
-  active.value ? optimizeCloudinaryImageUrl(watchPrimaryImage(active.value), 760) : null
+  active.value ? optimizeCloudinaryHeroWatchUrl(watchPrimaryImage(active.value), HERO_IMAGE_WIDTH) : null
 ));
 const insetUrl = computed(() => (
-  active.value ? optimizeCloudinaryImageUrl(watchSecondaryImage(active.value), 220) : null
+  active.value ? optimizeCloudinaryHeroWatchUrl(watchSecondaryImage(active.value), HERO_IMAGE_WIDTH) : null
 ));
 const swapped = ref(false);
 
@@ -147,7 +149,7 @@ watch(() => active.value?.id, (id) => {
   const prev = prevWatch.value;
   for (const watch of [next, prev]) {
     if (!watch) continue;
-    const href = optimizeCloudinaryImageUrl(watchPrimaryImage(watch), 760);
+    const href = optimizeCloudinaryHeroWatchUrl(watchPrimaryImage(watch), HERO_IMAGE_WIDTH);
     if (!href) continue;
     const link = document.createElement('link');
     link.rel = 'prefetch';
@@ -618,12 +620,13 @@ section.lux-hero {
   position: absolute;
   right: 2%;
   top: 10%;
-  width: clamp(72px, 8vw, 104px);
-  height: clamp(72px, 8vw, 104px);
-  border-radius: 50%;
+  width: clamp(88px, 11vw, 132px);
+  aspect-ratio: 3 / 4;
+  height: auto;
+  border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(200, 169, 110, 0.35);
-  background: rgba(17, 17, 17, 0.55);
+  border: 1px solid rgba(200, 169, 110, 0.45);
+  background: rgba(17, 17, 17, 0.72);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
@@ -647,8 +650,10 @@ section.lux-hero {
 .lux-hero__inset img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
+  transform: scale(0.79);
+  transform-origin: center center;
 }
 
 .hero-swap-enter-active,
@@ -889,8 +894,7 @@ section.lux-hero {
   .lux-hero__inset {
     right: 4%;
     top: 6%;
-    width: clamp(64px, 18vw, 84px);
-    height: clamp(64px, 18vw, 84px);
+    width: clamp(72px, 20vw, 96px);
   }
 
   .lux-hero__nav {

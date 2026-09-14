@@ -52,6 +52,18 @@ export function optimizeCloudinaryImageUrl(url?: string | null, width = 800): st
   return url.replace('/image/upload/', `/image/upload/${transform}/`);
 }
 
+/** Mismo encuadre para foto principal y secundaria en el hero (3:4). */
+export function optimizeCloudinaryHeroWatchUrl(url?: string | null, width = 760): string | undefined {
+  if (!url) return undefined;
+  if (!url.includes('res.cloudinary.com') || !url.includes('/image/upload/')) return url;
+  const height = Math.round(width * (4 / 3));
+  const transform = `f_auto,q_auto:good,w_${width},h_${height},c_fit`;
+  if (url.includes('/image/upload/') && /\/image\/upload\/[^/]+\//.test(url)) {
+    return url.replace(/\/image\/upload\/[^/]+\//, `/image/upload/${transform}/`);
+  }
+  return url.replace('/image/upload/', `/image/upload/${transform}/`);
+}
+
 export function optimizeCloudinaryVideoUrl(url?: string | null): string | undefined {
   if (!url) return undefined;
   if (!url.includes('res.cloudinary.com') || !url.includes('/video/upload/')) return url;
