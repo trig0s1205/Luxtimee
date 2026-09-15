@@ -151,9 +151,92 @@ function setVideoFile(file: File | null) {
   videoPreview.value = file ? URL.createObjectURL(file) : null;
 }
 
+const IMAGE_ACCEPT_RE = /\.(jpe?g|png|webp)$/i;
+const VIDEO_ACCEPT_RE = /\.(mp4|webm|mov)$/i;
+
+function isAcceptedImageFile(file: File) {
+  return file.type.startsWith('image/') || IMAGE_ACCEPT_RE.test(file.name);
+}
+
+function isAcceptedVideoFile(file: File) {
+  return file.type.startsWith('video/') || VIDEO_ACCEPT_RE.test(file.name);
+}
+
+const mediaDragDepth = reactive({ primary: 0, secondary: 0, video: 0, pair: 0 });
+
+function isMediaDragOver(slot: keyof typeof mediaDragDepth) {
+  return mediaDragDepth[slot] > 0;
+}
+
+function onMediaDragEnter(slot: keyof typeof mediaDragDepth, event: DragEvent) {
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+  mediaDragDepth[slot] += 1;
+}
+
+function onMediaDragLeave(slot: keyof typeof mediaDragDepth) {
+  mediaDragDepth[slot] = Math.max(0, mediaDragDepth[slot] - 1);
+}
+
+function onMediaDragOver(event: DragEvent) {
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+}
+
+function onImageDrop(slot: 'primary' | 'secondary', event: DragEvent) {
+  event.preventDefault();
+  event.stopPropagation();
+  mediaDragDepth[slot] = 0;
+  const files = event.dataTransfer?.files;
+  if (!files?.length) return;
+  const image = [...files].find((f) => isAcceptedImageFile(f));
+  if (!image) {
+    toast.warning('Solo imágenes JPG, PNG o WEBP.');
+    return;
+  }
+  setImageFile(slot, image);
+}
+
+async function onVideoDrop(event: DragEvent) {
+  event.preventDefault();
+  event.stopPropagation();
+  mediaDragDepth.video = 0;
+  const files = event.dataTransfer?.files;
+  if (!files?.length) return;
+  const file = [...files].find((f) => isAcceptedVideoFile(f));
+  if (!file) {
+    toast.warning('Solo video MP4, MOV o WEBM.');
+    return;
+  }
+  mediaError.value = '';
+  const validationError = await validateWatchVideoFile(file);
+  if (validationError) {
+    mediaError.value = validationError;
+    toast.warning(validationError);
+    activeTab.value = 2;
+    return;
+  }
+  setVideoFile(file);
+  toast.info('Video válido. Se optimizará al guardar (máx. 1080p, ~10 MB).');
+}
+
+function onPairImagesDrop(event: DragEvent) {
+  event.preventDefault();
+  event.stopPropagation();
+  mediaDragDepth.pair = 0;
+  const images = [...(event.dataTransfer?.files ?? [])].filter((f) => isAcceptedImageFile(f));
+  if (images.length < 2) {
+    toast.warning('Suelta 2 imágenes: la 1.ª es principal y la 2.ª secundaria.');
+    return;
+  }
+  setImageFile('primary', images[0]);
+  setImageFile('secondary', images[1]);
+  activeTab.value = 2;
+}
+
 function onImageSelect(slot: 'primary' | 'secondary', event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0] ?? null;
-  if (file && file.type.startsWith('image/')) setImageFile(slot, file);
+  if (file && isAcceptedImageFile(file)) setImageFile(slot, file);
   (event.target as HTMLInputElement).value = '';
 }
 
@@ -452,12 +535,38 @@ const selectedCareTemplate = computed(() =>
         </p>
         <p v-if="mediaError" class="admin-media-error">{{ mediaError }}</p>
 
+        <div
+          v-if="!isEdit"
+          class="admin-dropzone admin-media-pair-drop"
+          :class="{ 'is-drag-over': isMediaDragOver('pair') }"
+          @dragenter="onMediaDragEnter('pair', $event)"
+          @dragleave="onMediaDragLeave('pair')"
+          @dragover="onMediaDragOver"
+          @drop="onPairImagesDrop"
+        >
+          <div class="admin-dropzone-content">
+            <p>Arrastra las 2 fotos del reloj aquí</p>
+            <span>1.ª = principal (frente) · 2.ª = secundaria (reverso). También puedes soltar en cada recuadro.</span>
+          </div>
+        </div>
+
         <div class="admin-media-grid">
           <div class="admin-media-slot">
             <label>Foto principal <span class="admin-form-required">*</span></label>
-            <div class="admin-media-preview" @click="primaryInput?.click()">
+            <div
+              class="admin-media-preview"
+              :class="{ 'is-drag-over': isMediaDragOver('primary') }"
+              role="button"
+              tabindex="0"
+              @click="primaryInput?.click()"
+              @keydown.enter.prevent="primaryInput?.click()"
+              @dragenter="onMediaDragEnter('primary', $event)"
+              @dragleave="onMediaDragLeave('primary')"
+              @dragover="onMediaDragOver"
+              @drop="onImageDrop('primary', $event)"
+            >
               <img v-if="primaryPreview || form.primaryImageUrl" :src="primaryPreview || form.primaryImageUrl" alt="">
-              <span v-else>JPG / PNG / WEBP</span>
+              <span v-else>Arrastra aquí o haz clic<br>JPG / PNG / WEBP</span>
             </div>
             <input ref="primaryInput" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="onImageSelect('primary', $event)">
             <button v-if="primaryPreview || form.primaryImageUrl" type="button" class="admin-media-clear" @click="clearImageSlot('primary')">Quitar</button>
@@ -465,9 +574,20 @@ const selectedCareTemplate = computed(() =>
 
           <div class="admin-media-slot">
             <label>Foto secundaria <span class="admin-form-required">*</span></label>
-            <div class="admin-media-preview" @click="secondaryInput?.click()">
+            <div
+              class="admin-media-preview"
+              :class="{ 'is-drag-over': isMediaDragOver('secondary') }"
+              role="button"
+              tabindex="0"
+              @click="secondaryInput?.click()"
+              @keydown.enter.prevent="secondaryInput?.click()"
+              @dragenter="onMediaDragEnter('secondary', $event)"
+              @dragleave="onMediaDragLeave('secondary')"
+              @dragover="onMediaDragOver"
+              @drop="onImageDrop('secondary', $event)"
+            >
               <img v-if="secondaryPreview || form.secondaryImageUrl" :src="secondaryPreview || form.secondaryImageUrl" alt="">
-              <span v-else>JPG / PNG / WEBP</span>
+              <span v-else>Arrastra aquí o haz clic<br>JPG / PNG / WEBP</span>
             </div>
             <input ref="secondaryInput" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="onImageSelect('secondary', $event)">
             <button v-if="secondaryPreview || form.secondaryImageUrl" type="button" class="admin-media-clear" @click="clearImageSlot('secondary')">Quitar</button>
@@ -479,9 +599,20 @@ const selectedCareTemplate = computed(() =>
               Máx. {{ MAX_VIDEO_DURATION_SEC }} s · MP4, MOV o WEBM · Se optimiza a 1080p (~10 MB)
               <template v-if="imagesOnlyMode || isEdit"> · Opcional en borrador</template>
             </p>
-            <div class="admin-media-preview admin-media-preview--video" @click="videoInput?.click()">
+            <div
+              class="admin-media-preview admin-media-preview--video"
+              :class="{ 'is-drag-over': isMediaDragOver('video') }"
+              role="button"
+              tabindex="0"
+              @click="videoInput?.click()"
+              @keydown.enter.prevent="videoInput?.click()"
+              @dragenter="onMediaDragEnter('video', $event)"
+              @dragleave="onMediaDragLeave('video')"
+              @dragover="onMediaDragOver"
+              @drop="onVideoDrop"
+            >
               <video v-if="videoPreview || form.videoUrl" :src="videoPreview || form.videoUrl" controls muted />
-              <span v-else>MP4 / MOV / WEBM</span>
+              <span v-else>Arrastra aquí o haz clic<br>MP4 / MOV / WEBM</span>
             </div>
             <input ref="videoInput" type="file" accept="video/mp4,video/webm,video/quicktime,.mov,.mp4,.webm" class="hidden" @change="onVideoSelect">
             <button v-if="videoPreview || form.videoUrl" type="button" class="admin-media-clear" @click="clearVideoSlot">Quitar</button>
@@ -748,9 +879,15 @@ const selectedCareTemplate = computed(() =>
   transition: border-color 0.2s, background 0.2s;
 }
 
-.admin-dropzone:hover {
+.admin-dropzone:hover,
+.admin-dropzone.is-drag-over {
   border-color: var(--lux-gold);
-  background: rgba(200, 169, 110, 0.03);
+  background: rgba(200, 169, 110, 0.08);
+}
+
+.admin-media-pair-drop {
+  margin-bottom: 20px;
+  padding: 28px 20px;
 }
 
 .admin-dropzone-content {
@@ -803,6 +940,17 @@ const selectedCareTemplate = computed(() =>
   justify-content: center;
   cursor: pointer;
   overflow: hidden;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.admin-media-preview:hover {
+  border-color: rgba(200, 169, 110, 0.45);
+}
+
+.admin-media-preview.is-drag-over {
+  border-color: var(--lux-gold);
+  background: rgba(200, 169, 110, 0.1);
+  box-shadow: 0 0 0 1px rgba(200, 169, 110, 0.35);
 }
 
 .admin-media-preview img,
