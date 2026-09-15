@@ -56,6 +56,24 @@ export default defineNuxtConfig({
       hmr: process.env.NUXT_LAN === 'true' ? { clientPort: 24679 } : undefined,
     },
   },
+  hooks: {
+    'pages:extend'(pages) {
+      const patchAdminTransitions = (routePages: typeof pages) => {
+        for (const page of routePages) {
+          const file = page.file ?? '';
+          if (file.includes('/pages/admin/')) {
+            page.meta = {
+              ...page.meta,
+              pageTransition: false,
+              layoutTransition: false,
+            };
+          }
+          if (page.children?.length) patchAdminTransitions(page.children);
+        }
+      };
+      patchAdminTransitions(pages);
+    },
+  },
   nitro: {
     devProxy: {
       '/api': {

@@ -68,6 +68,11 @@
     padding: 1.5rem 2rem;
   }
 
+  .admin-main > * {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
   .admin-topbar,
   .admin-sidebar-backdrop,
   .admin-sidebar-close {
