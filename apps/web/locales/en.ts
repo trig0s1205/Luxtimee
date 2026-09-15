@@ -33,6 +33,8 @@ export default {
     heroTags: 'Luxury watches ◆ Exclusive design ◆ Shipping nationwide',
     heroTagline: 'Elegance · Presence · Style',
     heroFindOutMore: 'Find out more',
+    heroTapRear: 'Tap the watch to see the back',
+    heroTapFront: 'Tap the watch to see the front',
     heroAvailable: 'Available',
     heroSoldOut: 'Sold out',
     heroLimitedTo: 'Limited to {n} pieces',
@@ -120,6 +122,9 @@ export default {
     loading: 'Loading catalog…',
     empty: 'No watches match these filters.',
     loadMore: 'Load more',
+    pagePrev: 'Previous',
+    pageNext: 'Next',
+    pageOf: 'Page {current} of {total}',
   },
   product: {
     limited: 'Limited edition',

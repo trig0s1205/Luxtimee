@@ -33,6 +33,8 @@ export default {
     heroTags: 'Relojes de lujo ◆ Diseño exclusivo ◆ Envíos a todo Colombia',
     heroTagline: 'Elegance · Presence · Style',
     heroFindOutMore: 'Ver más',
+    heroTapRear: 'Toca el reloj para ver el reverso',
+    heroTapFront: 'Toca el reloj para ver el frente',
     heroAvailable: 'Disponible',
     heroSoldOut: 'Agotado',
     heroLimitedTo: 'Limitado a {n} piezas',
@@ -120,6 +122,9 @@ export default {
     loading: 'Cargando catálogo…',
     empty: 'No hay relojes con estos filtros.',
     loadMore: 'Cargar más',
+    pagePrev: 'Anterior',
+    pageNext: 'Siguiente',
+    pageOf: 'Página {current} de {total}',
   },
   product: {
     limited: 'Edición limitada',

@@ -8,7 +8,10 @@ const apiBase = useApiBaseUrl();
 const { observe } = useRevealObserver();
 const { t } = useLocale();
 
-const PAGE_SIZE = 30;
+const DESKTOP_PAGE_SIZE = 30;
+const MOBILE_ROWS_PER_PAGE = 10;
+const MOBILE_COLS_PER_ROW = 7;
+const MOBILE_PAGE_SIZE = MOBILE_ROWS_PER_PAGE * MOBILE_COLS_PER_ROW;
 const GENDER_OPTIONS = ['Hombre', 'Mujer', 'Unisex'] as const;
 const FILTER_NONE = '';
 
@@ -24,6 +27,31 @@ const sort = ref<CatalogSort>('newest');
 const searchQuery = ref('');
 const debouncedSearch = ref('');
 const loadPages = ref(1);
+const mobilePage = ref(1);
+const isMobileCatalog = ref(false);
+
+function syncMobileCatalog() {
+  if (!import.meta.client) return;
+  const next = window.matchMedia('(max-width: 768px)').matches;
+  if (next !== isMobileCatalog.value) {
+    isMobileCatalog.value = next;
+    resetCatalogPaging();
+    scheduleRefresh();
+  } else {
+    isMobileCatalog.value = next;
+  }
+}
+
+const catalogPageLabel = computed(() =>
+  t('catalog.pageOf')
+    .replace('{current}', String(mobilePage.value))
+    .replace('{total}', String(mobileTotalPages.value)),
+);
+
+function resetCatalogPaging() {
+  loadPages.value = 1;
+  mobilePage.value = 1;
+}
 
 const { data: brands } = await useCachedAsyncData('catalog-brands', () =>
   $fetch<BrandDto[]>(`${apiBase}/brands/public`).catch(() => []),
@@ -43,10 +71,15 @@ const { data: mechanismsData } = await useCachedAsyncData('catalog-mechanisms', 
 const movements = computed(() => mechanismsData.value ?? []);
 
 function buildCatalogParams() {
+  const page = isMobileCatalog.value ? mobilePage.value : 1;
+  const limit = isMobileCatalog.value
+    ? MOBILE_PAGE_SIZE
+    : DESKTOP_PAGE_SIZE * loadPages.value;
+
   return sanitizeCatalogQuery({
     sort: sort.value,
-    page: 1,
-    limit: PAGE_SIZE * loadPages.value,
+    page,
+    limit,
     brand: brand.value || undefined,
     movement: movement.value || undefined,
     category: category.value || undefined,
@@ -66,7 +99,7 @@ const { data: catalogResult, pending, refresh } = await useCachedAsyncData<Pagin
       query: buildCatalogParams(),
     }),
   {
-    default: (): PaginatedResponse<WatchPublicDto> => ({ data: [], total: 0, page: 1, limit: PAGE_SIZE }),
+    default: (): PaginatedResponse<WatchPublicDto> => ({ data: [], total: 0, page: 1, limit: DESKTOP_PAGE_SIZE }),
     staleTime: STOREFRONT_CACHE_MS.catalog,
     watch: [catalogKey],
   },
@@ -74,7 +107,19 @@ const { data: catalogResult, pending, refresh } = await useCachedAsyncData<Pagin
 
 const products = computed(() => catalogResult.value?.data ?? []);
 const total = computed(() => catalogResult.value?.total ?? 0);
-const hasMore = computed(() => products.value.length < total.value);
+const hasMore = computed(() => !isMobileCatalog.value && products.value.length < total.value);
+
+const mobileTotalPages = computed(() =>
+  Math.max(1, Math.ceil(total.value / MOBILE_PAGE_SIZE)),
+);
+
+const mobileProductRows = computed(() => {
+  const rows: WatchPublicDto[][] = [];
+  for (let i = 0; i < products.value.length; i += MOBILE_COLS_PER_ROW) {
+    rows.push(products.value.slice(i, i + MOBILE_COLS_PER_ROW));
+  }
+  return rows.slice(0, MOBILE_ROWS_PER_PAGE);
+});
 const isInitialLoad = computed(() => pending.value && products.value.length === 0);
 const hasActiveFilters = computed(() =>
   !!brand.value
@@ -112,7 +157,7 @@ function scheduleRefresh() {
 
 function onFilterChange() {
   if (skipFilterWatch) return;
-  loadPages.value = 1;
+  resetCatalogPaging();
   scheduleRefresh();
 }
 
@@ -120,7 +165,7 @@ function onSearchInput() {
   if (searchTimer) clearTimeout(searchTimer);
   searchTimer = setTimeout(() => {
     debouncedSearch.value = searchQuery.value;
-    loadPages.value = 1;
+    resetCatalogPaging();
     scheduleRefresh();
   }, 300);
 }
@@ -133,7 +178,7 @@ function loadMore() {
 function clearSearch() {
   searchQuery.value = '';
   debouncedSearch.value = '';
-  loadPages.value = 1;
+  resetCatalogPaging();
   scheduleRefresh();
 }
 
@@ -148,9 +193,19 @@ function clearFilters() {
   sort.value = 'newest';
   searchQuery.value = '';
   debouncedSearch.value = '';
-  loadPages.value = 1;
+  resetCatalogPaging();
   skipFilterWatch = false;
   scheduleRefresh();
+}
+
+function goMobilePage(next: number) {
+  const safe = Math.min(mobileTotalPages.value, Math.max(1, next));
+  if (safe === mobilePage.value) return;
+  mobilePage.value = safe;
+  scheduleRefresh();
+  if (import.meta.client) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 }
 
 watch([brand, movement, category, gender, minPrice, maxPrice, sort], onFilterChange);
@@ -161,7 +216,7 @@ watch(() => route.query, (query) => {
   skipFilterWatch = true;
   category.value = preset.category;
   skipFilterWatch = false;
-  loadPages.value = 1;
+  resetCatalogPaging();
   scheduleRefresh();
 }, { immediate: true });
 
@@ -173,7 +228,15 @@ watch(products, () => {
   nextTick(() => observe());
 });
 
-onMounted(() => nextTick(() => observe()));
+onMounted(() => {
+  syncMobileCatalog();
+  window.addEventListener('resize', syncMobileCatalog, { passive: true });
+  nextTick(() => observe());
+});
+
+onUnmounted(() => {
+  if (import.meta.client) window.removeEventListener('resize', syncMobileCatalog);
+});
 
 useSeoMeta({
   title: 'Catálogo — LUXTIMEE Luxury Timepieces',
@@ -449,22 +512,77 @@ useSeoMeta({
       </Teleport>
 
       <section class="catalog-section">
-        <div v-if="isInitialLoad" class="catalog-skeleton-grid" aria-hidden="true">
-          <div v-for="i in 6" :key="i" class="catalog-skeleton-card" />
+        <div v-if="isInitialLoad" class="catalog-skeleton-wrap" aria-hidden="true">
+          <div class="catalog-skeleton-grid catalog-skeleton-grid--desktop">
+            <div v-for="i in 6" :key="i" class="catalog-skeleton-card" />
+          </div>
+          <div class="catalog-skeleton-mobile">
+            <div v-for="r in MOBILE_ROWS_PER_PAGE" :key="r" class="catalog-skeleton-mobile-row">
+              <div class="catalog-skeleton-card catalog-skeleton-card--peek" />
+              <div class="catalog-skeleton-card catalog-skeleton-card--peek" />
+            </div>
+          </div>
         </div>
 
-        <div v-else-if="products.length" class="catalog-grid">
-          <CatalogProductCard
-            v-for="(w, i) in products"
-            :key="w.id"
-            :watch="w"
-            :delay="(i % 6) * 0.05"
-          />
-        </div>
+        <template v-else-if="products.length">
+          <div class="catalog-grid catalog-grid--desktop">
+            <CatalogProductCard
+              v-for="(w, i) in products"
+              :key="w.id"
+              :watch="w"
+              :delay="(i % 6) * 0.05"
+            />
+          </div>
+
+          <div class="catalog-mobile-rows">
+            <div
+              v-for="(row, rowIndex) in mobileProductRows"
+              :key="`row-${rowIndex}`"
+              class="catalog-mobile-row"
+            >
+              <div class="catalog-mobile-row__track">
+                <div
+                  v-for="(w, colIndex) in row"
+                  :key="w.id"
+                  class="catalog-mobile-row__item"
+                >
+                  <CatalogProductCard
+                    :watch="w"
+                    :delay="colIndex * 0.04"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
 
         <p v-else class="text-center py-20 text-[var(--white-dim)]">{{ t('catalog.empty') }}</p>
 
-        <button v-if="hasMore && !isInitialLoad" type="button" class="catalog-load-more" :disabled="pending" @click="loadMore">
+        <nav
+          v-if="mobileTotalPages > 1 && !isInitialLoad && products.length"
+          class="catalog-mobile-pagination"
+          :aria-label="catalogPageLabel"
+        >
+          <button
+            type="button"
+            class="catalog-mobile-pagination__btn"
+            :disabled="mobilePage <= 1 || pending"
+            @click="goMobilePage(mobilePage - 1)"
+          >
+            {{ t('catalog.pagePrev') }}
+          </button>
+          <span class="catalog-mobile-pagination__label">{{ catalogPageLabel }}</span>
+          <button
+            type="button"
+            class="catalog-mobile-pagination__btn"
+            :disabled="mobilePage >= mobileTotalPages || pending"
+            @click="goMobilePage(mobilePage + 1)"
+          >
+            {{ t('catalog.pageNext') }}
+          </button>
+        </nav>
+
+        <button v-if="hasMore && !isInitialLoad" type="button" class="catalog-load-more catalog-load-more--desktop" :disabled="pending" @click="loadMore">
           {{ t('catalog.loadMore') }}
         </button>
       </section>
@@ -745,9 +863,39 @@ useSeoMeta({
   transform: translateY(100%);
 }
 
+.catalog-skeleton-mobile {
+  display: none;
+}
+
+.catalog-skeleton-grid--desktop {
+  display: grid;
+}
+
+@media (max-width: 768px) {
+  .catalog-skeleton-grid--desktop {
+    display: none;
+  }
+
+  .catalog-skeleton-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 0 12px;
+  }
+
+  .catalog-skeleton-mobile-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .catalog-skeleton-card--peek {
+    flex: 0 0 calc(50% - 5px);
+    min-width: 0;
+  }
+}
+
 /* —— Skeleton —— */
 .catalog-skeleton-grid {
-  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 24px;
 }

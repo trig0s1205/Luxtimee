@@ -2235,7 +2235,100 @@ body.cart-scroll-lock {
   }
 }
 
+.catalog-mobile-rows {
+  display: none;
+}
+
+.catalog-grid--desktop {
+  display: grid;
+}
+
+.catalog-mobile-pagination {
+  display: none;
+}
+
+.catalog-load-more--desktop {
+  display: block;
+}
+
 @media (max-width: 768px) {
+  .catalog-grid--desktop {
+    display: none !important;
+  }
+
+  .catalog-mobile-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 0 12px 8px;
+  }
+
+  .catalog-mobile-row__track {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .catalog-mobile-row__track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .catalog-mobile-row__item {
+    flex: 0 0 calc(50% - 5px);
+    scroll-snap-align: start;
+    min-width: 0;
+  }
+
+  .catalog-mobile-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 8px 16px 28px;
+  }
+
+  .catalog-mobile-pagination__btn {
+    padding: 10px 16px;
+    border: 1px solid rgba(200, 169, 110, 0.35);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--gold);
+    font-family: var(--font-body);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s ease, opacity 0.2s ease;
+  }
+
+  .catalog-mobile-pagination__btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .catalog-mobile-pagination__btn:not(:disabled):hover {
+    background: rgba(200, 169, 110, 0.1);
+  }
+
+  .catalog-mobile-pagination__label {
+    font-family: var(--font-body);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--white-dim);
+    text-align: center;
+    min-width: 8rem;
+  }
+
+  .catalog-load-more--desktop {
+    display: none !important;
+  }
+
   .products-grid,
   .catalog-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -51,6 +51,22 @@ function toggleSwap() {
   swapped.value = !swapped.value;
 }
 
+const isMobileHero = ref(false);
+
+function syncMobileHero() {
+  if (!import.meta.client) return;
+  isMobileHero.value = window.matchMedia('(max-width: 768px)').matches;
+}
+
+function onWatchAreaClick() {
+  if (!isMobileHero.value || !canSwapFaces.value) return;
+  toggleSwap();
+}
+
+const watchTapHint = computed(() => (
+  swapped.value ? t('home.heroTapFront') : t('home.heroTapRear')
+));
+
 const stockBadge = computed(() => {
   const watch = active.value;
   if (!watch || watch.stock <= 0) return null;
@@ -167,8 +183,15 @@ useHead(() => {
   };
 });
 
-onMounted(() => startTimer());
-onBeforeUnmount(() => stopTimer());
+onMounted(() => {
+  startTimer();
+  syncMobileHero();
+  window.addEventListener('resize', syncMobileHero, { passive: true });
+});
+onBeforeUnmount(() => {
+  stopTimer();
+  if (import.meta.client) window.removeEventListener('resize', syncMobileHero);
+});
 </script>
 
 <template>
@@ -225,7 +248,14 @@ onBeforeUnmount(() => stopTimer());
         <Transition name="hero-rise" mode="out-in">
           <div :key="active.id" class="lux-hero__watch-scene">
             <div class="lux-hero__watch-stage" :style="tiltStyle">
-              <div class="lux-hero__watch-wrap">
+              <button
+                type="button"
+                class="lux-hero__watch-wrap"
+                :class="{ 'lux-hero__watch-wrap--swap': canSwapFaces && isMobileHero }"
+                :disabled="!canSwapFaces || !isMobileHero"
+                :aria-label="canSwapFaces && isMobileHero ? insetAriaLabel : undefined"
+                @click="onWatchAreaClick"
+              >
                 <span v-if="active.stock > 0" class="lux-hero__stock-pill">
                   {{ t('product.stockUnits').replace('{n}', String(active.stock)) }}
                 </span>
@@ -244,7 +274,13 @@ onBeforeUnmount(() => stopTimer());
                   >
                   <div v-else class="lux-hero__watch-placeholder" />
                 </Transition>
-              </div>
+              </button>
+              <p
+                v-if="canSwapFaces && isMobileHero"
+                class="lux-hero__tap-hint"
+              >
+                {{ watchTapHint }}
+              </p>
             </div>
             <div
               v-if="mainDisplayUrl && tiltEnabled"
@@ -264,7 +300,7 @@ onBeforeUnmount(() => stopTimer());
         </Transition>
 
         <button
-          v-if="canSwapFaces"
+          v-if="canSwapFaces && !isMobileHero"
           type="button"
           class="lux-hero__inset"
           :aria-label="insetAriaLabel"
@@ -551,6 +587,36 @@ section.lux-hero {
   align-items: center;
   justify-content: center;
   transform-style: preserve-3d;
+  border: none;
+  padding: 0;
+  background: transparent;
+  margin: 0 auto;
+}
+
+.lux-hero__watch-wrap:disabled {
+  cursor: default;
+}
+
+.lux-hero__watch-wrap--swap {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lux-hero__watch-wrap--swap:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 6px;
+  border-radius: 12px;
+}
+
+.lux-hero__tap-hint {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-body);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--gold-light);
+  opacity: 0.9;
 }
 
 .lux-hero__watch-shine {
@@ -947,22 +1013,33 @@ section.lux-hero {
   }
 
   .lux-hero__visual {
-    min-height: 200px;
+    min-height: 240px;
     order: 0;
+    justify-content: center;
+  }
+
+  .lux-hero__watch-scene {
+    width: 100%;
+    align-items: center;
+  }
+
+  .lux-hero__watch-stage {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   .lux-hero__watch-wrap {
-    width: min(100%, 220px);
+    width: min(88vw, 300px);
   }
 
   .lux-hero__watch {
-    transform: scale(0.72);
+    transform: scale(0.88);
   }
 
   .lux-hero__inset {
-    right: 4%;
-    top: 6%;
-    width: clamp(72px, 20vw, 96px);
+    display: none;
   }
 
   .lux-hero__nav {
@@ -1005,11 +1082,11 @@ section.lux-hero {
   }
 
   .lux-hero__visual {
-    min-height: 170px;
+    min-height: 220px;
   }
 
   .lux-hero__watch-wrap {
-    width: min(100%, 190px);
+    width: min(92vw, 280px);
   }
 }
 
