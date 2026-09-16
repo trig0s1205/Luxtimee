@@ -429,24 +429,24 @@ section.lux-hero {
 
 @media (min-width: 769px) {
   section.lux-hero:not(.lux-hero--expanded) {
-    --hero-core-scale: 0.86;
-    --hero-logo-size: clamp(1.55rem, 2.85vw, 2.35rem);
-    --hero-title-size: clamp(1rem, 1.5vw, 1.45rem);
-    --hero-price-size: clamp(1.25rem, 1.6vw, 1.6rem);
-    --hero-watch-w: clamp(220px, 24vw, 380px);
-    --hero-visual-min: clamp(165px, 26vh, 320px);
-    --hero-visual-max: min(32vh, 340px);
-    --hero-copy-max: 340px;
-    --hero-stage-cols: minmax(190px, 0.8fr) minmax(260px, 1.05fr);
-    --hero-stage-gap: 0.55rem 0.95rem;
-    --hero-section-pad: 4.15rem 2.35rem 0.45rem;
+    --hero-core-scale: 0.97;
+    --hero-logo-size: clamp(1.85rem, 3.45vw, 2.85rem);
+    --hero-title-size: clamp(1.15rem, 1.85vw, 1.75rem);
+    --hero-price-size: clamp(1.45rem, 1.95vw, 1.95rem);
+    --hero-watch-w: clamp(280px, 31vw, 480px);
+    --hero-visual-min: clamp(190px, 30vh, 380px);
+    --hero-visual-max: min(38vh, 400px);
+    --hero-copy-max: 400px;
+    --hero-stage-cols: minmax(220px, 1fr) minmax(340px, 1.22fr);
+    --hero-stage-gap: 0.65rem 1.35rem;
+    --hero-section-pad: 3.35rem 1.35rem 0.3rem;
     --hero-brand-mb: 0;
-    --hero-cta-pad: 0.68rem 1.25rem;
-    --hero-footer-h: 40px;
-    --hero-footer-pad: 0.62rem 1.25rem;
-    --hero-nav-mt: 0.2rem;
-    --hero-footer-mt: 0.35rem;
-    --hero-watch-img-scale: 0.76;
+    --hero-cta-pad: 0.78rem 1.45rem;
+    --hero-footer-h: 42px;
+    --hero-footer-pad: 0.68rem 1.4rem;
+    --hero-nav-mt: 0.12rem;
+    --hero-footer-mt: 0.28rem;
+    --hero-watch-img-scale: 0.78;
     justify-content: space-between;
     max-height: 100dvh;
   }
@@ -455,8 +455,28 @@ section.lux-hero {
     justify-content: flex-start;
     flex: 1 1 auto;
     min-height: 0;
-    margin-top: -0.25rem;
+    max-width: 100%;
+    width: 100%;
+    gap: 0.1rem;
+    margin-top: -0.55rem;
     transform-origin: center top;
+  }
+
+  section.lux-hero:not(.lux-hero--expanded) .lux-hero__eyebrow {
+    margin-bottom: 0.3rem;
+  }
+
+  section.lux-hero:not(.lux-hero--expanded) .lux-hero__tagline {
+    margin-top: 0.4rem;
+  }
+
+  section.lux-hero:not(.lux-hero--expanded) .lux-hero__stage {
+    width: 100%;
+  }
+
+  section.lux-hero:not(.lux-hero--expanded) .lux-hero__nav,
+  section.lux-hero:not(.lux-hero--expanded) .lux-hero__footer-cta {
+    flex-shrink: 0;
   }
 
   section.lux-hero--expanded .lux-hero__core {
