@@ -1108,8 +1108,22 @@ section {
 
 /* —— Responsive base —— */
 @media (max-width: 768px) {
-  section {
+  section:not(.lux-hero) {
     padding: 72px 20px;
+  }
+
+  .storefront-main.pt-28 {
+    padding-top: 4.75rem;
+  }
+
+  .storefront-main {
+    overflow-x: clip;
+  }
+
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
   }
 
   .site-nav {
@@ -1239,7 +1253,7 @@ section {
 }
 
 @media (max-width: 480px) {
-  section {
+  section:not(.lux-hero) {
     padding: 56px 16px;
   }
 

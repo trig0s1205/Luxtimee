@@ -29,9 +29,10 @@ export default {
     termsShort: 'Términos',
   },
   home: {
-    heroEyebrow: 'Luxury Timepieces · Colombia',
+    heroEyebrow: 'Relojes de lujo · Bucaramanga, Colombia',
     heroTags: 'Relojes de lujo ◆ Diseño exclusivo ◆ Envíos a todo Colombia',
     heroTagline: 'Elegance · Presence · Style',
+    heroSeoLine: 'Relojes de lujo en Bucaramanga con stock real. Compra online y confirma por WhatsApp.',
     heroFindOutMore: 'Ver más',
     heroTapRear: 'Toca el reloj para ver el reverso',
     heroTapFront: 'Toca el reloj para ver el frente',
