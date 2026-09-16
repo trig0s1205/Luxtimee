@@ -397,18 +397,20 @@ section.lux-hero {
   --hero-logo-size: clamp(2rem, 4vw, 3.25rem);
   --hero-title-size: clamp(1.35rem, 2.4vw, 2.1rem);
   --hero-price-size: clamp(1.6rem, 2.2vw, 2.15rem);
-  --hero-watch-w: clamp(310px, 34vw, 530px);
-  --hero-visual-min: clamp(280px, 44vh, 510px);
-  --hero-visual-max: min(52vh, 520px);
+  --hero-watch-w: clamp(268px, 29vw, 460px);
+  --hero-visual-min: clamp(220px, 36vh, 420px);
+  --hero-visual-max: min(44vh, 440px);
   --hero-copy-max: 420px;
   --hero-stage-cols: minmax(240px, 0.88fr) minmax(380px, 1.28fr);
   --hero-stage-gap: 1.5rem 1.45rem;
-  --hero-section-pad: 6.75rem 3.25rem 2rem;
+  --hero-section-pad: 6.25rem 3.25rem 2rem;
+  --hero-brand-mb: 0.65rem;
   --hero-cta-pad: 0.85rem 1.6rem;
   --hero-footer-h: 48px;
   --hero-footer-pad: 0.85rem 1.65rem;
   --hero-nav-mt: 1.25rem;
   --hero-footer-mt: 1.5rem;
+  --hero-watch-img-scale: 0.68;
 
   position: relative;
   min-height: 100dvh;
@@ -427,23 +429,42 @@ section.lux-hero {
 
 @media (min-width: 769px) {
   section.lux-hero:not(.lux-hero--expanded) {
-    --hero-core-scale: 0.9;
-    --hero-logo-size: clamp(1.65rem, 3.1vw, 2.55rem);
-    --hero-title-size: clamp(1.05rem, 1.65vw, 1.55rem);
-    --hero-price-size: clamp(1.35rem, 1.75vw, 1.75rem);
-    --hero-watch-w: clamp(250px, 27vw, 430px);
-    --hero-visual-min: clamp(200px, 34vh, 400px);
-    --hero-visual-max: min(42vh, 420px);
-    --hero-copy-max: 360px;
-    --hero-stage-cols: minmax(200px, 0.82fr) minmax(300px, 1.15fr);
-    --hero-stage-gap: 0.85rem 1.1rem;
-    --hero-section-pad: 5rem 2.75rem 1.15rem;
-    --hero-cta-pad: 0.72rem 1.35rem;
-    --hero-footer-h: 42px;
-    --hero-footer-pad: 0.7rem 1.4rem;
-    --hero-nav-mt: 0.35rem;
-    --hero-footer-mt: 0.55rem;
+    --hero-core-scale: 0.86;
+    --hero-logo-size: clamp(1.55rem, 2.85vw, 2.35rem);
+    --hero-title-size: clamp(1rem, 1.5vw, 1.45rem);
+    --hero-price-size: clamp(1.25rem, 1.6vw, 1.6rem);
+    --hero-watch-w: clamp(220px, 24vw, 380px);
+    --hero-visual-min: clamp(165px, 26vh, 320px);
+    --hero-visual-max: min(32vh, 340px);
+    --hero-copy-max: 340px;
+    --hero-stage-cols: minmax(190px, 0.8fr) minmax(260px, 1.05fr);
+    --hero-stage-gap: 0.55rem 0.95rem;
+    --hero-section-pad: 4.15rem 2.35rem 0.45rem;
+    --hero-brand-mb: 0;
+    --hero-cta-pad: 0.68rem 1.25rem;
+    --hero-footer-h: 40px;
+    --hero-footer-pad: 0.62rem 1.25rem;
+    --hero-nav-mt: 0.2rem;
+    --hero-footer-mt: 0.35rem;
+    --hero-watch-img-scale: 0.76;
+    justify-content: space-between;
     max-height: 100dvh;
+  }
+
+  section.lux-hero:not(.lux-hero--expanded) .lux-hero__core {
+    justify-content: flex-start;
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-top: -0.25rem;
+    transform-origin: center top;
+  }
+
+  section.lux-hero--expanded .lux-hero__core {
+    transform-origin: center center;
+  }
+
+  section.lux-hero--expanded .lux-hero__stage {
+    margin-top: 0.15rem;
   }
 }
 
@@ -482,8 +503,9 @@ section.lux-hero {
 
 .lux-hero__brand {
   text-align: center;
-  margin-bottom: 0.15rem;
+  margin-bottom: var(--hero-brand-mb, 0.15rem);
   flex-shrink: 0;
+  transition: margin-bottom 0.85s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .lux-hero__eyebrow {
@@ -782,8 +804,9 @@ section.lux-hero {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  transform: scale(0.79);
+  transform: scale(var(--hero-watch-img-scale, 0.68));
   transform-origin: center center;
+  transition: transform 0.85s cubic-bezier(0.22, 1, 0.36, 1);
   user-select: none;
   image-rendering: auto;
   position: relative;
