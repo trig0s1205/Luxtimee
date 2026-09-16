@@ -437,9 +437,9 @@ section.lux-hero {
     --hero-visual-min: clamp(0px, 28vh, 360px);
     --hero-visual-max: min(36vh, 380px);
     --hero-copy-max: 400px;
-    --hero-stage-cols: minmax(220px, 1fr) minmax(340px, 1.22fr);
-    --hero-stage-gap: 0.65rem 1.35rem;
-    --hero-section-pad: 2.65rem 1.15rem 0.55rem;
+    --hero-stage-cols: minmax(260px, 1fr) minmax(320px, 1.15fr);
+    --hero-stage-gap: 0.65rem 1.75rem;
+    --hero-section-pad: 2.65rem 2.25rem 0.55rem;
     --hero-brand-mb: 0;
     --hero-cta-pad: 0.78rem 1.45rem;
     --hero-footer-h: 42px;
@@ -458,12 +458,14 @@ section.lux-hero {
     justify-content: flex-start;
     flex: none;
     min-height: 0;
-    max-width: 100%;
     width: 100%;
+    max-width: 1320px;
+    margin-left: auto;
+    margin-right: auto;
     gap: 0.05rem;
     margin-top: -0.35rem;
     overflow: hidden;
-    transform-origin: center top;
+    transform-origin: center center;
   }
 
   section.lux-hero:not(.lux-hero--expanded) .lux-hero__nav {
@@ -493,6 +495,23 @@ section.lux-hero {
 
   section.lux-hero:not(.lux-hero--expanded) .lux-hero__stage {
     width: 100%;
+    max-width: 1320px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  section.lux-hero:not(.lux-hero--expanded) .lux-hero__copy {
+    justify-self: stretch;
+    justify-content: flex-end;
+  }
+
+  section.lux-hero:not(.lux-hero--expanded) .lux-hero__copy-inner {
+    margin-right: 0;
+    margin-left: auto;
+  }
+
+  section.lux-hero:not(.lux-hero--expanded) .lux-hero__visual {
+    justify-self: center;
   }
 
   section.lux-hero:not(.lux-hero--expanded) .lux-hero__nav,
@@ -634,12 +653,6 @@ section.lux-hero {
   section.lux-hero--expanded .lux-hero__core {
     max-width: 100%;
     width: 100%;
-  }
-
-  section.lux-hero:not(.lux-hero--expanded) .lux-hero__stage {
-    max-width: 1280px;
-    margin-left: auto;
-    margin-right: auto;
   }
 }
 
