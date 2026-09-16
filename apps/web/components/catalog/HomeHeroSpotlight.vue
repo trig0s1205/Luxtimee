@@ -203,15 +203,16 @@ onBeforeUnmount(() => {
   >
     <div class="lux-hero__veil" aria-hidden="true" />
 
-    <div class="lux-hero__brand">
-      <p class="lux-hero__eyebrow">{{ t('home.heroEyebrow') }}</p>
-      <h1 class="lux-hero__logo">
-        LU<span class="lux-hero__logo-accent">X</span>TIMEE
-      </h1>
-      <p class="lux-hero__tagline">{{ t('home.heroTagline') }}</p>
-    </div>
+    <div class="lux-hero__core">
+      <div class="lux-hero__brand">
+        <p class="lux-hero__eyebrow">{{ t('home.heroEyebrow') }}</p>
+        <h1 class="lux-hero__logo">
+          LU<span class="lux-hero__logo-accent">X</span>TIMEE
+        </h1>
+        <p class="lux-hero__tagline">{{ t('home.heroTagline') }}</p>
+      </div>
 
-    <div v-if="active" class="lux-hero__stage">
+      <div v-if="active" class="lux-hero__stage">
       <div class="lux-hero__copy">
         <Transition name="hero-fade" mode="out-in">
           <div :key="active.id" class="lux-hero__copy-inner">
@@ -319,6 +320,7 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </div>
+    </div>
 
     <nav v-if="list.length > 1" class="lux-hero__nav" aria-label="Relojes destacados">
       <button type="button" class="lux-hero__nav-side lux-hero__nav-side--prev" @click="goPrev">
@@ -364,14 +366,28 @@ onBeforeUnmount(() => {
 <style scoped>
 section.lux-hero {
   position: relative;
-  min-height: 100vh;
+  min-height: 100dvh;
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 7.5rem 3.5rem 2.5rem !important;
+  justify-content: flex-start;
+  padding: 5rem 2.75rem 1.15rem !important;
   overflow: hidden;
   background: var(--black);
   color: var(--white);
+}
+
+.lux-hero__core {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  min-height: 0;
+  width: 100%;
+  max-width: 1480px;
+  margin: 0 auto;
+  gap: 0.35rem;
 }
 
 .lux-hero__veil {
@@ -384,8 +400,7 @@ section.lux-hero {
   z-index: 1;
 }
 
-.lux-hero__brand,
-.lux-hero__stage,
+.lux-hero__core,
 .lux-hero__nav,
 .lux-hero__footer-cta {
   position: relative;
@@ -394,7 +409,8 @@ section.lux-hero {
 
 .lux-hero__brand {
   text-align: center;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.15rem;
+  flex-shrink: 0;
 }
 
 .lux-hero__eyebrow {
@@ -409,7 +425,7 @@ section.lux-hero {
 .lux-hero__logo {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 4vw, 3.25rem);
+  font-size: clamp(1.65rem, 3.1vw, 2.55rem);
   font-weight: 500;
   letter-spacing: 0.22em;
   line-height: 1;
@@ -432,13 +448,11 @@ section.lux-hero {
 .lux-hero__stage {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(240px, 0.88fr) minmax(380px, 1.28fr);
-  gap: 1.5rem 1.45rem;
+  grid-template-columns: minmax(200px, 0.82fr) minmax(300px, 1.15fr);
+  gap: 0.85rem 1.1rem;
   align-items: center;
   min-height: 0;
-  max-width: 1480px;
   width: 100%;
-  margin: 0 auto;
 }
 
 .lux-hero__copy {
@@ -449,9 +463,9 @@ section.lux-hero {
 }
 
 .lux-hero__copy-inner {
-  max-width: 420px;
+  max-width: 360px;
   width: 100%;
-  margin-right: -4%;
+  margin-right: -2%;
 }
 
 .lux-hero__badges {
@@ -502,10 +516,10 @@ section.lux-hero {
 .lux-hero__title {
   margin: 0;
   font-family: var(--font-body);
-  font-size: clamp(1.35rem, 2.4vw, 2.1rem);
+  font-size: clamp(1.05rem, 1.65vw, 1.55rem);
   font-weight: 500;
-  letter-spacing: 0.12em;
-  line-height: 1.2;
+  letter-spacing: 0.1em;
+  line-height: 1.22;
   text-transform: uppercase;
   color: var(--white);
 }
@@ -527,16 +541,16 @@ section.lux-hero {
 }
 
 .lux-hero__price {
-  margin: 1.1rem 0 0;
+  margin: 0.75rem 0 0;
   font-family: var(--font-display);
-  font-size: clamp(1.6rem, 2.2vw, 2.15rem);
+  font-size: clamp(1.35rem, 1.75vw, 1.75rem);
   font-weight: 300;
   color: var(--white);
 }
 
 .lux-hero__cta {
-  margin-top: 1.5rem;
-  padding: 0.85rem 1.6rem;
+  margin-top: 1rem;
+  padding: 0.72rem 1.35rem;
   border: none;
   border-radius: 999px;
   background: var(--gold);
@@ -562,7 +576,8 @@ section.lux-hero {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: clamp(280px, 44vh, 510px);
+  min-height: clamp(200px, 34vh, 400px);
+  max-height: min(42vh, 420px);
   overflow: visible;
 }
 
@@ -581,7 +596,7 @@ section.lux-hero {
 
 .lux-hero__watch-wrap {
   position: relative;
-  width: min(100%, clamp(310px, 34vw, 530px));
+  width: min(100%, clamp(250px, 27vw, 430px));
   aspect-ratio: 3 / 4;
   display: flex;
   align-items: center;
@@ -691,7 +706,7 @@ section.lux-hero {
   position: absolute;
   right: 2%;
   top: 10%;
-  width: clamp(88px, 11vw, 132px);
+  width: clamp(72px, 9vw, 112px);
   aspect-ratio: 3 / 4;
   height: auto;
   border-radius: 12px;
@@ -765,8 +780,9 @@ section.lux-hero {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 1rem;
-  margin-top: 1.25rem;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+  flex-shrink: 0;
   max-width: 1100px;
   width: 100%;
   margin-left: auto;
@@ -867,8 +883,9 @@ section.lux-hero {
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 0.85rem;
-  margin-top: 1.5rem;
+  gap: 0.65rem;
+  margin-top: 0.55rem;
+  flex-shrink: 0;
 }
 
 .lux-hero__footer-btn {
@@ -876,8 +893,8 @@ section.lux-hero {
   align-items: center;
   justify-content: center;
   gap: 0.65rem;
-  min-height: 48px;
-  padding: 0.85rem 1.65rem;
+  min-height: 42px;
+  padding: 0.7rem 1.4rem;
   border-radius: 999px;
   font-family: var(--font-body);
   font-size: 10px;
@@ -947,7 +964,7 @@ section.lux-hero {
 
 .hero-rise-enter-from {
   opacity: 0;
-  transform: translateY(28px) scale(0.96);
+  transform: translateY(12px) scale(0.98);
 }
 
 .hero-rise-leave-to {
@@ -966,9 +983,21 @@ section.lux-hero {
   transform: translateY(10px);
 }
 
+@media (min-width: 769px) and (max-height: 860px) {
+  section.lux-hero {
+    padding-top: 4.5rem !important;
+  }
+
+  .lux-hero__core {
+    transform: scale(0.94);
+    transform-origin: center center;
+  }
+}
+
 @media (max-width: 1024px) {
   section.lux-hero {
-    padding: 6.5rem 2rem 2rem !important;
+    max-height: none;
+    padding: 6rem 2rem 1.75rem !important;
   }
 
   .lux-hero__stage {
@@ -984,7 +1013,13 @@ section.lux-hero {
 @media (max-width: 768px) {
   section.lux-hero {
     min-height: auto;
+    max-height: none;
     padding: 5.5rem 1.25rem 2rem !important;
+  }
+
+  .lux-hero__core {
+    flex: none;
+    justify-content: flex-start;
   }
 
   .lux-hero__stage {
