@@ -608,16 +608,38 @@ section.lux-hero {
 }
 
 @media (min-width: 769px) {
+  section.lux-hero--expanded .lux-hero__stage {
+    width: 100%;
+    max-width: 1320px;
+    margin-left: auto;
+    margin-right: auto;
+    grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.15fr);
+    gap: 1.25rem 2rem;
+  }
+
   section.lux-hero--expanded .lux-hero__copy {
-    justify-content: flex-start;
+    justify-self: stretch;
+    justify-content: flex-end;
   }
 
   section.lux-hero--expanded .lux-hero__copy-inner {
     margin-right: 0;
+    margin-left: auto;
+  }
+
+  section.lux-hero--expanded .lux-hero__visual {
+    justify-self: center;
   }
 
   section.lux-hero--expanded .lux-hero__core {
     max-width: 100%;
+    width: 100%;
+  }
+
+  section.lux-hero:not(.lux-hero--expanded) .lux-hero__stage {
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
   }
 }
 
@@ -1145,7 +1167,7 @@ section.lux-hero {
   transform: translateY(10px);
 }
 
-@media (max-width: 1024px) {
+@media (min-width: 769px) and (max-width: 1024px) {
   section.lux-hero {
     max-height: none;
     padding: 6rem 2rem 1.75rem !important;
@@ -1162,27 +1184,58 @@ section.lux-hero {
 }
 
 @media (max-width: 768px) {
-  section.lux-hero {
+  section.lux-hero,
+  section.lux-hero.lux-hero--expanded {
+    display: flex !important;
+    flex-direction: column;
+    grid-template-rows: unset;
     min-height: auto;
     max-height: none;
-    padding: 5.5rem 1.25rem 2rem !important;
+    padding: 5.25rem 1rem 1.75rem !important;
   }
 
   .lux-hero__core {
     flex: none;
     justify-content: flex-start;
-    transform: none;
+    transform: none !important;
+    width: 100%;
+    max-width: none;
+    gap: 0.5rem;
+  }
+
+  .lux-hero__brand {
+    position: relative;
+    z-index: 2;
+    padding: 0 0.25rem 0.35rem;
+  }
+
+  .lux-hero__logo {
+    letter-spacing: 0.14em;
+    font-size: clamp(1.55rem, 7vw, 2rem);
+  }
+
+  .lux-hero__tagline {
+    margin-top: 0.45rem;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    line-height: 1.55;
+    padding: 0 0.35rem;
   }
 
   .lux-hero__stage {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: none;
     text-align: center;
-    gap: 1.5rem;
+    gap: 1rem;
+    width: 100%;
   }
 
   .lux-hero__copy {
     justify-content: center;
-    order: 1;
+    order: 2;
+    width: 100%;
+    padding-top: 0.15rem;
   }
 
   .lux-hero__copy-inner {
@@ -1198,10 +1251,23 @@ section.lux-hero {
     justify-content: center;
   }
 
+  .lux-hero__title {
+    font-size: clamp(0.95rem, 4.2vw, 1.2rem);
+    letter-spacing: 0.06em;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
   .lux-hero__title span {
     display: block;
     margin-left: 0;
-    margin-top: 0.25rem;
+    margin-top: 0.3rem;
+  }
+
+  .lux-hero__meta,
+  .lux-hero__ref {
+    letter-spacing: 0.12em;
   }
 
   .lux-hero__cta {
@@ -1215,9 +1281,20 @@ section.lux-hero {
   }
 
   .lux-hero__visual {
-    min-height: 240px;
-    order: 0;
+    min-height: 0;
+    max-height: none;
+    order: 1;
     justify-content: center;
+    margin: 0.15rem 0 0.35rem;
+    overflow: visible;
+  }
+
+  .lux-hero__stock-pill {
+    display: none;
+  }
+
+  .lux-hero__watch-reflection {
+    display: none;
   }
 
   .lux-hero__watch-scene {
@@ -1233,11 +1310,18 @@ section.lux-hero {
   }
 
   .lux-hero__watch-wrap {
-    width: min(88vw, 300px);
+    width: min(74vw, 270px);
   }
 
   .lux-hero__watch {
-    transform: scale(0.88);
+    transform: scale(0.82);
+  }
+
+  .lux-hero__tap-hint {
+    margin-top: 0.45rem;
+    padding: 0 0.75rem;
+    line-height: 1.45;
+    max-width: 16rem;
   }
 
   .lux-hero__inset {
@@ -1245,8 +1329,10 @@ section.lux-hero {
   }
 
   .lux-hero__nav {
+    grid-row: unset;
     grid-template-columns: auto 1fr auto;
     gap: 0.5rem;
+    margin-top: 0.5rem;
   }
 
   .lux-hero__nav-label {
@@ -1275,6 +1361,11 @@ section.lux-hero {
   .lux-hero__footer-btn {
     width: 100%;
     max-width: 320px;
+  }
+
+  .lux-hero__footer-cta {
+    grid-row: unset;
+    margin-top: 0.65rem;
   }
 }
 
