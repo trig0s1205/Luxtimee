@@ -239,9 +239,8 @@ onUnmounted(() => {
 });
 
 useSeoMeta({
-  title: 'Catálogo de relojes de lujo en Bucaramanga | LUXTIMEE',
-  description:
-    'Catálogo de relojes de lujo en Bucaramanga y Colombia. Filtra por marca, estilo y stock. Compra online con confirmación por WhatsApp.',
+  title: 'Catálogo — LUXTIMEE Luxury Timepieces',
+  description: 'Explora nuestro catálogo de relojes de lujo. Filtra por marca, mecanismo y disponibilidad.',
 });
 </script>
 

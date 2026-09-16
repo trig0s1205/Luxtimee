@@ -5,7 +5,7 @@
       <LazyLayoutLuxCursorTrail />
     </ClientOnly>
     <LayoutAppNav />
-    <main class="storefront-main pt-28">
+    <main class="pt-28">
       <slot />
     </main>
     <LayoutAppFooter />

@@ -191,14 +191,9 @@ function syncHeroRevealMode() {
   if (!import.meta.client) return;
   const desktop = window.matchMedia('(min-width: 769px)').matches;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (!desktop) {
-    heroRevealEnabled.value = false;
-    heroExpanded.value = false;
-    return;
-  }
-  heroRevealEnabled.value = !reduceMotion;
+  heroRevealEnabled.value = desktop && !reduceMotion;
   if (!heroRevealEnabled.value) {
-    heroExpanded.value = true;
+    heroExpanded.value = desktop;
     return;
   }
   updateHeroExpandedFromScroll();
@@ -243,7 +238,6 @@ onBeforeUnmount(() => {
           LU<span class="lux-hero__logo-accent">X</span>TIMEE
         </h1>
         <p class="lux-hero__tagline">{{ t('home.heroTagline') }}</p>
-        <p class="lux-hero__seo-line">{{ t('home.heroSeoLine') }}</p>
       </div>
 
       <div v-if="active" class="lux-hero__stage">
@@ -586,18 +580,6 @@ section.lux-hero {
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--white-dim);
-}
-
-.lux-hero__seo-line {
-  margin: 0.5rem auto 0;
-  max-width: 36rem;
-  padding: 0 0.5rem;
-  font-family: var(--font-body);
-  font-size: clamp(10px, 2.8vw, 12px);
-  line-height: 1.45;
-  letter-spacing: 0.06em;
-  color: var(--white-dim);
-  opacity: 0.92;
 }
 
 .lux-hero__stage {
@@ -1163,7 +1145,7 @@ section.lux-hero {
   transform: translateY(10px);
 }
 
-@media (min-width: 769px) and (max-width: 1024px) {
+@media (max-width: 1024px) {
   section.lux-hero {
     max-height: none;
     padding: 6rem 2rem 1.75rem !important;
@@ -1180,86 +1162,40 @@ section.lux-hero {
 }
 
 @media (max-width: 768px) {
-  section.lux-hero,
-  section.lux-hero.lux-hero--expanded {
-    display: flex !important;
-    flex-direction: column;
-    align-items: stretch;
-    grid-template-rows: unset;
+  section.lux-hero {
     min-height: auto;
     max-height: none;
-    margin-top: -5.5rem;
-    padding: 4.35rem 1rem 1.65rem !important;
-    overflow: visible;
-    gap: 0.35rem;
+    padding: 5.5rem 1.25rem 2rem !important;
   }
 
   .lux-hero__core {
     flex: none;
     justify-content: flex-start;
-    transform: none !important;
-    overflow: visible;
-    width: 100%;
-    max-width: none;
-    gap: 0.35rem;
-  }
-
-  .lux-hero__brand {
-    margin-bottom: 0.35rem;
-  }
-
-  .lux-hero__logo {
-    font-size: clamp(1.7rem, 7.5vw, 2.25rem);
-    letter-spacing: 0.16em;
-  }
-
-  .lux-hero__eyebrow {
-    font-size: 9px;
-    letter-spacing: 0.22em;
-    margin-bottom: 0.4rem;
-  }
-
-  .lux-hero__tagline {
-    margin-top: 0.45rem;
-    font-size: 10px;
-    letter-spacing: 0.2em;
-  }
-
-  .lux-hero__seo-line {
-    margin-top: 0.55rem;
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    line-height: 1.5;
-    text-transform: none;
+    transform: none;
   }
 
   .lux-hero__stage {
-    display: flex;
-    flex-direction: column;
+    grid-template-columns: 1fr;
     text-align: center;
-    gap: 1rem;
-    width: 100%;
+    gap: 1.5rem;
   }
 
   .lux-hero__copy {
     justify-content: center;
-    order: 2;
-    width: 100%;
+    order: 1;
   }
 
   .lux-hero__copy-inner {
-    max-width: 22rem;
+    max-width: none;
     margin: 0 auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   .lux-hero__badges {
     justify-content: center;
-    margin-bottom: 0.65rem;
-  }
-
-  .lux-hero__title {
-    font-size: clamp(1.05rem, 4.5vw, 1.35rem);
-    letter-spacing: 0.08em;
   }
 
   .lux-hero__title span {
@@ -1268,28 +1204,20 @@ section.lux-hero {
     margin-top: 0.25rem;
   }
 
-  .lux-hero__meta {
-    margin-top: 0.55rem;
-  }
-
-  .lux-hero__price {
-    margin-top: 0.65rem;
-    font-size: clamp(1.35rem, 5.5vw, 1.65rem);
-  }
-
   .lux-hero__cta {
-    margin-top: 0.85rem;
-    width: 100%;
-    max-width: 16rem;
+    margin-top: 1rem;
+    align-self: center;
+    width: auto;
+    min-width: 9.5rem;
+    max-width: 100%;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
   }
 
   .lux-hero__visual {
-    order: 1;
-    min-height: 0;
-    max-height: none;
-    width: 100%;
+    min-height: 240px;
+    order: 0;
     justify-content: center;
-    padding: 0.15rem 0;
   }
 
   .lux-hero__watch-scene {
@@ -1305,15 +1233,11 @@ section.lux-hero {
   }
 
   .lux-hero__watch-wrap {
-    width: min(72vw, 280px);
+    width: min(88vw, 300px);
   }
 
   .lux-hero__watch {
-    transform: scale(0.84);
-  }
-
-  .lux-hero__watch-reflection {
-    display: none;
+    transform: scale(0.88);
   }
 
   .lux-hero__inset {
@@ -1321,10 +1245,8 @@ section.lux-hero {
   }
 
   .lux-hero__nav {
-    grid-row: unset;
     grid-template-columns: auto 1fr auto;
     gap: 0.5rem;
-    margin-top: 0.65rem;
   }
 
   .lux-hero__nav-label {
@@ -1345,34 +1267,28 @@ section.lux-hero {
   }
 
   .lux-hero__footer-cta {
-    grid-row: unset;
     flex-wrap: wrap;
     justify-content: center;
     gap: 10px;
-    margin-top: 0.75rem;
   }
 
   .lux-hero__footer-btn {
     width: 100%;
-    max-width: 20rem;
-    min-height: 44px;
+    max-width: 320px;
   }
 }
 
 @media (max-width: 480px) {
-  section.lux-hero,
-  section.lux-hero.lux-hero--expanded {
-    margin-top: -5rem;
-    padding: 4rem 0.85rem 1.5rem !important;
+  section.lux-hero {
+    padding: 5rem 1rem 1.75rem !important;
+  }
+
+  .lux-hero__visual {
+    min-height: 220px;
   }
 
   .lux-hero__watch-wrap {
-    width: min(76vw, 260px);
-  }
-
-  .lux-hero__copy-inner {
-    max-width: 100%;
-    padding: 0 0.15rem;
+    width: min(92vw, 280px);
   }
 }
 

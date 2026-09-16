@@ -29,10 +29,9 @@ export default {
     termsShort: 'Terms',
   },
   home: {
-    heroEyebrow: 'Luxury watches · Bucaramanga, Colombia',
+    heroEyebrow: 'Luxury Timepieces · Colombia',
     heroTags: 'Luxury watches ◆ Exclusive design ◆ Shipping nationwide',
     heroTagline: 'Elegance · Presence · Style',
-    heroSeoLine: 'Luxury watches in Bucaramanga with real stock. Shop online and confirm via WhatsApp.',
     heroFindOutMore: 'Find out more',
     heroTapRear: 'Tap the watch to see the back',
     heroTapFront: 'Tap the watch to see the front',

@@ -29,49 +29,11 @@ const { data: homeCms } = await useCachedAsyncData<HomepageConfigDto>(
 
 const cms = computed<HomepageConfigDto>(() => homeCms.value ?? DEFAULT_HOMEPAGE_CONFIG);
 
-const config = useRuntimeConfig();
-const siteUrl = String(config.public.siteUrl || '').replace(/\/$/, '');
-
 useSeoMeta({
-  title: 'Relojes de lujo en Bucaramanga | LUXTIMEE',
-  description:
-    'Relojes de lujo en Bucaramanga y Colombia. Stock real, catálogo online y compra segura por WhatsApp. Envíos a todo el país.',
-  ogTitle: 'Relojes de lujo en Bucaramanga | LUXTIMEE',
-  ogDescription:
-    'Relojes de lujo en Bucaramanga y Colombia. Stock real, catálogo online y compra segura por WhatsApp.',
-  ogType: 'website',
-  ogUrl: siteUrl ? `${siteUrl}/` : undefined,
-  twitterCard: 'summary_large_image',
-});
-
-useHead({
-  meta: [
-    {
-      name: 'keywords',
-      content:
-        'relojes bucaramanga, relojes de lujo bucaramanga, relojes lujo colombia, luxury watches colombia, luxtimee',
-    },
-  ],
-  script: siteUrl
-    ? [{
-        type: 'application/ld+json',
-        innerHTML: JSON.stringify({
-          '@context': 'https://schema.org',
-          '@type': 'Store',
-          name: 'LUXTIMEE',
-          url: `${siteUrl}/`,
-          description:
-            'Tienda de relojes de lujo en Bucaramanga, Colombia. Stock real y venta online con confirmación por WhatsApp.',
-          address: {
-            '@type': 'PostalAddress',
-            addressLocality: 'Bucaramanga',
-            addressRegion: 'Santander',
-            addressCountry: 'CO',
-          },
-          areaServed: { '@type': 'Country', name: 'Colombia' },
-        }),
-      }]
-    : [],
+  title: 'LUXTIMEE — Luxury Timepieces',
+  description: 'Relojes de lujo con stock real en Colombia. Compra online y confirma por WhatsApp.',
+  ogTitle: 'LUXTIMEE — Luxury Timepieces',
+  ogDescription: 'Relojes de lujo con stock real en Colombia. Compra online y confirma por WhatsApp.',
 });
 
 onMounted(() => {
