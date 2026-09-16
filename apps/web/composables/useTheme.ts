@@ -3,12 +3,14 @@ const STORAGE_KEY = 'luxtimee-theme';
 export type ThemeMode = 'dark' | 'light';
 
 function readStoredTheme(): ThemeMode {
-  if (!import.meta.client) return 'light';
-  return localStorage.getItem(STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+  if (!import.meta.client) return 'dark';
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored === 'light') return 'light';
+  return 'dark';
 }
 
 export function useTheme() {
-  const theme = useState<ThemeMode>('luxtimee-theme', () => 'light');
+  const theme = useState<ThemeMode>('luxtimee-theme', () => 'dark');
 
   function applyTheme(mode: ThemeMode) {
     if (!import.meta.client) return;

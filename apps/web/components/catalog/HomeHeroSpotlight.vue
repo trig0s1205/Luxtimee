@@ -434,32 +434,53 @@ section.lux-hero {
     --hero-title-size: clamp(1.15rem, 1.85vw, 1.75rem);
     --hero-price-size: clamp(1.45rem, 1.95vw, 1.95rem);
     --hero-watch-w: clamp(280px, 31vw, 480px);
-    --hero-visual-min: clamp(190px, 30vh, 380px);
-    --hero-visual-max: min(38vh, 400px);
+    --hero-visual-min: clamp(0px, 28vh, 360px);
+    --hero-visual-max: min(36vh, 380px);
     --hero-copy-max: 400px;
     --hero-stage-cols: minmax(220px, 1fr) minmax(340px, 1.22fr);
     --hero-stage-gap: 0.65rem 1.35rem;
-    --hero-section-pad: 3.35rem 1.35rem 0.3rem;
+    --hero-section-pad: 2.65rem 1.15rem 0.55rem;
     --hero-brand-mb: 0;
     --hero-cta-pad: 0.78rem 1.45rem;
     --hero-footer-h: 42px;
     --hero-footer-pad: 0.68rem 1.4rem;
-    --hero-nav-mt: 0.12rem;
-    --hero-footer-mt: 0.28rem;
+    --hero-nav-mt: 0;
+    --hero-footer-mt: 0.35rem;
     --hero-watch-img-scale: 0.78;
-    justify-content: space-between;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    align-content: stretch;
     max-height: 100dvh;
   }
 
   section.lux-hero:not(.lux-hero--expanded) .lux-hero__core {
+    grid-row: 1;
     justify-content: flex-start;
-    flex: 1 1 auto;
+    flex: none;
     min-height: 0;
     max-width: 100%;
     width: 100%;
-    gap: 0.1rem;
-    margin-top: -0.55rem;
+    gap: 0.05rem;
+    margin-top: -0.35rem;
+    overflow: hidden;
     transform-origin: center top;
+  }
+
+  section.lux-hero:not(.lux-hero--expanded) .lux-hero__nav {
+    grid-row: 2;
+  }
+
+  section.lux-hero:not(.lux-hero--expanded) .lux-hero__footer-cta {
+    grid-row: 3;
+  }
+
+  section.lux-hero:not(.lux-hero--expanded) .lux-hero__watch-reflection {
+    display: none;
+  }
+
+  section.lux-hero.lux-hero--expanded {
+    display: flex;
+    flex-direction: column;
   }
 
   section.lux-hero:not(.lux-hero--expanded) .lux-hero__eyebrow {

@@ -89,7 +89,16 @@ export default defineNuxtConfig({
   app: {
     pageTransition: { name: 'lux-page', mode: 'out-in' },
     head: {
+      htmlAttrs: { 'data-theme': 'dark' },
       title: 'LuxTimee — Luxury Watches',
+      script: [
+        {
+          key: 'luxtimee-theme-boot',
+          innerHTML:
+            "(function(){try{var t=localStorage.getItem('luxtimee-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();",
+          tagPosition: 'head',
+        },
+      ],
       link: [
         { rel: 'icon', type: 'image/png', href: '/favicon.png' },
         { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
