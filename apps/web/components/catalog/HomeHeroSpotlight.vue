@@ -183,41 +183,16 @@ useHead(() => {
   };
 });
 
-const HERO_EXPAND_SCROLL = 56;
-const heroExpanded = ref(false);
-const heroRevealEnabled = ref(false);
-
-function syncHeroRevealMode() {
-  if (!import.meta.client) return;
-  const desktop = window.matchMedia('(min-width: 769px)').matches;
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  heroRevealEnabled.value = desktop && !reduceMotion;
-  if (!heroRevealEnabled.value) {
-    heroExpanded.value = desktop;
-    return;
-  }
-  updateHeroExpandedFromScroll();
-}
-
-function updateHeroExpandedFromScroll() {
-  if (!heroRevealEnabled.value) return;
-  heroExpanded.value = window.scrollY > HERO_EXPAND_SCROLL;
-}
 
 onMounted(() => {
   startTimer();
   syncMobileHero();
-  syncHeroRevealMode();
   window.addEventListener('resize', syncMobileHero, { passive: true });
-  window.addEventListener('resize', syncHeroRevealMode, { passive: true });
-  window.addEventListener('scroll', updateHeroExpandedFromScroll, { passive: true });
 });
 onBeforeUnmount(() => {
   stopTimer();
   if (!import.meta.client) return;
   window.removeEventListener('resize', syncMobileHero);
-  window.removeEventListener('resize', syncHeroRevealMode);
-  window.removeEventListener('scroll', updateHeroExpandedFromScroll);
 });
 </script>
 
@@ -225,7 +200,6 @@ onBeforeUnmount(() => {
   <section
     id="hero"
     class="lux-hero"
-    :class="{ 'lux-hero--expanded': heroExpanded }"
     @mouseenter="onHeroEnter"
     @mouseleave="onHeroLeave"
   >
@@ -393,7 +367,6 @@ onBeforeUnmount(() => {
 
 <style scoped>
 section.lux-hero {
-  --hero-core-scale: 1;
   --hero-logo-size: clamp(2rem, 4vw, 3.25rem);
   --hero-title-size: clamp(1.35rem, 2.4vw, 2.1rem);
   --hero-price-size: clamp(1.6rem, 2.2vw, 2.15rem);
@@ -403,7 +376,7 @@ section.lux-hero {
   --hero-copy-max: 420px;
   --hero-stage-cols: minmax(240px, 0.88fr) minmax(380px, 1.28fr);
   --hero-stage-gap: 1.5rem 1.45rem;
-  --hero-section-pad: 6.25rem 3.25rem 2rem;
+  --hero-section-pad: 5rem 3rem 2rem;
   --hero-brand-mb: 0.65rem;
   --hero-cta-pad: 0.85rem 1.6rem;
   --hero-footer-h: 48px;
@@ -417,114 +390,37 @@ section.lux-hero {
   max-height: none;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: center;
   padding: var(--hero-section-pad) !important;
   overflow: hidden;
   background: var(--black);
   color: var(--white);
-  transition:
-    padding 0.85s cubic-bezier(0.22, 1, 0.36, 1),
-    min-height 0.85s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (min-width: 769px) {
-  section.lux-hero:not(.lux-hero--expanded) {
-    --hero-core-scale: 0.97;
-    --hero-logo-size: clamp(1.85rem, 3.45vw, 2.85rem);
-    --hero-title-size: clamp(1.15rem, 1.85vw, 1.75rem);
-    --hero-price-size: clamp(1.45rem, 1.95vw, 1.95rem);
-    --hero-watch-w: clamp(280px, 31vw, 480px);
-    --hero-visual-min: clamp(0px, 28vh, 360px);
-    --hero-visual-max: min(36vh, 380px);
-    --hero-copy-max: 400px;
-    --hero-stage-cols: minmax(260px, 1fr) minmax(320px, 1.15fr);
-    --hero-stage-gap: 0.65rem 1.75rem;
-    --hero-section-pad: 2.65rem 2.25rem 0.55rem;
-    --hero-brand-mb: 0;
-    --hero-cta-pad: 0.78rem 1.45rem;
-    --hero-footer-h: 42px;
-    --hero-footer-pad: 0.68rem 1.4rem;
-    --hero-nav-mt: 0;
-    --hero-footer-mt: 0.35rem;
-    --hero-watch-img-scale: 0.78;
-    display: grid;
-    grid-template-rows: minmax(0, 1fr) auto auto;
-    align-content: stretch;
-    max-height: 100dvh;
+  section.lux-hero {
+    --hero-section-pad: 5rem 3rem 2rem;
   }
 
-  section.lux-hero:not(.lux-hero--expanded) .lux-hero__core {
-    grid-row: 1;
-    justify-content: flex-start;
-    flex: none;
-    min-height: 0;
-    width: 100%;
-    max-width: 1320px;
-    margin-left: auto;
-    margin-right: auto;
-    gap: 0.05rem;
-    margin-top: -0.35rem;
-    overflow: hidden;
-    transform-origin: center center;
-  }
-
-  section.lux-hero:not(.lux-hero--expanded) .lux-hero__nav {
-    grid-row: 2;
-  }
-
-  section.lux-hero:not(.lux-hero--expanded) .lux-hero__footer-cta {
-    grid-row: 3;
-  }
-
-  section.lux-hero:not(.lux-hero--expanded) .lux-hero__watch-reflection {
-    display: none;
-  }
-
-  section.lux-hero.lux-hero--expanded {
-    display: flex;
-    flex-direction: column;
-  }
-
-  section.lux-hero:not(.lux-hero--expanded) .lux-hero__eyebrow {
-    margin-bottom: 0.3rem;
-  }
-
-  section.lux-hero:not(.lux-hero--expanded) .lux-hero__tagline {
-    margin-top: 0.4rem;
-  }
-
-  section.lux-hero:not(.lux-hero--expanded) .lux-hero__stage {
+  .lux-hero__stage {
     width: 100%;
     max-width: 1320px;
     margin-left: auto;
     margin-right: auto;
   }
 
-  section.lux-hero:not(.lux-hero--expanded) .lux-hero__copy {
+  .lux-hero__copy {
     justify-self: stretch;
     justify-content: flex-end;
   }
 
-  section.lux-hero:not(.lux-hero--expanded) .lux-hero__copy-inner {
+  .lux-hero__copy-inner {
     margin-right: 0;
     margin-left: auto;
   }
 
-  section.lux-hero:not(.lux-hero--expanded) .lux-hero__visual {
+  .lux-hero__visual {
     justify-self: center;
-  }
-
-  section.lux-hero:not(.lux-hero--expanded) .lux-hero__nav,
-  section.lux-hero:not(.lux-hero--expanded) .lux-hero__footer-cta {
-    flex-shrink: 0;
-  }
-
-  section.lux-hero--expanded .lux-hero__core {
-    transform-origin: center center;
-  }
-
-  section.lux-hero--expanded .lux-hero__stage {
-    margin-top: 0.15rem;
   }
 }
 
@@ -539,9 +435,6 @@ section.lux-hero {
   max-width: 1480px;
   margin: 0 auto;
   gap: 0.35rem;
-  transform: scale(var(--hero-core-scale));
-  transform-origin: center center;
-  transition: transform 0.85s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .lux-hero__veil {
@@ -565,7 +458,6 @@ section.lux-hero {
   text-align: center;
   margin-bottom: var(--hero-brand-mb, 0.15rem);
   flex-shrink: 0;
-  transition: margin-bottom 0.85s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .lux-hero__eyebrow {
@@ -585,7 +477,6 @@ section.lux-hero {
   letter-spacing: 0.22em;
   line-height: 1;
   color: var(--white);
-  transition: font-size 0.85s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .lux-hero__logo-accent {
@@ -609,7 +500,6 @@ section.lux-hero {
   align-items: center;
   min-height: 0;
   width: 100%;
-  transition: gap 0.85s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .lux-hero__copy {
@@ -623,38 +513,8 @@ section.lux-hero {
   max-width: var(--hero-copy-max);
   width: 100%;
   margin-right: -2%;
-  transition: max-width 0.85s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@media (min-width: 769px) {
-  section.lux-hero--expanded .lux-hero__stage {
-    width: 100%;
-    max-width: 1320px;
-    margin-left: auto;
-    margin-right: auto;
-    grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.15fr);
-    gap: 1.25rem 2rem;
-  }
-
-  section.lux-hero--expanded .lux-hero__copy {
-    justify-self: stretch;
-    justify-content: flex-end;
-  }
-
-  section.lux-hero--expanded .lux-hero__copy-inner {
-    margin-right: 0;
-    margin-left: auto;
-  }
-
-  section.lux-hero--expanded .lux-hero__visual {
-    justify-self: center;
-  }
-
-  section.lux-hero--expanded .lux-hero__core {
-    max-width: 100%;
-    width: 100%;
-  }
-}
 
 .lux-hero__badges {
   display: flex;
@@ -710,7 +570,6 @@ section.lux-hero {
   line-height: 1.22;
   text-transform: uppercase;
   color: var(--white);
-  transition: font-size 0.85s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .lux-hero__title span {
@@ -735,13 +594,11 @@ section.lux-hero {
   font-size: var(--hero-price-size);
   font-weight: 300;
   color: var(--white);
-  transition: font-size 0.85s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .lux-hero__cta {
   margin-top: 1rem;
   padding: var(--hero-cta-pad);
-  transition: padding 0.85s cubic-bezier(0.22, 1, 0.36, 1);
   border: none;
   border-radius: 999px;
   background: var(--gold);
@@ -770,7 +627,6 @@ section.lux-hero {
   min-height: var(--hero-visual-min);
   max-height: var(--hero-visual-max);
   overflow: visible;
-  transition: min-height 0.85s cubic-bezier(0.22, 1, 0.36, 1), max-height 0.85s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .lux-hero__watch-scene {
@@ -789,7 +645,6 @@ section.lux-hero {
 .lux-hero__watch-wrap {
   position: relative;
   width: min(100%, var(--hero-watch-w));
-  transition: width 0.85s cubic-bezier(0.22, 1, 0.36, 1);
   aspect-ratio: 3 / 4;
   display: flex;
   align-items: center;
@@ -882,7 +737,6 @@ section.lux-hero {
   object-fit: contain;
   transform: scale(var(--hero-watch-img-scale, 0.68));
   transform-origin: center center;
-  transition: transform 0.85s cubic-bezier(0.22, 1, 0.36, 1);
   user-select: none;
   image-rendering: auto;
   position: relative;
@@ -977,7 +831,6 @@ section.lux-hero {
   gap: 0.75rem;
   margin-top: var(--hero-nav-mt);
   flex-shrink: 0;
-  transition: margin-top 0.85s cubic-bezier(0.22, 1, 0.36, 1);
   max-width: 1100px;
   width: 100%;
   margin-left: auto;
@@ -1081,7 +934,6 @@ section.lux-hero {
   gap: 0.65rem;
   margin-top: var(--hero-footer-mt);
   flex-shrink: 0;
-  transition: margin-top 0.85s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .lux-hero__footer-btn {
@@ -1091,7 +943,6 @@ section.lux-hero {
   gap: 0.65rem;
   min-height: var(--hero-footer-h);
   padding: var(--hero-footer-pad);
-  transition: min-height 0.85s cubic-bezier(0.22, 1, 0.36, 1), padding 0.85s cubic-bezier(0.22, 1, 0.36, 1);
   border-radius: 999px;
   font-family: var(--font-body);
   font-size: 10px;
@@ -1181,11 +1032,6 @@ section.lux-hero {
 }
 
 @media (min-width: 769px) and (max-width: 1024px) {
-  section.lux-hero {
-    max-height: none;
-    padding: 6rem 2rem 1.75rem !important;
-  }
-
   .lux-hero__stage {
     grid-template-columns: 1fr 1fr;
     gap: 1.25rem;
@@ -1197,8 +1043,7 @@ section.lux-hero {
 }
 
 @media (max-width: 768px) {
-  section.lux-hero,
-  section.lux-hero.lux-hero--expanded {
+  section.lux-hero {
     display: flex !important;
     flex-direction: column;
     grid-template-rows: unset;
@@ -1397,26 +1242,6 @@ section.lux-hero {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  section.lux-hero,
-  .lux-hero__core,
-  .lux-hero__logo,
-  .lux-hero__title,
-  .lux-hero__price,
-  .lux-hero__cta,
-  .lux-hero__visual,
-  .lux-hero__watch-wrap,
-  .lux-hero__nav,
-  .lux-hero__footer-cta,
-  .lux-hero__footer-btn,
-  .lux-hero__copy-inner,
-  .lux-hero__stage {
-    transition: none !important;
-  }
-
-  .lux-hero__core {
-    transform: none !important;
-  }
-
   .hero-rise-enter-active,
   .hero-rise-leave-active,
   .hero-fade-enter-active,
