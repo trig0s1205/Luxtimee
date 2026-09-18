@@ -4,6 +4,12 @@ import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 
 const { t } = useLocale();
 const route = useRoute();
+const { scrollToHomeSection } = useHomeSectionNav();
+
+async function onFooterSection(sectionId: string, event: MouseEvent) {
+  event.preventDefault();
+  await scrollToHomeSection(sectionId);
+}
 const apiBase = useApiBaseUrl();
 
 const { data: platform } = await useCachedAsyncData('footer-platform', () =>
@@ -48,10 +54,10 @@ const { data: platform } = await useCachedAsyncData('footer-platform', () =>
       <div class="footer-col">
         <h4>{{ t('footer.brand') }}</h4>
         <ul>
-          <li><NuxtLink to="/#nosotros">{{ t('footer.story') }}</NuxtLink></li>
-          <li><NuxtLink to="/#nosotros">{{ t('footer.aboutUs') }}</NuxtLink></li>
+          <li><NuxtLink to="/" @click="onFooterSection('nosotros', $event)">{{ t('footer.story') }}</NuxtLink></li>
+          <li><NuxtLink to="/" @click="onFooterSection('nosotros', $event)">{{ t('footer.aboutUs') }}</NuxtLink></li>
           <li><NuxtLink to="/mayoristas">{{ t('footer.wholesale') }}</NuxtLink></li>
-          <li><NuxtLink to="/#contacto">{{ t('nav.contact') }}</NuxtLink></li>
+          <li><NuxtLink to="/" @click="onFooterSection('contacto', $event)">{{ t('nav.contact') }}</NuxtLink></li>
         </ul>
       </div>
     </div>

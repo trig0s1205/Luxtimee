@@ -8,6 +8,7 @@ const { openCart } = useCartDrawer();
 const { showWholesaleNavCart, isWholesaleCatalogArea } = useWholesaleNav();
 const { t, showSwitcher } = useLocale();
 const { showBack, goBack } = useStorefrontBack();
+const { scrollToHomeSection } = useHomeSectionNav();
 
 const showNavCart = computed(() => {
   if (route.path.startsWith('/mayoristas')) return showWholesaleNavCart.value;
@@ -22,14 +23,29 @@ function openActiveCart() {
   openCart(isWholesaleCatalogArea.value ? 'wholesale' : 'retail');
 }
 
-type NavLinkItem = { label: string; to: string; highlight?: boolean };
+type NavLinkItem = { label: string; to: string; highlight?: boolean; sectionId?: string };
 
 const navLinks = computed<NavLinkItem[]>(() => [
   { label: t('nav.collection'), to: '/catalogo', highlight: true },
   { label: t('nav.wholesale'), to: '/mayoristas' },
-  { label: t('nav.about'), to: '/#nosotros' },
-  { label: t('nav.contact'), to: '/#contacto' },
+  { label: t('nav.about'), to: '/', sectionId: 'nosotros' },
+  { label: t('nav.contact'), to: '/', sectionId: 'contacto' },
 ]);
+
+async function onNavLinkClick(link: NavLinkItem, event: MouseEvent) {
+  if (!link.sectionId) return;
+  event.preventDefault();
+  closeMenu();
+  await scrollToHomeSection(link.sectionId);
+}
+
+function onMobileNavClick(link: NavLinkItem, event: MouseEvent) {
+  if (link.sectionId) {
+    void onNavLinkClick(link, event);
+    return;
+  }
+  closeMenu();
+}
 
 function onScroll() {
   scrolled.value = window.scrollY > 60;
@@ -111,6 +127,7 @@ watch(() => route.fullPath, closeMenu);
         <NuxtLink
           :to="link.to"
           :class="{ 'nav-link--catalog': link.highlight }"
+          @click="onNavLinkClick(link, $event)"
         >
           {{ link.label }}
         </NuxtLink>
@@ -146,7 +163,7 @@ watch(() => route.fullPath, closeMenu);
       :key="`m-${link.to}`"
       :to="link.to"
       :class="{ 'nav-menu-mobile__link--catalog': link.highlight }"
-      @click="closeMenu"
+      @click="onMobileNavClick(link, $event)"
     >
       {{ link.label }}
     </NuxtLink>

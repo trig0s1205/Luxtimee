@@ -61,7 +61,7 @@ export default defineNuxtConfig({
       const patchAdminTransitions = (routePages: typeof pages) => {
         for (const page of routePages) {
           const file = page.file ?? '';
-          if (file.includes('/pages/admin/')) {
+          if (file.includes('/pages/admin/') || file.includes('/pages/mayoristas/')) {
             page.meta = {
               ...page.meta,
               pageTransition: false,

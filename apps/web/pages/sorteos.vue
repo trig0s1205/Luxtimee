@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { scrollToHomeSection } = useHomeSectionNav();
+
 useSeoMeta({ title: 'Sorteos LUXTIMEE | Detalles Exclusivos' });
 </script>
 
@@ -18,7 +20,7 @@ useSeoMeta({ title: 'Sorteos LUXTIMEE | Detalles Exclusivos' });
       </div>
       <div class="sorteos-cta-row" style="justify-content:center">
         <NuxtLink to="/catalogo" class="btn-primary">Explorar catálogo</NuxtLink>
-        <NuxtLink to="/#contacto" class="btn-ghost">Asesoría</NuxtLink>
+        <NuxtLink to="/" class="btn-ghost" @click.prevent="scrollToHomeSection('contacto')">Asesoría</NuxtLink>
       </div>
       <NuxtLink to="/" class="detail-full-link" style="display:inline-block;margin-top:40px">← Volver al inicio</NuxtLink>
     </div>

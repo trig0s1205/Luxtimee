@@ -15,7 +15,16 @@ export function useRevealObserver() {
       },
       { threshold: 0.12 },
     );
-    root.querySelectorAll('.reveal:not(.visible)').forEach((el) => observer!.observe(el));
+    root.querySelectorAll('.reveal:not(.visible)').forEach((el) => {
+      const htmlEl = el as HTMLElement;
+      const rect = htmlEl.getBoundingClientRect();
+      const inView = rect.top < window.innerHeight * 0.92 && rect.bottom > 0;
+      if (inView) {
+        htmlEl.classList.add('visible');
+        return;
+      }
+      observer!.observe(htmlEl);
+    });
   }
 
   onMounted(() => {

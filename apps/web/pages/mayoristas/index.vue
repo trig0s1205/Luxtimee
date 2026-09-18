@@ -11,7 +11,7 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE' });
 
 <template>
   <div class="mayoristas-page wholesale-landing">
-    <section class="wholesale-landing__hero reveal">
+    <section class="wholesale-landing__hero">
       <p class="manifesto-tag">Programa mayorista</p>
       <h1>Catálogo y precios exclusivos para mayoristas</h1>
       <p class="wholesale-landing__lead">
@@ -19,7 +19,7 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE' });
       </p>
     </section>
 
-    <section class="wholesale-landing__grid reveal">
+    <section class="wholesale-landing__grid">
       <article v-if="loaded && isAuthed" class="wholesale-panel wholesale-panel--accent">
         <p class="wholesale-panel__eyebrow">Acceso activo</p>
         <h2>Entra a tu catálogo privado</h2>
@@ -47,7 +47,7 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE' });
       </article>
     </section>
 
-    <section class="wholesale-landing__cta reveal">
+    <section class="wholesale-landing__cta">
       <h2>¿Aún no tienes tu enlace?</h2>
       <p>Escríbenos con tu nombre, ciudad y volumen estimado. Si calificas, te enviamos acceso al catálogo completo.</p>
       <button
