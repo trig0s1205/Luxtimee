@@ -268,6 +268,19 @@ useSeoMeta({
           <span v-if="activeFilterCount > 0" class="catalog-mobile-filter-badge">{{ activeFilterCount }}</span>
         </button>
 
+        <button
+          v-if="activeFilterCount > 0"
+          type="button"
+          class="catalog-filter-reset catalog-filter-reset--mobile"
+          :aria-label="t('catalog.clearFilters')"
+          @click="clearFilters"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M4 12a8 8 0 0113.7-5.7M20 12a8 8 0 01-13.7 5.7" stroke-linecap="round" />
+            <path d="M16 6h4V2M8 18H4v4" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+
         <div class="catalog-mobile-search-wrap">
           <svg class="catalog-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <circle cx="11" cy="11" r="7" />
@@ -294,6 +307,21 @@ useSeoMeta({
 
       <!-- Desktop: inline filter row -->
       <div class="catalog-filter-container catalog-filter-desktop">
+        <div v-if="activeFilterCount > 0" class="catalog-filter-reset-wrap">
+          <button
+            type="button"
+            class="catalog-filter-reset"
+            :aria-label="t('catalog.clearFilters')"
+            @click="clearFilters"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M4 12a8 8 0 0113.7-5.7M20 12a8 8 0 01-13.7 5.7" stroke-linecap="round" />
+              <path d="M16 6h4V2M8 18H4v4" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <span>{{ t('catalog.resetFilters') }}</span>
+          </button>
+        </div>
+
         <div class="catalog-filters-row">
           <div class="catalog-field" :class="{ 'is-active': !!brand }">
             <select v-model="brand" class="catalog-select">
@@ -367,14 +395,6 @@ useSeoMeta({
             >
           </div>
 
-          <button
-            v-if="hasActiveFilters"
-            type="button"
-            class="catalog-clear-filters"
-            @click="clearFilters"
-          >
-            {{ t('catalog.clearFilters') }}
-          </button>
         </div>
 
         <div class="catalog-search-field">
@@ -408,14 +428,28 @@ useSeoMeta({
             <div class="catalog-filter-drawer">
               <div class="catalog-filter-drawer__head">
                 <span class="catalog-filter-drawer__title">Filtros</span>
-                <button
-                  type="button"
-                  class="catalog-filter-drawer__close"
-                  aria-label="Cerrar filtros"
-                  @click="filterDrawerOpen = false"
-                >
-                  ×
-                </button>
+                <div class="catalog-filter-drawer__head-actions">
+                  <button
+                    v-if="activeFilterCount > 0"
+                    type="button"
+                    class="catalog-filter-reset catalog-filter-reset--drawer"
+                    @click="clearFilters"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                      <path d="M4 12a8 8 0 0113.7-5.7M20 12a8 8 0 01-13.7 5.7" stroke-linecap="round" />
+                      <path d="M16 6h4V2M8 18H4v4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span>{{ t('catalog.resetFilters') }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="catalog-filter-drawer__close"
+                    aria-label="Cerrar filtros"
+                    @click="filterDrawerOpen = false"
+                  >
+                    ×
+                  </button>
+                </div>
               </div>
 
               <div class="catalog-filter-drawer__body">
@@ -499,9 +533,6 @@ useSeoMeta({
               </div>
 
               <div class="catalog-filter-drawer__foot">
-                <button v-if="hasActiveFilters" type="button" class="catalog-drawer-clear" @click="clearFilters">
-                  Limpiar filtros
-                </button>
                 <button type="button" class="catalog-drawer-apply" @click="filterDrawerOpen = false">
                   Ver {{ total }} resultado{{ total !== 1 ? 's' : '' }}
                 </button>
@@ -600,22 +631,74 @@ useSeoMeta({
   opacity: 0.55;
 }
 
-.catalog-clear-filters {
-  align-self: stretch;
-  padding: 0 18px;
-  border: 1px solid rgba(200, 169, 110, 0.35);
-  background: transparent;
-  color: var(--gold);
-  font-family: var(--font-body);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
+.catalog-filter-reset-wrap {
+  flex: 1 1 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+  margin-bottom: 2px;
 }
 
-.catalog-clear-filters:hover {
-  background: rgba(200, 169, 110, 0.12);
+.catalog-filter-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  color: rgba(200, 169, 110, 0.82);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.22s ease, opacity 0.22s ease;
+}
+
+.catalog-filter-reset svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.catalog-filter-reset:hover {
+  color: var(--gold-light);
+}
+
+.catalog-filter-reset--mobile {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  justify-content: center;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(200, 169, 110, 0.22);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.catalog-filter-reset--mobile svg {
+  width: 15px;
+  height: 15px;
+}
+
+.catalog-filter-reset--mobile span {
+  display: none;
+}
+
+.catalog-filter-reset--drawer {
+  padding: 6px 10px;
+  margin-right: 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(200, 169, 110, 0.22);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.catalog-filter-drawer__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* —— Mobile toggle bar —— */
@@ -807,23 +890,9 @@ useSeoMeta({
   border-top: 1px solid rgba(200, 169, 110, 0.1);
 }
 
-.catalog-drawer-clear {
-  flex: 0 0 auto;
-  padding: 0 16px;
-  height: 48px;
-  border: 1px solid rgba(200, 169, 110, 0.3);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--gold);
-  font-family: var(--font-body);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
 .catalog-drawer-apply {
   flex: 1;
+  width: 100%;
   height: 48px;
   border-radius: 6px;
   border: none;

@@ -117,6 +117,7 @@ export default {
     minPrice: 'Min price',
     maxPrice: 'Max price',
     clearFilters: 'Clear filters',
+    resetFilters: 'Reset',
     searchPlaceholder: 'Search model or reference...',
     clearSearch: 'Clear search',
     loading: 'Loading catalog…',
