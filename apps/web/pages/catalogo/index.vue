@@ -90,7 +90,7 @@ function buildCatalogParams() {
   });
 }
 
-const catalogKey = computed(() => `catalog-products-${JSON.stringify(buildCatalogParams())}`);
+const catalogKey = computed(() => `catalog-products-v2-${JSON.stringify(buildCatalogParams())}`);
 
 const { data: catalogResult, pending, refresh } = await useCachedAsyncData<PaginatedResponse<WatchPublicDto>>(
   catalogKey,
