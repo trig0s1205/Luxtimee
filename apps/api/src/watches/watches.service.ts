@@ -567,10 +567,18 @@ export class WatchesService {
         (async () => {
           try {
             assertMediaFile(files.video!, 'video');
-            const videoBuffer =
-              await this.imageProcessing.processVideoWithMicroservice(
-                files.video!,
+            let videoBuffer: Buffer;
+            try {
+              videoBuffer =
+                await this.imageProcessing.processVideoWithMicroservice(
+                  files.video!,
+                );
+            } catch (videoProcessError) {
+              this.logger.warn(
+                `Video processing failed, uploading original: ${slotErrorMessage(videoProcessError)}`,
               );
+              videoBuffer = files.video!.buffer;
+            }
             const videoUrl = await this.persistWatchVideo(
               videoBuffer,
               isProd,
