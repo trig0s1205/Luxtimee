@@ -751,6 +751,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
           </div>
           <p class="admin-config-hint">
             Hasta 6 imágenes promocionales. Rotan cada 8 segundos. Al hacer clic siempre llevan al catálogo.
+            Recomendado: horizontal ancha (p. ej. 1920×820 o 16:9); cualquier tamaño sirve (se recorta con cover).
             Imágenes cargadas: {{ heroSlidesFilled }} / {{ HOMEPAGE_HERO_MAX_SLIDES }}
           </p>
           <div class="admin-carousel-slots">

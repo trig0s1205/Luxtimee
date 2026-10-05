@@ -48,7 +48,7 @@ export function useCachedAsyncData<T, E = T>(
 
         if (!hasHydratedCacheKey(resolved)) {
           const payload = nuxtApp.payload.data[resolved] ?? nuxtApp.static.data[resolved];
-          if (payload !== undefined) {
+          if (payload !== undefined && payload !== null) {
             writeClientCache(resolved, payload);
             markHydratedCacheKey(resolved);
             return payload as T;

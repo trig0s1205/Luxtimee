@@ -15,7 +15,7 @@ const { data: limitedWatches } = useCachedAsyncData(
   },
   { server: false, lazy: true, staleTime: STOREFRONT_CACHE_MS.catalog },
 );
-const { data: homeCms } = await useCachedAsyncData<HomepageConfigDto>(
+const { data: homeCms, refresh: refreshHomeCms } = await useCachedAsyncData<HomepageConfigDto>(
   'home-cms-config',
   () => fetchConfig(),
   { default: (): HomepageConfigDto => structuredClone(DEFAULT_HOMEPAGE_CONFIG), staleTime: STOREFRONT_CACHE_MS.catalog },
@@ -33,6 +33,9 @@ useSeoMeta({
 });
 
 onMounted(() => {
+  if (!getActiveHeroSlides(cms.value.hero).length) {
+    void refreshHomeCms();
+  }
   nextTick(() => observe());
 });
 </script>

@@ -1,6 +1,18 @@
 import { fileURLToPath } from 'node:url';
 
 const apiUpstream = process.env.NUXT_API_UPSTREAM_URL?.replace(/\/$/, '');
+const publicApiBase = process.env.NUXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '');
+const siteOrigin = process.env.NUXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || '';
+
+function internalApiUrl(): string {
+  if (process.env.NUXT_API_INTERNAL_URL) {
+    return process.env.NUXT_API_INTERNAL_URL.replace(/\/$/, '');
+  }
+  if (apiUpstream) return `${apiUpstream}/api/v1`;
+  if (publicApiBase?.startsWith('/') && siteOrigin) return `${siteOrigin}${publicApiBase}`;
+  if (publicApiBase) return publicApiBase;
+  return 'http://127.0.0.1:3001/api/v1';
+}
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -26,10 +38,7 @@ export default defineNuxtConfig({
     '@luxtime/shared': fileURLToPath(new URL('../../packages/shared/src/index.ts', import.meta.url)),
   },
   runtimeConfig: {
-    apiInternalUrl: process.env.NUXT_API_INTERNAL_URL
-      || (apiUpstream ? `${apiUpstream}/api/v1` : undefined)
-      || process.env.NUXT_PUBLIC_API_BASE_URL
-      || 'http://127.0.0.1:3001/api/v1',
+    apiInternalUrl: internalApiUrl(),
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL
         || (apiUpstream ? '/api/v1' : undefined)
