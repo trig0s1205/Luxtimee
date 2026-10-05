@@ -375,6 +375,11 @@ section {
   color: var(--black);
 }
 
+/* Inicio: menos hueco bajo el nav y banner a ancho completo */
+.main--home-hero {
+  padding-top: 4.75rem;
+}
+
 /* —— Navbar —— */
 .site-nav {
   position: fixed;

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { HomepageConfigDto } from '@luxtime/shared';
+
+definePageMeta({ mainClass: 'main--home-hero' });
 import { HOME_CMS_ASYNC_KEY, STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 import { getActiveHeroSlides, shouldShowFounderSection } from '~/utils/homepage-config';
 

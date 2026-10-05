@@ -101,11 +101,12 @@ onBeforeUnmount(() => stopRotation());
 <style scoped>
 .home-promo-hero {
   position: relative;
-  width: 100vw;
-  max-width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
-  background: var(--black-2);
+  display: block;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  background: #0a0a0a;
   border: none;
 }
 
@@ -120,11 +121,11 @@ onBeforeUnmount(() => stopRotation());
 .home-promo-hero__stage {
   position: relative;
   width: 100%;
-  height: clamp(220px, 38vw, 560px);
+  height: clamp(300px, min(52vw, 62vh), 720px);
   overflow: hidden;
   border: none;
   border-radius: 0;
-  background: var(--black-2);
+  background: #0a0a0a;
 }
 
 .home-promo-hero__img {
@@ -132,8 +133,12 @@ onBeforeUnmount(() => stopRotation());
   inset: 0;
   width: 100%;
   height: 100%;
+  min-width: 100%;
+  min-height: 100%;
   object-fit: cover;
   object-position: center;
+  transform: scale(1.08);
+  transform-origin: center center;
 }
 
 .home-promo-hero__cta-hint {
@@ -202,7 +207,11 @@ onBeforeUnmount(() => stopRotation());
 
 @media (max-width: 768px) {
   .home-promo-hero__stage {
-    height: clamp(200px, 52vw, 420px);
+    height: clamp(240px, 58vw, 480px);
+  }
+
+  .home-promo-hero__img {
+    transform: scale(1.1);
   }
 
   .home-promo-hero__cta-hint {
