@@ -8,7 +8,11 @@ export function useHomepageConfig() {
     try {
       const remote = await $fetch<Partial<import('@luxtime/shared').HomepageConfigDto>>(
         `${baseUrl}/settings/homepage/public`,
-        { timeout: API_TIMEOUT_MS },
+        {
+          timeout: API_TIMEOUT_MS,
+          cache: 'no-store',
+          headers: import.meta.client ? { 'Cache-Control': 'no-cache' } : undefined,
+        },
       );
       return mergeHomepageConfig(remote);
     } catch {

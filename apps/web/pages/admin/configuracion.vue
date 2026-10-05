@@ -10,6 +10,7 @@ import { extractApiErrorMessage } from '~/utils/api-error';
 import { authFetchHeaders } from '~/utils/auth-token';
 import { HOMEPAGE_HERO_MAX_SLIDES } from '@luxtime/shared';
 import { DEFAULT_HOMEPAGE_CONFIG, normalizeHeroSlides } from '~/utils/homepage-config';
+import { HOME_CMS_ASYNC_KEY, invalidateClientCache } from '~/utils/storefront-cache';
 
 definePageMeta({ middleware: ['admin'], keepalive: true });
 
@@ -237,6 +238,7 @@ async function saveHomepageSection(
   savingIndexSection.value = section;
   try {
     await api.patch('/settings/homepage', payload);
+    invalidateClientCache(HOME_CMS_ASYNC_KEY);
     toast.success(successMessage);
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'No se pudo guardar la sección.'));
@@ -245,28 +247,43 @@ async function saveHomepageSection(
   }
 }
 
-async function saveHeroSection() {
+function buildHeroPayload() {
   const slides = normalizeHeroSlides(home.hero);
   home.hero.slides = [...slides];
   const filled = slides.filter((u) => Boolean(u?.trim())).length;
-  const heroPayload = {
+  return {
     enabled: home.hero.enabled && filled > 0,
     rotationIntervalSec: 8,
     slides,
   };
-  home.hero.enabled = heroPayload.enabled;
+}
 
-  if (home.hero.enabled === false && filled === 0) {
+async function persistHeroToApi(options?: { toastMessage?: string; warnIfEmpty?: boolean }) {
+  const heroPayload = buildHeroPayload();
+  home.hero.enabled = heroPayload.enabled;
+  if (options?.warnIfEmpty && !heroPayload.enabled && heroPayload.slides.every((u) => !u?.trim())) {
     toast.warning('Sube al menos una imagen para mostrar el banner en el inicio.');
   }
+  await api.patch('/settings/homepage', { hero: heroPayload });
+  invalidateClientCache(HOME_CMS_ASYNC_KEY);
+  if (options?.toastMessage) toast.success(options.toastMessage);
+}
 
-  await saveHomepageSection(
-    'hero',
-    { hero: heroPayload },
-    heroPayload.enabled
-      ? 'Banner del inicio guardado.'
-      : 'Banner guardado (sin imágenes visibles en el inicio).',
-  );
+async function saveHeroSection() {
+  savingIndexSection.value = 'hero';
+  try {
+    const heroPayload = buildHeroPayload();
+    await persistHeroToApi({
+      warnIfEmpty: true,
+      toastMessage: heroPayload.enabled
+        ? 'Banner del inicio guardado.'
+        : 'Banner guardado (sin imágenes visibles en el inicio).',
+    });
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo guardar el banner.'));
+  } finally {
+    savingIndexSection.value = null;
+  }
 }
 
 async function saveFounderSection() {
@@ -403,7 +420,7 @@ async function uploadHeroSlot(slot: number, file: File) {
     if (prev && prev !== url) {
       await api.del(`/settings/homepage/founder-image?url=${encodeURIComponent(prev)}`).catch(() => null);
     }
-    toast.success(`Banner ${slot + 1} actualizado.`);
+    await persistHeroToApi({ toastMessage: `Banner ${slot + 1} guardado en el inicio.` });
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'Error al subir la imagen.'));
   } finally {
@@ -423,6 +440,11 @@ async function clearHeroSlot(slot: number) {
   home.hero.slides[slot] = '';
   if (prev) {
     await api.del(`/settings/homepage/founder-image?url=${encodeURIComponent(prev)}`).catch(() => null);
+  }
+  try {
+    await persistHeroToApi();
+  } catch {
+    /* ignore */
   }
 }
 

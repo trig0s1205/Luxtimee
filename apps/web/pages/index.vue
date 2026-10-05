@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { HomepageConfigDto } from '@luxtime/shared';
-import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
+import { HOME_CMS_ASYNC_KEY, STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 import { getActiveHeroSlides, shouldShowFounderSection } from '~/utils/homepage-config';
 
 const catalog = useCatalogData();
@@ -16,9 +16,9 @@ const { data: limitedWatches } = useCachedAsyncData(
   { server: false, lazy: true, staleTime: STOREFRONT_CACHE_MS.catalog },
 );
 const { data: homeCms, refresh: refreshHomeCms } = await useCachedAsyncData<HomepageConfigDto>(
-  'home-cms-config',
+  HOME_CMS_ASYNC_KEY,
   () => fetchConfig(),
-  { default: (): HomepageConfigDto => structuredClone(DEFAULT_HOMEPAGE_CONFIG), staleTime: STOREFRONT_CACHE_MS.catalog },
+  { default: (): HomepageConfigDto => structuredClone(DEFAULT_HOMEPAGE_CONFIG), staleTime: STOREFRONT_CACHE_MS.homepage },
 );
 
 const cms = computed<HomepageConfigDto>(() => homeCms.value ?? DEFAULT_HOMEPAGE_CONFIG);
@@ -33,9 +33,7 @@ useSeoMeta({
 });
 
 onMounted(() => {
-  if (!getActiveHeroSlides(cms.value.hero).length) {
-    void refreshHomeCms();
-  }
+  void refreshHomeCms();
   nextTick(() => observe());
 });
 </script>

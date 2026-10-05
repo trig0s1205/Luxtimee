@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { HomepageHeroConfig } from '@luxtime/shared';
+import { optimizeCloudinaryHeroBannerUrl } from '~/utils/media-url';
 
 const props = defineProps<{
   config: HomepageHeroConfig;
@@ -17,7 +18,9 @@ const intervalMs = computed(() => {
 });
 
 const resolvedSlides = computed(() =>
-  props.slides.map((url) => resolve(url)).filter(Boolean),
+  props.slides
+    .map((url) => optimizeCloudinaryHeroBannerUrl(resolve(url)) ?? resolve(url))
+    .filter(Boolean),
 );
 
 function goTo(index: number) {
@@ -98,8 +101,11 @@ onBeforeUnmount(() => stopRotation());
 <style scoped>
 .home-promo-hero {
   position: relative;
-  width: 100%;
-  background: var(--black);
+  width: 100vw;
+  max-width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  background: var(--black-2);
   border: none;
 }
 
@@ -114,9 +120,7 @@ onBeforeUnmount(() => stopRotation());
 .home-promo-hero__stage {
   position: relative;
   width: 100%;
-  aspect-ratio: 21 / 9;
-  max-height: min(52vh, 520px);
-  min-height: 200px;
+  height: clamp(220px, 38vw, 560px);
   overflow: hidden;
   border: none;
   border-radius: 0;
@@ -198,8 +202,7 @@ onBeforeUnmount(() => stopRotation());
 
 @media (max-width: 768px) {
   .home-promo-hero__stage {
-    aspect-ratio: 4 / 3;
-    max-height: min(42vh, 380px);
+    height: clamp(200px, 52vw, 420px);
   }
 
   .home-promo-hero__cta-hint {

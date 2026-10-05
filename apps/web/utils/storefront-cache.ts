@@ -3,7 +3,10 @@ export const STOREFRONT_CACHE_MS = {
   static: 10 * 60 * 1000,
   catalog: 2 * 60 * 1000,
   product: 3 * 60 * 1000,
+  homepage: 0,
 } as const;
+
+export const HOME_CMS_ASYNC_KEY = 'home-cms-config-v3';
 
 type CacheEntry = { data: unknown; at: number };
 

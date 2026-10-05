@@ -65,7 +65,7 @@ export class SettingsController {
 
   @Public()
   @Get('homepage/public')
-  @Cacheable({ ttlMs: 300_000, tag: CACHE_TAGS.settings, maxAge: 120 })
+  @Cacheable({ ttlMs: 60_000, tag: CACHE_TAGS.settings, maxAge: 30 })
   getHomepagePublic() {
     return this.settingsService.getHomepageConfig();
   }
