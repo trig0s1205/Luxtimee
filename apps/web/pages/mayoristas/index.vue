@@ -88,7 +88,7 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE' });
   margin: 0 auto;
   font-size: 14px;
   line-height: 1.7;
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(20, 20, 20, 0.72);
 }
 
 .wholesale-landing__grid {
@@ -100,8 +100,8 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE' });
 
 .wholesale-panel {
   padding: 24px 22px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+  border: 1px solid rgba(20, 20, 20, 0.1);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(245, 242, 235, 0.9));
 }
 
 .wholesale-panel--accent {
@@ -132,7 +132,7 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE' });
 .wholesale-panel p {
   font-size: 13px;
   line-height: 1.65;
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(20, 20, 20, 0.72);
 }
 
 .wholesale-panel__list {
@@ -148,7 +148,7 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE' });
   padding-left: 14px;
   font-size: 13px;
   line-height: 1.55;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(20, 20, 20, 0.78);
 }
 
 .wholesale-panel__list li::before {
@@ -170,8 +170,8 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE' });
 .wholesale-landing__cta {
   text-align: center;
   padding: 28px 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(20, 20, 20, 0.08);
+  background: rgba(255, 255, 255, 0.85);
 }
 
 .wholesale-landing__cta h2 {
@@ -187,7 +187,7 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE' });
   margin: 0 auto 18px;
   font-size: 13px;
   line-height: 1.65;
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(20, 20, 20, 0.72);
 }
 
 @media (max-width: 768px) {

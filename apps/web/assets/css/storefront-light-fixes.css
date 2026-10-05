@@ -1,0 +1,50 @@
+/* Tema claro único: correcciones de texto y bloques legacy con blanco hardcodeado */
+
+section.home-promo-hero {
+  padding: 0;
+  max-width: none;
+  overflow: visible;
+}
+
+.nav-links a:not(.nav-link--catalog) {
+  color: #141414;
+  font-weight: 500;
+}
+
+.nav-links a:not(.nav-link--catalog):hover,
+.nav-links a:not(.nav-link--catalog).router-link-active {
+  color: #0a0a0a;
+}
+
+.nav-cart,
+.nav-locale-btn {
+  color: #3d3d3d;
+}
+
+.nav-cart:hover,
+.nav-cart.has-items,
+.nav-locale-btn:hover {
+  color: #141414;
+}
+
+.pillar-num {
+  color: rgba(20, 20, 20, 0.38);
+}
+
+.cdown-sep {
+  color: rgba(20, 20, 20, 0.28);
+}
+
+.stock-notice {
+  background: rgba(255, 255, 255, 0.97);
+  border-color: rgba(20, 20, 20, 0.1);
+  box-shadow: 0 12px 40px rgba(20, 20, 20, 0.12);
+}
+
+.stock-notice-text {
+  color: rgba(20, 20, 20, 0.78);
+}
+
+.stock-notice-close {
+  color: var(--gold-dark);
+}

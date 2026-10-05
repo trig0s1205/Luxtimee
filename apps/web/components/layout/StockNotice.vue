@@ -6,7 +6,7 @@ const { t } = useLocale();
 <template>
   <Teleport to="body">
     <Transition name="stock-notice">
-      <div v-if="visible" class="stock-notice lux-overlay-dark" role="alert">
+      <div v-if="visible" class="stock-notice" role="alert">
         <p class="stock-notice-text">{{ t('cart.stockLimit') }}</p>
         <button type="button" class="stock-notice-close" aria-label="Cerrar" @click="hide">×</button>
       </div>

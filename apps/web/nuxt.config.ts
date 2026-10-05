@@ -22,7 +22,14 @@ export default defineNuxtConfig({
     appManifest: false,
   },
   modules: ['@pinia/nuxt', '@nuxtjs/tailwindcss'],
-  css: ['~/assets/css/tokens.css', '~/assets/css/base.css', '~/assets/css/dixus-pages.css', '~/assets/css/variants.css', '~/assets/css/theme-light.css'],
+  css: [
+    '~/assets/css/tokens.css',
+    '~/assets/css/base.css',
+    '~/assets/css/dixus-pages.css',
+    '~/assets/css/variants.css',
+    '~/assets/css/theme-light.css',
+    '~/assets/css/storefront-light-fixes.css',
+  ],
   routeRules: {
     '/': { swr: false },
     '/catalogo': { swr: false },

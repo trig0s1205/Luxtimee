@@ -95,7 +95,8 @@ onBeforeUnmount(() => {
             :src="resolvedSlides[activeIndex]"
             alt=""
             class="home-promo-hero__img"
-            :style="{ transform: `translate3d(0, ${scrollOffset}px, 0) scale(1.02)` }"
+            :style="scrollOffset ? { transform: `translate3d(0, ${scrollOffset}px, 0)` } : undefined"
+            sizes="100vw"
             :fetchpriority="activeIndex === 0 ? 'high' : 'auto'"
             :loading="activeIndex === 0 ? 'eager' : 'lazy'"
             decoding="async"
@@ -134,7 +135,7 @@ onBeforeUnmount(() => {
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 0;
+  padding: 0 !important;
   background: var(--black-2);
   border: none;
 }
@@ -142,6 +143,7 @@ onBeforeUnmount(() => {
 .home-promo-hero__link {
   display: block;
   position: relative;
+  line-height: 0;
   text-decoration: none;
   color: inherit;
   outline: none;
@@ -166,6 +168,7 @@ onBeforeUnmount(() => {
   width: 100%;
   height: auto;
   max-width: 100%;
+  vertical-align: top;
   object-fit: contain;
   object-position: center top;
   will-change: transform;

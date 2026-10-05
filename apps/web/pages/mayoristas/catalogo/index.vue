@@ -193,7 +193,7 @@ useSeoMeta({ title: 'Catálogo mayorista — LUXTIMEE' });
 
 .wholesale-catalog__session {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(20, 20, 20, 0.55);
 }
 
 .wholesale-catalog__logout {
@@ -201,7 +201,7 @@ useSeoMeta({ title: 'Catálogo mayorista — LUXTIMEE' });
   padding: 8px 12px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: transparent;
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(20, 20, 20, 0.72);
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -226,7 +226,7 @@ useSeoMeta({ title: 'Catálogo mayorista — LUXTIMEE' });
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(20, 20, 20, 0.72);
 }
 
 .wholesale-chip--gold {
@@ -246,16 +246,16 @@ useSeoMeta({ title: 'Catálogo mayorista — LUXTIMEE' });
   left: 14px;
   width: 16px;
   height: 16px;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(20, 20, 20, 0.45);
   pointer-events: none;
 }
 
 .wholesale-search-input {
   width: 100%;
   padding: 11px 40px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(200, 169, 110, 0.2);
-  color: var(--white, #fff);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(20, 20, 20, 0.12);
+  color: var(--white, #141414);
   font-family: var(--font-body);
   font-size: 13px;
   outline: none;
@@ -271,7 +271,7 @@ useSeoMeta({ title: 'Catálogo mayorista — LUXTIMEE' });
   right: 12px;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(20, 20, 20, 0.45);
   font-size: 18px;
   cursor: pointer;
 }
@@ -285,7 +285,7 @@ useSeoMeta({ title: 'Catálogo mayorista — LUXTIMEE' });
 .wholesale-catalog__status {
   padding: 28px 0;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(20, 20, 20, 0.55);
 }
 
 .wholesale-pagination {
@@ -315,7 +315,7 @@ useSeoMeta({ title: 'Catálogo mayorista — LUXTIMEE' });
 
 .wholesale-page-info {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(20, 20, 20, 0.55);
 }
 
 @media (min-width: 1024px) {
