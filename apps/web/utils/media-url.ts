@@ -53,11 +53,12 @@ export function optimizeCloudinaryImageUrl(url?: string | null, width = 800): st
 }
 
 /** Mismo encuadre para foto principal y secundaria en el hero (3:4). */
-/** Banner inicio: ancho máximo sin recortar (c_limit) y mejor calidad. */
+/** Banner inicio: 4000px ancho, alto proporcional tipo cover (como hero full-bleed). */
 export function optimizeCloudinaryHeroBannerUrl(url?: string | null, width = 4000): string | undefined {
   if (!url) return undefined;
   if (!url.includes('res.cloudinary.com') || !url.includes('/image/upload/')) return url;
-  const transform = `f_auto,q_90,w_${width},c_limit,dpr_auto`;
+  const height = Math.round(width * 0.36);
+  const transform = `f_auto,q_90,w_${width},h_${height},c_fill,g_center,dpr_auto`;
   if (url.includes('/image/upload/') && /\/image\/upload\/[^/]+\//.test(url)) {
     return url.replace(/\/image\/upload\/[^/]+\//, `/image/upload/${transform}/`);
   }

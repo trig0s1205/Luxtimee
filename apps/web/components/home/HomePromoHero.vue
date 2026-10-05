@@ -136,7 +136,7 @@ onBeforeUnmount(() => {
   max-width: none;
   margin: 0;
   padding: 0 !important;
-  background: var(--black-2);
+  background: #0a0a0a;
   border: none;
 }
 
@@ -156,21 +156,22 @@ onBeforeUnmount(() => {
 .home-promo-hero__stage {
   position: relative;
   width: 100%;
+  height: clamp(340px, min(52vw, 62vh), 720px);
   line-height: 0;
   overflow: hidden;
   border: none;
   border-radius: 0;
-  background: var(--black-2);
+  background: #0a0a0a;
 }
 
 .home-promo-hero__img {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
-  height: auto;
-  max-width: 100%;
-  vertical-align: top;
-  object-fit: contain;
-  object-position: center top;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
   will-change: transform;
   transition: transform 0.12s linear;
 }
@@ -262,6 +263,10 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
+  .home-promo-hero__stage {
+    height: clamp(280px, 58vw, 520px);
+  }
+
   .home-promo-hero__cta-hint {
     opacity: 1;
     transform: none;

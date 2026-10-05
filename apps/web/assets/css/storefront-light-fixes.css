@@ -1,9 +1,11 @@
 /* Tema claro único: correcciones de texto y bloques legacy con blanco hardcodeado */
 
 section.home-promo-hero {
-  padding: 0;
+  padding: 0 !important;
+  margin: 0;
   max-width: none;
-  overflow: visible;
+  overflow: hidden;
+  background: #0a0a0a;
 }
 
 .nav-links a:not(.nav-link--catalog) {
