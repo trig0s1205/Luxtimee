@@ -1,13 +1,13 @@
 :root {
-  --black: #0A0A0A;
-  --black-2: #111111;
-  --black-3: #1A1A1A;
+  --black: #F5F2EB;
+  --black-2: #FFFFFF;
+  --black-3: #EDE8DF;
   --gold: #C8A96E;
   --gold-light: #D4B87E;
   --gold-dark: #9A7A45;
-  --white: #FFFFFF;
-  --white-dim: #B8B8B8;
-  --white-muted: #7A7A7A;
+  --white: #141414;
+  --white-dim: #5A5A5A;
+  --white-muted: #888888;
 
   --font-display: 'Cormorant Garamond', serif;
   --font-body: 'Montserrat', sans-serif;
@@ -30,8 +30,8 @@
   --lux-font-display: var(--font-display);
   --lux-font-body: var(--font-body);
 
-  --border-hairline: 0.5px solid rgba(255, 255, 255, 0.08);
-  --border-hairline-white: 0.5px solid rgba(255, 255, 255, 0.12);
-  --border-accent-gold: 0.5px solid rgba(255, 255, 255, 0.14);
+  --border-hairline: 0.5px solid rgba(20, 20, 20, 0.08);
+  --border-hairline-white: 0.5px solid rgba(20, 20, 20, 0.12);
+  --border-accent-gold: 0.5px solid rgba(20, 20, 20, 0.1);
   --border-accent-subtle-gold: 0.5px solid rgba(200, 169, 110, 0.18);
 }

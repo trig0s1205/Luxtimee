@@ -98,13 +98,13 @@ export default defineNuxtConfig({
   app: {
     pageTransition: { name: 'lux-page', mode: 'out-in' },
     head: {
-      htmlAttrs: { 'data-theme': 'dark' },
+      htmlAttrs: { 'data-theme': 'light' },
       title: 'LuxTimee — Luxury Watches',
       script: [
         {
           key: 'luxtimee-theme-boot',
           innerHTML:
-            "(function(){try{var t=localStorage.getItem('luxtimee-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();",
+            "(function(){try{document.documentElement.setAttribute('data-theme','light');localStorage.removeItem('luxtimee-theme');}catch(e){}})();",
           tagPosition: 'head',
         },
       ],

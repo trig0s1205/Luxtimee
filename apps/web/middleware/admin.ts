@@ -1,15 +1,25 @@
 import { resolveAccessToken } from '~/utils/auth-token';
 
-export default defineNuxtRouteMiddleware(async (to) => {
+/** Ventana en la que la sesión se considera verificada y no se revalida. */
+const SESSION_FRESH_MS = 30_000;
+
+export default defineNuxtRouteMiddleware(async () => {
   const auth = useAuthStore();
   auth.hydrateLocal();
   auth.hydrateTokens();
 
-  const freshStaffSession = auth.isStaff && Date.now() - auth.sessionCheckedAt < 30_000;
-  const hasStoredSession = auth.isStaff && !!resolveAccessToken(auth.accessToken);
+  const freshStaffSession = auth.isStaff && Date.now() - auth.sessionCheckedAt < SESSION_FRESH_MS;
+  const usableStaffSession = auth.isStaff && !!resolveAccessToken(auth.accessToken);
 
-  if (!freshStaffSession && (!auth.isStaff || hasStoredSession)) {
-    await auth.fetchMe({ allowRefresh: true });
+  if (!freshStaffSession) {
+    if (usableStaffSession) {
+      // Revalidación en segundo plano: cambiar de módulo no debe esperar al API.
+      void auth.fetchMe({ allowRefresh: true }).then(() => {
+        if (!auth.isStaff) void navigateTo('/vigilancia', { replace: true });
+      });
+    } else {
+      await auth.fetchMe({ allowRefresh: true });
+    }
   }
 
   if (!auth.user || (auth.user.role !== 'ADMIN' && auth.user.role !== 'SUPER_ADMIN')) {

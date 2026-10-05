@@ -1,58 +1,24 @@
 const STORAGE_KEY = 'luxtimee-theme';
 
-export type ThemeMode = 'dark' | 'light';
-
-function readStoredTheme(): ThemeMode {
-  if (!import.meta.client) return 'dark';
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === 'light') return 'light';
-  return 'dark';
-}
+export type ThemeMode = 'light';
 
 export function useTheme() {
-  const theme = useState<ThemeMode>('luxtimee-theme', () => 'dark');
+  const theme = useState<ThemeMode>('luxtimee-theme', () => 'light');
 
-  function applyTheme(mode: ThemeMode) {
+  function applyTheme() {
     if (!import.meta.client) return;
-    theme.value = mode;
-    document.documentElement.setAttribute('data-theme', mode);
-    localStorage.setItem(STORAGE_KEY, mode);
-  }
-
-  function applyStoredTheme() {
-    if (!import.meta.client) return;
-    const mode = readStoredTheme();
-    theme.value = mode;
-    document.documentElement.setAttribute('data-theme', mode);
-  }
-
-  function forceDarkTheme() {
-    if (!import.meta.client) return;
-    document.documentElement.setAttribute('data-theme', 'dark');
-  }
-
-  function syncThemeForRoute(_path: string) {
-    if (!import.meta.client) return;
-    applyStoredTheme();
-  }
-
-  function toggleTheme() {
-    applyTheme(theme.value === 'dark' ? 'light' : 'dark');
+    theme.value = 'light';
+    document.documentElement.setAttribute('data-theme', 'light');
+    localStorage.removeItem(STORAGE_KEY);
   }
 
   function initTheme() {
-    if (!import.meta.client) return;
-    applyStoredTheme();
+    applyTheme();
   }
 
-  const isDark = computed(() => theme.value === 'dark');
+  function syncThemeForRoute(_path: string) {
+    applyTheme();
+  }
 
-  return {
-    theme,
-    isDark,
-    toggleTheme,
-    initTheme,
-    applyTheme,
-    syncThemeForRoute,
-  };
+  return { theme, initTheme, applyTheme, syncThemeForRoute };
 }

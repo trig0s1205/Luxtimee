@@ -30,8 +30,6 @@ const props = defineProps<{ config: HomepageFeaturedConfig }>();
   padding: clamp(5rem, 10vw, 8.5rem) clamp(1.5rem, 6vw, 5rem);
   overflow: hidden;
   background: var(--black-2);
-  border-top: 1px solid rgba(200, 169, 110, 0.1);
-  border-bottom: 1px solid rgba(200, 169, 110, 0.08);
 }
 
 .lux-collection__glow {
@@ -55,12 +53,8 @@ const props = defineProps<{ config: HomepageFeaturedConfig }>();
   justify-content: space-between;
   gap: clamp(2rem, 5vw, 4rem);
   padding: clamp(2rem, 4vw, 3.25rem) clamp(1.5rem, 3.5vw, 3rem);
-  border: 1px solid rgba(200, 169, 110, 0.16);
-  border-radius: 4px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0%, rgba(200, 169, 110, 0.04) 48%, rgba(10, 10, 10, 0.35) 100%);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  border: none;
+  background: transparent;
 }
 
 .lux-collection__copy { max-width: 720px; min-width: 0; }

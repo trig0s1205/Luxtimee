@@ -58,12 +58,12 @@ onMounted(() => {
     warmupAdminModules(api);
   }
 
-  void loadSharedAdminData();
+  void loadSharedAdminData().catch(() => null);
 
   watch(
     () => resolveAccessToken(auth.accessToken),
     (token) => {
-      if (token) void loadSharedAdminData();
+      if (token) void loadSharedAdminData().catch(() => null);
     },
   );
 });
@@ -89,7 +89,7 @@ async function logout() {
 
 
 <template>
-  <NuxtLoadingIndicator color="var(--lux-gold, #C8A96E)" :height="2" />
+  <UiStorefrontRouteProgress />
 
   <div class="admin-layout admin-shell">
     <div
@@ -114,7 +114,6 @@ async function logout() {
 
 <style>
 @import '~/assets/css/admin-theme-light.css';
-@import '~/assets/css/admin-theme-dark.css';
 @import '~/assets/css/admin-dashboard.css';
 @import '~/assets/css/admin-tables.css';
 @import '~/assets/css/admin-records.css';

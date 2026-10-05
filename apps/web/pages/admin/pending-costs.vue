@@ -1,4 +1,7 @@
 <script setup lang="ts">
-definePageMeta({ middleware: ['admin'] });
-await navigateTo('/admin/pending-info', { replace: true });
+definePageMeta({
+  middleware: ['admin', () => navigateTo('/admin/pending-info', { replace: true })],
+});
 </script>
+
+<template><div /></template>

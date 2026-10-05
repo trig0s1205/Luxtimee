@@ -55,26 +55,6 @@
   opacity: 0.85;
 }
 
-[data-theme='light'] .admin-shell .admin-sidebar-theme {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
-  margin-bottom: 8px;
-  border: var(--border-hairline);
-  border-radius: 2px;
-  background: linear-gradient(135deg, rgba(200, 169, 110, 0.1) 0%, rgba(200, 169, 110, 0.04) 100%);
-}
-
-[data-theme='light'] .admin-shell .admin-sidebar-theme-label {
-  font-family: var(--font-body);
-  font-size: 9px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--white-dim);
-}
-
 [data-theme='light'] .admin-shell .admin-nav-link:hover {
   background: linear-gradient(90deg, rgba(200, 169, 110, 0.12) 0%, rgba(200, 169, 110, 0.04) 100%);
 }

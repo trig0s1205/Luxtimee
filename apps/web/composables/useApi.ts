@@ -1,5 +1,6 @@
 import type { AuthRefreshDto } from '@luxtime/shared';
 import { authFetchHeaders, loadStoredTokens, resolveAccessToken } from '~/utils/auth-token';
+import { API_TIMEOUT_MS, AUTH_TIMEOUT_MS } from '~/utils/api-timeout';
 
 type QueryValue = string | number | boolean | undefined;
 
@@ -31,6 +32,8 @@ export function useApi() {
         method: 'POST',
         credentials: 'include',
         body,
+        timeout: AUTH_TIMEOUT_MS,
+        retry: 0,
         headers: authFetchHeaders(resolveAccessToken(auth.accessToken)),
       })
         .then((data) => {
@@ -68,6 +71,7 @@ export function useApi() {
         body: options.body as Record<string, unknown> | BodyInit | null | undefined,
         query: options.query,
         credentials: 'include',
+        timeout: API_TIMEOUT_MS,
         headers: authFetchHeaders(token),
       });
       return response as T;

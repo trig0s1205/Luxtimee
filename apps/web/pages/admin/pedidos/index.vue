@@ -1,8 +1,7 @@
 <script setup lang="ts">
-definePageMeta({ middleware: ['admin'], keepalive: true });
-
-await navigateTo('/admin/pedidos/detal', { replace: true });
+definePageMeta({
+  middleware: ['admin', () => navigateTo('/admin/pedidos/detal', { replace: true })],
+});
 </script>
 
-
-
+<template><div /></template>

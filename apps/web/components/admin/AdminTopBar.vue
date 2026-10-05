@@ -13,17 +13,5 @@ const { toggle } = useAdminSidebar();
       <span class="admin-topbar-title">LUXTIMEE</span>
       <span class="admin-topbar-sub">Panel admin</span>
     </div>
-    <div class="admin-topbar-actions">
-      <LayoutThemeToggle />
-    </div>
   </header>
 </template>
-
-<style scoped>
-.admin-topbar-actions {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-</style>

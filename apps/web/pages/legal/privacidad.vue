@@ -1,3 +1,7 @@
 <script setup lang="ts">
-await navigateTo('/politica-de-privacidad', { redirectCode: 301 });
+definePageMeta({
+  middleware: [() => navigateTo('/politica-de-privacidad', { redirectCode: 301 })],
+});
 </script>
+
+<template><div /></template>

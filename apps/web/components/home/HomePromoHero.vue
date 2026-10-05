@@ -100,6 +100,7 @@ onBeforeUnmount(() => stopRotation());
   position: relative;
   width: 100%;
   background: var(--black);
+  border: none;
 }
 
 .home-promo-hero__link {
@@ -117,7 +118,9 @@ onBeforeUnmount(() => stopRotation());
   max-height: min(52vh, 520px);
   min-height: 200px;
   overflow: hidden;
-  background: var(--black-2, #111);
+  border: none;
+  border-radius: 0;
+  background: var(--black-2);
 }
 
 .home-promo-hero__img {

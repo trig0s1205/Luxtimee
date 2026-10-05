@@ -1,3 +1,7 @@
 <script setup lang="ts">
-await navigateTo('/terminos-y-condiciones', { redirectCode: 301 });
+definePageMeta({
+  middleware: [() => navigateTo('/terminos-y-condiciones', { redirectCode: 301 })],
+});
 </script>
+
+<template><div /></template>

@@ -29,11 +29,6 @@ function onLogout() {
     <AdminNavLinks @navigate="close" />
 
     <div class="admin-sidebar-footer">
-      <div class="admin-sidebar-theme">
-        <span class="admin-sidebar-theme-label">Tema</span>
-        <LayoutThemeToggle />
-      </div>
-
       <NuxtLink
         to="/admin/configuracion"
         prefetch

@@ -19,6 +19,7 @@ import {
 } from '~/utils/local-auth';
 import { invalidateStaffAdminCaches } from '~/utils/admin-cache';
 import { AUTH_REDIRECT_KEY } from '~/utils/auth-redirect';
+import { AUTH_TIMEOUT_MS } from '~/utils/api-timeout';
 
 function isStaffUser(user: AuthUserDto | null) {
   return user?.role === Role.ADMIN || user?.role === Role.SUPER_ADMIN;
@@ -89,6 +90,8 @@ export const useAuthStore = defineStore('auth', {
         method: 'POST',
         credentials: 'include',
         body,
+        timeout: AUTH_TIMEOUT_MS,
+        retry: 0,
         headers: authFetchHeaders(this.accessToken),
       });
       if (data.accessToken) {
@@ -115,6 +118,8 @@ export const useAuthStore = defineStore('auth', {
       const token = resolveAccessToken(this.accessToken);
       const fetchOptions = {
         credentials: 'include' as const,
+        timeout: AUTH_TIMEOUT_MS,
+        retry: 0 as const,
         headers: authFetchHeaders(token),
       };
 
@@ -140,6 +145,8 @@ export const useAuthStore = defineStore('auth', {
             await this.refreshSession();
             const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, {
               credentials: 'include',
+              timeout: AUTH_TIMEOUT_MS,
+              retry: 0,
               headers: authFetchHeaders(resolveAccessToken(this.accessToken)),
             });
             if (isStaffUser(data.user)) {
@@ -224,6 +231,8 @@ export const useAuthStore = defineStore('auth', {
         await $fetch(`${baseUrl}/auth/logout`, {
           method: 'POST',
           credentials: 'include',
+          timeout: AUTH_TIMEOUT_MS,
+          retry: 0,
           headers: authFetchHeaders(this.accessToken),
         });
       } catch { /* */ }

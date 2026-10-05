@@ -2,6 +2,7 @@ import type { BrandDto, CatalogListQuery, PaginatedResponse, WatchPublicDto } fr
 import { WatchStatus, matchesSkuSearch } from '@luxtime/shared';
 import { mockWatches } from '~/mocks/watches';
 import { equalsInsensitive, sanitizeCatalogQuery } from '~/utils/catalog-filters';
+import { API_TIMEOUT_MS } from '~/utils/api-timeout';
 
 function mockToPublic(watch: (typeof mockWatches)[number]): WatchPublicDto {
   return {
@@ -165,7 +166,7 @@ export function useCatalogData() {
 
   async function fetchPublic<T>(path: string, query?: Record<string, string | number>) {
     const baseUrl = useApiBaseUrl();
-    return $fetch<T>(`${baseUrl}${path}`, { query, credentials: 'omit' });
+    return $fetch<T>(`${baseUrl}${path}`, { query, credentials: 'omit', timeout: API_TIMEOUT_MS });
   }
 
   async function getHeroSpotlight(limit = 6) {
@@ -190,6 +191,7 @@ export function useCatalogData() {
     return $fetch<PaginatedResponse<WatchPublicDto>>(`${baseUrl}/catalog/wholesale`, {
       query: params,
       credentials: 'include',
+      timeout: API_TIMEOUT_MS,
     });
   }
 
@@ -197,6 +199,7 @@ export function useCatalogData() {
     const baseUrl = useApiBaseUrl();
     return $fetch<WatchPublicDto>(`${baseUrl}/catalog/wholesale/${slug}`, {
       credentials: 'include',
+      timeout: API_TIMEOUT_MS,
     });
   }
 
