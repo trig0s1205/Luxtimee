@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const route = useRoute();
 const scrolled = ref(false);
+const navIntro = ref(false);
 const menuOpen = ref(false);
 const retailCart = useCartStore();
 const wholesaleCart = useWholesaleCartStore();
@@ -74,6 +75,9 @@ onMounted(() => {
   wholesaleCart.hydrate();
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
+  requestAnimationFrame(() => {
+    navIntro.value = true;
+  });
 });
 
 onUnmounted(() => {
@@ -84,7 +88,11 @@ watch(() => route.fullPath, closeMenu);
 </script>
 
 <template>
-  <nav id="navbar" class="site-nav" :class="{ scrolled, 'site-nav--subpage': showBack }">
+  <nav
+    id="navbar"
+    class="site-nav"
+    :class="{ scrolled, 'site-nav--subpage': showBack, 'site-nav--intro': navIntro }"
+  >
     <div class="nav-start">
       <button
         v-if="showBack"

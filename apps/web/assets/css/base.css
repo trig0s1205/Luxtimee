@@ -391,15 +391,16 @@ section {
   align-items: center;
   justify-content: space-between;
   padding: 28px 60px;
-  background: linear-gradient(to bottom, rgba(10, 10, 10, 0.95), transparent);
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.94), transparent);
   transition: all 0.4s;
   overflow: visible;
 }
 
 .site-nav.scrolled {
   padding: 18px 60px;
-  background: rgba(10, 10, 10, 0.97);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.97);
+  border-bottom: 1px solid rgba(20, 20, 20, 0.08);
+  box-shadow: 0 8px 28px rgba(20, 20, 20, 0.06);
 }
 
 .nav-start {
@@ -515,11 +516,74 @@ section {
   text-transform: uppercase;
   color: var(--white-dim);
   text-decoration: none;
-  transition: color 0.3s;
+  transition: color 0.3s, transform 0.3s ease;
+}
+
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.35s ease;
 }
 
 .nav-links a:hover {
   color: var(--white);
+  transform: translateY(-1px);
+}
+
+.nav-links a:hover::after {
+  transform: scaleX(1);
+}
+
+.nav-links a.nav-link--catalog::after {
+  display: none;
+}
+
+.site-nav--intro .nav-links li {
+  opacity: 0;
+  animation: navItemIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.site-nav--intro .nav-links li:nth-child(1) { animation-delay: 0.06s; }
+.site-nav--intro .nav-links li:nth-child(2) { animation-delay: 0.12s; }
+.site-nav--intro .nav-links li:nth-child(3) { animation-delay: 0.18s; }
+.site-nav--intro .nav-links li:nth-child(4) { animation-delay: 0.24s; }
+
+.site-nav--intro .nav-actions > * {
+  opacity: 0;
+  animation: navItemIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
+}
+
+.site-nav--intro .nav-logo__frame {
+  animation: navLogoIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes navItemIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes navLogoIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .nav-links a.router-link-active {
@@ -586,7 +650,7 @@ section {
   transform: translateY(-50%);
   width: 1px;
   height: 14px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(20, 20, 20, 0.12);
 }
 
 .nav-wholesale a {
@@ -640,7 +704,7 @@ section {
   text-transform: uppercase;
   color: var(--white-dim);
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(20, 20, 20, 0.12);
   padding: 8px 12px;
   cursor: pointer;
   transition: color 0.3s, border-color 0.3s;
@@ -648,7 +712,7 @@ section {
 
 .nav-locale-btn:hover {
   color: var(--white);
-  border-color: rgba(255, 255, 255, 0.35);
+  border-color: rgba(200, 169, 110, 0.45);
 }
 
 .nav-locale-caret {
@@ -804,7 +868,7 @@ section {
   z-index: 50;
   flex-direction: column;
   padding: 80px 30px 40px;
-  background: linear-gradient(135deg, var(--black), var(--black-2));
+  background: rgba(255, 255, 255, 0.98);
   animation: slideDown 0.3s ease;
 }
 
@@ -1058,6 +1122,12 @@ section {
 
 [data-theme="light"] .cookie-banner,
 [data-theme="light"] .lux-overlay-dark {
+  --overlay-bg: rgba(255, 255, 255, 0.97);
+  --overlay-border: rgba(20, 20, 20, 0.1);
+  --overlay-text: rgba(20, 20, 20, 0.72);
+  --overlay-text-strong: #141414;
+  --overlay-gold: #9a7a45;
+  --overlay-gold-hover: #c8a96e;
   background: var(--overlay-bg);
   border-color: var(--overlay-border);
   color: var(--overlay-text);

@@ -52,12 +52,40 @@ watch(resolvedSlides, () => {
 
 watch(intervalMs, () => startRotation());
 
-onMounted(() => startRotation());
-onBeforeUnmount(() => stopRotation());
+const heroRef = ref<HTMLElement | null>(null);
+const scrollOffset = ref(0);
+let onScrollHero: (() => void) | null = null;
+
+onMounted(() => {
+  startRotation();
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  onScrollHero = () => {
+    const el = heroRef.value;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.bottom < 0) return;
+    const progress = Math.min(1, Math.max(0, -rect.top / (rect.height || 1)));
+    scrollOffset.value = progress * 28;
+  };
+
+  window.addEventListener('scroll', onScrollHero, { passive: true });
+  onScrollHero();
+});
+
+onBeforeUnmount(() => {
+  stopRotation();
+  if (onScrollHero) window.removeEventListener('scroll', onScrollHero);
+});
 </script>
 
 <template>
-  <section v-if="resolvedSlides.length" class="home-promo-hero" aria-label="Promoción principal">
+  <section
+    v-if="resolvedSlides.length"
+    ref="heroRef"
+    class="home-promo-hero home-promo-hero--enter"
+    aria-label="Promoción principal"
+  >
     <NuxtLink to="/catalogo" class="home-promo-hero__link">
       <div class="home-promo-hero__stage">
         <Transition name="home-promo-fade" mode="out-in">
@@ -67,6 +95,7 @@ onBeforeUnmount(() => stopRotation());
             :src="resolvedSlides[activeIndex]"
             alt=""
             class="home-promo-hero__img"
+            :style="{ transform: `translate3d(0, ${scrollOffset}px, 0) scale(1.02)` }"
             :fetchpriority="activeIndex === 0 ? 'high' : 'auto'"
             :loading="activeIndex === 0 ? 'eager' : 'lazy'"
             decoding="async"
@@ -118,10 +147,15 @@ onBeforeUnmount(() => stopRotation());
   outline: none;
 }
 
+.home-promo-hero--enter {
+  animation: homePromoEnter 0.85s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 .home-promo-hero__stage {
   position: relative;
   width: 100%;
   line-height: 0;
+  overflow: hidden;
   border: none;
   border-radius: 0;
   background: var(--black-2);
@@ -134,6 +168,30 @@ onBeforeUnmount(() => stopRotation());
   max-width: 100%;
   object-fit: contain;
   object-position: center top;
+  will-change: transform;
+  transition: transform 0.12s linear;
+}
+
+@keyframes homePromoEnter {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-promo-hero--enter {
+    animation: none;
+  }
+
+  .home-promo-hero__img {
+    transform: none !important;
+    transition: none;
+  }
 }
 
 .home-promo-hero__cta-hint {
