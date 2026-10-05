@@ -52,37 +52,13 @@ watch(resolvedSlides, () => {
 
 watch(intervalMs, () => startRotation());
 
-const heroRef = ref<HTMLElement | null>(null);
-const scrollOffset = ref(0);
-let onScrollHero: (() => void) | null = null;
-
-onMounted(() => {
-  startRotation();
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-  onScrollHero = () => {
-    const el = heroRef.value;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    if (rect.bottom < 0) return;
-    const progress = Math.min(1, Math.max(0, -rect.top / (rect.height || 1)));
-    scrollOffset.value = progress * 28;
-  };
-
-  window.addEventListener('scroll', onScrollHero, { passive: true });
-  onScrollHero();
-});
-
-onBeforeUnmount(() => {
-  stopRotation();
-  if (onScrollHero) window.removeEventListener('scroll', onScrollHero);
-});
+onMounted(() => startRotation());
+onBeforeUnmount(() => stopRotation());
 </script>
 
 <template>
   <section
     v-if="resolvedSlides.length"
-    ref="heroRef"
     class="home-promo-hero home-promo-hero--enter"
     aria-label="Promoción principal"
   >
@@ -95,7 +71,6 @@ onBeforeUnmount(() => {
             :src="resolvedSlides[activeIndex]"
             alt=""
             class="home-promo-hero__img"
-            :style="scrollOffset ? { transform: `translate3d(0, ${scrollOffset}px, 0)` } : undefined"
             sizes="100vw"
             :fetchpriority="activeIndex === 0 ? 'high' : 'auto'"
             :loading="activeIndex === 0 ? 'eager' : 'lazy'"
@@ -156,24 +131,17 @@ onBeforeUnmount(() => {
 .home-promo-hero__stage {
   position: relative;
   width: 100%;
-  height: clamp(340px, min(52vw, 62vh), 720px);
   line-height: 0;
-  overflow: hidden;
   border: none;
   border-radius: 0;
   background: #0a0a0a;
 }
 
 .home-promo-hero__img {
-  position: absolute;
-  inset: 0;
   display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center center;
-  will-change: transform;
-  transition: transform 0.12s linear;
+  height: auto;
+  vertical-align: top;
 }
 
 @keyframes homePromoEnter {
@@ -190,11 +158,6 @@ onBeforeUnmount(() => {
 @media (prefers-reduced-motion: reduce) {
   .home-promo-hero--enter {
     animation: none;
-  }
-
-  .home-promo-hero__img {
-    transform: none !important;
-    transition: none;
   }
 }
 
@@ -263,10 +226,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
-  .home-promo-hero__stage {
-    height: clamp(280px, 58vw, 520px);
-  }
-
   .home-promo-hero__cta-hint {
     opacity: 1;
     transform: none;
