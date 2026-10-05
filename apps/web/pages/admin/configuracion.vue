@@ -8,7 +8,8 @@ import type {
 } from '@luxtime/shared';
 import { extractApiErrorMessage } from '~/utils/api-error';
 import { authFetchHeaders } from '~/utils/auth-token';
-import { DEFAULT_HOMEPAGE_CONFIG } from '~/utils/homepage-config';
+import { HOMEPAGE_HERO_MAX_SLIDES } from '@luxtime/shared';
+import { DEFAULT_HOMEPAGE_CONFIG, normalizeHeroSlides } from '~/utils/homepage-config';
 
 definePageMeta({ middleware: ['admin'], keepalive: true });
 
@@ -49,8 +50,9 @@ const profit = reactive<ProfitConfigDto>({
 const commission = reactive<CommissionConfigDto>({ percent: 5 });
 
 const home = reactive<HomepageConfigDto>(structuredClone(DEFAULT_HOMEPAGE_CONFIG));
+home.hero.slides = Array.from({ length: HOMEPAGE_HERO_MAX_SLIDES }, () => '');
 home.customerProof.images = Array.from({ length: 12 }, () => ({ url: '', caption: '' }));
-const indexSubTab = ref<'featured' | 'founder' | 'proof' | 'faq' | 'contact'>('founder');
+const indexSubTab = ref<'hero' | 'featured' | 'founder' | 'proof' | 'faq' | 'contact'>('hero');
 
 const profitSplitTotal = computed(() =>
   Number(profit.reinvestmentPercent || 0) + Number(profit.ownerProfitPercent || 0),
@@ -72,11 +74,16 @@ const savingProfile = ref(false);
 const savingEmail = ref(false);
 const savingPassword = ref(false);
 const savingPlatform = ref(false);
-const savingIndexSection = ref<'founder' | 'featured' | 'proof' | 'faq' | 'contact' | null>(null);
+const savingIndexSection = ref<'hero' | 'founder' | 'featured' | 'proof' | 'faq' | 'contact' | null>(null);
 const uploadingSlot = ref<number | null>(null);
+const uploadingHeroSlot = ref<number | null>(null);
 
 const carouselFilled = computed(
   () => home.founder.carouselImages.filter((u) => Boolean(u?.trim())).length,
+);
+
+const heroSlidesFilled = computed(
+  () => home.hero.slides.filter((u) => Boolean(u?.trim())).length,
 );
 
 useAsyncData('admin-config', async () => {
@@ -102,6 +109,8 @@ useAsyncData('admin-config', async () => {
 
   const homepageRes = await api.get<HomepageConfigDto>('/settings/homepage').catch(() => null);
   if (homepageRes) {
+    Object.assign(home.hero, homepageRes.hero);
+    home.hero.slides = normalizeHeroSlides(homepageRes.hero);
     Object.assign(home.featured, homepageRes.featured);
     Object.assign(home.founder, homepageRes.founder);
     Object.assign(home.valueProps, homepageRes.valueProps);
@@ -221,7 +230,7 @@ function buildProofImages() {
 }
 
 async function saveHomepageSection(
-  section: 'founder' | 'featured' | 'proof' | 'faq' | 'contact',
+  section: 'hero' | 'founder' | 'featured' | 'proof' | 'faq' | 'contact',
   payload: Partial<HomepageConfigDto>,
   successMessage: string,
 ) {
@@ -234,6 +243,30 @@ async function saveHomepageSection(
   } finally {
     savingIndexSection.value = null;
   }
+}
+
+async function saveHeroSection() {
+  const slides = normalizeHeroSlides(home.hero);
+  home.hero.slides = [...slides];
+  const filled = slides.filter((u) => Boolean(u?.trim())).length;
+  const heroPayload = {
+    enabled: home.hero.enabled && filled > 0,
+    rotationIntervalSec: 8,
+    slides,
+  };
+  home.hero.enabled = heroPayload.enabled;
+
+  if (home.hero.enabled === false && filled === 0) {
+    toast.warning('Sube al menos una imagen para mostrar el banner en el inicio.');
+  }
+
+  await saveHomepageSection(
+    'hero',
+    { hero: heroPayload },
+    heroPayload.enabled
+      ? 'Banner del inicio guardado.'
+      : 'Banner guardado (sin imágenes visibles en el inicio).',
+  );
 }
 
 async function saveFounderSection() {
@@ -359,6 +392,38 @@ async function uploadHomepageImages(endpoint: string, file: File): Promise<strin
   const url = data.urls[0];
   if (!url) throw new Error('Sin URL');
   return url;
+}
+
+async function uploadHeroSlot(slot: number, file: File) {
+  uploadingHeroSlot.value = slot;
+  try {
+    const url = await uploadHomepageImages('/settings/homepage/upload-hero-images', file);
+    const prev = home.hero.slides[slot];
+    home.hero.slides[slot] = url;
+    if (prev && prev !== url) {
+      await api.del(`/settings/homepage/founder-image?url=${encodeURIComponent(prev)}`).catch(() => null);
+    }
+    toast.success(`Banner ${slot + 1} actualizado.`);
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'Error al subir la imagen.'));
+  } finally {
+    uploadingHeroSlot.value = null;
+  }
+}
+
+function onHeroFileChange(slot: number, e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (file) void uploadHeroSlot(slot, file);
+  input.value = '';
+}
+
+async function clearHeroSlot(slot: number) {
+  const prev = home.hero.slides[slot];
+  home.hero.slides[slot] = '';
+  if (prev) {
+    await api.del(`/settings/homepage/founder-image?url=${encodeURIComponent(prev)}`).catch(() => null);
+  }
 }
 
 async function uploadCarouselSlot(slot: number, file: File) {
@@ -657,6 +722,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
       <div class="admin-index-subtabs">
         <button
           v-for="tab in [
+            { id: 'hero', label: 'Banner inicio' },
             { id: 'founder', label: 'Fundador' },
             { id: 'featured', label: 'Catálogo' },
             { id: 'proof', label: 'Reseñas visuales' },
@@ -673,8 +739,69 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
         </button>
       </div>
 
+      <!-- Banner inicio -->
+      <template v-if="indexSubTab === 'hero'">
+        <section class="admin-config-card">
+          <div class="admin-card-head">
+            <h2>Banner principal (inicio)</h2>
+            <label class="admin-toggle-label">
+              <input v-model="home.hero.enabled" type="checkbox" />
+              Activo
+            </label>
+          </div>
+          <p class="admin-config-hint">
+            Hasta 6 imágenes promocionales. Rotan cada 8 segundos. Al hacer clic siempre llevan al catálogo.
+            Imágenes cargadas: {{ heroSlidesFilled }} / {{ HOMEPAGE_HERO_MAX_SLIDES }}
+          </p>
+          <div class="admin-carousel-slots">
+            <div
+              v-for="(img, i) in home.hero.slides"
+              :key="`hero-${i}`"
+              class="admin-carousel-slot"
+              :class="{ 'admin-carousel-slot--main': i === 0, 'admin-carousel-slot--filled': Boolean(img) }"
+            >
+              <span class="admin-carousel-slot-label">
+                {{ i === 0 ? 'Primera' : `Imagen ${i + 1}` }}
+              </span>
+              <div class="admin-carousel-slot-preview admin-carousel-slot-preview--wide">
+                <img v-if="img" :src="resolveMedia(img)" :alt="`Banner ${i + 1}`" />
+                <span v-else class="admin-carousel-slot-empty">Sin imagen</span>
+              </div>
+              <div class="admin-carousel-slot-actions">
+                <label class="admin-file-btn">
+                  {{ uploadingHeroSlot === i ? 'Subiendo...' : (img ? 'Cambiar' : 'Subir') }}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    :disabled="uploadingHeroSlot !== null"
+                    @change="onHeroFileChange(i, $event)"
+                  />
+                </label>
+                <button
+                  v-if="img"
+                  type="button"
+                  class="admin-icon-btn"
+                  @click="clearHeroSlot(i)"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="admin-section-save">
+          <UiLuxButton
+            :disabled="savingIndexSection !== null"
+            @click="saveHeroSection"
+          >
+            {{ savingIndexSection === 'hero' ? 'Guardando...' : 'Guardar banner' }}
+          </UiLuxButton>
+        </div>
+      </template>
+
       <!-- Fundador -->
-      <template v-if="indexSubTab === 'founder'">
+      <template v-else-if="indexSubTab === 'founder'">
         <section class="admin-config-card">
           <div class="admin-card-head">
             <h2>Quién es LUXTIMEE</h2>
@@ -1260,6 +1387,10 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--lux-gold);
+}
+
+.admin-carousel-slot-preview--wide {
+  aspect-ratio: 21 / 9;
 }
 
 .admin-carousel-slot-preview {

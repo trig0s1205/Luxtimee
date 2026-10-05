@@ -1,17 +1,11 @@
 <script setup lang="ts">
 import type { HomepageConfigDto } from '@luxtime/shared';
 import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
-import { shouldShowFounderSection } from '~/utils/homepage-config';
+import { getActiveHeroSlides, shouldShowFounderSection } from '~/utils/homepage-config';
 
 const catalog = useCatalogData();
 const { observe } = useRevealObserver();
 const { fetchConfig, DEFAULT_HOMEPAGE_CONFIG } = useHomepageConfig();
-
-const { data: heroWatches, refresh: refreshHero } = await useCachedAsyncData(
-  'home-hero-spotlight',
-  () => catalog.getHeroSpotlight(6),
-  { staleTime: 30_000 },
-);
 
 const { data: limitedWatches } = useCachedAsyncData(
   'home-limited-editions',
@@ -28,6 +22,8 @@ const { data: homeCms } = await useCachedAsyncData<HomepageConfigDto>(
 );
 
 const cms = computed<HomepageConfigDto>(() => homeCms.value ?? DEFAULT_HOMEPAGE_CONFIG);
+const heroSlides = computed(() => getActiveHeroSlides(cms.value.hero));
+const showPromoHero = computed(() => cms.value.hero.enabled && heroSlides.value.length > 0);
 
 useSeoMeta({
   title: 'LUXTIMEE — Luxury Timepieces',
@@ -37,18 +33,17 @@ useSeoMeta({
 });
 
 onMounted(() => {
-  void refreshHero();
-  nextTick(() => observe());
-});
-
-watch(heroWatches, () => {
   nextTick(() => observe());
 });
 </script>
 
 <template>
   <div>
-    <CatalogHomeHeroSpotlight v-if="heroWatches?.length" :watches="heroWatches" />
+    <HomePromoHero
+      v-if="showPromoHero"
+      :config="cms.hero"
+      :slides="heroSlides"
+    />
 
     <ClientOnly>
       <CatalogLimitedEditionPromo

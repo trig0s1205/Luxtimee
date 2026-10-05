@@ -1,11 +1,11 @@
+export const HOMEPAGE_HERO_MAX_SLIDES = 6;
+
 export interface HomepageHeroConfig {
   enabled: boolean;
-  eyebrow: string;
-  title: string;
-  subtitle: string;
-  ctaText: string;
-  ctaLink: string;
-  backgroundImageUrl?: string;
+  /** Segundos entre slides (por defecto 8). */
+  rotationIntervalSec: number;
+  /** Hasta 6 URLs; pueden quedar slots vacíos. */
+  slides: string[];
 }
 
 export interface HomepageFeaturedConfig {

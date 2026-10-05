@@ -7,11 +7,13 @@ import type {
   CommissionConfigDto,
   CommissionUpdateResultDto,
   HomepageConfigDto,
+  HomepageHeroConfig,
   LegalDocumentsDto,
   PlatformConfigDto,
   ProfitConfigDto,
   WhatsappSettingDto,
 } from '@luxtime/shared';
+import { HOMEPAGE_HERO_MAX_SLIDES } from '@luxtime/shared';
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
 
@@ -23,6 +25,28 @@ import {
 
 const HOMEPAGE_KEY = 'homepage_config';
 
+type LegacyHeroSource = Partial<HomepageHeroConfig> & { backgroundImageUrl?: string };
+
+function normalizeHeroSlides(raw?: LegacyHeroSource | null): string[] {
+  const fromSlides = Array.isArray(raw?.slides)
+    ? raw.slides.map((s) => String(s ?? '').trim())
+    : [];
+  const legacy = raw?.backgroundImageUrl?.trim() ?? '';
+  const merged = fromSlides.some(Boolean) ? fromSlides : legacy ? [legacy] : [];
+  return Array.from({ length: HOMEPAGE_HERO_MAX_SLIDES }, (_, i) => merged[i] ?? '');
+}
+
+function normalizeHeroConfig(raw?: LegacyHeroSource | null): HomepageHeroConfig {
+  const slides = normalizeHeroSlides(raw);
+  const interval = Number(raw?.rotationIntervalSec);
+  return {
+    enabled: raw?.enabled ?? DEFAULT_HOMEPAGE_CONFIG.hero.enabled,
+    rotationIntervalSec:
+      Number.isFinite(interval) && interval >= 3 && interval <= 60 ? interval : 8,
+    slides,
+  };
+}
+
 const PUBLIC_SETTING_KEYS = new Set([
   'whatsapp_link',
   'legal_documents',
@@ -33,12 +57,8 @@ const PUBLIC_SETTING_KEYS = new Set([
 const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
   hero: {
     enabled: true,
-    eyebrow: 'Luxury Timepieces · Colombia',
-    title: 'Nuestros relojes hablan por sí solos.',
-    subtitle: 'Elegance · Presence · Style',
-    ctaText: 'Ver catálogo',
-    ctaLink: '/catalogo',
-    backgroundImageUrl: '',
+    rotationIntervalSec: 8,
+    slides: Array.from({ length: HOMEPAGE_HERO_MAX_SLIDES }, () => ''),
   },
   featured: {
     enabled: true,
@@ -278,7 +298,10 @@ export class SettingsService {
     ).length;
 
     return {
-      hero: { ...DEFAULT_HOMEPAGE_CONFIG.hero, ...(stored.hero ?? {}) },
+      hero: normalizeHeroConfig({
+        ...DEFAULT_HOMEPAGE_CONFIG.hero,
+        ...(stored.hero ?? {}),
+      }),
       featured: {
         ...DEFAULT_HOMEPAGE_CONFIG.featured,
         ...(stored.featured ?? {}),
@@ -324,7 +347,9 @@ export class SettingsService {
   ): Promise<HomepageConfigDto> {
     const current = await this.getHomepageConfig();
     const merged: HomepageConfigDto = {
-      hero: patch.hero ? { ...current.hero, ...patch.hero } : current.hero,
+      hero: patch.hero
+        ? normalizeHeroConfig({ ...current.hero, ...patch.hero })
+        : current.hero,
       featured: patch.featured
         ? { ...current.featured, ...patch.featured }
         : current.featured,
@@ -379,6 +404,11 @@ export class SettingsService {
     file: Express.Multer.File,
   ): Promise<{ url: string }> {
     const url = await this.imageProcessing.uploadHomepageImage(file, 'founder');
+    return { url };
+  }
+
+  async uploadHeroImage(file: Express.Multer.File): Promise<{ url: string }> {
+    const url = await this.imageProcessing.uploadHomepageImage(file, 'hero-banner');
     return { url };
   }
 
