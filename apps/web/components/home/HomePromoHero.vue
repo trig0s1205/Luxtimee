@@ -39,6 +39,10 @@ const slideSrcSets = computed(() =>
   }),
 );
 
+const trackOffset = computed(() => `translate3d(-${activeIndex.value * 100}%, 0, 0)`);
+
+const hasMultiple = computed(() => resolvedSlides.value.length > 1);
+
 onMounted(() => {
   if (!import.meta.client) return;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -49,6 +53,21 @@ function goTo(index: number) {
   const len = resolvedSlides.value.length;
   if (!len) return;
   activeIndex.value = ((index % len) + len) % len;
+}
+
+function goNext() {
+  goTo(activeIndex.value + 1);
+  restartRotation();
+}
+
+function goPrev() {
+  goTo(activeIndex.value - 1);
+  restartRotation();
+}
+
+function restartRotation() {
+  stopRotation();
+  startRotation();
 }
 
 function startRotation() {
@@ -84,29 +103,58 @@ onBeforeUnmount(() => stopRotation());
     class="home-promo-hero home-promo-hero--enter"
     aria-label="Promoción principal"
   >
-    <NuxtLink to="/catalogo" class="home-promo-hero__link">
+    <div class="home-promo-hero__viewport">
       <div class="home-promo-hero__stage">
-        <Transition name="home-promo-fade" mode="out-in">
-          <img
-            v-if="resolvedSlides[activeIndex]"
-            :key="resolvedSlides[activeIndex]"
-            :src="resolvedSlides[activeIndex]"
-            :srcset="slideSrcSets[activeIndex]"
-            alt=""
-            class="home-promo-hero__img"
-            sizes="100vw"
-            :fetchpriority="activeIndex === 0 ? 'high' : 'auto'"
-            :loading="activeIndex === 0 ? 'eager' : 'lazy'"
-            decoding="async"
-            draggable="false"
+        <div
+          class="home-promo-hero__track"
+          :style="{ transform: trackOffset }"
+        >
+          <div
+            v-for="(src, i) in resolvedSlides"
+            :key="`${src}-${i}`"
+            class="home-promo-hero__slide"
+            :aria-hidden="i !== activeIndex"
           >
-        </Transition>
+            <NuxtLink to="/catalogo" class="home-promo-hero__slide-link">
+              <img
+                :src="src"
+                :srcset="slideSrcSets[i]"
+                alt=""
+                class="home-promo-hero__img"
+                sizes="100vw"
+                :fetchpriority="i === 0 ? 'high' : 'auto'"
+                :loading="i === 0 ? 'eager' : 'lazy'"
+                decoding="async"
+                draggable="false"
+              >
+              <span class="home-promo-hero__cta-hint">Ver catálogo</span>
+            </NuxtLink>
+          </div>
+        </div>
       </div>
-      <span class="home-promo-hero__cta-hint">Ver catálogo</span>
-    </NuxtLink>
+
+      <template v-if="hasMultiple">
+        <button
+          type="button"
+          class="home-promo-hero__nav home-promo-hero__nav--prev"
+          aria-label="Imagen anterior"
+          @click.stop.prevent="goPrev"
+        >
+          <span aria-hidden="true">‹</span>
+        </button>
+        <button
+          type="button"
+          class="home-promo-hero__nav home-promo-hero__nav--next"
+          aria-label="Imagen siguiente"
+          @click.stop.prevent="goNext"
+        >
+          <span aria-hidden="true">›</span>
+        </button>
+      </template>
+    </div>
 
     <div
-      v-if="resolvedSlides.length > 1"
+      v-if="hasMultiple"
       class="home-promo-hero__dots"
       role="tablist"
       aria-label="Slides del banner"
@@ -120,7 +168,7 @@ onBeforeUnmount(() => stopRotation());
         :aria-label="`Slide ${i + 1}`"
         :aria-selected="i === activeIndex"
         role="tab"
-        @click.stop.prevent="goTo(i)"
+        @click.stop.prevent="goTo(i); restartRotation()"
       />
     </div>
   </section>
@@ -136,13 +184,8 @@ onBeforeUnmount(() => stopRotation());
   border: none;
 }
 
-.home-promo-hero__link {
-  display: block;
+.home-promo-hero__viewport {
   position: relative;
-  text-decoration: none;
-  color: inherit;
-  outline: none;
-  line-height: 0;
 }
 
 .home-promo-hero--enter {
@@ -150,7 +193,6 @@ onBeforeUnmount(() => stopRotation());
 }
 
 .home-promo-hero__stage {
-  display: grid;
   width: 100%;
   margin: 0;
   padding: 0;
@@ -158,8 +200,26 @@ onBeforeUnmount(() => stopRotation());
   background: #0a0a0a;
 }
 
-.home-promo-hero__stage > * {
-  grid-area: 1 / 1;
+.home-promo-hero__track {
+  display: flex;
+  width: 100%;
+  will-change: transform;
+  transition: transform 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.home-promo-hero__slide {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 0;
+}
+
+.home-promo-hero__slide-link {
+  display: block;
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+  outline: none;
+  line-height: 0;
 }
 
 .home-promo-hero__img {
@@ -185,6 +245,10 @@ onBeforeUnmount(() => stopRotation());
   .home-promo-hero--enter {
     animation: none;
   }
+
+  .home-promo-hero__track {
+    transition: none;
+  }
 }
 
 .home-promo-hero__cta-hint {
@@ -207,12 +271,58 @@ onBeforeUnmount(() => stopRotation());
   transform: translateY(6px);
   transition: opacity 0.25s ease, transform 0.25s ease;
   pointer-events: none;
+  line-height: 1.4;
 }
 
-.home-promo-hero__link:hover .home-promo-hero__cta-hint,
-.home-promo-hero__link:focus-visible .home-promo-hero__cta-hint {
+.home-promo-hero__slide-link:hover .home-promo-hero__cta-hint,
+.home-promo-hero__slide-link:focus-visible .home-promo-hero__cta-hint {
   opacity: 1;
   transform: translateY(0);
+}
+
+.home-promo-hero__nav {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(200, 169, 110, 0.4);
+  border-radius: 50%;
+  background: rgba(10, 10, 10, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--gold-light);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+}
+
+.home-promo-hero__nav span {
+  display: block;
+  margin-top: -2px;
+}
+
+.home-promo-hero__nav--prev {
+  left: 12px;
+}
+
+.home-promo-hero__nav--next {
+  right: 12px;
+}
+
+.home-promo-hero__nav:hover {
+  background: rgba(10, 10, 10, 0.72);
+  border-color: rgba(200, 169, 110, 0.65);
+}
+
+.home-promo-hero__nav:active {
+  transform: translateY(-50%) scale(0.96);
 }
 
 .home-promo-hero__dots {
@@ -241,23 +351,26 @@ onBeforeUnmount(() => stopRotation());
   background: var(--gold);
 }
 
-.home-promo-fade-enter-active,
-.home-promo-fade-leave-active {
-  transition: opacity 0.7s ease;
-  grid-area: 1 / 1;
-}
-
-.home-promo-fade-enter-from,
-.home-promo-fade-leave-to {
-  opacity: 0;
-}
-
 @media (max-width: 768px) {
   .home-promo-hero__cta-hint {
     opacity: 1;
     transform: none;
     font-size: 8px;
     padding: 7px 12px;
+  }
+
+  .home-promo-hero__nav {
+    width: 38px;
+    height: 38px;
+    font-size: 24px;
+  }
+
+  .home-promo-hero__nav--prev {
+    left: 8px;
+  }
+
+  .home-promo-hero__nav--next {
+    right: 8px;
   }
 }
 </style>
