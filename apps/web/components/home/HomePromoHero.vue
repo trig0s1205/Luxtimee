@@ -87,23 +87,19 @@ onBeforeUnmount(() => stopRotation());
     <NuxtLink to="/catalogo" class="home-promo-hero__link">
       <div class="home-promo-hero__stage">
         <Transition name="home-promo-fade" mode="out-in">
-          <div
+          <img
             v-if="resolvedSlides[activeIndex]"
             :key="resolvedSlides[activeIndex]"
-            class="home-promo-hero__slide"
+            :src="resolvedSlides[activeIndex]"
+            :srcset="slideSrcSets[activeIndex]"
+            alt=""
+            class="home-promo-hero__img"
+            sizes="100vw"
+            :fetchpriority="activeIndex === 0 ? 'high' : 'auto'"
+            :loading="activeIndex === 0 ? 'eager' : 'lazy'"
+            decoding="async"
+            draggable="false"
           >
-            <img
-              :src="resolvedSlides[activeIndex]"
-              :srcset="slideSrcSets[activeIndex]"
-              alt=""
-              class="home-promo-hero__img"
-              sizes="100vw"
-              :fetchpriority="activeIndex === 0 ? 'high' : 'auto'"
-              :loading="activeIndex === 0 ? 'eager' : 'lazy'"
-              decoding="async"
-              draggable="false"
-            >
-          </div>
         </Transition>
       </div>
       <span class="home-promo-hero__cta-hint">Ver catálogo</span>
@@ -154,29 +150,26 @@ onBeforeUnmount(() => stopRotation());
 }
 
 .home-promo-hero__stage {
-  position: relative;
+  display: grid;
   width: 100%;
-  aspect-ratio: 12 / 5;
-  min-height: 280px;
-  max-height: min(78vh, 820px);
+  margin: 0;
+  padding: 0;
   overflow: hidden;
   background: #0a0a0a;
 }
 
-.home-promo-hero__slide {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+.home-promo-hero__stage > * {
+  grid-area: 1 / 1;
 }
 
 .home-promo-hero__img {
   display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center top;
-  image-rendering: auto;
+  height: auto;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  vertical-align: top;
 }
 
 @keyframes homePromoEnter {
@@ -251,10 +244,7 @@ onBeforeUnmount(() => stopRotation());
 .home-promo-fade-enter-active,
 .home-promo-fade-leave-active {
   transition: opacity 0.7s ease;
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  grid-area: 1 / 1;
 }
 
 .home-promo-fade-enter-from,

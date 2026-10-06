@@ -45,6 +45,12 @@ section.home-promo-hero {
   font-size: 0;
 }
 
+section.home-promo-hero + section.lux-collection,
+section.lux-collection.lux-collection--flush-top {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
 .gold {
   color: var(--white);
 }

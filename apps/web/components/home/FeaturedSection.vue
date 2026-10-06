@@ -41,8 +41,8 @@ const props = defineProps<{
 }
 
 .lux-collection--flush-top {
-  margin-top: 0;
-  padding-top: clamp(1.25rem, 2.5vw, 2rem);
+  margin-top: 0 !important;
+  padding-top: 0 !important;
 }
 
 .lux-collection__glow {
