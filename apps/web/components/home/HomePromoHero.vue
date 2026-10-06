@@ -13,7 +13,10 @@ const props = defineProps<{
 const { resolve } = useMediaUrl();
 
 const activeIndex = ref(0);
+const stageRef = ref<HTMLElement | null>(null);
+const slideWidthPx = ref(0);
 let timer: ReturnType<typeof setInterval> | null = null;
+let resizeObserver: ResizeObserver | null = null;
 
 const intervalMs = computed(() => {
   const sec = props.config.rotationIntervalSec ?? 8;
@@ -39,15 +42,16 @@ const slideSrcSets = computed(() =>
   }),
 );
 
-const trackOffset = computed(() => `translate3d(-${activeIndex.value * 100}%, 0, 0)`);
-
 const hasMultiple = computed(() => resolvedSlides.value.length > 1);
 
-onMounted(() => {
-  if (!import.meta.client) return;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  bannerWidth.value = Math.min(4000, Math.max(1920, Math.round(window.innerWidth * dpr)));
-});
+const trackStyle = computed(() => ({
+  transform: `translate3d(-${activeIndex.value * slideWidthPx.value}px, 0, 0)`,
+}));
+
+function measureStage() {
+  if (!stageRef.value) return;
+  slideWidthPx.value = stageRef.value.clientWidth;
+}
 
 function goTo(index: number) {
   const len = resolvedSlides.value.length;
@@ -88,13 +92,32 @@ function stopRotation() {
 
 watch(resolvedSlides, () => {
   activeIndex.value = 0;
+  nextTick(() => measureStage());
   startRotation();
 });
 
 watch(intervalMs, () => startRotation());
 
-onMounted(() => startRotation());
-onBeforeUnmount(() => stopRotation());
+onMounted(() => {
+  if (import.meta.client) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    bannerWidth.value = Math.min(4000, Math.max(1920, Math.round(window.innerWidth * dpr)));
+    nextTick(() => {
+      measureStage();
+      if (stageRef.value && typeof ResizeObserver !== 'undefined') {
+        resizeObserver = new ResizeObserver(() => measureStage());
+        resizeObserver.observe(stageRef.value);
+      }
+    });
+  }
+  startRotation();
+});
+
+onBeforeUnmount(() => {
+  stopRotation();
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+});
 </script>
 
 <template>
@@ -104,18 +127,23 @@ onBeforeUnmount(() => stopRotation());
     aria-label="Promoción principal"
   >
     <div class="home-promo-hero__viewport">
-      <div class="home-promo-hero__stage">
+      <div ref="stageRef" class="home-promo-hero__stage">
         <div
           class="home-promo-hero__track"
-          :style="{ transform: trackOffset }"
+          :style="trackStyle"
         >
           <div
             v-for="(src, i) in resolvedSlides"
             :key="`${src}-${i}`"
             class="home-promo-hero__slide"
+            :style="slideWidthPx ? { width: `${slideWidthPx}px` } : undefined"
             :aria-hidden="i !== activeIndex"
           >
-            <NuxtLink to="/catalogo" class="home-promo-hero__slide-link">
+            <NuxtLink
+              to="/catalogo"
+              class="home-promo-hero__slide-link"
+              :tabindex="i === activeIndex ? 0 : -1"
+            >
               <img
                 :src="src"
                 :srcset="slideSrcSets[i]"
@@ -133,7 +161,11 @@ onBeforeUnmount(() => stopRotation());
         </div>
       </div>
 
-      <template v-if="hasMultiple">
+      <div
+        v-if="hasMultiple"
+        class="home-promo-hero__controls"
+        aria-hidden="false"
+      >
         <button
           type="button"
           class="home-promo-hero__nav home-promo-hero__nav--prev"
@@ -150,7 +182,7 @@ onBeforeUnmount(() => stopRotation());
         >
           <span aria-hidden="true">›</span>
         </button>
-      </template>
+      </div>
     </div>
 
     <div
@@ -202,14 +234,14 @@ onBeforeUnmount(() => stopRotation());
 
 .home-promo-hero__track {
   display: flex;
-  width: 100%;
+  flex-wrap: nowrap;
+  align-items: flex-start;
   will-change: transform;
   transition: transform 0.72s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .home-promo-hero__slide {
-  flex: 0 0 100%;
-  width: 100%;
+  flex: 0 0 auto;
   min-width: 0;
 }
 
@@ -230,6 +262,62 @@ onBeforeUnmount(() => stopRotation());
   margin: 0;
   padding: 0;
   vertical-align: top;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.home-promo-hero__controls {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.home-promo-hero__nav {
+  position: absolute;
+  top: 50%;
+  pointer-events: auto;
+  z-index: 21;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(200, 169, 110, 0.4);
+  border-radius: 50%;
+  background: rgba(10, 10, 10, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--gold-light);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+}
+
+.home-promo-hero__nav span {
+  display: block;
+  margin-top: -2px;
+  pointer-events: none;
+}
+
+.home-promo-hero__nav--prev {
+  left: 12px;
+}
+
+.home-promo-hero__nav--next {
+  right: 12px;
+}
+
+.home-promo-hero__nav:hover {
+  background: rgba(10, 10, 10, 0.78);
+  border-color: rgba(200, 169, 110, 0.65);
+}
+
+.home-promo-hero__nav:active {
+  transform: translateY(-50%) scale(0.96);
 }
 
 @keyframes homePromoEnter {
@@ -280,51 +368,6 @@ onBeforeUnmount(() => stopRotation());
   transform: translateY(0);
 }
 
-.home-promo-hero__nav {
-  position: absolute;
-  top: 50%;
-  z-index: 3;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  margin: 0;
-  padding: 0;
-  border: 1px solid rgba(200, 169, 110, 0.4);
-  border-radius: 50%;
-  background: rgba(10, 10, 10, 0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: var(--gold-light);
-  font-size: 28px;
-  line-height: 1;
-  cursor: pointer;
-  transform: translateY(-50%);
-  transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
-}
-
-.home-promo-hero__nav span {
-  display: block;
-  margin-top: -2px;
-}
-
-.home-promo-hero__nav--prev {
-  left: 12px;
-}
-
-.home-promo-hero__nav--next {
-  right: 12px;
-}
-
-.home-promo-hero__nav:hover {
-  background: rgba(10, 10, 10, 0.72);
-  border-color: rgba(200, 169, 110, 0.65);
-}
-
-.home-promo-hero__nav:active {
-  transform: translateY(-50%) scale(0.96);
-}
-
 .home-promo-hero__dots {
   position: absolute;
   left: 50%;
@@ -332,7 +375,8 @@ onBeforeUnmount(() => stopRotation());
   transform: translateX(-50%);
   display: flex;
   gap: 8px;
-  z-index: 2;
+  z-index: 22;
+  pointer-events: auto;
 }
 
 .home-promo-hero__dot {
