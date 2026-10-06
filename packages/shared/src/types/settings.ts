@@ -1,11 +1,15 @@
+import type { HomepageHeroSlide } from '../utils/homepage-hero.js';
+
 export const HOMEPAGE_HERO_MAX_SLIDES = 6;
+
+export type { HomepageHeroSlide };
 
 export interface HomepageHeroConfig {
   enabled: boolean;
   /** Segundos entre slides (por defecto 8). */
   rotationIntervalSec: number;
-  /** Hasta 6 URLs; pueden quedar slots vacíos. */
-  slides: string[];
+  /** Hasta 6 pares escritorio + móvil. */
+  slides: HomepageHeroSlide[];
 }
 
 export interface HomepageFeaturedConfig {

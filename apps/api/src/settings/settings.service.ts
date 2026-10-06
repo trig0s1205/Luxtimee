@@ -13,7 +13,11 @@ import type {
   ProfitConfigDto,
   WhatsappSettingDto,
 } from '@luxtime/shared';
-import { HOMEPAGE_HERO_MAX_SLIDES } from '@luxtime/shared';
+import {
+  emptyHeroSlide,
+  HOMEPAGE_HERO_MAX_SLIDES,
+  normalizeHeroSlides,
+} from '@luxtime/shared';
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
 
@@ -25,18 +29,7 @@ import {
 
 const HOMEPAGE_KEY = 'homepage_config';
 
-type LegacyHeroSource = Partial<HomepageHeroConfig> & { backgroundImageUrl?: string };
-
-function normalizeHeroSlides(raw?: LegacyHeroSource | null): string[] {
-  const fromSlides = Array.isArray(raw?.slides)
-    ? raw.slides.map((s) => String(s ?? '').trim())
-    : [];
-  const legacy = raw?.backgroundImageUrl?.trim() ?? '';
-  const merged = fromSlides.some(Boolean) ? fromSlides : legacy ? [legacy] : [];
-  return Array.from({ length: HOMEPAGE_HERO_MAX_SLIDES }, (_, i) => merged[i] ?? '');
-}
-
-function normalizeHeroConfig(raw?: LegacyHeroSource | null): HomepageHeroConfig {
+function normalizeHeroConfig(raw?: Parameters<typeof normalizeHeroSlides>[0]): HomepageHeroConfig {
   const slides = normalizeHeroSlides(raw);
   const interval = Number(raw?.rotationIntervalSec);
   return {
@@ -58,7 +51,7 @@ const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
   hero: {
     enabled: true,
     rotationIntervalSec: 8,
-    slides: Array.from({ length: HOMEPAGE_HERO_MAX_SLIDES }, () => ''),
+    slides: Array.from({ length: HOMEPAGE_HERO_MAX_SLIDES }, () => emptyHeroSlide()),
   },
   featured: {
     enabled: true,

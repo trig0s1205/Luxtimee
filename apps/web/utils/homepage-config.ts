@@ -5,13 +5,13 @@ import type {
   HomepageFaqConfig,
   HomepageHeroConfig,
 } from '@luxtime/shared';
-import { HOMEPAGE_HERO_MAX_SLIDES } from '@luxtime/shared';
+import { emptyHeroSlide, HOMEPAGE_HERO_MAX_SLIDES } from '@luxtime/shared';
 
 export const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
   hero: {
     enabled: true,
     rotationIntervalSec: 8,
-    slides: Array.from({ length: HOMEPAGE_HERO_MAX_SLIDES }, () => ''),
+    slides: Array.from({ length: HOMEPAGE_HERO_MAX_SLIDES }, () => emptyHeroSlide()),
   },
   featured: {
     enabled: true,
@@ -152,20 +152,7 @@ type LegacyHomepageFaqSource = Partial<HomepageFaqConfig> & {
   sub?: string;
 };
 
-type LegacyHeroSource = Partial<HomepageHeroConfig> & { backgroundImageUrl?: string };
-
-export function normalizeHeroSlides(raw?: LegacyHeroSource | null): string[] {
-  const fromSlides = Array.isArray(raw?.slides)
-    ? raw.slides.map((s) => String(s ?? '').trim())
-    : [];
-  const legacy = raw?.backgroundImageUrl?.trim() ?? '';
-  const merged = fromSlides.some(Boolean) ? fromSlides : legacy ? [legacy] : [];
-  return Array.from({ length: HOMEPAGE_HERO_MAX_SLIDES }, (_, i) => merged[i] ?? '');
-}
-
-export function getActiveHeroSlides(hero: HomepageHeroConfig): string[] {
-  return normalizeHeroSlides(hero).filter((url) => Boolean(url?.trim()));
-}
+export { getActiveHeroSlides, normalizeHeroSlides } from '@luxtime/shared';
 
 export function migrateHomepageFaqConfig(
   faq?: LegacyHomepageFaqSource | null,

@@ -8,8 +8,13 @@ import type {
 } from '@luxtime/shared';
 import { extractApiErrorMessage } from '~/utils/api-error';
 import { authFetchHeaders } from '~/utils/auth-token';
-import { HOMEPAGE_HERO_MAX_SLIDES } from '@luxtime/shared';
+import {
+  countHeroSlidesWithDesktop,
+  HOMEPAGE_HERO_MAX_SLIDES,
+} from '@luxtime/shared';
 import { DEFAULT_HOMEPAGE_CONFIG, normalizeHeroSlides } from '~/utils/homepage-config';
+
+type HeroImageVariant = 'desktop' | 'mobile';
 import { HOME_CMS_ASYNC_KEY, invalidateClientCache } from '~/utils/storefront-cache';
 
 definePageMeta({ middleware: ['admin'], keepalive: true });
@@ -51,7 +56,7 @@ const profit = reactive<ProfitConfigDto>({
 const commission = reactive<CommissionConfigDto>({ percent: 5 });
 
 const home = reactive<HomepageConfigDto>(structuredClone(DEFAULT_HOMEPAGE_CONFIG));
-home.hero.slides = Array.from({ length: HOMEPAGE_HERO_MAX_SLIDES }, () => '');
+home.hero.slides = normalizeHeroSlides(home.hero);
 home.customerProof.images = Array.from({ length: 12 }, () => ({ url: '', caption: '' }));
 const indexSubTab = ref<'hero' | 'featured' | 'founder' | 'proof' | 'faq' | 'contact'>('hero');
 
@@ -77,15 +82,22 @@ const savingPassword = ref(false);
 const savingPlatform = ref(false);
 const savingIndexSection = ref<'hero' | 'founder' | 'featured' | 'proof' | 'faq' | 'contact' | null>(null);
 const uploadingSlot = ref<number | null>(null);
-const uploadingHeroSlot = ref<number | null>(null);
+const uploadingHeroKey = ref<string | null>(null);
 
 const carouselFilled = computed(
   () => home.founder.carouselImages.filter((u) => Boolean(u?.trim())).length,
 );
 
-const heroSlidesFilled = computed(
-  () => home.hero.slides.filter((u) => Boolean(u?.trim())).length,
-);
+const heroSlidesFilled = computed(() => countHeroSlidesWithDesktop(home.hero.slides));
+
+function isUploadingHero(slot: number, variant: HeroImageVariant) {
+  return uploadingHeroKey.value === `${slot}-${variant}`;
+}
+
+function heroUploadLabel(slot: number, variant: HeroImageVariant, hasImage: boolean) {
+  if (isUploadingHero(slot, variant)) return 'Subiendo...';
+  return hasImage ? 'Cambiar' : 'Subir';
+}
 
 useAsyncData('admin-config', async () => {
   profile.name = auth.user?.name ?? '';
@@ -249,11 +261,11 @@ async function saveHomepageSection(
 
 function buildHeroPayload() {
   const slides = normalizeHeroSlides(home.hero);
-  home.hero.slides = [...slides];
-  const filled = slides.filter((u) => Boolean(u?.trim())).length;
+  home.hero.slides = slides.map((slide) => ({ ...slide }));
+  const filled = countHeroSlidesWithDesktop(slides);
   return {
     enabled: home.hero.enabled && filled > 0,
-    rotationIntervalSec: 8,
+    rotationIntervalSec: home.hero.rotationIntervalSec ?? 8,
     slides,
   };
 }
@@ -261,7 +273,11 @@ function buildHeroPayload() {
 async function persistHeroToApi(options?: { toastMessage?: string; warnIfEmpty?: boolean }) {
   const heroPayload = buildHeroPayload();
   home.hero.enabled = heroPayload.enabled;
-  if (options?.warnIfEmpty && !heroPayload.enabled && heroPayload.slides.every((u) => !u?.trim())) {
+  if (
+    options?.warnIfEmpty
+    && !heroPayload.enabled
+    && heroPayload.slides.every((s) => !s.desktop?.trim() && !s.mobile?.trim())
+  ) {
     toast.warning('Sube al menos una imagen para mostrar el banner en el inicio.');
   }
   await api.patch('/settings/homepage', { hero: heroPayload });
@@ -411,33 +427,41 @@ async function uploadHomepageImages(endpoint: string, file: File): Promise<strin
   return url;
 }
 
-async function uploadHeroSlot(slot: number, file: File) {
-  uploadingHeroSlot.value = slot;
+async function uploadHeroSlot(slot: number, variant: HeroImageVariant, file: File) {
+  uploadingHeroKey.value = `${slot}-${variant}`;
   try {
     const url = await uploadHomepageImages('/settings/homepage/upload-hero-images', file);
-    const prev = home.hero.slides[slot];
-    home.hero.slides[slot] = url;
+    const slides = normalizeHeroSlides(home.hero);
+    const prev = slides[slot][variant];
+    slides[slot] = { ...slides[slot], [variant]: url };
+    home.hero.slides = slides;
     if (prev && prev !== url) {
       await api.del(`/settings/homepage/founder-image?url=${encodeURIComponent(prev)}`).catch(() => null);
     }
-    await persistHeroToApi({ toastMessage: `Banner ${slot + 1} guardado en el inicio.` });
+    const label = variant === 'desktop' ? 'PC' : 'móvil';
+    await persistHeroToApi({ toastMessage: `Banner ${slot + 1} (${label}) guardado.` });
+    if (variant === 'desktop' && !slides[slot].mobile?.trim()) {
+      toast.info('Sube la versión móvil (vertical) del mismo banner en este slot.');
+    }
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'Error al subir la imagen.'));
   } finally {
-    uploadingHeroSlot.value = null;
+    uploadingHeroKey.value = null;
   }
 }
 
-function onHeroFileChange(slot: number, e: Event) {
+function onHeroFileChange(slot: number, variant: HeroImageVariant, e: Event) {
   const input = e.target as HTMLInputElement;
   const file = input.files?.[0];
-  if (file) void uploadHeroSlot(slot, file);
+  if (file) void uploadHeroSlot(slot, variant, file);
   input.value = '';
 }
 
-async function clearHeroSlot(slot: number) {
-  const prev = home.hero.slides[slot];
-  home.hero.slides[slot] = '';
+async function clearHeroSlot(slot: number, variant: HeroImageVariant) {
+  const slides = normalizeHeroSlides(home.hero);
+  const prev = slides[slot][variant];
+  slides[slot] = { ...slides[slot], [variant]: '' };
+  home.hero.slides = slides;
   if (prev) {
     await api.del(`/settings/homepage/founder-image?url=${encodeURIComponent(prev)}`).catch(() => null);
   }
@@ -772,42 +796,86 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
             </label>
           </div>
           <p class="admin-config-hint">
-            Hasta 6 imágenes promocionales. Rotan cada 8 segundos. Al hacer clic siempre llevan al catálogo.
-            Recomendado: horizontal ancha (p. ej. 1920×820 o 16:9); cualquier tamaño sirve (se recorta con cover).
-            Imágenes cargadas: {{ heroSlidesFilled }} / {{ HOMEPAGE_HERO_MAX_SLIDES }}
+            Hasta 6 banners. Cada uno lleva <strong>dos archivos</strong>: escritorio (horizontal, ej. 1920×1080)
+            y móvil (vertical, ej. 1080×1920). En celular se usa la versión móvil si está subida.
+            Banners con PC listos: {{ heroSlidesFilled }} / {{ HOMEPAGE_HERO_MAX_SLIDES }}
           </p>
-          <div class="admin-carousel-slots">
+          <div class="admin-carousel-slots admin-carousel-slots--hero">
             <div
-              v-for="(img, i) in home.hero.slides"
+              v-for="(slide, i) in home.hero.slides"
               :key="`hero-${i}`"
-              class="admin-carousel-slot"
-              :class="{ 'admin-carousel-slot--main': i === 0, 'admin-carousel-slot--filled': Boolean(img) }"
+              class="admin-carousel-slot admin-carousel-slot--hero"
+              :class="{
+                'admin-carousel-slot--main': i === 0,
+                'admin-carousel-slot--filled': Boolean(slide.desktop || slide.mobile),
+              }"
             >
               <span class="admin-carousel-slot-label">
-                {{ i === 0 ? 'Primera' : `Imagen ${i + 1}` }}
+                {{ i === 0 ? 'Primera' : `Banner ${i + 1}` }}
               </span>
-              <div class="admin-carousel-slot-preview admin-carousel-slot-preview--wide">
-                <img v-if="img" :src="resolveMedia(img)" :alt="`Banner ${i + 1}`" />
-                <span v-else class="admin-carousel-slot-empty">Sin imagen</span>
+
+              <div class="admin-hero-variant">
+                <span class="admin-hero-variant-label">Escritorio (PC)</span>
+                <div class="admin-carousel-slot-preview admin-carousel-slot-preview--wide">
+                  <img
+                    v-if="slide.desktop"
+                    :src="resolveMedia(slide.desktop)"
+                    :alt="`Banner ${i + 1} PC`"
+                  >
+                  <span v-else class="admin-carousel-slot-empty">Sin imagen PC</span>
+                </div>
+                <div class="admin-carousel-slot-actions">
+                  <label class="admin-file-btn">
+                    {{ heroUploadLabel(i, 'desktop', Boolean(slide.desktop)) }}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      :disabled="uploadingHeroKey !== null"
+                      @change="onHeroFileChange(i, 'desktop', $event)"
+                    >
+                  </label>
+                  <button
+                    v-if="slide.desktop"
+                    type="button"
+                    class="admin-icon-btn"
+                    aria-label="Quitar imagen PC"
+                    @click="clearHeroSlot(i, 'desktop')"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
-              <div class="admin-carousel-slot-actions">
-                <label class="admin-file-btn">
-                  {{ uploadingHeroSlot === i ? 'Subiendo...' : (img ? 'Cambiar' : 'Subir') }}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    :disabled="uploadingHeroSlot !== null"
-                    @change="onHeroFileChange(i, $event)"
-                  />
-                </label>
-                <button
-                  v-if="img"
-                  type="button"
-                  class="admin-icon-btn"
-                  @click="clearHeroSlot(i)"
-                >
-                  ✕
-                </button>
+
+              <div class="admin-hero-variant">
+                <span class="admin-hero-variant-label">Móvil</span>
+                <div class="admin-carousel-slot-preview admin-carousel-slot-preview--mobile">
+                  <img
+                    v-if="slide.mobile"
+                    :src="resolveMedia(slide.mobile)"
+                    :alt="`Banner ${i + 1} móvil`"
+                  >
+                  <span v-else class="admin-carousel-slot-empty">Sin imagen móvil</span>
+                </div>
+                <div class="admin-carousel-slot-actions">
+                  <label class="admin-file-btn">
+                    {{ heroUploadLabel(i, 'mobile', Boolean(slide.mobile)) }}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      :disabled="uploadingHeroKey !== null"
+                      @change="onHeroFileChange(i, 'mobile', $event)"
+                    >
+                  </label>
+                  <button
+                    v-if="slide.mobile"
+                    type="button"
+                    class="admin-icon-btn"
+                    aria-label="Quitar imagen móvil"
+                    @click="clearHeroSlot(i, 'mobile')"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1390,6 +1458,31 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 12px;
+}
+
+.admin-carousel-slots--hero {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.admin-carousel-slot--hero {
+  gap: 12px;
+}
+
+.admin-hero-variant {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-hero-variant-label {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lux-white-dim);
+}
+
+.admin-carousel-slot-preview--mobile {
+  aspect-ratio: 9 / 16;
 }
 
 .admin-carousel-slot {

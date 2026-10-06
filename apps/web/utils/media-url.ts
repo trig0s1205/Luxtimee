@@ -81,9 +81,11 @@ export function optimizeCloudinaryHeroBannerUrl(url?: string | null, width = 384
   return cloudinaryImageUploadWithTransform(url, transform);
 }
 
-export function optimizeCloudinaryHeroBannerSrcSet(url?: string | null): string | undefined {
+export function optimizeCloudinaryHeroBannerSrcSet(
+  url?: string | null,
+  widths: number[] = [1600, 2400, 3200, 3840],
+): string | undefined {
   if (!url) return undefined;
-  const widths = [1600, 2400, 3200, 3840];
   const parts = widths
     .map((w) => {
       const u = optimizeCloudinaryHeroBannerUrl(url, w);

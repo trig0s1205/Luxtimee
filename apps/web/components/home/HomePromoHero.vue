@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { HomepageHeroConfig } from '@luxtime/shared';
+import type { HomepageHeroConfig, HomepageHeroSlide } from '@luxtime/shared';
 import {
   optimizeCloudinaryHeroBannerSrcSet,
   optimizeCloudinaryHeroBannerUrl,
@@ -7,7 +7,7 @@ import {
 
 const props = defineProps<{
   config: HomepageHeroConfig;
-  slides: string[];
+  slides: HomepageHeroSlide[];
 }>();
 
 const { resolve } = useMediaUrl();
@@ -24,22 +24,47 @@ const intervalMs = computed(() => {
 });
 
 const bannerWidth = ref(2560);
+const mobileBannerWidth = 1400;
 
-const resolvedSlides = computed(() =>
+type ResolvedHeroSlide = {
+  key: string;
+  desktopSrc: string;
+  desktopSrcSet?: string;
+  mobileSrc?: string;
+  mobileSrcSet?: string;
+};
+
+const resolvedSlides = computed((): ResolvedHeroSlide[] =>
   props.slides
-    .map((url) => {
-      const base = resolve(url);
-      if (!base) return '';
-      return optimizeCloudinaryHeroBannerUrl(base, bannerWidth.value) ?? base;
-    })
-    .filter(Boolean),
-);
+    .map((slide) => {
+      const desktopRaw = slide.desktop?.trim();
+      const mobileRaw = slide.mobile?.trim();
+      const desktopBase = desktopRaw ? resolve(desktopRaw) : undefined;
+      const mobileBase = mobileRaw ? resolve(mobileRaw) : undefined;
+      const fallback = desktopBase ?? mobileBase;
+      if (!fallback) return null;
 
-const slideSrcSets = computed(() =>
-  props.slides.map((url) => {
-    const base = resolve(url);
-    return base ? optimizeCloudinaryHeroBannerSrcSet(base) : undefined;
-  }),
+      const desktopUrl = desktopBase ?? mobileBase!;
+      const mobileUrl = mobileBase && mobileRaw !== desktopRaw ? mobileBase : undefined;
+
+      const desktopSrc = optimizeCloudinaryHeroBannerUrl(desktopUrl, bannerWidth.value) ?? desktopUrl;
+      const desktopSrcSet = optimizeCloudinaryHeroBannerSrcSet(desktopUrl);
+      const mobileSrc = mobileUrl
+        ? optimizeCloudinaryHeroBannerUrl(mobileUrl, mobileBannerWidth) ?? mobileUrl
+        : undefined;
+      const mobileSrcSet = mobileUrl
+        ? optimizeCloudinaryHeroBannerSrcSet(mobileUrl, [640, 960, 1200, 1400])
+        : undefined;
+
+      return {
+        key: `${desktopSrc}|${mobileSrc ?? ''}`,
+        desktopSrc,
+        desktopSrcSet,
+        mobileSrc,
+        mobileSrcSet,
+      };
+    })
+    .filter((item): item is ResolvedHeroSlide => item !== null),
 );
 
 const hasMultiple = computed(() => resolvedSlides.value.length > 1);
@@ -133,8 +158,8 @@ onBeforeUnmount(() => {
           :style="trackStyle"
         >
           <div
-            v-for="(src, i) in resolvedSlides"
-            :key="`${src}-${i}`"
+            v-for="(slide, i) in resolvedSlides"
+            :key="slide.key"
             class="home-promo-hero__slide"
             :style="slideWidthPx ? { width: `${slideWidthPx}px` } : undefined"
             :aria-hidden="i !== activeIndex"
@@ -144,17 +169,25 @@ onBeforeUnmount(() => {
               class="home-promo-hero__slide-link"
               :tabindex="i === activeIndex ? 0 : -1"
             >
-              <img
-                :src="src"
-                :srcset="slideSrcSets[i]"
-                alt=""
-                class="home-promo-hero__img"
-                sizes="100vw"
-                :fetchpriority="i === 0 ? 'high' : 'auto'"
-                :loading="i === 0 ? 'eager' : 'lazy'"
-                decoding="async"
-                draggable="false"
-              >
+              <picture>
+                <source
+                  v-if="slide.mobileSrc"
+                  media="(max-width: 768px)"
+                  :srcset="slide.mobileSrcSet || slide.mobileSrc"
+                  sizes="100vw"
+                >
+                <img
+                  :src="slide.desktopSrc"
+                  :srcset="slide.desktopSrcSet"
+                  alt=""
+                  class="home-promo-hero__img"
+                  sizes="100vw"
+                  :fetchpriority="i === 0 ? 'high' : 'auto'"
+                  :loading="i === 0 ? 'eager' : 'lazy'"
+                  decoding="async"
+                  draggable="false"
+                >
+              </picture>
               <span class="home-promo-hero__cta-hint">Ver catálogo</span>
             </NuxtLink>
           </div>
@@ -252,6 +285,11 @@ onBeforeUnmount(() => {
   color: inherit;
   outline: none;
   line-height: 0;
+}
+
+.home-promo-hero__slide-link picture {
+  display: block;
+  width: 100%;
 }
 
 .home-promo-hero__img {
