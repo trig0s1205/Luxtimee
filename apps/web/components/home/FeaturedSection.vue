@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import type { HomepageFeaturedConfig } from '@luxtime/shared';
 
-const props = defineProps<{ config: HomepageFeaturedConfig }>();
+const props = defineProps<{
+  config: HomepageFeaturedConfig;
+  /** Menos espacio arriba cuando va justo debajo del banner */
+  flushTop?: boolean;
+}>();
 </script>
 
 <template>
-  <section id="catalogo" class="lux-collection reveal">
+  <section
+    id="catalogo"
+    class="lux-collection reveal"
+    :class="{ 'lux-collection--flush-top': props.flushTop }"
+  >
     <div class="lux-collection__glow" aria-hidden="true" />
     <div class="lux-collection__inner">
       <div class="lux-collection__copy">
@@ -30,6 +38,11 @@ const props = defineProps<{ config: HomepageFeaturedConfig }>();
   padding: clamp(5rem, 10vw, 8.5rem) clamp(1.5rem, 6vw, 5rem);
   overflow: hidden;
   background: var(--black-2);
+}
+
+.lux-collection--flush-top {
+  margin-top: 0;
+  padding-top: clamp(1.25rem, 2.5vw, 2rem);
 }
 
 .lux-collection__glow {

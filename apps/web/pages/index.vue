@@ -58,6 +58,7 @@ onMounted(() => {
     <HomeFeaturedSection
       v-if="cms.featured.enabled"
       :config="cms.featured"
+      :flush-top="showPromoHero"
     />
 
     <LazyHomeAboutFounderSection

@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { HomepageHeroConfig } from '@luxtime/shared';
-import { optimizeCloudinaryHeroBannerUrl } from '~/utils/media-url';
+import {
+  optimizeCloudinaryHeroBannerSrcSet,
+  optimizeCloudinaryHeroBannerUrl,
+} from '~/utils/media-url';
 
 const props = defineProps<{
   config: HomepageHeroConfig;
@@ -17,11 +20,30 @@ const intervalMs = computed(() => {
   return Math.min(60, Math.max(3, sec)) * 1000;
 });
 
+const bannerWidth = ref(2560);
+
 const resolvedSlides = computed(() =>
   props.slides
-    .map((url) => optimizeCloudinaryHeroBannerUrl(resolve(url)) ?? resolve(url))
+    .map((url) => {
+      const base = resolve(url);
+      if (!base) return '';
+      return optimizeCloudinaryHeroBannerUrl(base, bannerWidth.value) ?? base;
+    })
     .filter(Boolean),
 );
+
+const slideSrcSets = computed(() =>
+  props.slides.map((url) => {
+    const base = resolve(url);
+    return base ? optimizeCloudinaryHeroBannerSrcSet(base) : undefined;
+  }),
+);
+
+onMounted(() => {
+  if (!import.meta.client) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  bannerWidth.value = Math.min(4000, Math.max(1920, Math.round(window.innerWidth * dpr)));
+});
 
 function goTo(index: number) {
   const len = resolvedSlides.value.length;
@@ -72,6 +94,7 @@ onBeforeUnmount(() => stopRotation());
           >
             <img
               :src="resolvedSlides[activeIndex]"
+              :srcset="slideSrcSets[activeIndex]"
               alt=""
               class="home-promo-hero__img"
               sizes="100vw"
@@ -123,6 +146,7 @@ onBeforeUnmount(() => stopRotation());
   text-decoration: none;
   color: inherit;
   outline: none;
+  line-height: 0;
 }
 
 .home-promo-hero--enter {
@@ -132,7 +156,9 @@ onBeforeUnmount(() => stopRotation());
 .home-promo-hero__stage {
   position: relative;
   width: 100%;
-  height: clamp(360px, 41.67vw, 720px);
+  aspect-ratio: 12 / 5;
+  min-height: 280px;
+  max-height: min(78vh, 820px);
   overflow: hidden;
   background: #0a0a0a;
 }
@@ -149,29 +175,22 @@ onBeforeUnmount(() => stopRotation());
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center center;
+  object-position: center top;
+  image-rendering: auto;
 }
 
 @keyframes homePromoEnter {
   from {
     opacity: 0;
-    transform: translateY(12px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .home-promo-hero--enter {
     animation: none;
-  }
-}
-
-@media (max-width: 768px) {
-  .home-promo-hero__stage {
-    height: clamp(280px, 62vw, 520px);
   }
 }
 
@@ -232,6 +251,10 @@ onBeforeUnmount(() => stopRotation());
 .home-promo-fade-enter-active,
 .home-promo-fade-leave-active {
   transition: opacity 0.7s ease;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .home-promo-fade-enter-from,

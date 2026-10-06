@@ -41,6 +41,8 @@ section.home-promo-hero {
   margin-right: calc(50% - 50vw);
   overflow: hidden;
   box-sizing: border-box;
+  line-height: 0;
+  font-size: 0;
 }
 
 .gold {

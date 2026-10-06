@@ -4,9 +4,6 @@ section.home-promo-hero {
   background: #0a0a0a;
 }
 
-.home-promo-hero ~ section.lux-collection {
-  padding-top: clamp(2.5rem, 5vw, 4rem);
-}
 
 .nav-links a:not(.nav-link--catalog) {
   color: #141414;
