@@ -49,12 +49,12 @@ const toneClasses = {
   min-width: 280px;
   max-width: 420px;
   padding: 14px 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(17, 17, 17, 0.98);
+  border: 1px solid rgba(20, 20, 20, 0.12);
+  background: #ffffff;
   font-family: var(--lux-font-body);
   font-size: 12px;
-  color: var(--lux-white);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  color: #141414;
+  box-shadow: 0 8px 32px rgba(20, 20, 20, 0.14);
   cursor: pointer;
 }
 
@@ -63,7 +63,11 @@ const toneClasses = {
 }
 
 .admin-toast--error {
-  border-left: 3px solid #ff5555;
+  border-left: 3px solid #e04545;
+}
+
+.admin-toast-message {
+  color: #141414;
 }
 
 .admin-toast--info {
@@ -77,7 +81,7 @@ const toneClasses = {
 .admin-toast-close {
   background: transparent;
   border: none;
-  color: var(--lux-white-dim);
+  color: rgba(20, 20, 20, 0.55);
   font-size: 18px;
   line-height: 1;
   cursor: pointer;

@@ -1586,15 +1586,15 @@ body.cart-scroll-lock {
 }
 
 .auth-alert--error {
-  color: #ff8888;
-  border-color: rgba(255, 85, 85, 0.25);
-  background: rgba(255, 85, 85, 0.06);
+  color: #141414;
+  border-color: rgba(224, 69, 69, 0.45);
+  background: #ffffff;
 }
 
 .auth-alert--warning {
-  color: var(--gold-light);
-  border-color: rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.06);
+  color: #141414;
+  border-color: rgba(200, 169, 110, 0.45);
+  background: #ffffff;
 }
 
 .auth-google-btn {

@@ -665,9 +665,9 @@ const selectedCareTemplate = computed(() =>
 .admin-form-error-banner {
   margin: 0 28px;
   padding: 12px 14px;
-  border: 1px solid rgba(255, 85, 85, 0.45);
-  background: rgba(255, 85, 85, 0.08);
-  color: #ff8888;
+  border: 1px solid rgba(224, 69, 69, 0.45);
+  background: #ffffff;
+  color: #141414;
   font-family: var(--lux-font-body);
   font-size: 12px;
   line-height: 1.5;

@@ -51,22 +51,23 @@ const { state, accept, cancel } = useConfirm();
   width: min(100%, 400px);
   padding: 24px;
   border: var(--border-hairline);
-  background: var(--black-2, #111);
+  background: #ffffff;
   text-align: center;
+  box-shadow: 0 16px 48px rgba(20, 20, 20, 0.16);
 }
 
 .lux-confirm-title {
   margin: 0 0 10px;
   font-family: var(--font-display);
   font-size: 20px;
-  color: var(--gold);
+  color: #141414;
 }
 
 .lux-confirm-text {
   margin: 0 0 18px;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--white-dim);
+  color: #3d3d3d;
 }
 
 .lux-confirm-actions {
@@ -88,15 +89,15 @@ const { state, accept, cancel } = useConfirm();
 }
 
 .lux-confirm-cancel {
-  color: var(--white-dim);
+  color: #3d3d3d;
 }
 
 .lux-confirm-accept {
-  color: var(--gold);
+  color: #141414;
 }
 
 .lux-confirm-accept.is-destructive {
-  color: #f0a8a8;
+  color: #c62828;
 }
 
 .lux-confirm-accept:hover,

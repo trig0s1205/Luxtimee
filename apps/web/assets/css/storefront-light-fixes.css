@@ -47,3 +47,18 @@ section.home-promo-hero {
 .stock-notice-close {
   color: var(--gold-dark);
 }
+
+/* Toasts / avisos globales (tema claro) */
+.admin-toast {
+  background: #ffffff !important;
+  color: #141414 !important;
+  border-color: rgba(20, 20, 20, 0.12) !important;
+}
+
+.admin-toast-message {
+  color: #141414 !important;
+}
+
+.admin-toast-close {
+  color: rgba(20, 20, 20, 0.55) !important;
+}
