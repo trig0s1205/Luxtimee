@@ -1,11 +1,11 @@
 /* Tema claro único: correcciones de texto y bloques legacy con blanco hardcodeado */
 
 section.home-promo-hero {
-  padding: 0 !important;
-  margin: 0;
-  max-width: none;
-  overflow: hidden;
   background: #0a0a0a;
+}
+
+.home-promo-hero ~ section.lux-collection {
+  padding-top: clamp(2.5rem, 5vw, 4rem);
 }
 
 .nav-links a:not(.nav-link--catalog) {

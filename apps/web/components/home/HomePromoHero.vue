@@ -65,18 +65,22 @@ onBeforeUnmount(() => stopRotation());
     <NuxtLink to="/catalogo" class="home-promo-hero__link">
       <div class="home-promo-hero__stage">
         <Transition name="home-promo-fade" mode="out-in">
-          <img
+          <div
             v-if="resolvedSlides[activeIndex]"
             :key="resolvedSlides[activeIndex]"
-            :src="resolvedSlides[activeIndex]"
-            alt=""
-            class="home-promo-hero__img"
-            sizes="100vw"
-            :fetchpriority="activeIndex === 0 ? 'high' : 'auto'"
-            :loading="activeIndex === 0 ? 'eager' : 'lazy'"
-            decoding="async"
-            draggable="false"
+            class="home-promo-hero__slide"
           >
+            <img
+              :src="resolvedSlides[activeIndex]"
+              alt=""
+              class="home-promo-hero__img"
+              sizes="100vw"
+              :fetchpriority="activeIndex === 0 ? 'high' : 'auto'"
+              :loading="activeIndex === 0 ? 'eager' : 'lazy'"
+              decoding="async"
+              draggable="false"
+            >
+          </div>
         </Transition>
       </div>
       <span class="home-promo-hero__cta-hint">Ver catálogo</span>
@@ -107,10 +111,8 @@ onBeforeUnmount(() => stopRotation());
 .home-promo-hero {
   position: relative;
   display: block;
-  width: 100%;
-  max-width: none;
-  margin: 0;
   padding: 0 !important;
+  margin: 0;
   background: #0a0a0a;
   border: none;
 }
@@ -118,7 +120,6 @@ onBeforeUnmount(() => stopRotation());
 .home-promo-hero__link {
   display: block;
   position: relative;
-  line-height: 0;
   text-decoration: none;
   color: inherit;
   outline: none;
@@ -131,23 +132,30 @@ onBeforeUnmount(() => stopRotation());
 .home-promo-hero__stage {
   position: relative;
   width: 100%;
-  line-height: 0;
-  border: none;
-  border-radius: 0;
+  height: clamp(360px, 41.67vw, 720px);
+  overflow: hidden;
   background: #0a0a0a;
+}
+
+.home-promo-hero__slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .home-promo-hero__img {
   display: block;
   width: 100%;
-  height: auto;
-  vertical-align: top;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
 }
 
 @keyframes homePromoEnter {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -158,6 +166,12 @@ onBeforeUnmount(() => stopRotation());
 @media (prefers-reduced-motion: reduce) {
   .home-promo-hero--enter {
     animation: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-promo-hero__stage {
+    height: clamp(280px, 62vw, 520px);
   }
 }
 
