@@ -25,7 +25,9 @@ const { data: homeCms, refresh: refreshHomeCms } = await useCachedAsyncData<Home
 
 const cms = computed<HomepageConfigDto>(() => homeCms.value ?? DEFAULT_HOMEPAGE_CONFIG);
 const heroSlides = computed(() => getActiveHeroSlides(cms.value.hero));
-const showPromoHero = computed(() => cms.value.hero.enabled && heroSlides.value.length > 0);
+const showPromoHero = computed(
+  () => heroSlides.value.length > 0 && cms.value.hero.enabled !== false,
+);
 
 useSeoMeta({
   title: 'LUXTIMEE — Luxury Timepieces',

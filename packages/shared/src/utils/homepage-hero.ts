@@ -17,7 +17,29 @@ export type LegacyHeroSource = {
 };
 
 function isHeroSlideObject(value: unknown): value is HomepageHeroSlide {
-  return Boolean(value && typeof value === 'object' && ('desktop' in value || 'mobile' in value));
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function normalizeSlideItem(item: unknown): HomepageHeroSlide {
+  if (typeof item === 'string') {
+    const url = item.trim();
+    return url ? { desktop: url, mobile: '' } : emptyHeroSlide();
+  }
+  if (isHeroSlideObject(item)) {
+    return {
+      desktop: String((item as HomepageHeroSlide).desktop ?? '').trim(),
+      mobile: String((item as HomepageHeroSlide).mobile ?? '').trim(),
+    };
+  }
+  return emptyHeroSlide();
+}
+
+function coerceSlidesArray(rawSlides: unknown): unknown[] {
+  if (Array.isArray(rawSlides)) return rawSlides;
+  if (rawSlides && typeof rawSlides === 'object') {
+    return Object.values(rawSlides as Record<string, unknown>);
+  }
+  return [];
 }
 
 export function normalizeHeroSlides(raw?: LegacyHeroSource | null): HomepageHeroSlide[] {
@@ -26,24 +48,11 @@ export function normalizeHeroSlides(raw?: LegacyHeroSource | null): HomepageHero
 
   if (!raw) return empty();
 
-  const rawSlides = raw.slides;
-  if (Array.isArray(rawSlides) && rawSlides.length > 0) {
-    if (isHeroSlideObject(rawSlides[0])) {
-      return Array.from({ length: HOMEPAGE_HERO_MAX_SLIDES }, (_, i) => {
-        const item = rawSlides[i];
-        if (!isHeroSlideObject(item)) return emptyHeroSlide();
-        return {
-          desktop: String(item.desktop ?? '').trim(),
-          mobile: String(item.mobile ?? '').trim(),
-        };
-      });
-    }
-    if (typeof rawSlides[0] === 'string') {
-      return Array.from({ length: HOMEPAGE_HERO_MAX_SLIDES }, (_, i) => {
-        const url = String(rawSlides[i] ?? '').trim();
-        return url ? { desktop: url, mobile: '' } : emptyHeroSlide();
-      });
-    }
+  const rawSlides = coerceSlidesArray(raw.slides);
+  if (rawSlides.length > 0) {
+    return Array.from({ length: HOMEPAGE_HERO_MAX_SLIDES }, (_, i) =>
+      normalizeSlideItem(rawSlides[i]),
+    );
   }
 
   const legacy = raw.backgroundImageUrl?.trim() ?? '';

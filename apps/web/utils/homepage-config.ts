@@ -180,6 +180,7 @@ export function mergeHomepageConfig(remote: Partial<HomepageConfigDto> & { state
     hero: {
       ...base.hero,
       ...(remote.hero ?? {}),
+      enabled: remote.hero?.enabled ?? base.hero.enabled,
       slides: normalizeHeroSlides(remote.hero ?? {}),
       rotationIntervalSec: remote.hero?.rotationIntervalSec ?? base.hero.rotationIntervalSec,
     },
