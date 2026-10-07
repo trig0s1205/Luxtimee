@@ -49,6 +49,11 @@ onMounted(() => {
   const adminData = useAdminDataStore();
 
   async function loadSharedAdminData() {
+    try {
+      await auth.ensureAccessToken();
+    } catch {
+      return;
+    }
     catalog.invalidate();
     await catalog.ensureAll({
       brands: () => api.get<BrandDto[]>('/brands'),
@@ -62,8 +67,8 @@ onMounted(() => {
 
   watch(
     () => resolveAccessToken(auth.accessToken),
-    (token) => {
-      if (token) void loadSharedAdminData().catch(() => null);
+    (token, prev) => {
+      if (token && token !== prev) void loadSharedAdminData().catch(() => null);
     },
   );
 });

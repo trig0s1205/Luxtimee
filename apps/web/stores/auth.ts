@@ -68,6 +68,11 @@ export const useAuthStore = defineStore('auth', {
         if (storedUser && isStaffUser(storedUser)) {
           this.user = storedUser;
           this.loaded = true;
+          if (!resolveAccessToken(this.accessToken)) {
+            this.user = null;
+            this.loaded = false;
+            saveStoredUser(null);
+          }
         }
       }
     },

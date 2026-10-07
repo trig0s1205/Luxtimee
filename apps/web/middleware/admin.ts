@@ -12,14 +12,7 @@ export default defineNuxtRouteMiddleware(async () => {
   const usableStaffSession = auth.isStaff && !!resolveAccessToken(auth.accessToken);
 
   if (!freshStaffSession) {
-    if (usableStaffSession) {
-      // Revalidación en segundo plano: cambiar de módulo no debe esperar al API.
-      void auth.fetchMe({ allowRefresh: true }).then(() => {
-        if (!auth.isStaff) void navigateTo('/vigilancia', { replace: true });
-      });
-    } else {
-      await auth.fetchMe({ allowRefresh: true });
-    }
+    await auth.fetchMe({ allowRefresh: true });
   }
 
   if (!auth.user || (auth.user.role !== 'ADMIN' && auth.user.role !== 'SUPER_ADMIN')) {
