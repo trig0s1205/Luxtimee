@@ -11,5 +11,5 @@ const show = computed(() => props.config.enabled && slides.value.length > 0);
 </script>
 
 <template>
-  <HomePromoHero v-if="show" :config="config" :slides="slides" />
+  <HomePromoHero v-if="show" :config="config" />
 </template>

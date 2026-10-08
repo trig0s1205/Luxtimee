@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { HomepageHeroConfig, HomepageHeroSlide } from '@luxtime/shared';
-import { normalizeHeroSlides } from '@luxtime/shared';
+import type { HomepageHeroConfig } from '@luxtime/shared';
+import { getActiveHeroSlides } from '@luxtime/shared';
 import {
   optimizeCloudinaryHeroBannerSrcSet,
   optimizeCloudinaryHeroBannerUrl,
@@ -8,19 +8,9 @@ import {
 
 const props = defineProps<{
   config: HomepageHeroConfig;
-  slides: HomepageHeroSlide[] | string[];
 }>();
 
-const normalizedSlides = computed(() => {
-  if (!props.slides?.length) return [] as HomepageHeroSlide[];
-  const first = props.slides[0];
-  if (typeof first === 'string') {
-    return normalizeHeroSlides({ slides: props.slides as string[] }).filter(
-      (s) => s.desktop?.trim() || s.mobile?.trim(),
-    );
-  }
-  return props.slides as HomepageHeroSlide[];
-});
+const normalizedSlides = computed(() => getActiveHeroSlides(props.config));
 
 const { resolve } = useMediaUrl();
 

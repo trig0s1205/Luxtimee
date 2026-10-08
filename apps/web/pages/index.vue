@@ -17,17 +17,23 @@ const { data: limitedWatches } = useCachedAsyncData(
   },
   { server: false, lazy: true, staleTime: STOREFRONT_CACHE_MS.catalog },
 );
-const { data: homeCms, refresh: refreshHomeCms } = await useCachedAsyncData<HomepageConfigDto>(
-  HOME_CMS_ASYNC_KEY,
-  () => fetchConfig(),
-  { default: (): HomepageConfigDto => structuredClone(DEFAULT_HOMEPAGE_CONFIG), staleTime: STOREFRONT_CACHE_MS.homepage },
-);
+const { data: homeCms, refresh: refreshHomeCms, pending: homeCmsPending } =
+  await useCachedAsyncData<HomepageConfigDto>(
+    HOME_CMS_ASYNC_KEY,
+    () => fetchConfig(),
+    {
+      server: false,
+      default: (): HomepageConfigDto => structuredClone(DEFAULT_HOMEPAGE_CONFIG),
+      staleTime: STOREFRONT_CACHE_MS.homepage,
+    },
+  );
 
 const cms = computed<HomepageConfigDto>(() => homeCms.value ?? DEFAULT_HOMEPAGE_CONFIG);
 const heroSlides = computed(() => getActiveHeroSlides(cms.value.hero));
-const showPromoHero = computed(
-  () => heroSlides.value.length > 0 && cms.value.hero.enabled !== false,
-);
+const showPromoHero = computed(() => {
+  if (homeCmsPending.value) return false;
+  return heroSlides.value.length > 0 && cms.value.hero.enabled !== false;
+});
 
 useSeoMeta({
   title: 'LUXTIMEE — Luxury Timepieces',
@@ -47,7 +53,6 @@ onMounted(() => {
     <HomePromoHero
       v-if="showPromoHero"
       :config="cms.hero"
-      :slides="heroSlides"
     />
 
     <ClientOnly>

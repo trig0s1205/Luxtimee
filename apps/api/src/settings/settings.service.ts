@@ -31,9 +31,17 @@ const HOMEPAGE_KEY = 'homepage_config';
 
 function normalizeHeroConfig(raw?: Parameters<typeof normalizeHeroSlides>[0]): HomepageHeroConfig {
   const slides = normalizeHeroSlides(raw);
+  const hasSlides = slides.some((s) => s.desktop?.trim() || s.mobile?.trim());
   const interval = Number(raw?.rotationIntervalSec);
+  const enabledRaw = raw?.enabled;
+  const enabled =
+    enabledRaw === false
+      ? false
+      : hasSlides
+        ? enabledRaw !== false
+        : Boolean(enabledRaw ?? DEFAULT_HOMEPAGE_CONFIG.hero.enabled);
   return {
-    enabled: raw?.enabled ?? DEFAULT_HOMEPAGE_CONFIG.hero.enabled,
+    enabled,
     rotationIntervalSec:
       Number.isFinite(interval) && interval >= 3 && interval <= 60 ? interval : 8,
     slides,

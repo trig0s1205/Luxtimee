@@ -5,7 +5,11 @@ import type {
   HomepageFaqConfig,
   HomepageHeroConfig,
 } from '@luxtime/shared';
-import { emptyHeroSlide, HOMEPAGE_HERO_MAX_SLIDES } from '@luxtime/shared';
+import {
+  emptyHeroSlide,
+  getActiveHeroSlides,
+  HOMEPAGE_HERO_MAX_SLIDES,
+} from '@luxtime/shared';
 
 export const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
   hero: {
@@ -177,13 +181,24 @@ export function mergeHomepageConfig(remote: Partial<HomepageConfigDto> & { state
   return {
     ...base,
     ...remote,
-    hero: {
-      ...base.hero,
-      ...(remote.hero ?? {}),
-      enabled: remote.hero?.enabled ?? base.hero.enabled,
-      slides: normalizeHeroSlides(remote.hero ?? {}),
-      rotationIntervalSec: remote.hero?.rotationIntervalSec ?? base.hero.rotationIntervalSec,
-    },
+    hero: (() => {
+      const slides = normalizeHeroSlides(remote.hero ?? {});
+      const hasSlides = getActiveHeroSlides({ slides }).length > 0;
+      const enabledFlag = remote.hero?.enabled;
+      const enabled =
+        enabledFlag === false
+          ? false
+          : hasSlides
+            ? enabledFlag !== false
+            : Boolean(enabledFlag ?? base.hero.enabled);
+      return {
+        ...base.hero,
+        ...(remote.hero ?? {}),
+        enabled,
+        slides,
+        rotationIntervalSec: remote.hero?.rotationIntervalSec ?? base.hero.rotationIntervalSec,
+      };
+    })(),
     featured: { ...base.featured, ...(remote.featured ?? {}) },
     founder: {
       ...base.founder,

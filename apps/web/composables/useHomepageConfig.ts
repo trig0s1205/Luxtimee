@@ -11,6 +11,7 @@ export function useHomepageConfig() {
         {
           timeout: API_TIMEOUT_MS,
           cache: 'no-store',
+          query: import.meta.client ? { _: Date.now() } : undefined,
           headers: import.meta.client ? { 'Cache-Control': 'no-cache' } : undefined,
         },
       );

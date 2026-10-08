@@ -26,10 +26,10 @@ function normalizeSlideItem(item: unknown): HomepageHeroSlide {
     return url ? { desktop: url, mobile: '' } : emptyHeroSlide();
   }
   if (isHeroSlideObject(item)) {
-    return {
-      desktop: String((item as HomepageHeroSlide).desktop ?? '').trim(),
-      mobile: String((item as HomepageHeroSlide).mobile ?? '').trim(),
-    };
+    const row = item as Record<string, unknown>;
+    const desktop = String(row.desktop ?? row.desktopUrl ?? row.url ?? '').trim();
+    const mobile = String(row.mobile ?? row.mobileUrl ?? '').trim();
+    return desktop || mobile ? { desktop, mobile } : emptyHeroSlide();
   }
   return emptyHeroSlide();
 }
@@ -37,7 +37,9 @@ function normalizeSlideItem(item: unknown): HomepageHeroSlide {
 function coerceSlidesArray(rawSlides: unknown): unknown[] {
   if (Array.isArray(rawSlides)) return rawSlides;
   if (rawSlides && typeof rawSlides === 'object') {
-    return Object.values(rawSlides as Record<string, unknown>);
+    return Object.entries(rawSlides as Record<string, unknown>)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([, value]) => value);
   }
   return [];
 }

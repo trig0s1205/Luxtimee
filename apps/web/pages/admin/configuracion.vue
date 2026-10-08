@@ -262,9 +262,9 @@ async function saveHomepageSection(
 function buildHeroPayload() {
   const slides = normalizeHeroSlides(home.hero);
   home.hero.slides = slides.map((slide) => ({ ...slide }));
-  const filled = countHeroSlidesWithDesktop(slides);
+  const hasAny = slides.some((s) => s.desktop?.trim() || s.mobile?.trim());
   return {
-    enabled: home.hero.enabled && filled > 0,
+    enabled: hasAny ? home.hero.enabled !== false : false,
     rotationIntervalSec: home.hero.rotationIntervalSec ?? 8,
     slides,
   };

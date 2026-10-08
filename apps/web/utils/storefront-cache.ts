@@ -6,7 +6,7 @@ export const STOREFRONT_CACHE_MS = {
   homepage: 0,
 } as const;
 
-export const HOME_CMS_ASYNC_KEY = 'home-cms-config-v5';
+export const HOME_CMS_ASYNC_KEY = 'home-cms-config-v6';
 
 type CacheEntry = { data: unknown; at: number };
 
