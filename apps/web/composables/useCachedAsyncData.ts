@@ -49,8 +49,18 @@ export function useCachedAsyncData<T, E = T>(
         if (!hasHydratedCacheKey(resolved)) {
           const payload = nuxtApp.payload.data[resolved] ?? nuxtApp.static.data[resolved];
           if (payload !== undefined && payload !== null) {
-            writeClientCache(resolved, payload);
             markHydratedCacheKey(resolved);
+            const hero = (payload as { hero?: { slides?: unknown[] } }).hero;
+            const slides = hero?.slides;
+            const hasHeroSlide = Array.isArray(slides)
+              && slides.some((item) => {
+                if (typeof item === 'string') return Boolean(item.trim());
+                if (!item || typeof item !== 'object') return false;
+                const row = item as { desktop?: string; mobile?: string };
+                return Boolean(row.desktop?.trim() || row.mobile?.trim());
+              });
+            if (!hasHeroSlide && resolved.startsWith('home-cms-config')) return undefined;
+            writeClientCache(resolved, payload);
             return payload as T;
           }
         }

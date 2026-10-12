@@ -9,6 +9,7 @@ import {
   emptyHeroSlide,
   getActiveHeroSlides,
   HOMEPAGE_HERO_MAX_SLIDES,
+  normalizeHeroSlides,
 } from '@luxtime/shared';
 
 export const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
@@ -156,7 +157,7 @@ type LegacyHomepageFaqSource = Partial<HomepageFaqConfig> & {
   sub?: string;
 };
 
-export { getActiveHeroSlides, normalizeHeroSlides } from '@luxtime/shared';
+export { getActiveHeroSlides, normalizeHeroSlides };
 
 export function migrateHomepageFaqConfig(
   faq?: LegacyHomepageFaqSource | null,

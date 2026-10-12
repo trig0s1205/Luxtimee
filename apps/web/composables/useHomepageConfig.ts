@@ -5,20 +5,18 @@ export function useHomepageConfig() {
   const baseUrl = useApiBaseUrl();
 
   async function fetchConfig() {
-    try {
-      const remote = await $fetch<Partial<import('@luxtime/shared').HomepageConfigDto>>(
-        `${baseUrl}/settings/homepage/public`,
-        {
-          timeout: API_TIMEOUT_MS,
-          cache: 'no-store',
-          query: import.meta.client ? { _: Date.now() } : undefined,
-          headers: import.meta.client ? { 'Cache-Control': 'no-cache' } : undefined,
-        },
-      );
-      return mergeHomepageConfig(remote);
-    } catch {
-      return structuredClone(DEFAULT_HOMEPAGE_CONFIG);
-    }
+    const remote = await $fetch<Partial<import('@luxtime/shared').HomepageConfigDto>>(
+      `${baseUrl}/settings/homepage/public`,
+      {
+        timeout: API_TIMEOUT_MS,
+        cache: 'no-store',
+        query: import.meta.client ? { _: Date.now() } : undefined,
+        headers: import.meta.client
+          ? { 'Cache-Control': 'no-cache', Pragma: 'no-cache' }
+          : undefined,
+      },
+    ).catch(() => null);
+    return mergeHomepageConfig(remote);
   }
 
   return { fetchConfig, DEFAULT_HOMEPAGE_CONFIG };

@@ -1,4 +1,4 @@
-import { HOMEPAGE_HERO_MAX_SLIDES } from '../types/settings.js';
+export const HOMEPAGE_HERO_MAX_SLIDES = 6;
 
 export interface HomepageHeroSlide {
   desktop: string;

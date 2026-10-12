@@ -1,7 +1,5 @@
 import type { HomepageHeroSlide } from '../utils/homepage-hero.js';
 
-export const HOMEPAGE_HERO_MAX_SLIDES = 6;
-
 export type { HomepageHeroSlide };
 
 export interface HomepageHeroConfig {
