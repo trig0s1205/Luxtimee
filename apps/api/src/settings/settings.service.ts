@@ -33,13 +33,8 @@ function normalizeHeroConfig(raw?: Parameters<typeof normalizeHeroSlides>[0]): H
   const slides = normalizeHeroSlides(raw);
   const hasSlides = slides.some((s) => s.desktop?.trim() || s.mobile?.trim());
   const interval = Number(raw?.rotationIntervalSec);
-  const enabledRaw = raw?.enabled;
-  const enabled =
-    enabledRaw === false
-      ? false
-      : hasSlides
-        ? enabledRaw !== false
-        : Boolean(enabledRaw ?? DEFAULT_HOMEPAGE_CONFIG.hero.enabled);
+  const enabledRaw = Boolean(raw?.enabled);
+  const enabled = raw?.enabled === false ? false : hasSlides || enabledRaw;
   return {
     enabled,
     rotationIntervalSec:

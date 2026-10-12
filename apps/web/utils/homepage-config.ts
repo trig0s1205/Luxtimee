@@ -185,13 +185,7 @@ export function mergeHomepageConfig(remote: Partial<HomepageConfigDto> & { state
     hero: (() => {
       const slides = normalizeHeroSlides(remote.hero ?? {});
       const hasSlides = getActiveHeroSlides({ slides }).length > 0;
-      const enabledFlag = remote.hero?.enabled;
-      const enabled =
-        enabledFlag === false
-          ? false
-          : hasSlides
-            ? enabledFlag !== false
-            : Boolean(enabledFlag ?? base.hero.enabled);
+      const enabled = remote.hero?.enabled === false ? false : hasSlides || Boolean(remote.hero?.enabled);
       return {
         ...base.hero,
         ...(remote.hero ?? {}),

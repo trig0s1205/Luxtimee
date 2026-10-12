@@ -26,7 +26,7 @@ function normalizeSlideItem(item: unknown): HomepageHeroSlide {
     return url ? { desktop: url, mobile: '' } : emptyHeroSlide();
   }
   if (isHeroSlideObject(item)) {
-    const row = item as Record<string, unknown>;
+    const row = item as unknown as Record<string, unknown>;
     const desktop = String(row.desktop ?? row.desktopUrl ?? row.url ?? '').trim();
     const mobile = String(row.mobile ?? row.mobileUrl ?? '').trim();
     return desktop || mobile ? { desktop, mobile } : emptyHeroSlide();

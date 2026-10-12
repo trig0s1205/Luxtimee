@@ -36,38 +36,34 @@ type ResolvedHeroSlide = {
   mobileSrcSet?: string;
 };
 
-const resolvedSlides = computed((): ResolvedHeroSlide[] =>
-  normalizedSlides.value
-    .map((slide) => {
-      const desktopRaw = slide.desktop?.trim();
-      const mobileRaw = slide.mobile?.trim();
-      const desktopBase = desktopRaw ? resolve(desktopRaw) : undefined;
-      const mobileBase = mobileRaw ? resolve(mobileRaw) : undefined;
-      const fallback = desktopBase ?? mobileBase;
-      if (!fallback) return null;
+const resolvedSlides = computed((): ResolvedHeroSlide[] => {
+  const out: ResolvedHeroSlide[] = [];
+  for (const slide of normalizedSlides.value) {
+    const desktopRaw = slide.desktop?.trim();
+    const mobileRaw = slide.mobile?.trim();
+    const desktopBase = desktopRaw ? resolve(desktopRaw) : undefined;
+    const mobileBase = mobileRaw ? resolve(mobileRaw) : undefined;
+    const fallback = desktopBase ?? mobileBase;
+    if (!fallback) continue;
 
-      const desktopUrl = desktopBase ?? mobileBase!;
-      const mobileUrl = mobileBase && mobileRaw !== desktopRaw ? mobileBase : undefined;
+    const desktopUrl = fallback;
+    const mobileUrl = mobileBase && mobileRaw !== desktopRaw ? mobileBase : undefined;
 
-      const desktopSrc = optimizeCloudinaryHeroBannerUrl(desktopUrl, bannerWidth.value) ?? desktopUrl;
-      const desktopSrcSet = optimizeCloudinaryHeroBannerSrcSet(desktopUrl);
-      const mobileSrc = mobileUrl
+    const desktopSrc = optimizeCloudinaryHeroBannerUrl(desktopUrl, bannerWidth.value) ?? desktopUrl;
+    out.push({
+      key: `${desktopSrc}|${mobileUrl ?? ''}`,
+      desktopSrc,
+      desktopSrcSet: optimizeCloudinaryHeroBannerSrcSet(desktopUrl),
+      mobileSrc: mobileUrl
         ? optimizeCloudinaryHeroBannerUrl(mobileUrl, mobileBannerWidth) ?? mobileUrl
-        : undefined;
-      const mobileSrcSet = mobileUrl
+        : undefined,
+      mobileSrcSet: mobileUrl
         ? optimizeCloudinaryHeroBannerSrcSet(mobileUrl, [640, 960, 1200, 1400])
-        : undefined;
-
-      return {
-        key: `${desktopSrc}|${mobileSrc ?? ''}`,
-        desktopSrc,
-        desktopSrcSet,
-        mobileSrc,
-        mobileSrcSet,
-      };
-    })
-    .filter((item): item is ResolvedHeroSlide => item !== null),
-);
+        : undefined,
+    });
+  }
+  return out;
+});
 
 const hasMultiple = computed(() => resolvedSlides.value.length > 1);
 

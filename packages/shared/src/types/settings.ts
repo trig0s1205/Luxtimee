@@ -1,7 +1,5 @@
 import type { HomepageHeroSlide } from '../utils/homepage-hero.js';
 
-export type { HomepageHeroSlide };
-
 export interface HomepageHeroConfig {
   enabled: boolean;
   /** Segundos entre slides (por defecto 8). */
