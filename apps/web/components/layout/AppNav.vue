@@ -94,26 +94,29 @@ watch(() => route.fullPath, closeMenu);
     :class="{ scrolled, 'site-nav--subpage': showBack, 'site-nav--intro': navIntro }"
   >
     <div class="nav-start">
-      <button
-        v-if="showBack"
-        type="button"
-        class="nav-back"
-        :aria-label="t('nav.back')"
-        @click="goBack"
-      >
-        <UiBackArrowIcon />
-        <span class="nav-back__label">{{ t('nav.back') }}</span>
-      </button>
-
       <NuxtLink to="/" class="nav-logo" @click="onLogoClick">
         <span class="nav-logo__frame">
-          <img
-            src="/images/logo-luxtimee.png"
-            alt="LuxTimee"
+          <svg
             class="nav-logo__img"
-            width="140"
+            viewBox="0 0 248 44"
+            width="148"
             height="40"
+            role="img"
+            aria-label="LUXTIMEE"
           >
+            <g fill="currentColor">
+              <path d="M18.2 1.2c.28-.64 1.16-.64 1.44 0l1.12 2.5 2.72.28c.68.07.96.9.46 1.36l-2.1 1.92.6 2.68c.15.66-.54 1.16-1.14.82l-2.38-1.42-2.38 1.42c-.6.34-1.29-.16-1.14-.82l.6-2.68-2.1-1.92c-.5-.46-.22-1.29.46-1.36l2.72-.28 1.12-2.5Z" />
+              <path d="M11 13.4h6.8v2.05h-4.05V36.6h16.4V40.4H11z" />
+              <text
+                x="34.5"
+                y="34.6"
+                font-family="Montserrat, Helvetica, sans-serif"
+                font-size="13.5"
+                font-weight="500"
+                letter-spacing="3.6"
+              >UXTIMEE</text>
+            </g>
+          </svg>
         </span>
       </NuxtLink>
     </div>
@@ -143,6 +146,16 @@ watch(() => route.fullPath, closeMenu);
     </ul>
 
     <div class="nav-actions">
+      <button
+        v-if="showBack"
+        type="button"
+        class="nav-back"
+        :aria-label="t('nav.back')"
+        @click="goBack"
+      >
+        <UiBackArrowIcon />
+        <span class="nav-back__label">{{ t('nav.back') }}</span>
+      </button>
       <LayoutLocaleSwitcher v-if="showSwitcher" />
       <button
         v-if="showNavCart"
