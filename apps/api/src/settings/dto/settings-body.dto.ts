@@ -95,6 +95,10 @@ export class SetHomepageConfigBodyDto {
   @IsOptional()
   @IsObject()
   contact?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsObject()
+  branding?: Record<string, unknown>;
 }
 
 export class DeleteFounderImageBodyDto {

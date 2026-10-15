@@ -468,6 +468,13 @@ section.lux-collection.lux-collection--flush-top {
   outline: none;
 }
 
+.page-back {
+  position: fixed;
+  top: 108px;
+  left: 24px;
+  z-index: 40;
+}
+
 .site-nav--subpage .nav-logo__img {
   max-width: min(132px, 34vw);
 }
@@ -1084,34 +1091,37 @@ section.lux-collection.lux-collection--flush-top {
   right: 24px;
   bottom: 24px;
   z-index: 99999;
-  width: 48px;
-  height: 48px;
-  border-radius: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(10, 10, 10, 0.88);
-  border: 1px solid rgba(200, 169, 110, 0.3);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  transition: border-color 0.35s ease, transform 0.35s ease, color 0.35s ease;
+  background: var(--black-2);
+  border: 1px solid rgba(200, 169, 110, 0.55);
+  box-shadow: 0 8px 24px rgba(154, 122, 69, 0.16);
+  transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
   text-decoration: none;
 }
 
-.whatsapp-float:hover {
+.whatsapp-float:hover,
+.whatsapp-float:focus-visible {
+  background: rgba(200, 169, 110, 0.14);
   border-color: var(--gold);
   transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(154, 122, 69, 0.22);
 }
 
 .whatsapp-float svg {
   width: 22px;
   height: 22px;
-  fill: var(--gold);
-  transition: fill 0.35s ease;
+  fill: var(--gold-dark);
+  transition: fill 0.3s ease;
 }
 
-.whatsapp-float:hover svg {
-  fill: var(--gold-light);
+.whatsapp-float:hover svg,
+.whatsapp-float:focus-visible svg {
+  fill: var(--gold);
 }
 
 /* —— Cookie banner —— */
@@ -1231,6 +1241,11 @@ section.lux-collection.lux-collection--flush-top {
   .nav-back {
     width: 40px;
     height: 40px;
+  }
+
+  .page-back {
+    top: 76px;
+    left: 14px;
   }
 
   .nav-back svg {

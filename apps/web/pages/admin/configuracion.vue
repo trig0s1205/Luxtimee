@@ -58,7 +58,7 @@ const commission = reactive<CommissionConfigDto>({ percent: 5 });
 const home = reactive<HomepageConfigDto>(structuredClone(DEFAULT_HOMEPAGE_CONFIG));
 home.hero.slides = normalizeHeroSlides(home.hero);
 home.customerProof.images = Array.from({ length: 12 }, () => ({ url: '', caption: '' }));
-const indexSubTab = ref<'hero' | 'featured' | 'founder' | 'proof' | 'faq' | 'contact'>('hero');
+const indexSubTab = ref<'logo' | 'hero' | 'featured' | 'founder' | 'proof' | 'faq' | 'contact'>('hero');
 
 const profitSplitTotal = computed(() =>
   Number(profit.reinvestmentPercent || 0) + Number(profit.ownerProfitPercent || 0),
@@ -80,9 +80,10 @@ const savingProfile = ref(false);
 const savingEmail = ref(false);
 const savingPassword = ref(false);
 const savingPlatform = ref(false);
-const savingIndexSection = ref<'hero' | 'founder' | 'featured' | 'proof' | 'faq' | 'contact' | null>(null);
+const savingIndexSection = ref<'logo' | 'hero' | 'founder' | 'featured' | 'proof' | 'faq' | 'contact' | null>(null);
 const uploadingSlot = ref<number | null>(null);
 const uploadingHeroKey = ref<string | null>(null);
+const uploadingLogo = ref(false);
 
 const carouselFilled = computed(
   () => home.founder.carouselImages.filter((u) => Boolean(u?.trim())).length,
@@ -129,6 +130,7 @@ useAsyncData('admin-config', async () => {
     Object.assign(home.valueProps, homepageRes.valueProps);
     Object.assign(home.faq, homepageRes.faq);
     Object.assign(home.contact, homepageRes.contact);
+    home.branding.navLogoUrl = homepageRes.branding?.navLogoUrl ?? '';
     home.faq.items = homepageRes.faq?.items?.length
       ? homepageRes.faq.items.map((item) => ({ ...item }))
       : [];
@@ -243,7 +245,7 @@ function buildProofImages() {
 }
 
 async function saveHomepageSection(
-  section: 'hero' | 'founder' | 'featured' | 'proof' | 'faq' | 'contact',
+  section: 'logo' | 'hero' | 'founder' | 'featured' | 'proof' | 'faq' | 'contact',
   payload: Partial<HomepageConfigDto>,
   successMessage: string,
 ) {
@@ -375,6 +377,47 @@ async function saveContactSection() {
     { contact: { ...home.contact } },
     'Contacto guardado.',
   );
+}
+
+async function persistNavLogo(url: string, toastMessage: string) {
+  home.branding.navLogoUrl = url;
+  await api.patch('/settings/homepage', { branding: { navLogoUrl: url } });
+  invalidateClientCache(HOME_CMS_ASYNC_KEY);
+  toast.success(toastMessage);
+}
+
+async function onNavLogoFileChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  uploadingLogo.value = true;
+  try {
+    const prev = home.branding.navLogoUrl;
+    const url = await uploadHomepageImages('/settings/homepage/upload-nav-logo', file);
+    if (prev && prev !== url) {
+      await api.del(`/settings/homepage/founder-image?url=${encodeURIComponent(prev)}`).catch(() => null);
+    }
+    await persistNavLogo(url, 'Logo de la barra guardado.');
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'Error al subir el logo.'));
+  } finally {
+    uploadingLogo.value = false;
+  }
+}
+
+async function clearNavLogo() {
+  const prev = home.branding.navLogoUrl;
+  if (!prev) return;
+  uploadingLogo.value = true;
+  try {
+    await api.del(`/settings/homepage/founder-image?url=${encodeURIComponent(prev)}`).catch(() => null);
+    await persistNavLogo('', 'Logo quitado.');
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo quitar el logo.'));
+  } finally {
+    uploadingLogo.value = false;
+  }
 }
 
 function addParagraph() {
@@ -768,6 +811,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
       <div class="admin-index-subtabs">
         <button
           v-for="tab in [
+            { id: 'logo', label: 'Logo' },
             { id: 'hero', label: 'Banner inicio' },
             { id: 'founder', label: 'Fundador' },
             { id: 'featured', label: 'Catálogo' },
@@ -784,6 +828,48 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
           {{ tab.label }}
         </button>
       </div>
+
+      <template v-if="indexSubTab === 'logo'">
+        <section class="admin-config-card">
+          <div class="admin-card-head">
+            <h2>Logo de la barra</h2>
+          </div>
+          <p class="admin-config-hint">
+            Imagen que se muestra arriba a la izquierda en toda la tienda. JPG, PNG o WEBP. Si no hay logo, ese espacio queda vacío.
+          </p>
+          <div class="admin-carousel-slot admin-carousel-slot--logo">
+            <div class="admin-carousel-slot-preview admin-carousel-slot-preview--logo">
+              <img
+                v-if="home.branding.navLogoUrl"
+                :src="resolveMedia(home.branding.navLogoUrl)"
+                alt="Logo de la barra"
+              >
+              <span v-else class="admin-carousel-slot-empty">Sin logo</span>
+            </div>
+            <div class="admin-carousel-slot-actions">
+              <label class="admin-file-btn">
+                {{ uploadingLogo ? 'Subiendo...' : home.branding.navLogoUrl ? 'Cambiar' : 'Subir' }}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  :disabled="uploadingLogo"
+                  @change="onNavLogoFileChange"
+                >
+              </label>
+              <button
+                v-if="home.branding.navLogoUrl"
+                type="button"
+                class="admin-icon-btn"
+                aria-label="Quitar logo"
+                :disabled="uploadingLogo"
+                @click="clearNavLogo"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </section>
+      </template>
 
       <!-- Banner inicio -->
       <template v-if="indexSubTab === 'hero'">
@@ -1529,6 +1615,18 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
   font-size: 11px;
   color: var(--lux-white-dim);
   opacity: 0.6;
+}
+
+.admin-carousel-slot--logo {
+  max-width: 420px;
+}
+
+.admin-carousel-slot-preview--logo {
+  aspect-ratio: 16 / 5;
+}
+
+.admin-carousel-slot-preview--logo img {
+  object-fit: contain;
 }
 
 .admin-carousel-slot-actions {

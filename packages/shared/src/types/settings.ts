@@ -69,6 +69,10 @@ export interface HomepageContactConfig {
   whatsappMessage: string;
 }
 
+export interface HomepageBrandingConfig {
+  navLogoUrl: string;
+}
+
 export interface HomepageCustomerProofImage {
   url: string;
   caption?: string;
@@ -92,6 +96,7 @@ export interface HomepageConfigDto {
   customerProof: HomepageCustomerProofConfig;
   faq: HomepageFaqConfig;
   contact: HomepageContactConfig;
+  branding: HomepageBrandingConfig;
 }
 
 export interface ShippingZoneDto {

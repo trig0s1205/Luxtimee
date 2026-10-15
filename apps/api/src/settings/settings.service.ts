@@ -113,6 +113,9 @@ const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
     whatsappMessage:
       'Hola LUXTIMEE, busco un reloj en particular. Mi ciudad es ',
   },
+  branding: {
+    navLogoUrl: '',
+  },
 };
 
 @Injectable()
@@ -265,6 +268,7 @@ export class SettingsService {
       faq?: HomepageConfigDto['faq'];
       statement?: Record<string, unknown>;
       contact?: HomepageConfigDto['contact'];
+      branding?: HomepageConfigDto['branding'];
     }>(HOMEPAGE_KEY, {});
 
     const rawFounder: LegacyFounder = stored.founder ?? {};
@@ -335,6 +339,11 @@ export class SettingsService {
         ...DEFAULT_HOMEPAGE_CONFIG.contact,
         ...(stored.contact ?? {}),
       },
+      branding: {
+        ...DEFAULT_HOMEPAGE_CONFIG.branding,
+        ...(stored.branding ?? {}),
+        navLogoUrl: String(stored.branding?.navLogoUrl ?? '').trim(),
+      },
     };
   }
 
@@ -374,6 +383,15 @@ export class SettingsService {
       contact: patch.contact
         ? { ...current.contact, ...patch.contact }
         : current.contact,
+      branding: patch.branding
+        ? {
+            ...current.branding,
+            ...patch.branding,
+            navLogoUrl: String(
+              patch.branding.navLogoUrl ?? current.branding.navLogoUrl ?? '',
+            ).trim(),
+          }
+        : current.branding,
     };
 
     if (patch.founder) {
@@ -405,6 +423,11 @@ export class SettingsService {
 
   async uploadHeroImage(file: Express.Multer.File): Promise<{ url: string }> {
     const url = await this.imageProcessing.uploadHomepageImage(file, 'hero-banner');
+    return { url };
+  }
+
+  async uploadNavLogo(file: Express.Multer.File): Promise<{ url: string }> {
+    const url = await this.imageProcessing.uploadHomepageImage(file, 'nav-logo');
     return { url };
   }
 

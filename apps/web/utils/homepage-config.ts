@@ -97,6 +97,9 @@ export const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
     ctaText: 'Abrir chat',
     whatsappMessage: 'Hola LUXTIMEE, busco un reloj en particular. Mi ciudad es ',
   },
+  branding: {
+    navLogoUrl: '',
+  },
 };
 
 export function isFounderCarouselComplete(images?: Array<string | null | undefined>) {
@@ -217,5 +220,10 @@ export function mergeHomepageConfig(remote: Partial<HomepageConfigDto> & { state
     },
     faq: migrateHomepageFaqConfig(remote.faq, remote.statement),
     contact: { ...base.contact, ...(remote.contact ?? {}) },
+    branding: {
+      ...base.branding,
+      ...(remote.branding ?? {}),
+      navLogoUrl: String(remote.branding?.navLogoUrl ?? '').trim(),
+    },
   };
 }

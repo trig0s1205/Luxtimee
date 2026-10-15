@@ -5,6 +5,7 @@
       <LazyLayoutLuxCursorTrail />
     </ClientOnly>
     <LayoutAppNav />
+    <LayoutPageBack />
     <main :class="mainClass">
       <slot />
     </main>

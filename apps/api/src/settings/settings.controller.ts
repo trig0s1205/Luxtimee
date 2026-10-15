@@ -197,6 +197,26 @@ export class SettingsController {
     return { urls };
   }
 
+  @Post('homepage/upload-nav-logo')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  @UseInterceptors(
+    FilesInterceptor('images', 1, {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_IMAGE_BYTES },
+    }),
+  )
+  async uploadNavLogo(
+    @UploadedFiles() files: Express.Multer.File[],
+  ): Promise<{ urls: string[] }> {
+    if (!files?.length)
+      throw new BadRequestException('No se recibió la imagen');
+    assertImageBuffer(files[0].buffer, files[0].mimetype);
+    const { url } = await this.settingsService.uploadNavLogo(files[0]);
+    return { urls: [url] };
+  }
+
   @Post('homepage/upload-customer-proof-images')
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
