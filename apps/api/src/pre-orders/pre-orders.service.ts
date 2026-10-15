@@ -718,16 +718,6 @@ export class PreOrdersService {
           where: { id: item.watchId },
           data: { stock: { increment: item.quantity } },
         });
-        const watch = await this.prisma.watch.findUnique({
-          where: { id: item.watchId },
-          select: { stock: true },
-        });
-        if (watch && watch.stock > 0) {
-          await this.prisma.watch.update({
-            where: { id: item.watchId },
-            data: { showInCatalog: true },
-          });
-        }
       }
 
       await this.notificationsService.emit({

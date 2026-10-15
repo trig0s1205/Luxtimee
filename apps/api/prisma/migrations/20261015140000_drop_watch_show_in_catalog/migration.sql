@@ -1,0 +1,1 @@
+ALTER TABLE "Watch" DROP COLUMN IF EXISTS "showInCatalog";

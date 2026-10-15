@@ -23,7 +23,6 @@ const visibleDashboardLinks = computed(() =>
 const linksBeforePedidos: AdminNavLink[] = [
   { to: '/admin/inventario', label: 'Inventario' },
   { to: '/admin/catalog-settings', label: 'Marcas y clases' },
-  { to: '/admin/catalog-destacados', label: 'Destacados inicio' },
   { to: '/admin/pending-info', label: 'Pendientes de info' },
 ];
 

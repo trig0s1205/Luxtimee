@@ -152,7 +152,6 @@ async function main() {
     update: {
       isActive: true,
       isPublished: true,
-      showInCatalog: true,
       deletedAt: null,
       stock: 3,
     },
@@ -173,7 +172,6 @@ async function main() {
       profitPercent: 35,
       stock: 3,
       isPublished: true,
-      showInCatalog: true,
       warrantyTemplate: { connect: { id: warranty.id } },
       careTemplate: { connect: { id: care.id } },
     },

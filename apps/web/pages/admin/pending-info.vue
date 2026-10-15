@@ -42,25 +42,16 @@ const brands = computed(() => catalogStore.brands ?? []);
 const categories = computed(() => catalogStore.categories ?? []);
 const mechanisms = computed(() => catalogStore.mechanisms ?? []);
 
-const emptyList: PaginatedResponse<PendingWatchItemDto> = {
-  data: [],
-  total: 0,
-  page: 1,
-  limit: PAGE_SIZE,
-};
-
 const listKey = computed(() => `pending-info-${activeTab.value}-${page.value}`);
 
-const { data: paginated, refresh, pending } = useAdminCachedData(
+const { data: paginated, refresh, pending, error: listError } = useAdminCachedData(
   listKey,
   () =>
-    api
-      .get<PaginatedResponse<PendingWatchItemDto>>('/watches/pending-info', {
-        section: activeTab.value,
-        page: page.value,
-        limit: PAGE_SIZE,
-      })
-      .catch(() => emptyList),
+    api.get<PaginatedResponse<PendingWatchItemDto>>('/watches/pending-info', {
+      section: activeTab.value,
+      page: page.value,
+      limit: PAGE_SIZE,
+    }),
   { watch: [listKey] },
 );
 
@@ -165,7 +156,7 @@ useSeoMeta({ title: 'Pendientes de info — LUXTIMEE Admin' });
     />
 
     <p class="pending-info-intro">
-      Relojes fuera de borrador con datos incompletos. Los borradores solo con imágenes se completan desde inventario.
+      Cualquier reloj con datos vacíos aparece aquí. Completa los campos faltantes desde esta pantalla; no se publica hasta que esté lleno.
     </p>
 
     <div class="pending-info-tabs" role="tablist">
@@ -193,6 +184,9 @@ useSeoMeta({ title: 'Pendientes de info — LUXTIMEE Admin' });
     </div>
 
     <div v-if="pending && !items.length" class="pending-info-empty">Cargando...</div>
+    <div v-else-if="listError" class="pending-info-empty">
+      No se pudo cargar la lista. Reintenta.
+    </div>
     <div v-else-if="!items.length" class="pending-info-empty">
       No hay relojes pendientes en esta sección.
     </div>
@@ -219,7 +213,7 @@ useSeoMeta({ title: 'Pendientes de info — LUXTIMEE Admin' });
               <span v-else class="pending-info-no-thumb">—</span>
             </td>
             <td>
-              <strong>{{ item.watch.brand.name }} {{ item.watch.model }}</strong>
+              <strong>{{ item.watch.brand?.name }} {{ item.watch.model }}</strong>
               <span class="pending-info-sku">{{ item.watch.sku }}</span>
             </td>
             <td>
@@ -256,7 +250,7 @@ useSeoMeta({ title: 'Pendientes de info — LUXTIMEE Admin' });
               >
             </td>
             <td>
-              <strong>{{ item.watch.brand.name }} {{ item.watch.model }}</strong>
+              <strong>{{ item.watch.brand?.name }} {{ item.watch.model }}</strong>
               <span class="pending-info-sku">{{ item.watch.sku }}</span>
             </td>
             <td>{{ formatCop(item.watch.retailPrice) }}</td>

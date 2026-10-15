@@ -213,7 +213,6 @@ model Watch {
   status              WatchStatus  @default(DISPONIBLE)
   isActive            Boolean      @default(true)
   isPublished         Boolean      @default(true)
-  showInCatalog       Boolean      @default(false)
   isLimitedEdition    Boolean      @default(false)
   limitedEditionNumber String?
   description         String?      @db.Text

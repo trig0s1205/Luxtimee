@@ -73,7 +73,6 @@ export interface WatchPublicDto {
   status: WatchStatus;
   isActive: boolean;
   isPublished: boolean;
-  showInCatalog: boolean;
   isLimitedEdition: boolean;
   limitedEditionNumber?: string | null;
   description?: string | null;
@@ -159,7 +158,6 @@ export interface CreateWatchDto {
   status?: WatchStatus;
   isActive?: boolean;
   isPublished?: boolean;
-  showInCatalog?: boolean;
   isLimitedEdition?: boolean;
   limitedEditionNumber?: string;
   description?: string;

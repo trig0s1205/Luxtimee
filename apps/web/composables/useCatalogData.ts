@@ -22,7 +22,6 @@ function mockToPublic(watch: (typeof mockWatches)[number]): WatchPublicDto {
     status: WatchStatus.DISPONIBLE,
     isActive: true,
     isPublished: true,
-    showInCatalog: false,
     isLimitedEdition: false,
     faqs: [],
     images: [watch.image].filter(Boolean),
@@ -146,14 +145,6 @@ export function useCatalogData() {
     }
   }
 
-  async function getFeatured(limit = 12) {
-    try {
-      return await api.get<WatchPublicDto[]>('/catalog/featured', { limit });
-    } catch {
-      return MOCK_CATALOG.filter((w) => w.showInCatalog).slice(0, limit);
-    }
-  }
-
   async function getBestSellers(limit = 6) {
     try {
       const best = await api.get<WatchPublicDto[]>('/catalog/best-sellers', { limit });
@@ -161,27 +152,6 @@ export function useCatalogData() {
     } catch {
       if (import.meta.dev) return MOCK_CATALOG.slice(0, limit);
       return [];
-    }
-  }
-
-  async function fetchPublic<T>(path: string, query?: Record<string, string | number>) {
-    const baseUrl = useApiBaseUrl();
-    return $fetch<T>(`${baseUrl}${path}`, { query, credentials: 'omit', timeout: API_TIMEOUT_MS });
-  }
-
-  async function getHeroSpotlight(limit = 6) {
-    // Solo mostrar los relojes seleccionados manualmente (showInCatalog: true)
-    try {
-      const hero = await fetchPublic<WatchPublicDto[]>('/catalog/hero-spotlight', { limit });
-      return Array.isArray(hero) ? hero : [];
-    } catch {
-      // Fallback a /catalog/featured si el endpoint no existe
-      try {
-        const featured = await fetchPublic<WatchPublicDto[]>('/catalog/featured', { limit });
-        return Array.isArray(featured) ? featured.slice(0, limit) : [];
-      } catch {
-        return [];
-      }
     }
   }
 
@@ -209,8 +179,6 @@ export function useCatalogData() {
     getNewArrivals,
     listBrands,
     getBestSellers,
-    getHeroSpotlight,
-    getFeatured,
     listWholesaleCatalog,
     getWholesaleBySlug,
   };

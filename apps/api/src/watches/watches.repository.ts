@@ -111,19 +111,8 @@ export class WatchesRepository {
         deletedAt: new Date(),
         isActive: false,
         isPublished: false,
-        showInCatalog: false,
       },
       include: watchInclude,
-    });
-  }
-
-  async countShowInCatalog(excludeId?: string) {
-    return this.prisma.watch.count({
-      where: {
-        showInCatalog: true,
-        deletedAt: null,
-        ...(excludeId ? { id: { not: excludeId } } : {}),
-      },
     });
   }
 

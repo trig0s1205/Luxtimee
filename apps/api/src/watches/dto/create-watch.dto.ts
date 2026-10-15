@@ -163,11 +163,6 @@ export class CreateWatchDto {
   @IsOptional()
   @IsBoolean()
   @Type(() => Boolean)
-  showInCatalog?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  @Type(() => Boolean)
   isLimitedEdition?: boolean;
 
   @IsOptional()

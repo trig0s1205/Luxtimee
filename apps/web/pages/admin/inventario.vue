@@ -38,7 +38,6 @@ type WatchFormPayload = {
   secondaryImageFile?: File | null;
   videoFile?: File | null;
   imagesOnly?: boolean;
-  showInCatalog?: boolean;
 };
 
 useHead({ title: 'Inventario — LUXTIMEE Admin' });
@@ -233,11 +232,10 @@ async function handleSubmit(form: WatchFormPayload) {
       images: form.images,
       mainImageIndex: form.mainImageIndex,
       ...(draftMode
-        ? { isPublished: false, showInCatalog: false }
+        ? { isPublished: false }
         : {
             isPublished: true,
             isActive: true,
-            showInCatalog: !!form.showInCatalog,
           }),
       ...(watchId
         ? { careTemplateId: form.careTemplateId || '' }

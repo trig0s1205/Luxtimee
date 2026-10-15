@@ -4,6 +4,7 @@ export type PendingFieldCode =
   | 'model'
   | 'category'
   | 'gender'
+  | 'description'
   | 'retailPrice'
   | 'wholesalePrice'
   | 'stock'
@@ -26,6 +27,7 @@ export type WatchPendingShape = {
   isPublished: boolean;
   categoryId?: string | null;
   gender?: string | null;
+  description?: string | null;
   movementType?: string | null;
   mechanismId?: string | null;
   primaryImageUrl?: string | null;
@@ -70,6 +72,9 @@ export function getMissingGeneralFields(
   if (!watch.gender?.trim()) {
     missing.push({ code: 'gender', label: 'Género' });
   }
+  if (!watch.description?.trim()) {
+    missing.push({ code: 'description', label: 'Descripción' });
+  }
   if (!watch.retailPrice || watch.retailPrice <= 0) {
     missing.push({ code: 'retailPrice', label: 'Precio público' });
   }
@@ -106,18 +111,9 @@ export function getMissingCostFields(
 }
 
 export function isWatchGeneralInfoComplete(watch: WatchPendingShape): boolean {
-  if (getMissingGeneralFields(watch).length > 0) return false;
-  return watch.stock > 0;
+  return getMissingGeneralFields(watch).length === 0;
 }
 
-/** Mínimo para publicar en catálogo (sin categoría/género obligatorios). */
 export function isWatchCatalogReady(watch: WatchPendingShape): boolean {
-  const model = (watch.model ?? '').trim();
-  if (!model || model === DRAFT_WATCH_MODEL) return false;
-  if (!watch.retailPrice || watch.retailPrice <= 0) return false;
-  if (!watch.wholesalePrice || watch.wholesalePrice <= 0) return false;
-  if (watch.stock <= 0) return false;
-  if (!hasPrimaryImage(watch) || !hasSecondaryImage(watch)) return false;
-  if (!watch.videoUrl?.trim()) return false;
-  return true;
+  return getMissingGeneralFields(watch).length === 0;
 }

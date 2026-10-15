@@ -157,11 +157,6 @@ export class UpdateWatchDto {
   @IsOptional()
   @IsBoolean()
   @Type(() => Boolean)
-  showInCatalog?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  @Type(() => Boolean)
   isLimitedEdition?: boolean;
 
   @IsOptional()

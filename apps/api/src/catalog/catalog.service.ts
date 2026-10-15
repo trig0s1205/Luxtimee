@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { findWatchIdsByFlexibleSkuSearch } from '../common/utils/sku-search.util';
 import { CatalogQueryDto } from './dto/catalog-query.dto';
+import { DRAFT_WATCH_MODEL } from '../watches/utils/watch-pending.util';
 
 @Injectable()
 export class CatalogService {
@@ -81,15 +82,48 @@ export class CatalogService {
     return trimmed;
   }
 
-  private async buildWhere(
-    query: CatalogQueryDto,
-  ): Promise<Prisma.WatchWhereInput> {
-    const where: Prisma.WatchWhereInput = {
+  private publicCatalogWhere(): Prisma.WatchWhereInput {
+    return {
       isActive: true,
       isPublished: true,
       deletedAt: null,
       stock: { gt: 0 },
+      NOT: { model: DRAFT_WATCH_MODEL },
+      categoryId: { not: null },
+      gender: { not: null },
+      retailPrice: { gt: 0 },
+      wholesalePrice: { gt: 0 },
+      videoUrl: { not: null },
+      AND: [
+        { NOT: { gender: '' } },
+        { description: { not: null } },
+        { NOT: { description: '' } },
+        {
+          OR: [
+            { primaryImageUrl: { not: null } },
+            { frontImageUrl: { not: null } },
+          ],
+        },
+        {
+          OR: [
+            { secondaryImageUrl: { not: null } },
+            { backImageUrl: { not: null } },
+          ],
+        },
+        {
+          OR: [
+            { mechanismId: { not: null } },
+            { AND: [{ movementType: { not: null } }, { NOT: { movementType: '' } }] },
+          ],
+        },
+      ],
     };
+  }
+
+  private async buildWhere(
+    query: CatalogQueryDto,
+  ): Promise<Prisma.WatchWhereInput> {
+    const where: Prisma.WatchWhereInput = this.publicCatalogWhere();
 
     const brand = this.clean(query.brand);
     if (brand) {
@@ -118,6 +152,7 @@ export class CatalogService {
 
     if (query.minPrice !== undefined || query.maxPrice !== undefined) {
       where.retailPrice = {
+        gt: 0,
         ...(query.minPrice !== undefined ? { gte: query.minPrice } : {}),
         ...(query.maxPrice !== undefined ? { lte: query.maxPrice } : {}),
       };
@@ -199,10 +234,7 @@ export class CatalogService {
     const watch = await this.prisma.watch.findFirst({
       where: {
         slug,
-        isActive: true,
-        isPublished: true,
-        deletedAt: null,
-        stock: { gt: 0 },
+        ...this.publicCatalogWhere(),
       },
       include: {
         brand: true,
@@ -236,10 +268,7 @@ export class CatalogService {
     const watches = await this.prisma.watch.findMany({
       where: {
         id: { in: ids },
-        isActive: true,
-        isPublished: true,
-        deletedAt: null,
-        stock: { gt: 0 },
+        ...this.publicCatalogWhere(),
       },
       include: {
         brand: true,
@@ -256,45 +285,13 @@ export class CatalogService {
 
   async findNewArrivals(limit = 8) {
     const watches = await this.prisma.watch.findMany({
-      where: {
-        isActive: true,
-        isPublished: true,
-        deletedAt: null,
-        stock: { gt: 0 },
-      },
+      where: this.publicCatalogWhere(),
       include: { brand: true, category: true },
       orderBy: { createdAt: 'desc' },
       take: limit,
     });
 
     return watches.map((w) => this.mapPublicWatch(w));
-  }
-
-  async findFeatured(limit = 12) {
-    const watches = await this.prisma.watch.findMany({
-      where: {
-        isActive: true,
-        isPublished: true,
-        showInCatalog: true,
-        deletedAt: null,
-        stock: { gt: 0 },
-      },
-      include: {
-        brand: true,
-        category: true,
-        warrantyTemplate: true,
-        careTemplate: true,
-      },
-      orderBy: { updatedAt: 'desc' },
-      take: limit,
-    });
-
-    return watches.map((w) => this.mapPublicWatch(w));
-  }
-
-  async findHeroSpotlight(limit = 6) {
-    // Solo mostrar los seleccionados manualmente (showInCatalog: true)
-    return this.findFeatured(limit);
   }
 
   async listWholesale(query: CatalogQueryDto) {
@@ -332,10 +329,7 @@ export class CatalogService {
     const watch = await this.prisma.watch.findFirst({
       where: {
         slug,
-        isActive: true,
-        isPublished: true,
-        deletedAt: null,
-        stock: { gt: 0 },
+        ...this.publicCatalogWhere(),
       },
       include: {
         brand: true,

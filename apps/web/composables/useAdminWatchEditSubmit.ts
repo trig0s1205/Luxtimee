@@ -29,7 +29,6 @@ export type AdminWatchFormPayload = {
   primaryImageFile?: File | null;
   secondaryImageFile?: File | null;
   videoFile?: File | null;
-  showInCatalog?: boolean;
 };
 
 export function useAdminWatchEditSubmit() {
@@ -76,7 +75,6 @@ export function useAdminWatchEditSubmit() {
       images: form.images,
       mainImageIndex: form.mainImageIndex,
       careTemplateId: form.careTemplateId || '',
-      showInCatalog: !!form.showInCatalog,
     };
 
     if (auth.isSuperAdmin && form.cost !== undefined) {

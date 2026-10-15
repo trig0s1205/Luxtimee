@@ -27,14 +27,9 @@ import { normalizeFaqItems } from '../common/utils/faq.util';
 import {
   getMissingCostFields,
   getMissingGeneralFields,
-  isWatchDraft,
   isWatchCatalogReady,
   type WatchPendingShape,
 } from './utils/watch-pending.util';
-
-const MAX_CATALOG_FEATURED = 6;
-const CATALOG_LIMIT_MESSAGE =
-  'Límite alcanzado: Solo se permite mostrar un máximo de 6 relojes en el catálogo principal.';
 
 const DRAFT_WATCH_MODEL = 'Pendiente de completar';
 
@@ -72,22 +67,6 @@ export class WatchesService {
 
   async findOne(id: string) {
     return this.watchesRepository.findById(id);
-  }
-
-  async countFeatured(excludeId?: string) {
-    const count = await this.watchesRepository.countShowInCatalog(excludeId);
-    return { count, max: MAX_CATALOG_FEATURED };
-  }
-
-  private async assertCatalogFeaturedLimit(
-    showInCatalog: boolean,
-    excludeId?: string,
-  ) {
-    if (!showInCatalog) return;
-    const count = await this.watchesRepository.countShowInCatalog(excludeId);
-    if (count >= MAX_CATALOG_FEATURED) {
-      throw new BadRequestException(CATALOG_LIMIT_MESSAGE);
-    }
   }
 
   private async applyGlobalCommission(
@@ -155,6 +134,8 @@ export class WatchesService {
       isPublished: existing.isPublished,
       categoryId,
       gender: (data.gender as string | null | undefined) ?? existing.gender,
+      description:
+        (data.description as string | null | undefined) ?? existing.description,
       movementType:
         (data.movementType as string | undefined) ?? existing.movementType,
       mechanismId,
@@ -174,6 +155,16 @@ export class WatchesService {
         (data.videoUrl as string | null | undefined) ?? existing.videoUrl,
       images: (data.images as string[] | undefined) ?? existing.images,
     };
+  }
+
+  private applyCatalogVisibility(
+    existing: Awaited<ReturnType<WatchesRepository['findById']>>,
+    data: Prisma.WatchUpdateInput,
+    dto?: UpdateWatchDto | null,
+  ) {
+    const merged = this.mergePendingShape(existing, data, dto);
+    if (isWatchCatalogReady(merged)) return;
+    data.isPublished = false;
   }
 
   private maybeAutoPublishDraft(
@@ -203,7 +194,6 @@ export class WatchesService {
     let wholesalePrice = dto.wholesalePrice;
     let stock = dto.stock;
     let isPublished = dto.isPublished;
-    let showInCatalog = dto.showInCatalog;
 
     if (imagesOnly) {
       brandId = brandId || (await this.watchesRepository.findFirstBrandId());
@@ -217,7 +207,6 @@ export class WatchesService {
       wholesalePrice = wholesalePrice ?? 0;
       stock = stock ?? 0;
       isPublished = false;
-      showInCatalog = false;
     }
 
     if (!(await this.watchesRepository.brandExists(brandId!))) {
@@ -243,9 +232,20 @@ export class WatchesService {
     const slugBase = slugify(`${model}-${Date.now()}`);
     const uniqueSlug = await this.ensureUniqueSlug(slugBase);
 
-    const resolvedShowInCatalog = showInCatalog ?? false;
-    await this.assertCatalogFeaturedLimit(resolvedShowInCatalog);
-
+    const catalogReady = isWatchCatalogReady({
+      model: model!,
+      retailPrice: retailPrice!,
+      wholesalePrice: wholesalePrice!,
+      stock: stock!,
+      isPublished: false,
+      categoryId: dto.categoryId,
+      gender: dto.gender,
+      description: dto.description,
+      movementType: dto.movementType ?? 'Automático',
+      mechanismId: dto.mechanismId,
+      images: dto.images ?? [],
+      videoUrl: null,
+    });
     const data: Prisma.WatchCreateInput = {
       sku,
       brand: { connect: { id: brandId! } },
@@ -270,8 +270,7 @@ export class WatchesService {
       stock: stock!,
       status: stock! > 0 ? 'DISPONIBLE' : 'AGOTADO',
       isActive: dto.isActive ?? true,
-      isPublished: imagesOnly ? false : (isPublished ?? true),
-      showInCatalog: resolvedShowInCatalog,
+      isPublished: imagesOnly || !catalogReady ? false : (isPublished ?? true),
       isLimitedEdition: dto.isLimitedEdition ?? false,
       limitedEditionNumber: dto.limitedEditionNumber,
       description: dto.description,
@@ -327,10 +326,6 @@ export class WatchesService {
       throw new BadRequestException('La clase seleccionada no existe');
     }
 
-    if (dto.showInCatalog === true) {
-      await this.assertCatalogFeaturedLimit(true, id);
-    }
-
     const data: Prisma.WatchUpdateInput = {};
     if (dto.brandId) data.brand = { connect: { id: dto.brandId } };
     if (dto.categoryId !== undefined) {
@@ -381,7 +376,6 @@ export class WatchesService {
     }
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
     if (dto.isPublished !== undefined) data.isPublished = dto.isPublished;
-    if (dto.showInCatalog !== undefined) data.showInCatalog = dto.showInCatalog;
     if (dto.isLimitedEdition !== undefined)
       data.isLimitedEdition = dto.isLimitedEdition;
     if (dto.limitedEditionNumber !== undefined)
@@ -437,6 +431,7 @@ export class WatchesService {
     }
 
     this.maybeAutoPublishDraft(existing, data, dto);
+    this.applyCatalogVisibility(existing, data, dto);
 
     const watch = await this.watchesRepository.update(id, data);
     this.logger.log(`[watches:update] ${watch.id} sku=${watch.sku}`);
@@ -454,7 +449,6 @@ export class WatchesService {
     const watches = await this.watchesRepository.findAllForPendingReview();
 
     const items = watches
-      .filter((watch) => !isWatchDraft(watch))
       .map((watch) => {
         const missing =
           section === 'cost'
@@ -651,6 +645,7 @@ export class WatchesService {
     }
 
     this.maybeAutoPublishDraft(existing, data, null);
+    this.applyCatalogVisibility(existing, data, null);
 
     const updated = await this.watchesRepository.update(id, data);
     this.cache.invalidateTag(CACHE_TAGS.catalog);

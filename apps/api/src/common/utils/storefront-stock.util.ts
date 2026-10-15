@@ -6,6 +6,5 @@ export function storefrontHideWhenEmpty(stock: number) {
   return {
     stock: 0,
     status: WatchStatus.AGOTADO,
-    showInCatalog: false,
   };
 }

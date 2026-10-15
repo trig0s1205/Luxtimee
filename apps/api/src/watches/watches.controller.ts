@@ -115,11 +115,6 @@ export class WatchesController {
     return this.watchesService.findAll(query);
   }
 
-  @Get('featured/count')
-  countFeatured(@Query('excludeId') excludeId?: string) {
-    return this.watchesService.countFeatured(excludeId);
-  }
-
   @Get('pending-cost')
   @Roles(Role.SUPER_ADMIN)
   findPendingCost(
