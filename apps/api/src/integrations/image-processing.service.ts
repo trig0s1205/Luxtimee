@@ -307,6 +307,7 @@ export class ImageProcessingService {
     buffer: Buffer,
     publicId: string,
     folder?: string,
+    extra: Record<string, unknown> = {},
   ): Promise<string> {
     if (this.config.get('USE_MOCKS') === 'true') {
       return `https://res.cloudinary.com/mock/image/upload/${publicId}.webp`;
@@ -324,6 +325,7 @@ export class ImageProcessingService {
               public_id: publicId,
               resource_type: 'image',
               format: 'webp',
+              ...extra,
             },
             (error, uploadResult) => {
               if (error || !uploadResult)
@@ -387,6 +389,7 @@ export class ImageProcessingService {
       file.buffer,
       `${prefix}-${randomUUID()}`,
       this.homepageFolder(),
+      { quality: 95 },
     );
   }
 

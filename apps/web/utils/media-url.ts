@@ -73,17 +73,18 @@ export function optimizeCloudinaryImageUrl(url?: string | null, width = 800): st
   return url.replace('/image/upload/', `/image/upload/${transform}/`);
 }
 
-/** Banner inicio: ancho máximo sin recortar (altura = proporción real del arte). */
-export function optimizeCloudinaryHeroBannerUrl(url?: string | null, width = 3840): string | undefined {
+/** Banner inicio: misma proporción, calidad alta, sin recortar ni agrandar. */
+export function optimizeCloudinaryHeroBannerUrl(url?: string | null, width = 1920): string | undefined {
   if (!url) return undefined;
   if (!url.includes('res.cloudinary.com') || !url.includes('/image/upload/')) return url;
-  const transform = `f_auto,q_auto:best,w_${width},c_limit`;
+  const capped = Math.min(Math.max(width, 640), 2560);
+  const transform = `f_auto,q_95,w_${capped},c_limit`;
   return cloudinaryImageUploadWithTransform(url, transform);
 }
 
 export function optimizeCloudinaryHeroBannerSrcSet(
   url?: string | null,
-  widths: number[] = [1600, 2400, 3200, 3840],
+  widths: number[] = [960, 1280, 1600, 1920],
 ): string | undefined {
   if (!url) return undefined;
   const parts = widths

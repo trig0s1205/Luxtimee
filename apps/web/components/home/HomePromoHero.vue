@@ -25,8 +25,8 @@ const intervalMs = computed(() => {
   return Math.min(60, Math.max(3, sec)) * 1000;
 });
 
-const bannerWidth = ref(2560);
-const mobileBannerWidth = 1400;
+const bannerWidth = ref(1920);
+const mobileBannerWidth = 1080;
 
 type ResolvedHeroSlide = {
   key: string;
@@ -58,7 +58,7 @@ const resolvedSlides = computed((): ResolvedHeroSlide[] => {
         ? optimizeCloudinaryHeroBannerUrl(mobileUrl, mobileBannerWidth) ?? mobileUrl
         : undefined,
       mobileSrcSet: mobileUrl
-        ? optimizeCloudinaryHeroBannerSrcSet(mobileUrl, [640, 960, 1200, 1400])
+        ? optimizeCloudinaryHeroBannerSrcSet(mobileUrl, [640, 768, 960, 1080])
         : undefined,
     });
   }
@@ -124,7 +124,7 @@ watch(intervalMs, () => startRotation());
 onMounted(() => {
   if (import.meta.client) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    bannerWidth.value = Math.min(4000, Math.max(1920, Math.round(window.innerWidth * dpr)));
+    bannerWidth.value = Math.min(1920, Math.max(960, Math.round(window.innerWidth * dpr)));
     nextTick(() => {
       measureStage();
       if (stageRef.value && typeof ResizeObserver !== 'undefined') {
