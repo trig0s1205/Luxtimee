@@ -97,6 +97,16 @@ function thumbUrl(item: PendingWatchItemDto) {
   return w.primaryImageUrl || w.frontImageUrl || w.images?.[0] || '';
 }
 
+const lightboxSrc = ref<string | null>(null);
+
+function openLightbox(src: string) {
+  lightboxSrc.value = src;
+}
+
+function closeLightbox() {
+  lightboxSrc.value = null;
+}
+
 async function openEdit(item: PendingWatchItemDto) {
   submitError.value = '';
   try {
@@ -204,12 +214,19 @@ useSeoMeta({ title: 'Pendientes de info — LUXTIMEE Admin' });
         <tbody>
           <tr v-for="item in items" :key="item.watch.id">
             <td>
-              <img
+              <button
                 v-if="thumbUrl(item)"
-                :src="thumbUrl(item)"
-                :alt="item.watch.model"
-                class="pending-info-thumb"
+                type="button"
+                class="pending-info-thumb-btn"
+                title="Ver imagen"
+                @click="openLightbox(thumbUrl(item))"
               >
+                <img
+                  :src="thumbUrl(item)"
+                  :alt="item.watch.model"
+                  class="pending-info-thumb"
+                >
+              </button>
               <span v-else class="pending-info-no-thumb">—</span>
             </td>
             <td>
@@ -242,12 +259,20 @@ useSeoMeta({ title: 'Pendientes de info — LUXTIMEE Admin' });
         <tbody>
           <tr v-for="item in items" :key="item.watch.id">
             <td>
-              <img
+              <button
                 v-if="thumbUrl(item)"
-                :src="thumbUrl(item)"
-                :alt="item.watch.model"
-                class="pending-info-thumb"
+                type="button"
+                class="pending-info-thumb-btn"
+                title="Ver imagen"
+                @click="openLightbox(thumbUrl(item))"
               >
+                <img
+                  :src="thumbUrl(item)"
+                  :alt="item.watch.model"
+                  class="pending-info-thumb"
+                >
+              </button>
+              <span v-else class="pending-info-no-thumb">—</span>
             </td>
             <td>
               <strong>{{ item.watch.brand?.name }} {{ item.watch.model }}</strong>
@@ -308,6 +333,19 @@ useSeoMeta({ title: 'Pendientes de info — LUXTIMEE Admin' });
         </div>
       </div>
     </Teleport>
+
+    <div
+      v-if="lightboxSrc"
+      class="pending-info-lightbox"
+      role="dialog"
+      aria-modal="true"
+      @click.self="closeLightbox"
+    >
+      <button type="button" class="pending-info-lightbox-close" aria-label="Cerrar" @click="closeLightbox">
+        ×
+      </button>
+      <img :src="lightboxSrc" alt="Vista previa del reloj" class="pending-info-lightbox-img">
+    </div>
   </div>
 </template>
 
@@ -374,11 +412,48 @@ useSeoMeta({ title: 'Pendientes de info — LUXTIMEE Admin' });
   color: var(--lux-white-dim);
 }
 
+.pending-info-thumb-btn {
+  padding: 0;
+  border: 1px solid rgba(200, 169, 110, 0.15);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: zoom-in;
+}
+
 .pending-info-thumb {
+  display: block;
   width: 56px;
   height: 84px;
   object-fit: contain;
-  background: rgba(255, 255, 255, 0.03);
+}
+
+.pending-info-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.88);
+}
+
+.pending-info-lightbox-img {
+  max-width: min(90vw, 560px);
+  max-height: 85vh;
+  object-fit: contain;
+}
+
+.pending-info-lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(200, 169, 110, 0.3);
+  background: transparent;
+  color: var(--lux-white);
+  font-size: 22px;
+  cursor: pointer;
 }
 
 .pending-info-no-thumb {
