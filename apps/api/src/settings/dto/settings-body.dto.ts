@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  IsArray,
   IsEmail,
   IsNumber,
   IsObject,
@@ -101,7 +102,7 @@ export class SetHomepageConfigBodyDto {
   branding?: Record<string, unknown>;
 
   @IsOptional()
-  isArray?: unknown;
+  @IsArray()
   landingAds?: unknown[];
 }
 

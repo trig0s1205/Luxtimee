@@ -448,10 +448,20 @@ async function clearNavLogo() {
   }
 }
 
+const LANDING_AD_TYPES = ['spotlight', 'editorial', 'story'] as const;
+const LANDING_AD_LABELS = ['Spotlight', 'Editorial', 'Story'] as const;
+
+function landingAdsPayload() {
+  return home.landingAds.map((ad, i) => ({
+    ...ad,
+    type: LANDING_AD_TYPES[i] ?? ad.type,
+  }));
+}
+
 async function saveAds() {
   savingIndexSection.value = 'ads';
   try {
-    const res = await api.patch<HomepageConfigDto>('/settings/homepage', { landingAds: home.landingAds });
+    const res = await api.patch<HomepageConfigDto>('/settings/homepage', { landingAds: landingAdsPayload() });
     if (Array.isArray(res?.landingAds)) {
       res.landingAds.forEach((ad: HomepageConfigDto['landingAds'][number], i: number) => {
         if (home.landingAds[i] && ad) Object.assign(home.landingAds[i], ad);
@@ -475,7 +485,8 @@ async function onAdImageFileChange(event: Event, slot: 0 | 1 | 2) {
   try {
     const url = await uploadHomepageImages(`/settings/homepage/upload-landing-ad/${slot}`, file);
     home.landingAds[slot].imageUrl = url;
-    await api.patch('/settings/homepage', { landingAds: home.landingAds });
+    home.landingAds[slot].type = LANDING_AD_TYPES[slot];
+    await api.patch('/settings/homepage', { landingAds: landingAdsPayload() });
     invalidateClientCache(HOME_CMS_ASYNC_KEY);
     toast.success('Imagen de publicidad guardada.');
   } catch (err: unknown) {
@@ -492,7 +503,8 @@ async function clearAdImage(slot: 0 | 1 | 2) {
   try {
     await api.del(`/settings/homepage/founder-image?url=${encodeURIComponent(prev)}`).catch(() => null);
     home.landingAds[slot].imageUrl = '';
-    await api.patch('/settings/homepage', { landingAds: home.landingAds });
+    home.landingAds[slot].type = LANDING_AD_TYPES[slot];
+    await api.patch('/settings/homepage', { landingAds: landingAdsPayload() });
     invalidateClientCache(HOME_CMS_ASYNC_KEY);
     toast.success('Imagen quitada.');
   } catch (err: unknown) {
@@ -1380,49 +1392,65 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
       </section>
 
       <section v-else-if="indexSubTab === 'ads'" class="admin-config-card">
-        <h3>Publicidad de entrada</h3>
-        <p class="admin-config-hint">Se muestran al cargar el inicio directamente (Google, enlace directo). Hasta 3 anuncios con diseños distintos. Activa solo los que quieras mostrar.</p>
+        <div class="admin-card-head">
+          <h2>Publicidad al entrar</h2>
+        </div>
+        <p class="admin-config-hint">
+          Se muestra al abrir el inicio desde Google o un enlace directo. Tres diseños fijos. Activa solo los que quieras mostrar. JPG, PNG o WEBP.
+        </p>
 
         <div
           v-for="(ad, i) in home.landingAds"
           :key="i"
-          class="admin-landing-ad-slot"
+          class="admin-ad-block"
         >
-          <h4 class="admin-landing-ad-slot__title">
-            Anuncio {{ i + 1 }}
-            <span class="admin-landing-ad-slot__type">{{ ad.type }}</span>
-          </h4>
-          <div class="admin-landing-ad-slot__toggle">
-            <input :id="`ad-enabled-${i}`" v-model="ad.enabled" type="checkbox" />
-            <label :for="`ad-enabled-${i}`">Activo</label>
+          <div class="admin-card-head">
+            <span class="admin-carousel-slot-label">{{ LANDING_AD_LABELS[i] }}</span>
+            <label class="admin-toggle-label">
+              <input v-model="ad.enabled" type="checkbox" />
+              Activo
+            </label>
+          </div>
+          <div class="admin-carousel-slot admin-carousel-slot--logo">
+            <div class="admin-carousel-slot-preview admin-carousel-slot-preview--wide">
+              <img
+                v-if="ad.imageUrl"
+                :src="resolveMedia(ad.imageUrl)"
+                :alt="LANDING_AD_LABELS[i]"
+              >
+              <span v-else class="admin-carousel-slot-empty">Sin imagen</span>
+            </div>
+            <div class="admin-carousel-slot-actions">
+              <label class="admin-file-btn">
+                {{ uploadingAd === i ? 'Subiendo...' : ad.imageUrl ? 'Cambiar' : 'Subir' }}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  :disabled="uploadingAd !== null"
+                  @change="onAdImageFileChange($event, i as 0 | 1 | 2)"
+                >
+              </label>
+              <button
+                v-if="ad.imageUrl"
+                type="button"
+                class="admin-icon-btn"
+                aria-label="Quitar imagen"
+                :disabled="uploadingAd !== null"
+                @click="clearAdImage(i as 0 | 1 | 2)"
+              >
+                ✕
+              </button>
+            </div>
           </div>
           <div class="admin-config-fields">
-            <label><span>Tipo</span>
-              <select v-model="ad.type" class="admin-select">
-                <option value="spotlight">spotlight</option>
-                <option value="editorial">editorial</option>
-                <option value="story">story</option>
-              </select>
-            </label>
-            <label><span>Eyebrow (subtítulo pequeño)</span><UiLuxInput v-model="ad.eyebrow" /></label>
+            <label><span>Texto superior</span><UiLuxInput v-model="ad.eyebrow" /></label>
             <label><span>Título</span><UiLuxInput v-model="ad.title" /></label>
             <label>
-              <span>Cuerpo</span>
+              <span>Texto</span>
               <textarea v-model="ad.body" class="admin-textarea" rows="2" />
             </label>
-            <label><span>CTA texto</span><UiLuxInput v-model="ad.ctaText" /></label>
-            <label><span>CTA enlace</span><UiLuxInput v-model="ad.ctaLink" /></label>
-          </div>
-
-          <div class="admin-carousel-slot admin-carousel-slot--ad">
-            <div v-if="ad.imageUrl" class="admin-carousel-slot-preview">
-              <img :src="ad.imageUrl" alt="Imagen del anuncio" />
-              <button type="button" class="admin-slot-remove" :disabled="uploadingAd === i" @click="clearAdImage(i as 0|1|2)">✕</button>
-            </div>
-            <label v-else class="admin-slot-upload" :class="{ 'admin-slot-upload--loading': uploadingAd === i }">
-              <span>{{ uploadingAd === i ? 'Subiendo…' : '+ Imagen del anuncio' }}</span>
-              <input type="file" accept="image/jpeg,image/png,image/webp" :disabled="uploadingAd !== null" @change="onAdImageFileChange($event, i as 0|1|2)" />
-            </label>
+            <label><span>Botón</span><UiLuxInput v-model="ad.ctaText" /></label>
+            <label><span>Enlace</span><UiLuxInput v-model="ad.ctaLink" /></label>
           </div>
         </div>
 
@@ -1870,51 +1898,14 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
   }
 }
 
-.admin-landing-ad-slot {
-  border: 1px solid var(--border-light, #2a2a2a);
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
+.admin-ad-block {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(200, 169, 110, 0.15);
 }
 
-.admin-landing-ad-slot__title {
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0 0 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.admin-landing-ad-slot__type {
-  font-size: 0.75rem;
-  font-weight: 400;
-  opacity: 0.5;
-  text-transform: none;
-}
-
-.admin-landing-ad-slot__toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
-.admin-carousel-slot--ad {
-  max-width: 420px;
-  margin-top: 8px;
-}
-
-.admin-select {
-  background: var(--bg-secondary, #111);
-  color: var(--text-primary, #fff);
-  border: 1px solid var(--border-light, #2a2a2a);
-  border-radius: 4px;
-  padding: 6px 10px;
-  font-size: 0.875rem;
-  width: 100%;
+.admin-ad-block .admin-config-fields {
+  margin-top: 14px;
 }
 </style>
 
