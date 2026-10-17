@@ -3,11 +3,13 @@ import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { ImageProcessingService } from '../integrations/image-processing.service';
+import { assertLogoBuffer } from '../common/utils/file-magic.util';
 import type {
   CommissionConfigDto,
   CommissionUpdateResultDto,
   HomepageConfigDto,
   HomepageHeroConfig,
+  LandingAd,
   LegalDocumentsDto,
   PlatformConfigDto,
   ProfitConfigDto,
@@ -41,6 +43,27 @@ function normalizeHeroConfig(raw?: Parameters<typeof normalizeHeroSlides>[0]): H
       Number.isFinite(interval) && interval >= 3 && interval <= 60 ? interval : 8,
     slides,
   };
+}
+
+function normalizeLandingAds(raw: unknown): [LandingAd, LandingAd, LandingAd] {
+  const base = DEFAULT_HOMEPAGE_CONFIG.landingAds;
+  const arr = Array.isArray(raw) ? (raw as unknown[]) : [];
+  return ([0, 1, 2] as const).map((i) => {
+    const item = arr[i];
+    const def = base[i];
+    if (!item || typeof item !== 'object') return { ...def };
+    const r = item as Record<string, unknown>;
+    return {
+      enabled: typeof r.enabled === 'boolean' ? r.enabled : def.enabled,
+      type: (r.type === 'spotlight' || r.type === 'editorial' || r.type === 'story') ? r.type : def.type,
+      eyebrow: typeof r.eyebrow === 'string' ? r.eyebrow : def.eyebrow,
+      title: typeof r.title === 'string' ? r.title : def.title,
+      body: typeof r.body === 'string' ? r.body : def.body,
+      imageUrl: typeof r.imageUrl === 'string' ? r.imageUrl : def.imageUrl,
+      ctaText: typeof r.ctaText === 'string' ? r.ctaText : def.ctaText,
+      ctaLink: typeof r.ctaLink === 'string' ? r.ctaLink : def.ctaLink,
+    } satisfies LandingAd;
+  }) as [LandingAd, LandingAd, LandingAd];
 }
 
 const PUBLIC_SETTING_KEYS = new Set([
@@ -116,6 +139,11 @@ const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
   branding: {
     navLogoUrl: '',
   },
+  landingAds: [
+    { enabled: false, type: 'spotlight', eyebrow: '', title: '', body: '', imageUrl: '', ctaText: 'Ver catálogo', ctaLink: '/catalogo' },
+    { enabled: false, type: 'editorial', eyebrow: '', title: '', body: '', imageUrl: '', ctaText: 'Ver catálogo', ctaLink: '/catalogo' },
+    { enabled: false, type: 'story',     eyebrow: '', title: '', body: '', imageUrl: '', ctaText: 'Ver catálogo', ctaLink: '/catalogo' },
+  ] as [LandingAd, LandingAd, LandingAd],
 };
 
 @Injectable()
@@ -269,6 +297,7 @@ export class SettingsService {
       statement?: Record<string, unknown>;
       contact?: HomepageConfigDto['contact'];
       branding?: HomepageConfigDto['branding'];
+      landingAds?: unknown[];
     }>(HOMEPAGE_KEY, {});
 
     const rawFounder: LegacyFounder = stored.founder ?? {};
@@ -344,6 +373,7 @@ export class SettingsService {
         ...(stored.branding ?? {}),
         navLogoUrl: String(stored.branding?.navLogoUrl ?? '').trim(),
       },
+      landingAds: normalizeLandingAds(stored.landingAds),
     };
   }
 
@@ -392,6 +422,9 @@ export class SettingsService {
             ).trim(),
           }
         : current.branding,
+      landingAds: patch.landingAds
+        ? normalizeLandingAds(patch.landingAds)
+        : current.landingAds,
     };
 
     if (patch.founder) {
@@ -427,7 +460,11 @@ export class SettingsService {
   }
 
   async uploadNavLogo(file: Express.Multer.File): Promise<{ url: string }> {
-    const url = await this.imageProcessing.uploadHomepageImage(file, 'nav-logo');
+    const mime = assertLogoBuffer(file.buffer, file.mimetype);
+    const url =
+      mime === 'image/svg+xml'
+        ? await this.imageProcessing.uploadHomepageSvg(file, 'nav-logo')
+        : await this.imageProcessing.uploadHomepageImage(file, 'nav-logo');
     return { url };
   }
 
@@ -435,6 +472,17 @@ export class SettingsService {
     file: Express.Multer.File,
   ): Promise<{ url: string }> {
     const url = await this.imageProcessing.uploadHomepageImage(file, 'proof');
+    return { url };
+  }
+
+  async uploadLandingAdImage(
+    file: Express.Multer.File,
+    slot: 0 | 1 | 2,
+  ): Promise<{ url: string }> {
+    const url = await this.imageProcessing.uploadHomepageImage(
+      file,
+      `landing-ad-${slot}` as 'landing-ad-0' | 'landing-ad-1' | 'landing-ad-2',
+    );
     return { url };
   }
 

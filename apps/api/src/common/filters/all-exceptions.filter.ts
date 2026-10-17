@@ -30,6 +30,19 @@ function extractHttpMessage(response: string | object): string | string[] {
   return 'Error en la solicitud';
 }
 
+function multerUploadMessage(exception: unknown): string | null {
+  if (!exception || typeof exception !== 'object') return null;
+  const named = exception as { name?: string; code?: string };
+  if (named.name !== 'MulterError') return null;
+  if (named.code === 'LIMIT_FILE_SIZE') {
+    return 'El archivo pesa demasiado.';
+  }
+  if (named.code === 'LIMIT_FILE_COUNT' || named.code === 'LIMIT_UNEXPECTED_FILE') {
+    return 'Se enviaron más archivos de los permitidos.';
+  }
+  return 'No se pudo recibir el archivo.';
+}
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
@@ -37,7 +50,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const isProd = process.env.NODE_ENV === 'production';
+
+    const uploadMessage = multerUploadMessage(exception);
+    if (uploadMessage) {
+      this.logger.warn('upload_rejected reason=request');
+      response.status(HttpStatus.BAD_REQUEST).json({
+        statusCode: HttpStatus.BAD_REQUEST,
+        message: uploadMessage,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
 
     const isPrisma =
       exception instanceof Prisma.PrismaClientKnownRequestError ||
@@ -52,11 +75,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let message: string | string[] =
       exception instanceof HttpException
         ? extractHttpMessage(exception.getResponse())
-        : isProd
-          ? 'Error interno del servidor'
-          : exception instanceof Error
-            ? exception.message
-            : 'Error interno del servidor';
+        : 'Error interno del servidor';
 
     const preserveUpstream =
       exception instanceof HttpException &&
@@ -64,16 +83,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
         status === HttpStatus.SERVICE_UNAVAILABLE ||
         status === HttpStatus.GATEWAY_TIMEOUT);
 
-    if (isProd && isPrisma) {
-      this.logger.error(exception);
+    if (status >= 500) {
+      this.logger.error(
+        `request_failed status=${status} type=${exception instanceof Error ? exception.name : 'unknown'}`,
+      );
+    }
+
+    if (isPrisma || (status >= 500 && !preserveUpstream)) {
       status = HttpStatus.INTERNAL_SERVER_ERROR;
       message = 'Error interno del servidor';
-    } else if (isProd && status >= 500 && !preserveUpstream) {
-      this.logger.error(exception);
-      status = HttpStatus.INTERNAL_SERVER_ERROR;
-      message = 'Error interno del servidor';
-    } else if (status >= 500) {
-      this.logger.error(exception);
     }
 
     response.status(status).json({

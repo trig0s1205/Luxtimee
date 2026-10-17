@@ -15,7 +15,10 @@ function isGenericContentType(mime?: string) {
 const IMAGE_JPEG = Buffer.from([0xff, 0xd8, 0xff]);
 const IMAGE_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_SVG_BYTES = 512 * 1024;
 const MAX_VIDEO_BYTES = MAX_VIDEO_INPUT_BYTES;
+const SVG_UNSAFE =
+  /<\s*(script|foreignObject|iframe|embed|object|link|meta)\b|<!DOCTYPE|<!ENTITY|javascript:|data:\s*text\/html|\son[a-z]+\s*=|(?:href|xlink:href)\s*=\s*["'](?!#)/i;
 
 export type MediaKind = 'image' | 'video';
 
@@ -55,17 +58,53 @@ export function detectVideoMime(
   return null;
 }
 
+function looksLikeSvg(buffer: Buffer): boolean {
+  if (!buffer.length || buffer.includes(0)) return false;
+  const head = buffer.subarray(0, Math.min(buffer.length, 800)).toString('utf8').trim();
+  return /^<\?xml[\s>]/i.test(head) || /^<svg[\s>]/i.test(head);
+}
+
+export function assertLogoBuffer(
+  buffer: Buffer,
+  declaredMime?: string,
+): 'image/jpeg' | 'image/png' | 'image/webp' | 'image/svg+xml' {
+  if (!buffer?.length) {
+    throw new BadRequestException('El archivo está vacío.');
+  }
+  if (!looksLikeSvg(buffer)) {
+    return assertImageBuffer(buffer, declaredMime);
+  }
+  if (buffer.length > MAX_SVG_BYTES) {
+    throw new BadRequestException('El SVG pesa demasiado. Máximo 512 KB.');
+  }
+  const text = buffer.toString('utf8');
+  if (!/<svg[\s>]/i.test(text) || SVG_UNSAFE.test(text) || /https?:\/\//i.test(text)) {
+    throw new BadRequestException(
+      'El SVG está dañado o incluye contenido no permitido.',
+    );
+  }
+  if (declaredMime && !isGenericContentType(declaredMime)) {
+    const allowed = ['image/svg+xml', 'text/xml', 'application/xml', 'text/plain'];
+    if (!allowed.includes(declaredMime.toLowerCase())) {
+      throw new BadRequestException(
+        'El tipo del archivo no coincide con su contenido.',
+      );
+    }
+  }
+  return 'image/svg+xml';
+}
+
 export function assertImageBuffer(buffer: Buffer, declaredMime?: string) {
   if (!buffer?.length) {
-    throw new BadRequestException('Imagen vacía');
+    throw new BadRequestException('El archivo está vacío.');
   }
   if (buffer.length > MAX_IMAGE_BYTES) {
-    throw new BadRequestException('La imagen supera el tamaño máximo de 10MB');
+    throw new BadRequestException('El archivo pesa demasiado. Máximo 10 MB.');
   }
   const detected = detectImageMime(buffer);
   if (!detected) {
     throw new BadRequestException(
-      'El archivo no es una imagen JPEG, PNG o WEBP válida',
+      'El archivo no es un JPG, PNG o WEBP válido. Puede estar dañado o ser otro tipo.',
     );
   }
   if (declaredMime && !isGenericContentType(declaredMime)) {
@@ -77,7 +116,7 @@ export function assertImageBuffer(buffer: Buffer, declaredMime?: string) {
     ) {
       if (normalized !== detected) {
         throw new BadRequestException(
-          'El tipo MIME de la imagen no coincide con su contenido',
+          'El tipo del archivo no coincide con su contenido.',
         );
       }
     }
@@ -129,4 +168,4 @@ export function assertMediaFile(file: Express.Multer.File, kind: MediaKind) {
   return assertVideoBuffer(file.buffer, file.mimetype);
 }
 
-export { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES };
+export { MAX_IMAGE_BYTES, MAX_SVG_BYTES, MAX_VIDEO_BYTES };

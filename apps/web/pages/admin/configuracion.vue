@@ -58,7 +58,7 @@ const commission = reactive<CommissionConfigDto>({ percent: 5 });
 const home = reactive<HomepageConfigDto>(structuredClone(DEFAULT_HOMEPAGE_CONFIG));
 home.hero.slides = normalizeHeroSlides(home.hero);
 home.customerProof.images = Array.from({ length: 12 }, () => ({ url: '', caption: '' }));
-const indexSubTab = ref<'logo' | 'hero' | 'featured' | 'founder' | 'proof' | 'faq' | 'contact'>('hero');
+const indexSubTab = ref<'logo' | 'hero' | 'featured' | 'founder' | 'proof' | 'faq' | 'contact' | 'ads'>('hero');
 
 const profitSplitTotal = computed(() =>
   Number(profit.reinvestmentPercent || 0) + Number(profit.ownerProfitPercent || 0),
@@ -80,10 +80,12 @@ const savingProfile = ref(false);
 const savingEmail = ref(false);
 const savingPassword = ref(false);
 const savingPlatform = ref(false);
-const savingIndexSection = ref<'logo' | 'hero' | 'founder' | 'featured' | 'proof' | 'faq' | 'contact' | null>(null);
+const savingIndexSection = ref<'logo' | 'hero' | 'founder' | 'featured' | 'proof' | 'faq' | 'contact' | 'ads' | null>(null);
 const uploadingSlot = ref<number | null>(null);
 const uploadingHeroKey = ref<string | null>(null);
 const uploadingLogo = ref(false);
+const logoUploadError = ref('');
+const uploadingAd = ref<number | null>(null);
 
 const carouselFilled = computed(
   () => home.founder.carouselImages.filter((u) => Boolean(u?.trim())).length,
@@ -131,6 +133,11 @@ useAsyncData('admin-config', async () => {
     Object.assign(home.faq, homepageRes.faq);
     Object.assign(home.contact, homepageRes.contact);
     home.branding.navLogoUrl = homepageRes.branding?.navLogoUrl ?? '';
+    if (Array.isArray(homepageRes.landingAds)) {
+      homepageRes.landingAds.forEach((ad, i) => {
+        if (home.landingAds[i] && ad) Object.assign(home.landingAds[i], ad);
+      });
+    }
     home.faq.items = homepageRes.faq?.items?.length
       ? homepageRes.faq.items.map((item) => ({ ...item }))
       : [];
@@ -386,12 +393,31 @@ async function persistNavLogo(url: string, toastMessage: string) {
   toast.success(toastMessage);
 }
 
+function logoFileProblem(file: File): string | null {
+  const name = file.name.toLowerCase();
+  const svg = file.type === 'image/svg+xml' || name.endsWith('.svg');
+  const raster = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'].includes(file.type)
+    || /\.(jpe?g|png|webp)$/.test(name);
+  if (!file.size) return 'El archivo está vacío.';
+  if (!svg && !raster) return 'Tipo no permitido. Usa JPG, PNG, WEBP o SVG.';
+  if (svg && file.size > 512 * 1024) return 'El SVG pesa demasiado. Máximo 512 KB.';
+  if (!svg && file.size > 10 * 1024 * 1024) return 'El archivo pesa demasiado. Máximo 10 MB.';
+  return null;
+}
+
 async function onNavLogoFileChange(event: Event) {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
   input.value = '';
   if (!file) return;
+  const problem = logoFileProblem(file);
+  if (problem) {
+    logoUploadError.value = problem;
+    toast.error(problem);
+    return;
+  }
   uploadingLogo.value = true;
+  logoUploadError.value = '';
   try {
     const prev = home.branding.navLogoUrl;
     const url = await uploadHomepageImages('/settings/homepage/upload-nav-logo', file);
@@ -400,7 +426,9 @@ async function onNavLogoFileChange(event: Event) {
     }
     await persistNavLogo(url, 'Logo de la barra guardado.');
   } catch (err: unknown) {
-    toast.error(extractApiErrorMessage(err, 'Error al subir el logo.'));
+    const message = extractApiErrorMessage(err, 'No se pudo cargar el logo.');
+    logoUploadError.value = message;
+    toast.error(message);
   } finally {
     uploadingLogo.value = false;
   }
@@ -417,6 +445,60 @@ async function clearNavLogo() {
     toast.error(extractApiErrorMessage(err, 'No se pudo quitar el logo.'));
   } finally {
     uploadingLogo.value = false;
+  }
+}
+
+async function saveAds() {
+  savingIndexSection.value = 'ads';
+  try {
+    const res = await api.patch<HomepageConfigDto>('/settings/homepage', { landingAds: home.landingAds });
+    if (Array.isArray(res?.landingAds)) {
+      res.landingAds.forEach((ad: HomepageConfigDto['landingAds'][number], i: number) => {
+        if (home.landingAds[i] && ad) Object.assign(home.landingAds[i], ad);
+      });
+    }
+    invalidateClientCache(HOME_CMS_ASYNC_KEY);
+    toast.success('Publicidades guardadas.');
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo guardar las publicidades.'));
+  } finally {
+    savingIndexSection.value = null;
+  }
+}
+
+async function onAdImageFileChange(event: Event, slot: 0 | 1 | 2) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  uploadingAd.value = slot;
+  try {
+    const url = await uploadHomepageImages(`/settings/homepage/upload-landing-ad/${slot}`, file);
+    home.landingAds[slot].imageUrl = url;
+    await api.patch('/settings/homepage', { landingAds: home.landingAds });
+    invalidateClientCache(HOME_CMS_ASYNC_KEY);
+    toast.success('Imagen de publicidad guardada.');
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo cargar la imagen.'));
+  } finally {
+    uploadingAd.value = null;
+  }
+}
+
+async function clearAdImage(slot: 0 | 1 | 2) {
+  const prev = home.landingAds[slot].imageUrl;
+  if (!prev) return;
+  uploadingAd.value = slot;
+  try {
+    await api.del(`/settings/homepage/founder-image?url=${encodeURIComponent(prev)}`).catch(() => null);
+    home.landingAds[slot].imageUrl = '';
+    await api.patch('/settings/homepage', { landingAds: home.landingAds });
+    invalidateClientCache(HOME_CMS_ASYNC_KEY);
+    toast.success('Imagen quitada.');
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo quitar la imagen.'));
+  } finally {
+    uploadingAd.value = null;
   }
 }
 
@@ -461,8 +543,13 @@ async function uploadHomepageImages(endpoint: string, file: File): Promise<strin
     if (res.status === 401) {
       throw new Error('Tu sesión expiró. Recarga la página e ingresa de nuevo.');
     }
-    const payload = await res.json().catch(() => null) as { message?: string } | null;
-    throw new Error(payload?.message || 'Error al subir la imagen.');
+    const payload = await res.json().catch(() => null) as { message?: unknown } | null;
+    const apiMessage = Array.isArray(payload?.message)
+      ? payload.message.find((item) => typeof item === 'string')
+      : payload?.message;
+    throw new Error(typeof apiMessage === 'string' && apiMessage.trim()
+      ? apiMessage
+      : 'No se pudo cargar el archivo. Puede pesar demasiado, no ser un formato permitido o estar dañado.');
   }
   const data = await res.json() as { urls: string[] };
   const url = data.urls[0];
@@ -818,6 +905,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
             { id: 'proof', label: 'Reseñas visuales' },
             { id: 'faq', label: 'Preguntas frecuentes' },
             { id: 'contact', label: 'Contacto' },
+            { id: 'ads', label: 'Publicidad de entrada' },
           ]"
           :key="tab.id"
           type="button"
@@ -835,7 +923,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
             <h2>Logo de la barra</h2>
           </div>
           <p class="admin-config-hint">
-            Imagen que se muestra arriba a la izquierda en toda la tienda. JPG, PNG o WEBP. Si no hay logo, ese espacio queda vacío.
+            Imagen que se muestra arriba a la izquierda en toda la tienda. JPG, PNG, WEBP o SVG. Si no hay logo, ese espacio queda vacío.
           </p>
           <div class="admin-carousel-slot admin-carousel-slot--logo">
             <div class="admin-carousel-slot-preview admin-carousel-slot-preview--logo">
@@ -851,7 +939,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
                 {{ uploadingLogo ? 'Subiendo...' : home.branding.navLogoUrl ? 'Cambiar' : 'Subir' }}
                 <input
                   type="file"
-                  accept="image/jpeg,image/png,image/webp"
+                  accept="image/jpeg,image/png,image/webp,image/svg+xml,.svg"
                   :disabled="uploadingLogo"
                   @change="onNavLogoFileChange"
                 >
@@ -867,6 +955,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
                 ✕
               </button>
             </div>
+            <p v-if="logoUploadError" class="admin-config-hint admin-config-hint--error">{{ logoUploadError }}</p>
           </div>
         </section>
       </template>
@@ -1289,6 +1378,63 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
           </UiLuxButton>
         </div>
       </section>
+
+      <section v-else-if="indexSubTab === 'ads'" class="admin-config-card">
+        <h3>Publicidad de entrada</h3>
+        <p class="admin-config-hint">Se muestran al cargar el inicio directamente (Google, enlace directo). Hasta 3 anuncios con diseños distintos. Activa solo los que quieras mostrar.</p>
+
+        <div
+          v-for="(ad, i) in home.landingAds"
+          :key="i"
+          class="admin-landing-ad-slot"
+        >
+          <h4 class="admin-landing-ad-slot__title">
+            Anuncio {{ i + 1 }}
+            <span class="admin-landing-ad-slot__type">{{ ad.type }}</span>
+          </h4>
+          <div class="admin-landing-ad-slot__toggle">
+            <input :id="`ad-enabled-${i}`" v-model="ad.enabled" type="checkbox" />
+            <label :for="`ad-enabled-${i}`">Activo</label>
+          </div>
+          <div class="admin-config-fields">
+            <label><span>Tipo</span>
+              <select v-model="ad.type" class="admin-select">
+                <option value="spotlight">spotlight</option>
+                <option value="editorial">editorial</option>
+                <option value="story">story</option>
+              </select>
+            </label>
+            <label><span>Eyebrow (subtítulo pequeño)</span><UiLuxInput v-model="ad.eyebrow" /></label>
+            <label><span>Título</span><UiLuxInput v-model="ad.title" /></label>
+            <label>
+              <span>Cuerpo</span>
+              <textarea v-model="ad.body" class="admin-textarea" rows="2" />
+            </label>
+            <label><span>CTA texto</span><UiLuxInput v-model="ad.ctaText" /></label>
+            <label><span>CTA enlace</span><UiLuxInput v-model="ad.ctaLink" /></label>
+          </div>
+
+          <div class="admin-carousel-slot admin-carousel-slot--ad">
+            <div v-if="ad.imageUrl" class="admin-carousel-slot-preview">
+              <img :src="ad.imageUrl" alt="Imagen del anuncio" />
+              <button type="button" class="admin-slot-remove" :disabled="uploadingAd === i" @click="clearAdImage(i as 0|1|2)">✕</button>
+            </div>
+            <label v-else class="admin-slot-upload" :class="{ 'admin-slot-upload--loading': uploadingAd === i }">
+              <span>{{ uploadingAd === i ? 'Subiendo…' : '+ Imagen del anuncio' }}</span>
+              <input type="file" accept="image/jpeg,image/png,image/webp" :disabled="uploadingAd !== null" @change="onAdImageFileChange($event, i as 0|1|2)" />
+            </label>
+          </div>
+        </div>
+
+        <div class="admin-section-save">
+          <UiLuxButton
+            :disabled="savingIndexSection !== null"
+            @click="saveAds"
+          >
+            {{ savingIndexSection === 'ads' ? 'Guardando...' : 'Guardar publicidades' }}
+          </UiLuxButton>
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -1416,6 +1562,10 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
 
 .admin-config-hint--warn {
   color: #e8c97a;
+}
+
+.admin-config-hint--error {
+  color: #ffb4b4;
 }
 
 .admin-config-links {
@@ -1718,6 +1868,53 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
   .admin-config-fields--grid {
     grid-template-columns: 1fr;
   }
+}
+
+.admin-landing-ad-slot {
+  border: 1px solid var(--border-light, #2a2a2a);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.admin-landing-ad-slot__title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-landing-ad-slot__type {
+  font-size: 0.75rem;
+  font-weight: 400;
+  opacity: 0.5;
+  text-transform: none;
+}
+
+.admin-landing-ad-slot__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.admin-carousel-slot--ad {
+  max-width: 420px;
+  margin-top: 8px;
+}
+
+.admin-select {
+  background: var(--bg-secondary, #111);
+  color: var(--text-primary, #fff);
+  border: 1px solid var(--border-light, #2a2a2a);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 0.875rem;
+  width: 100%;
 }
 </style>
 

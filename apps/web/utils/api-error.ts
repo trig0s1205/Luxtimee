@@ -6,6 +6,8 @@ const TECHNICAL_PATTERNS = [
   /ECONNREFUSED/i,
   /network error/i,
   /\[object Object\]/i,
+  /\b(api[_ -]?key|secret|password|authorization|bearer)\b/i,
+  /[A-Za-z]:\\/,
 ];
 
 function looksTechnical(msg: string): boolean {
@@ -46,9 +48,9 @@ function statusFallback(status: number | undefined, fallback: string): string {
   if (status === 401) return 'Credenciales incorrectas o sesión expirada.';
   if (status === 403) return 'No tienes permiso para realizar esta acción.';
   if (status === 404) return 'Recurso no encontrado.';
-  if (status === 413) return 'Los archivos pesan demasiado para el servidor. Usa fotos más livianas y un video corto (máx. ~25 MB en total).';
+  if (status === 413) return 'El archivo pesa demasiado.';
   if (status === 502 || status === 503 || status === 504) {
-    return fallback || 'No se pudo completar la subida.';
+    return fallback || 'Falló el proceso. Intenta de nuevo.';
   }
   if (status && status >= 500) return fallback || 'Error interno del servidor';
   return fallback;
@@ -67,6 +69,9 @@ export function extractApiErrorMessage(err: unknown, fallback: string): string {
       : ('statusMessage' in err ? (err as { statusMessage: unknown }).statusMessage : null),
   );
   if (statusMessage) return statusMessage;
+
+  const fromError = err instanceof Error ? pickSafeMessage(err.message) : null;
+  if (fromError) return fromError;
 
   const status = readStatus(err) ?? readStatus(data);
   return statusFallback(status, fallback);

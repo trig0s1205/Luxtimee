@@ -73,6 +73,19 @@ export interface HomepageBrandingConfig {
   navLogoUrl: string;
 }
 
+export type LandingAdType = 'spotlight' | 'editorial' | 'story';
+
+export interface LandingAd {
+  enabled: boolean;
+  type: LandingAdType;
+  eyebrow: string;
+  title: string;
+  body: string;
+  imageUrl: string;
+  ctaText: string;
+  ctaLink: string;
+}
+
 export interface HomepageCustomerProofImage {
   url: string;
   caption?: string;
@@ -97,6 +110,8 @@ export interface HomepageConfigDto {
   faq: HomepageFaqConfig;
   contact: HomepageContactConfig;
   branding: HomepageBrandingConfig;
+  /** Exactamente 3 slots: [0]=spotlight, [1]=editorial, [2]=story */
+  landingAds: [LandingAd, LandingAd, LandingAd];
 }
 
 export interface ShippingZoneDto {

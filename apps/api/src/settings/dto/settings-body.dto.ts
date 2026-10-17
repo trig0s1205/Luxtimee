@@ -99,6 +99,10 @@ export class SetHomepageConfigBodyDto {
   @IsOptional()
   @IsObject()
   branding?: Record<string, unknown>;
+
+  @IsOptional()
+  isArray?: unknown;
+  landingAds?: unknown[];
 }
 
 export class DeleteFounderImageBodyDto {

@@ -7,35 +7,6 @@ import {
   detectVideoMime,
 } from '../common/utils/file-magic.util';
 
-function parseMicroserviceDetail(text: string): string | null {
-  if (!text?.trim()) return null;
-  try {
-    const parsed = JSON.parse(text) as { detail?: unknown; message?: unknown };
-    if (typeof parsed.detail === 'string' && parsed.detail.trim())
-      return parsed.detail.trim();
-    if (Array.isArray(parsed.detail) && parsed.detail.length) {
-      const first = parsed.detail[0];
-      if (typeof first === 'string') return first;
-      if (first && typeof first === 'object' && 'msg' in first) {
-        const msg = (first as { msg?: unknown }).msg;
-        if (typeof msg === 'string' && msg.trim()) return msg.trim();
-      }
-    }
-    if (typeof parsed.message === 'string' && parsed.message.trim())
-      return parsed.message.trim();
-  } catch {
-    const trimmed = text.trim();
-    if (
-      trimmed.length > 0 &&
-      trimmed.length <= 400 &&
-      !/^<!DOCTYPE/i.test(trimmed)
-    ) {
-      return trimmed;
-    }
-  }
-  return null;
-}
-
 function isTimeoutError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   return (
@@ -49,48 +20,36 @@ function mapGatewayError(
   kind: 'imagen' | 'video',
   error: unknown,
   status?: number,
-  body?: string,
 ): string {
   if (isTimeoutError(error)) {
     return kind === 'imagen'
-      ? 'Timeout: el servicio de imágenes no respondió a tiempo.'
-      : 'Timeout: el servicio de video no respondió a tiempo. Usa un clip más corto.';
+      ? 'La carga tardó demasiado. Intenta de nuevo.'
+      : 'La carga del video tardó demasiado. Usa un clip más corto.';
   }
-
-  const detail = body ? parseMicroserviceDetail(body) : null;
-  const raw = `${detail ?? ''} ${error instanceof Error ? error.message : ''}`;
-
-  if (status === 401 || /api key inválida/i.test(raw)) {
-    return 'API key del servicio de imágenes inválida.';
-  }
-  if (status === 503 || /api_key no configurada/i.test(raw)) {
-    return 'El servicio de imágenes no tiene API key configurada.';
-  }
-  if (detail) return detail;
-  if (status === 500 || /rembg|procesar la imagen/i.test(raw)) {
+  if (status === 400 || status === 415 || status === 422) {
     return kind === 'imagen'
-      ? 'Error de rembg al procesar la imagen.'
-      : 'Error al procesar el video.';
-  }
-  if (
-    error instanceof Error &&
-    error.message &&
-    !/https?:\/\//i.test(error.message)
-  ) {
-    return error.message;
+      ? 'El archivo no es válido o está dañado.'
+      : 'El video no es válido o está dañado.';
   }
   return kind === 'imagen'
-    ? 'No se pudo procesar la imagen.'
-    : 'No se pudo procesar el video.';
+    ? 'Falló el proceso de carga. Intenta de nuevo.'
+    : 'Falló el proceso del video. Intenta de nuevo.';
 }
 
 function cloudinaryMessage(kind: 'imagen' | 'video', error: unknown): string {
-  const raw = error instanceof Error ? error.message : 'Upload fallido';
-  const short = raw
-    .replace(/https?:\/\/\S+/gi, '')
-    .trim()
-    .slice(0, 180);
-  return `Error de Cloudinary al subir ${kind === 'imagen' ? 'la imagen' : 'el video'}${short ? `: ${short}` : '.'}`;
+  const raw = error instanceof Error ? error.message : '';
+  if (/timeout|timed out/i.test(raw)) {
+    return kind === 'imagen'
+      ? 'La carga tardó demasiado. Intenta de nuevo.'
+      : 'La carga del video tardó demasiado. Intenta de nuevo.';
+  }
+  if (/file size|too large|entity too large/i.test(raw)) {
+    return 'El archivo pesa demasiado para guardarlo.';
+  }
+  if (/invalid image|unsupported|format|svg/i.test(raw)) {
+    return 'El archivo no se pudo guardar. Revisa que no esté dañado.';
+  }
+  return 'Falló el proceso de carga. Intenta de nuevo.';
 }
 
 @Injectable()
@@ -157,17 +116,13 @@ export class ImageProcessingService {
           }
 
           if (!response.ok) {
-            const detail = await response.text().catch(() => '');
             const mapped = mapGatewayError(
               'imagen',
-              new Error(`HTTP ${response.status}`),
+              new Error('upstream'),
               response.status,
-              detail,
             );
             lastError = new Error(mapped);
-            this.logger.error(
-              `Fallo en ${endpoint} intento ${attempt}: ${mapped} status=${response.status}`,
-            );
+            this.logger.warn(`upload_failed kind=image reason=upstream status=${response.status}`);
             if (response.status < 500) break;
             continue;
           }
@@ -183,9 +138,7 @@ export class ImageProcessingService {
           return buffer;
         } catch (error) {
           lastError = new Error(mapGatewayError('imagen', error));
-          this.logger.error(
-            `Fallo en ${endpoint} intento ${attempt}: ${lastError.message}`,
-          );
+          this.logger.warn('upload_failed kind=image reason=upstream');
           if (!isTimeoutError(error) && lastError.message.includes('API key'))
             break;
         }
@@ -262,17 +215,13 @@ export class ImageProcessingService {
           }
 
           if (!response.ok) {
-            const detail = await response.text().catch(() => '');
             const mapped = mapGatewayError(
               'video',
-              new Error(`HTTP ${response.status}`),
+              new Error('upstream'),
               response.status,
-              detail,
             );
             lastError = new Error(mapped);
-            this.logger.error(
-              `Fallo video en ${endpoint} intento ${attempt}: ${mapped} status=${response.status}`,
-            );
+            this.logger.warn(`upload_failed kind=video reason=upstream status=${response.status}`);
             if (response.status < 500) break;
             continue;
           }
@@ -288,9 +237,7 @@ export class ImageProcessingService {
           return buffer;
         } catch (error) {
           lastError = new Error(mapGatewayError('video', error));
-          this.logger.error(
-            `Fallo video en ${endpoint} intento ${attempt}: ${lastError.message}`,
-          );
+          this.logger.warn('upload_failed kind=video reason=upstream');
           if (!isTimeoutError(error) && lastError.message.includes('API key'))
             break;
         }
@@ -310,7 +257,8 @@ export class ImageProcessingService {
     extra: Record<string, unknown> = {},
   ): Promise<string> {
     if (this.config.get('USE_MOCKS') === 'true') {
-      return `https://res.cloudinary.com/mock/image/upload/${publicId}.webp`;
+      const format = typeof extra.format === 'string' ? extra.format : 'webp';
+      return `https://res.cloudinary.com/mock/image/upload/${publicId}.${format}`;
     }
 
     const targetFolder =
@@ -339,9 +287,7 @@ export class ImageProcessingService {
 
       return result.secure_url;
     } catch (error) {
-      this.logger.error(
-        `Cloudinary imagen: ${error instanceof Error ? error.message : 'Upload fallido'}`,
-      );
+      this.logger.warn('upload_failed kind=image reason=upstream');
       throw new BadGatewayException(cloudinaryMessage('imagen', error));
     }
   }
@@ -393,6 +339,19 @@ export class ImageProcessingService {
     );
   }
 
+  async uploadHomepageSvg(
+    file: Express.Multer.File,
+    prefix = 'nav-logo',
+  ): Promise<string> {
+    const { randomUUID } = await import('crypto');
+    return this.uploadToCloudinary(
+      file.buffer,
+      `${prefix}-${randomUUID()}`,
+      this.homepageFolder(),
+      { format: 'svg' },
+    );
+  }
+
   async uploadVideoToCloudinary(
     buffer: Buffer,
     publicId: string,
@@ -427,9 +386,7 @@ export class ImageProcessingService {
 
       return result.secure_url;
     } catch (error) {
-      this.logger.error(
-        `Cloudinary video: ${error instanceof Error ? error.message : 'Upload fallido'}`,
-      );
+      this.logger.warn('upload_failed kind=video reason=upstream');
       throw new BadGatewayException(cloudinaryMessage('video', error));
     }
   }

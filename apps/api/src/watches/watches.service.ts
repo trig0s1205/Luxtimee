@@ -40,14 +40,22 @@ export type MediaSlotResult =
 function slotErrorMessage(error: unknown): string {
   if (error instanceof HttpException) {
     const response = error.getResponse();
-    if (typeof response === 'string') return response;
-    if (response && typeof response === 'object' && 'message' in response) {
-      const msg = (response as { message?: unknown }).message;
-      if (typeof msg === 'string' && msg.trim()) return msg;
+    const msg =
+      typeof response === 'string'
+        ? response
+        : response && typeof response === 'object' && 'message' in response
+          ? (response as { message?: unknown }).message
+          : null;
+    if (
+      typeof msg === 'string' &&
+      msg.trim() &&
+      msg.length <= 200 &&
+      !/https?:\/\/|api[_ -]?key|secret|password|authorization/i.test(msg)
+    ) {
+      return msg.trim();
     }
   }
-  if (error instanceof Error && error.message) return error.message;
-  return 'No se pudo procesar el archivo';
+  return 'No se pudo procesar el archivo. Puede pesar demasiado, estar dañado o fallar el proceso.';
 }
 
 @Injectable()
@@ -522,7 +530,7 @@ export class WatchesService {
             if (stored.needsReview) imageNeedsReview = true;
             mediaResults.image1 = { status: 'done' };
           } catch (error) {
-            this.logger.error(`uploadMedia image1: ${slotErrorMessage(error)}`);
+            this.logger.warn('upload_failed slot=image1');
             mediaResults.image1 = {
               status: 'error',
               message: slotErrorMessage(error),
@@ -546,7 +554,7 @@ export class WatchesService {
             if (stored.needsReview) imageNeedsReview = true;
             mediaResults.image2 = { status: 'done' };
           } catch (error) {
-            this.logger.error(`uploadMedia image2: ${slotErrorMessage(error)}`);
+            this.logger.warn('upload_failed slot=image2');
             mediaResults.image2 = {
               status: 'error',
               message: slotErrorMessage(error),
@@ -581,7 +589,7 @@ export class WatchesService {
             data.videoUrl = videoUrl;
             mediaResults.video = { status: 'done' };
           } catch (error) {
-            this.logger.error(`uploadMedia video: ${slotErrorMessage(error)}`);
+            this.logger.warn('upload_failed slot=video');
             mediaResults.video = {
               status: 'error',
               message: slotErrorMessage(error),
@@ -686,9 +694,7 @@ export class WatchesService {
     try {
       buffer = await this.imageProcessing.processWithMicroservice(file);
     } catch (error) {
-      this.logger.warn(
-        `rembg falló, se sube original: ${slotErrorMessage(error)}`,
-      );
+      this.logger.warn('upload_failed slot=image reason=process');
       buffer = file.buffer;
       needsReview = true;
     }
@@ -706,9 +712,7 @@ export class WatchesService {
       };
     } catch (cloudError) {
       if (!needsReview) {
-        this.logger.warn(
-          `Cloudinary de imagen procesada falló, se sube original: ${slotErrorMessage(cloudError)}`,
-        );
+        this.logger.warn('upload_failed slot=image reason=upstream');
         const url = await this.persistWatchImage(
           file.buffer,
           file,

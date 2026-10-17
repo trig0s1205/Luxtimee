@@ -4,6 +4,7 @@ import type {
   HomepageCustomerProofImage,
   HomepageFaqConfig,
   HomepageHeroConfig,
+  LandingAd,
 } from '@luxtime/shared';
 import {
   emptyHeroSlide,
@@ -100,6 +101,11 @@ export const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
   branding: {
     navLogoUrl: '',
   },
+  landingAds: [
+    { enabled: false, type: 'spotlight', eyebrow: '', title: '', body: '', imageUrl: '', ctaText: 'Ver catálogo', ctaLink: '/catalogo' },
+    { enabled: false, type: 'editorial', eyebrow: '', title: '', body: '', imageUrl: '', ctaText: 'Ver catálogo', ctaLink: '/catalogo' },
+    { enabled: false, type: 'story',     eyebrow: '', title: '', body: '', imageUrl: '', ctaText: 'Ver catálogo', ctaLink: '/catalogo' },
+  ],
 };
 
 export function isFounderCarouselComplete(images?: Array<string | null | undefined>) {
@@ -159,6 +165,27 @@ type LegacyHomepageFaqSource = Partial<HomepageFaqConfig> & {
   textEm?: string;
   sub?: string;
 };
+
+export function normalizeLandingAds(raw: unknown): [LandingAd, LandingAd, LandingAd] {
+  const base = DEFAULT_HOMEPAGE_CONFIG.landingAds;
+  const arr = Array.isArray(raw) ? (raw as unknown[]) : [];
+  return [0, 1, 2].map((i) => {
+    const item = arr[i];
+    const def = base[i]!;
+    if (!item || typeof item !== 'object') return { ...def };
+    const r = item as Record<string, unknown>;
+    return {
+      enabled: typeof r.enabled === 'boolean' ? r.enabled : def.enabled,
+      type: (r.type === 'spotlight' || r.type === 'editorial' || r.type === 'story') ? r.type : def.type,
+      eyebrow: typeof r.eyebrow === 'string' ? r.eyebrow : def.eyebrow,
+      title: typeof r.title === 'string' ? r.title : def.title,
+      body: typeof r.body === 'string' ? r.body : def.body,
+      imageUrl: typeof r.imageUrl === 'string' ? r.imageUrl : def.imageUrl,
+      ctaText: typeof r.ctaText === 'string' ? r.ctaText : def.ctaText,
+      ctaLink: typeof r.ctaLink === 'string' ? r.ctaLink : def.ctaLink,
+    } satisfies LandingAd;
+  }) as [LandingAd, LandingAd, LandingAd];
+}
 
 export { getActiveHeroSlides, normalizeHeroSlides };
 
@@ -225,5 +252,6 @@ export function mergeHomepageConfig(remote: Partial<HomepageConfigDto> & { state
       ...(remote.branding ?? {}),
       navLogoUrl: String(remote.branding?.navLogoUrl ?? '').trim(),
     },
+    landingAds: normalizeLandingAds(remote.landingAds),
   };
 }

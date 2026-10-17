@@ -5,18 +5,8 @@ definePageMeta({ mainClass: 'main--home-hero' });
 import { HOME_CMS_ASYNC_KEY, STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 import { getActiveHeroSlides, shouldShowFounderSection } from '~/utils/homepage-config';
 
-const catalog = useCatalogData();
 const { observe } = useRevealObserver();
 const { fetchConfig, DEFAULT_HOMEPAGE_CONFIG } = useHomepageConfig();
-
-const { data: limitedWatches } = useCachedAsyncData(
-  'home-limited-editions',
-  async () => {
-    const res = await catalog.listCatalog({ limit: 24, available: 'true' });
-    return res.data.filter((w) => w.isLimitedEdition && w.stock > 0);
-  },
-  { server: false, lazy: true, staleTime: STOREFRONT_CACHE_MS.catalog },
-);
 const { data: homeCms, refresh: refreshHomeCms } = await useCachedAsyncData<HomepageConfigDto>(
   HOME_CMS_ASYNC_KEY,
   () => fetchConfig(),
@@ -50,9 +40,9 @@ onMounted(() => {
     />
 
     <ClientOnly>
-      <CatalogLimitedEditionPromo
-        v-if="limitedWatches?.length"
-        :watches="limitedWatches"
+      <HomeLandingAdsModal
+        v-if="cms.landingAds?.some((a) => a.enabled)"
+        :ads="cms.landingAds"
       />
     </ClientOnly>
 

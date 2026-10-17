@@ -4,6 +4,8 @@ import {
   Controller,
   Delete,
   Get,
+  Param,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -27,6 +29,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { FinancialGuard } from '../common/guards/financial.guard';
 import {
   assertImageBuffer,
+  assertLogoBuffer,
   MAX_IMAGE_BYTES,
 } from '../common/utils/file-magic.util';
 import {
@@ -211,8 +214,8 @@ export class SettingsController {
     @UploadedFiles() files: Express.Multer.File[],
   ): Promise<{ urls: string[] }> {
     if (!files?.length)
-      throw new BadRequestException('No se recibió la imagen');
-    assertImageBuffer(files[0].buffer, files[0].mimetype);
+      throw new BadRequestException('No se recibió el archivo.');
+    assertLogoBuffer(files[0].buffer, files[0].mimetype);
     const { url } = await this.settingsService.uploadNavLogo(files[0]);
     return { urls: [url] };
   }
@@ -239,6 +242,32 @@ export class SettingsController {
       urls.push(url);
     }
     return { urls };
+  }
+
+  @Post('homepage/upload-landing-ad/:slot')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  @UseInterceptors(
+    FilesInterceptor('images', 1, {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_IMAGE_BYTES },
+    }),
+  )
+  async uploadLandingAdImage(
+    @Param('slot', ParseIntPipe) slot: number,
+    @UploadedFiles() files: Express.Multer.File[],
+  ): Promise<{ urls: string[] }> {
+    if (slot < 0 || slot > 2)
+      throw new BadRequestException('Slot inválido (0–2)');
+    if (!files?.length)
+      throw new BadRequestException('No se recibió la imagen.');
+    assertImageBuffer(files[0].buffer, files[0].mimetype);
+    const { url } = await this.settingsService.uploadLandingAdImage(
+      files[0],
+      slot as 0 | 1 | 2,
+    );
+    return { urls: [url] };
   }
 
   @Delete('homepage/founder-image')
