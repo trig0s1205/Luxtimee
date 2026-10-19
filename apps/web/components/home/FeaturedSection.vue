@@ -1,11 +1,34 @@
 <script setup lang="ts">
 import type { HomepageFeaturedConfig } from '@luxtime/shared';
+import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 
 const props = defineProps<{
   config: HomepageFeaturedConfig;
   /** Menos espacio arriba cuando va justo debajo del banner */
   flushTop?: boolean;
 }>();
+
+const catalog = useCatalogData();
+const rail = ref<HTMLElement | null>(null);
+
+const { data } = useCachedAsyncData(
+  'home-featured-watches',
+  async () => {
+    const res = await catalog.listCatalog({ limit: 8, available: 'true', sort: 'newest' });
+    return res.data.filter((watch) => watch.stock > 0).slice(0, 8);
+  },
+  { server: false, lazy: true, staleTime: STOREFRONT_CACHE_MS.catalog },
+);
+
+const watches = computed(() => data.value ?? []);
+
+function scrollRail(direction: -1 | 1) {
+  const el = rail.value;
+  if (!el) return;
+  const card = el.querySelector<HTMLElement>('.lux-collection__card');
+  const step = (card?.offsetWidth ?? 260) + 14;
+  el.scrollBy({ left: direction * step, behavior: 'smooth' });
+}
 </script>
 
 <template>
@@ -28,6 +51,35 @@ const props = defineProps<{
         {{ props.config.ctaText || 'Ver catálogo completo' }}
         <span aria-hidden="true">→</span>
       </NuxtLink>
+    </div>
+
+    <div v-if="watches.length" class="lux-collection__showcase">
+      <button
+        v-if="watches.length > 1"
+        type="button"
+        class="lux-collection__nav"
+        aria-label="Anterior"
+        @click="scrollRail(-1)"
+      >
+        ‹
+      </button>
+      <div ref="rail" class="lux-collection__rail">
+        <CatalogProductCard
+          v-for="watch in watches"
+          :key="watch.id"
+          class="lux-collection__card"
+          :watch="watch"
+        />
+      </div>
+      <button
+        v-if="watches.length > 1"
+        type="button"
+        class="lux-collection__nav"
+        aria-label="Siguiente"
+        @click="scrollRail(1)"
+      >
+        ›
+      </button>
     </div>
   </section>
 </template>
@@ -144,6 +196,52 @@ const props = defineProps<{
   transform: translateX(3px);
 }
 
+.lux-collection__showcase {
+  position: relative;
+  z-index: 1;
+  max-width: 1280px;
+  margin: clamp(1.75rem, 4vw, 2.75rem) auto 0;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.lux-collection__rail {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  padding: 4px 2px 12px;
+}
+
+.lux-collection__rail::-webkit-scrollbar {
+  display: none;
+}
+
+.lux-collection__card {
+  flex: 0 0 min(240px, 72vw);
+  scroll-snap-align: start;
+}
+
+.lux-collection__nav {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid rgba(200, 169, 110, 0.45);
+  background: var(--black-2);
+  color: var(--white);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lux-collection__nav:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
 @media (max-width: 900px) {
   .lux-collection__inner { flex-direction: column; align-items: flex-start; }
 }
@@ -152,6 +250,8 @@ const props = defineProps<{
   .lux-collection { padding: 3.25rem 1.25rem; }
   .lux-collection__inner { padding: 1.5rem 1.25rem; }
   .lux-collection__cta { width: 100%; justify-content: center; }
+  .lux-collection__showcase { grid-template-columns: 1fr; }
+  .lux-collection__nav { display: none; }
 }
 
 @media (max-width: 480px) {
