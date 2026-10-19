@@ -11,7 +11,7 @@
 }
 
 [data-theme="light"] .site-nav {
-  background: linear-gradient(to bottom, rgba(245, 242, 235, 0.96), transparent);
+  background: #fff;
 }
 
 [data-theme="light"] .site-nav.scrolled {
