@@ -476,7 +476,7 @@ section.lux-collection.lux-collection--flush-top {
 }
 
 .site-nav--subpage .nav-logo__img {
-  max-width: min(132px, 34vw);
+  max-width: min(169px, 36vw);
 }
 
 .nav-logo {
@@ -487,20 +487,20 @@ section.lux-collection.lux-collection--flush-top {
   z-index: 2;
   color: var(--gold);
   overflow: hidden;
-  max-height: 40px;
+  max-height: 49px;
 }
 
 .nav-logo__frame {
   display: block;
   overflow: hidden;
-  max-height: 40px;
+  max-height: 49px;
 }
 
 .nav-logo__img {
   display: block;
-  height: 36px;
+  height: 46px;
   width: auto;
-  max-width: min(160px, 42vw);
+  max-width: min(205px, 46vw);
   object-fit: contain;
   object-position: left center;
   transform-origin: center center;
@@ -1254,7 +1254,7 @@ section.lux-collection.lux-collection--flush-top {
   }
 
   .site-nav--subpage .nav-logo__img {
-    max-width: min(108px, 28vw);
+    max-width: min(138px, 32vw);
   }
 
   .nav-logo {

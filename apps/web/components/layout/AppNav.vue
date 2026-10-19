@@ -111,8 +111,8 @@ watch(() => route.fullPath, closeMenu);
             :src="resolveMedia(navLogoUrl)"
             alt="LUXTIMEE"
             class="nav-logo__img"
-            width="140"
-            height="40"
+            width="179"
+            height="46"
           >
         </span>
       </NuxtLink>
