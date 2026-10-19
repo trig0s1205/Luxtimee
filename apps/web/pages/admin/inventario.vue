@@ -129,6 +129,10 @@ watch(staffReady, (ready) => {
   }
 }, { immediate: true });
 
+onMounted(() => {
+  if (!watches.value.length) void reloadInventory();
+});
+
 useAdminRefetchWhenAuthed([refresh, refreshInsights, refreshCare, loadCatalogMeta]);
 
 watch([watchesError, insightsError], ([wErr, iErr]) => {

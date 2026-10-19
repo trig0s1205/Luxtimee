@@ -10,39 +10,39 @@ const WARMUP_ENTRIES: Array<{
 }> = [
   {
     key: 'admin-watches--1',
-    fetch: (api) => api.get('/watches', { page: 1, limit: 30 }).catch(() => ({ data: [], total: 0, page: 1, limit: 30 })),
+    fetch: (api) => api.get('/watches', { page: 1, limit: 30 }),
   },
   {
     key: 'inventory-insights',
-    fetch: (api) => api.get('/watches/inventory-insights').catch(() => null),
+    fetch: (api) => api.get('/watches/inventory-insights'),
   },
   {
     key: 'admin-pre-orders-active-1',
-    fetch: (api) => api.get('/pre-orders', { page: 1, limit: 10 }).catch(() => ({ items: [], total: 0, page: 1, limit: 10 })),
+    fetch: (api) => api.get('/pre-orders', { page: 1, limit: 10 }),
   },
   {
     key: 'admin-pre-orders-suspended-1',
-    fetch: (api) => api.get('/pre-orders/suspended', { page: 1, limit: 10 }).catch(() => ({ items: [], total: 0, page: 1, limit: 10 })),
+    fetch: (api) => api.get('/pre-orders/suspended', { page: 1, limit: 10 }),
   },
   {
     key: 'admin-orders-detal-day-ALL-1',
-    fetch: (api) => api.get('/orders?period=day&page=1&limit=15&type=DETAL').catch(() => ({ items: [], total: 0, page: 1, limit: 15 })),
+    fetch: (api) => api.get('/orders?period=day&page=1&limit=15&type=DETAL'),
   },
   {
     key: 'admin-orders-mayorista-day-ALL-1',
-    fetch: (api) => api.get('/orders?period=day&page=1&limit=15&type=MAYORISTA').catch(() => ({ items: [], total: 0, page: 1, limit: 15 })),
+    fetch: (api) => api.get('/orders?period=day&page=1&limit=15&type=MAYORISTA'),
   },
   {
     key: 'admin-zones',
-    fetch: (api) => api.get('/shipping-zones').catch(() => []),
+    fetch: (api) => api.get('/shipping-zones'),
   },
   {
     key: 'notifications',
-    fetch: (api) => api.get('/notifications').catch(() => []),
+    fetch: (api) => api.get('/notifications'),
   },
   {
     key: 'health-dashboard',
-    fetch: (api) => api.get('/dashboards/health?period=month').catch(() => null),
+    fetch: (api) => api.get('/dashboards/health?period=month'),
   },
 ];
 
@@ -51,8 +51,10 @@ export function warmupAdminModules(api: ApiClient) {
 
   for (const { key, fetch } of WARMUP_ENTRIES) {
     if (readAdminCache(key, ADMIN_CACHE_MS.modules) !== undefined) continue;
-    void fetch(api).then((data) => {
-      if (data !== null && data !== undefined) writeAdminCache(key, data);
-    });
+    void fetch(api)
+      .then((data) => {
+        if (data !== null && data !== undefined) writeAdminCache(key, data);
+      })
+      .catch(() => null);
   }
 }

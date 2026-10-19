@@ -20,6 +20,7 @@ export function useAdminCachedData<T, E = T>(
 ) {
   const staleTime = options?.staleTime ?? ADMIN_CACHE_MS.modules;
   const { staleTime: _ignored, ...asyncOptions } = options ?? {};
+  let bypassCache = false;
 
   const result = useAsyncData<T>(
     key,
@@ -35,8 +36,10 @@ export function useAdminCachedData<T, E = T>(
             throw createError({ statusCode: 401, statusMessage: 'Sesión expirada' });
           }
         }
-        const hit = readAdminCache<T>(resolved, staleTime);
-        if (hit !== undefined) return hit;
+        if (!bypassCache) {
+          const hit = readAdminCache<T>(resolved, staleTime);
+          if (hit !== undefined) return hit;
+        }
       }
       const data = await handler();
       if (import.meta.client) writeAdminCache(resolved, data);
@@ -45,16 +48,23 @@ export function useAdminCachedData<T, E = T>(
     {
       lazy: true,
       server: false,
+      dedupe: 'defer',
       ...asyncOptions,
       getCachedData(resolved) {
+        if (bypassCache) return undefined;
         return readAdminCache<T>(resolved, staleTime);
       },
     } as AsyncDataOptions<T>,
   );
 
   async function refreshFromNetwork() {
+    bypassCache = true;
     invalidateAdminCache(toValue(key));
-    await result.refresh();
+    try {
+      await result.refresh();
+    } finally {
+      bypassCache = false;
+    }
   }
 
   return {
