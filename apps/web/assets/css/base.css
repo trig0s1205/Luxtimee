@@ -394,9 +394,9 @@ section.lux-collection.lux-collection--flush-top {
   color: var(--black);
 }
 
-/* Inicio: el banner empieza debajo de la barra, con aire blanco */
+/* Inicio: el banner queda pegado al borde inferior de la barra */
 .main--home-hero {
-  padding-top: 7.5rem;
+  padding-top: 106px;
 }
 
 /* —— Navbar —— */
@@ -1220,7 +1220,7 @@ section.lux-collection.lux-collection--flush-top {
   }
 
   .main--home-hero {
-    padding-top: 5.75rem;
+    padding-top: 78px;
   }
 
   .site-nav {
@@ -1364,6 +1364,10 @@ section.lux-collection.lux-collection--flush-top {
     gap: 8px;
   }
 
+  .main--home-hero {
+    padding-top: 72px;
+  }
+
   .site-nav.scrolled {
     padding: 8px 14px;
   }
@@ -1386,6 +1390,10 @@ section.lux-collection.lux-collection--flush-top {
 @media (max-width: 360px) {
   .site-nav {
     padding: 10px 12px;
+  }
+
+  .main--home-hero {
+    padding-top: 64px;
   }
 
   .nav-logo {
