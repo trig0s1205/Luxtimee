@@ -6,9 +6,32 @@ import { watchPrimaryImage } from '~/utils/media-url';
 const props = defineProps<{
   watches: WatchStaffDto[];
   loading?: boolean;
+  selectionMode?: boolean;
+  selectedIds?: string[];
+  progressById?: Record<string, { status: string; progress: number }>;
 }>();
 
-const emit = defineEmits(['edit', 'delete']);
+const emit = defineEmits<{
+  edit: [watch: WatchStaffDto];
+  delete: [watch: WatchStaffDto];
+  'toggle-select': [watch: WatchStaffDto];
+  'toggle-visible': [on: boolean];
+}>();
+
+const colCount = computed(() => (props.selectionMode ? 8 : 7));
+
+const allVisibleSelected = computed(
+  () => !!props.watches.length && props.watches.every((watch) => props.selectedIds?.includes(watch.id)),
+);
+
+function jobOf(id: string) {
+  return props.progressById?.[id];
+}
+
+function isBusy(id: string) {
+  const status = jobOf(id)?.status;
+  return status === 'queued' || status === 'running';
+}
 
 const statusLabels: Record<string, string> = {
   DISPONIBLE: 'Disponible',
@@ -36,9 +59,18 @@ function closeLightbox() {
 
 <template>
   <div class="admin-table-wrap">
-    <table class="admin-table">
+    <table class="admin-table" :class="{ 'admin-table--select': selectionMode }">
       <thead>
         <tr>
+          <th v-if="selectionMode" class="admin-table-check">
+            <input
+              type="checkbox"
+              :checked="allVisibleSelected"
+              :disabled="!watches.length"
+              aria-label="Seleccionar visibles"
+              @change="emit('toggle-visible', ($event.target as HTMLInputElement).checked)"
+            >
+          </th>
           <th>Imagen</th>
           <th>SKU</th>
           <th>Marca & Modelo</th>
@@ -50,14 +82,25 @@ function closeLightbox() {
       </thead>
       <tbody>
         <tr v-if="loading">
-          <td colspan="7" class="admin-table-empty">
+          <td :colspan="colCount" class="admin-table-empty">
             <span class="admin-spinner" /> Cargando inventario...
           </td>
         </tr>
         <tr v-else-if="!watches.length">
-          <td colspan="7" class="admin-table-empty">No hay relojes registrados.</td>
+          <td :colspan="colCount" class="admin-table-empty">No hay relojes registrados.</td>
         </tr>
-        <tr v-for="watch in watches" :key="watch.id" class="admin-table-row">
+        <template v-else>
+        <template v-for="watch in watches" :key="watch.id">
+        <tr class="admin-table-row" :class="{ 'admin-table-row--selected': selectedIds?.includes(watch.id) }">
+          <td v-if="selectionMode" class="admin-table-check">
+            <input
+              type="checkbox"
+              :checked="selectedIds?.includes(watch.id)"
+              :disabled="isBusy(watch.id)"
+              :aria-label="`Seleccionar ${watch.brand.name} ${watch.model}`"
+              @change="emit('toggle-select', watch)"
+            >
+          </td>
           <td>
             <button
               type="button"
@@ -92,11 +135,23 @@ function closeLightbox() {
             <button type="button" class="admin-action-btn" title="Editar" @click="emit('edit', watch)">
               ✎
             </button>
-            <button type="button" class="admin-action-btn admin-action-btn--danger" title="Eliminar" @click="emit('delete', watch)">
+            <button type="button" class="admin-action-btn admin-action-btn--danger" title="Eliminar" :disabled="isBusy(watch.id)" @click="emit('delete', watch)">
               ×
             </button>
           </td>
         </tr>
+        <tr v-if="jobOf(watch.id) && jobOf(watch.id)!.status !== 'done'" class="admin-table-progress-row">
+          <td :colspan="colCount">
+            <div
+              class="admin-watch-progress"
+              :class="{ 'admin-watch-progress--error': jobOf(watch.id)!.status === 'error' }"
+            >
+              <span :style="{ width: `${jobOf(watch.id)!.progress}%` }" />
+            </div>
+          </td>
+        </tr>
+        </template>
+        </template>
       </tbody>
     </table>
 
@@ -150,6 +205,47 @@ function closeLightbox() {
 
 .admin-table-row:hover td {
   background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-table-row--selected td {
+  background: rgba(200, 169, 110, 0.06);
+}
+
+.admin-table-check {
+  width: 36px;
+  padding-right: 0;
+}
+
+.admin-table-check input {
+  accent-color: #c8a96e;
+  cursor: pointer;
+}
+
+.admin-table-progress-row td {
+  padding: 0 16px 8px;
+  border-bottom: var(--border-hairline);
+}
+
+.admin-watch-progress {
+  height: 3px;
+  background: rgba(200, 169, 110, 0.15);
+  overflow: hidden;
+}
+
+.admin-watch-progress > span {
+  display: block;
+  height: 100%;
+  background: #c8a96e;
+  transition: width 0.15s linear;
+}
+
+.admin-watch-progress--error > span {
+  background: #ff5555;
+}
+
+.admin-action-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .admin-table-thumb {
@@ -334,8 +430,10 @@ function closeLightbox() {
 }
 
 @media (max-width: 1200px) {
-  .admin-table th:nth-child(4),
-  .admin-table td:nth-child(4) {
+  .admin-table:not(.admin-table--select) th:nth-child(4),
+  .admin-table:not(.admin-table--select) td:nth-child(4),
+  .admin-table--select th:nth-child(5),
+  .admin-table--select td:nth-child(5) {
     display: none;
   }
 }
@@ -346,10 +444,14 @@ function closeLightbox() {
     padding: 10px 12px;
   }
 
-  .admin-table th:nth-child(4),
-  .admin-table td:nth-child(4),
-  .admin-table th:nth-child(5),
-  .admin-table td:nth-child(5) {
+  .admin-table:not(.admin-table--select) th:nth-child(4),
+  .admin-table:not(.admin-table--select) td:nth-child(4),
+  .admin-table:not(.admin-table--select) th:nth-child(5),
+  .admin-table:not(.admin-table--select) td:nth-child(5),
+  .admin-table--select th:nth-child(5),
+  .admin-table--select td:nth-child(5),
+  .admin-table--select th:nth-child(6),
+  .admin-table--select td:nth-child(6) {
     display: none;
   }
 }

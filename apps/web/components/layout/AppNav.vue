@@ -2,6 +2,7 @@
 import { HOME_CMS_ASYNC_KEY, STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 
 const route = useRoute();
+const navEl = ref<HTMLElement | null>(null);
 const scrolled = ref(false);
 const navIntro = ref(false);
 const menuOpen = ref(false);
@@ -81,11 +82,25 @@ async function onLogoClick(event: MouseEvent) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+let navResize: ResizeObserver | null = null;
+
+function syncNavHeight() {
+  if (scrolled.value) return;
+  const height = navEl.value?.offsetHeight;
+  if (!height) return;
+  document.documentElement.style.setProperty('--site-nav-height', `${height}px`);
+}
+
 onMounted(() => {
   retailCart.hydrate();
   wholesaleCart.hydrate();
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
+  syncNavHeight();
+  if (navEl.value) {
+    navResize = new ResizeObserver(syncNavHeight);
+    navResize.observe(navEl.value);
+  }
   requestAnimationFrame(() => {
     navIntro.value = true;
   });
@@ -93,6 +108,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('scroll', onScroll);
+  navResize?.disconnect();
 });
 
 watch(() => route.fullPath, closeMenu);
@@ -101,6 +117,7 @@ watch(() => route.fullPath, closeMenu);
 <template>
   <nav
     id="navbar"
+    ref="navEl"
     class="site-nav"
     :class="{ scrolled, 'site-nav--intro': navIntro }"
   >

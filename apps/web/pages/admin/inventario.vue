@@ -2,7 +2,7 @@
 import type { BrandDto, CareTemplateDto, CategoryDto, MechanismDto, InventoryInsightsDto, PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
 import { WatchStatus } from '@luxtime/shared';
 import { extractApiErrorMessage, isBadRequest } from '~/utils/api-error';
-import { invalidateAdminCache } from '~/utils/admin-cache';
+import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
 import { validateWatchVideoFile } from '~/utils/video-validation';
 import { invalidateStorefrontCatalogCaches } from '~/utils/storefront-cache';
 import { resolveAccessToken } from '~/utils/auth-token';
@@ -81,6 +81,23 @@ const saving = ref(false);
 const submitError = ref('');
 
 const mediaQueue = useMediaUploadStore();
+const bulkDelete = useWatchBulkDeleteStore();
+
+const selectionMode = ref(false);
+const selectingAll = ref(false);
+const selected = ref<Record<string, { model: string; brandName: string }>>({});
+let selectToken = 0;
+
+const selectedIds = computed(() => Object.keys(selected.value));
+const selectedCount = computed(() => selectedIds.value.length);
+
+const progressById = computed(() => {
+  const map: Record<string, { status: string; progress: number }> = {};
+  for (const job of bulkDelete.jobs) {
+    map[job.id] = { status: job.status, progress: job.progress };
+  }
+  return map;
+});
 
 const brands = computed(() => catalogStore.brands);
 const categories = computed(() => catalogStore.categories);
@@ -141,6 +158,13 @@ watch([watchesError, insightsError], ([wErr, iErr]) => {
 });
 
 const watches = computed(() => paginated.value?.data ?? []);
+const tableWatches = computed(() =>
+  watches.value.filter((watch) => progressById.value[watch.id]?.status !== 'done'),
+);
+const offscreenJobs = computed(() => {
+  const visible = new Set(tableWatches.value.map((watch) => watch.id));
+  return bulkDelete.activeJobs.filter((job) => !visible.has(job.id));
+});
 const total = computed(() => paginated.value?.total ?? 0);
 const hasMore = computed(() => watches.value.length < total.value);
 const inventoryRefreshing = computed(() => pending.value || insightsPending.value);
@@ -325,6 +349,90 @@ async function handleDelete(watch: WatchStaffDto) {
     toast.error(extractApiErrorMessage(err, 'Error al eliminar el reloj'));
   }
 }
+
+function exitSelection() {
+  selectToken += 1;
+  selectingAll.value = false;
+  selectionMode.value = false;
+  selected.value = {};
+}
+
+function toggleSelect(watch: WatchStaffDto) {
+  const next = { ...selected.value };
+  if (next[watch.id]) delete next[watch.id];
+  else next[watch.id] = { model: watch.model, brandName: watch.brand.name };
+  selected.value = next;
+}
+
+function toggleVisible(on: boolean) {
+  const next = { ...selected.value };
+  for (const watch of tableWatches.value) {
+    if (on) next[watch.id] = { model: watch.model, brandName: watch.brand.name };
+    else delete next[watch.id];
+  }
+  selected.value = next;
+}
+
+async function selectAllFiltered() {
+  const token = ++selectToken;
+  selectingAll.value = true;
+  try {
+    const collected: Record<string, { model: string; brandName: string }> = {};
+    let page = 1;
+    let totalCount = 0;
+    do {
+      const res = await api.get<PaginatedResponse<WatchStaffDto>>('/watches', {
+        search: query.search || undefined,
+        brand: query.brand || undefined,
+        page,
+        limit: 100,
+      });
+      if (token !== selectToken) return;
+      totalCount = res.total;
+      for (const watch of res.data) {
+        collected[watch.id] = { model: watch.model, brandName: watch.brand.name };
+      }
+      if (!res.data.length) break;
+      page += 1;
+    } while (Object.keys(collected).length < totalCount && page <= 50);
+    if (token === selectToken) selected.value = collected;
+  } catch (err: unknown) {
+    if (token === selectToken) toast.error(extractApiErrorMessage(err, 'No se pudo seleccionar el inventario'));
+  } finally {
+    if (token === selectToken) selectingAll.value = false;
+  }
+}
+
+async function handleBulkDelete() {
+  const items = Object.entries(selected.value).map(([id, meta]) => ({ id, ...meta }));
+  if (!items.length) return;
+  const ok = await confirm({
+    title: `¿Eliminar permanentemente ${items.length} relojes?`,
+    message: 'Puedes seguir navegando mientras se eliminan.',
+    destructive: true,
+    confirmLabel: 'Eliminar',
+  });
+  if (!ok) return;
+  selected.value = {};
+  bulkDelete.enqueue(items);
+}
+
+watch(() => bulkDelete.pendingCount, (n, prev) => {
+  if ((prev ?? 0) > 0 && n === 0) void finishBulkDelete();
+});
+
+async function finishBulkDelete() {
+  const failed = bulkDelete.failedCount;
+  const done = bulkDelete.doneCount;
+  invalidateAdminCachePrefix('admin-watches-');
+  invalidateAdminCache('inventory-insights');
+  invalidateStorefrontCatalogCaches();
+  await refresh();
+  await refreshInsights();
+  if (failed) toast.warning(`${done} eliminados. ${failed} no se pudieron eliminar.`);
+  else if (done) toast.success(done === 1 ? 'Reloj eliminado correctamente' : `${done} relojes eliminados`);
+  bulkDelete.clearFinished();
+}
 </script>
 
 <template>
@@ -336,7 +444,12 @@ async function handleDelete(watch: WatchStaffDto) {
         label="Operaciones"
         title="Inventario de relojes"
       />
-      <UiLuxButton @click="openCreate">+ Nuevo Reloj</UiLuxButton>
+      <div class="admin-inventory-actions">
+        <button type="button" class="admin-pagination-btn" @click="selectionMode ? exitSelection() : (selectionMode = true)">
+          {{ selectionMode ? 'Cerrar selección' : 'Selección' }}
+        </button>
+        <UiLuxButton @click="openCreate">+ Nuevo Reloj</UiLuxButton>
+      </div>
     </div>
 
     <AdminInventoryInsights :insights="insights" :loading="insightsPending" />
@@ -351,11 +464,35 @@ async function handleDelete(watch: WatchStaffDto) {
       </select>
     </div>
 
+    <div v-if="selectionMode" class="admin-selection-bar">
+      <button type="button" class="admin-pagination-btn" :disabled="selectingAll || !total" @click="selectAllFiltered">
+        {{ selectingAll ? 'Seleccionando...' : `Seleccionar todos (${total})` }}
+      </button>
+      <span class="admin-pagination-info">{{ selectedCount }} seleccionados</span>
+      <button type="button" class="admin-pagination-btn admin-pagination-btn--danger" :disabled="!selectedCount" @click="handleBulkDelete">
+        Eliminar
+      </button>
+    </div>
+
+    <ul v-if="offscreenJobs.length" class="admin-bulk-progress">
+      <li v-for="job in offscreenJobs" :key="job.id">
+        <span>{{ job.brandName }} {{ job.model }}</span>
+        <span class="admin-watch-progress" :class="{ 'admin-watch-progress--error': job.status === 'error' }">
+          <span :style="{ width: `${job.progress}%` }" />
+        </span>
+      </li>
+    </ul>
+
     <AdminWatchTable
-      :watches="watches"
-      :loading="pending"
+      :watches="tableWatches"
+      :loading="pending && !watches.length"
+      :selection-mode="selectionMode"
+      :selected-ids="selectedIds"
+      :progress-by-id="progressById"
       @edit="openEdit"
       @delete="handleDelete"
+      @toggle-select="toggleSelect"
+      @toggle-visible="toggleVisible"
     />
 
     <div v-if="hasMore" class="admin-inventory-pagination">
@@ -405,6 +542,60 @@ async function handleDelete(watch: WatchStaffDto) {
   gap: 16px;
   margin-bottom: 24px;
   flex-wrap: wrap;
+}
+
+.admin-inventory-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-pagination-btn--danger:hover:not(:disabled) {
+  border-color: #ff5555;
+  color: #ff5555;
+}
+
+.admin-bulk-progress {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  max-height: 160px;
+  overflow: auto;
+  border: var(--border-hairline);
+}
+
+.admin-bulk-progress li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--lux-white);
+}
+
+.admin-watch-progress {
+  height: 3px;
+  background: rgba(200, 169, 110, 0.15);
+  overflow: hidden;
+}
+
+.admin-watch-progress > span {
+  display: block;
+  height: 100%;
+  background: #c8a96e;
+}
+
+.admin-watch-progress--error > span {
+  background: #ff5555;
 }
 
 .admin-inventory-toolbar {
