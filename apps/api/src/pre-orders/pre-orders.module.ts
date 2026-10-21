@@ -6,6 +6,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { SettingsModule } from '../settings/settings.module';
 import { IntegrationsModule } from '../integrations/integrations.module';
 import { WholesaleAccessModule } from '../wholesale-access/wholesale-access.module';
+import { WholesaleOffersModule } from '../wholesale-offers/wholesale-offers.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { WholesaleAccessModule } from '../wholesale-access/wholesale-access.modu
     SettingsModule,
     IntegrationsModule,
     WholesaleAccessModule,
+    WholesaleOffersModule,
   ],
   controllers: [PreOrdersController],
   providers: [PreOrdersService],

@@ -12,6 +12,7 @@ import { extractApiErrorMessage } from '~/utils/api-error';
 definePageMeta({ middleware: ['wholesale'] });
 
 const cart = useWholesaleCartStore();
+const { quote } = useWholesaleQuote();
 const api = useApi();
 const analytics = useAnalytics();
 const { session } = useWholesaleSession();
@@ -48,7 +49,7 @@ const shippingCost = computed(() => {
   return selectedZone.value.cost;
 });
 
-const total = computed(() => cart.subtotal + shippingCost.value);
+const total = computed(() => (quote.value?.subtotal ?? cart.subtotal) + shippingCost.value);
 
 const WHOLESALE_MIN = 4;
 const meetsMinimum = computed(() => cart.unitCount >= WHOLESALE_MIN);
@@ -180,7 +181,7 @@ async function submit() {
       </div>
 
       <div class="border border-lux-gold/15 p-4 text-sm space-y-2">
-        <p>Subtotal mayorista: {{ formatCop(cart.subtotal) }}</p>
+        <p>Subtotal mayorista: {{ formatCop(quote?.subtotal ?? cart.subtotal) }}</p>
         <p>Envío: {{ formatCop(shippingCost) }}</p>
         <p class="font-display text-xl text-lux-gold">Total: {{ formatCop(total) }}</p>
         <p class="text-xs text-lux-white-dim">{{ SHIPPING_FULL_TEXT }}</p>

@@ -19,6 +19,7 @@ import {
 import { formatCop } from '~/utils/format';
 import { extractApiErrorMessage } from '~/utils/api-error';
 import { orderDeliveryNotes, orderHasDeliveryNotes } from '~/utils/order-delivery-notes';
+import { formatOrderExtras } from '~/utils/wholesale-extras';
 import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
 
 const props = defineProps<{
@@ -383,6 +384,7 @@ useSeoMeta({ title: props.seoTitle });
                     {{ item.productSku }} — {{ item.productName }} ×{{ item.quantity }}
                     <span class="admin-record-muted"> · {{ formatCop(item.unitPrice * item.quantity) }}</span>
                     <p v-if="item.deliveryNote?.trim()" class="admin-delivery-note">{{ item.deliveryNote }}</p>
+                    <p v-if="formatOrderExtras(item)" class="admin-delivery-note">{{ formatOrderExtras(item) }}</p>
                   </span>
                   <button
                     v-if="order.status === 'ENTREGADO' && !item.warrantyRegistered"

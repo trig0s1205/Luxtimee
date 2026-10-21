@@ -4,6 +4,7 @@ import { formatCop } from '~/utils/format';
 definePageMeta({ middleware: ['wholesale'] });
 
 const cart = useWholesaleCartStore();
+const { catalog, quote } = useWholesaleQuote();
 
 onMounted(() => cart.hydrate());
 
@@ -12,6 +13,10 @@ useSeoMeta({ title: 'Carrito mayorista — LUXTIMEE' });
 const WHOLESALE_MIN = 4;
 const meetsMinimum = computed(() => cart.unitCount >= WHOLESALE_MIN);
 const remaining = computed(() => WHOLESALE_MIN - cart.unitCount);
+
+function linePackage(watchId: string) {
+  return quote.value?.lines.find((line) => line.watchId === watchId)?.packageName ?? '';
+}
 </script>
 
 <template>
@@ -33,6 +38,15 @@ const remaining = computed(() => WHOLESALE_MIN - cart.unitCount);
         <div class="flex-1">
           <h3 class="font-display text-xl">{{ item.productName }}</h3>
           <p class="text-lux-gold font-display text-lg mt-1">{{ formatCop(cart.unitPrice(item)) }}</p>
+          <p v-if="linePackage(item.watchId)" class="text-xs text-lux-gold mt-1">
+            Paquete {{ linePackage(item.watchId) }}
+          </p>
+          <WholesaleExtraPicker
+            class="mt-3"
+            :extras="catalog?.extras ?? []"
+            :selected="item.extras ?? []"
+            @change="cart.setExtra(item.watchId, $event)"
+          />
           <div class="flex items-center gap-3 mt-3">
             <button type="button" class="w-8 h-8 border border-lux-gold/30" @click="cart.setQuantity(item.watchId, item.quantity - 1)">−</button>
             <span>{{ item.quantity }}</span>
@@ -41,6 +55,16 @@ const remaining = computed(() => WHOLESALE_MIN - cart.unitCount);
           </div>
         </div>
       </article>
+
+      <div
+        v-for="offer in quote?.offers ?? []"
+        :key="offer.id"
+        class="border border-lux-gold/20 px-4 py-3 text-sm"
+      >
+        <p class="text-lux-gold">{{ offer.name }} · {{ formatCop(offer.unitPrice) }} por reloj desde {{ offer.minQuantity }} {{ offer.minQuantity === 1 ? 'unidad' : 'unidades' }}</p>
+        <p v-if="offer.applied" class="text-lux-white-dim">Aplicado en este carrito.</p>
+        <p v-else class="text-lux-white-dim">Llevas {{ offer.qualifyingQuantity }} de {{ offer.minQuantity }}.</p>
+      </div>
 
       <div
         v-if="!meetsMinimum"

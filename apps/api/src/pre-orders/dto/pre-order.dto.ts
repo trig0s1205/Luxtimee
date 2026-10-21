@@ -4,6 +4,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
   ValidateNested,
@@ -29,6 +30,23 @@ export class PreOrderItemDto {
   @MaxLength(500)
   @Transform(({ value }) => sanitizePlainTextOptional(value, 500))
   deliveryNote?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PreOrderExtraDto)
+  extras?: PreOrderExtraDto[];
+}
+
+export class PreOrderExtraDto {
+  @IsString()
+  extraId!: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(99)
+  @Type(() => Number)
+  quantity!: number;
 }
 
 export class CreatePreOrderDto {

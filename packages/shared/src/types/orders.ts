@@ -11,12 +11,15 @@ export interface CartItemDto {
   wholesalePrice: number;
   stock: number;
   deliveryNote?: string;
+  extras?: Array<{ extraId: string; name?: string; quantity: number }>;
+  quotedUnitPrice?: number;
 }
 
 export interface PreOrderItemInput {
   watchId: string;
   quantity: number;
   deliveryNote?: string;
+  extras?: Array<{ extraId: string; quantity: number }>;
 }
 
 export interface CreatePreOrderDto {
@@ -57,6 +60,13 @@ export interface OrderItemDto {
   unitPrice: number;
   priceType: PriceType;
   deliveryNote: string | null;
+  extrasSnapshot?: Array<{
+    extraId: string;
+    name: string;
+    unitPrice: number;
+    quantity: number;
+  }>;
+  packageName?: string | null;
   warrantyRegistered: boolean;
 }
 

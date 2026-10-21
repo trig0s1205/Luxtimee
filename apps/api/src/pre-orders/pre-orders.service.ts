@@ -8,6 +8,7 @@ import {
   OrderStage,
   OrderSource,
   OrderType,
+  PriceType,
   Prisma,
   Role,
 } from '@prisma/client';
@@ -35,6 +36,7 @@ import {
 } from '../orders/order-pricing.util';
 import { formatWatchOrderLabel } from '../orders/watch-description.util';
 import { WholesaleAccessService } from '../wholesale-access/wholesale-access.service';
+import { WholesaleOffersService } from '../wholesale-offers/wholesale-offers.service';
 import { storefrontHideWhenEmpty } from '../common/utils/storefront-stock.util';
 
 const activePreOrderWhere = {
@@ -72,6 +74,7 @@ export class PreOrdersService {
     private settingsService: SettingsService,
     private whatsappService: WhatsappService,
     private wholesaleAccessService: WholesaleAccessService,
+    private wholesaleOffers: WholesaleOffersService,
   ) {}
 
   private mapOrder(order: OrderWithRelations) {
@@ -98,6 +101,8 @@ export class PreOrdersService {
         unitPrice: item.unitPrice,
         priceType: item.priceType,
         deliveryNote: item.deliveryNote,
+        extrasSnapshot: item.extrasSnapshot,
+        packageName: item.packageName,
         warrantyRegistered: false,
       })),
       shippingZone: shippingZone
@@ -119,6 +124,7 @@ export class PreOrdersService {
       watchId: string;
       quantity: number;
       deliveryNote?: string | null;
+      extras?: Array<{ extraId: string; quantity: number }>;
     }[],
   ) {
     if (!items.length) throw new BadRequestException('El carrito está vacío');
@@ -145,9 +151,68 @@ export class PreOrdersService {
         productRef: watch.slug,
         productImage: watch.frontImageUrl,
         deliveryNote: item.deliveryNote?.trim() || null,
+        extras: (item.extras ?? []).filter((extra) => extra.quantity > 0),
       };
     });
     return lines;
+  }
+
+  private async priceChannel(
+    lineInputs: Awaited<ReturnType<PreOrdersService['buildLines']>>,
+    shippingCost: number,
+    channel: 'retail' | 'wholesale',
+  ) {
+    if (channel !== 'wholesale') {
+      const priced = priceOrderLines(lineInputs, shippingCost, channel);
+      return {
+        ...priced,
+        lines: priced.lines.map((line) => ({
+          ...line,
+          extrasSnapshot: [] as Array<{
+            extraId: string;
+            name: string;
+            unitPrice: number;
+            quantity: number;
+          }>,
+          packageId: null as string | null,
+          packageName: null as string | null,
+        })),
+      };
+    }
+
+    const quoted = await this.wholesaleOffers.quoteLines(
+      lineInputs.map((line) => ({
+        watchId: line.watchId,
+        quantity: line.quantity,
+        wholesalePrice: line.wholesalePrice,
+        extras: line.extras,
+      })),
+    );
+    const byWatch = new Map(quoted.lines.map((line) => [line.watchId, line]));
+    const lines = lineInputs.map((line) => {
+      const quote = byWatch.get(line.watchId);
+      if (!quote) throw new BadRequestException('No se pudo cotizar el pedido');
+      return {
+        ...line,
+        unitPrice: quote.unitPrice,
+        priceType: PriceType.WHOLESALE,
+        lineTotal: quote.lineTotal,
+        extrasSnapshot: quote.extras,
+        packageId: quote.packageId,
+        packageName: quote.packageName,
+      };
+    });
+    const unitCount = lines.reduce((sum, line) => sum + line.quantity, 0);
+    const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
+    return {
+      type: OrderType.MAYORISTA,
+      unitCount,
+      subtotal,
+      shippingCost,
+      total: subtotal + shippingCost,
+      depositExpected: 10_000 * unitCount,
+      lines,
+    };
   }
 
   private async reserveStockForItems(
@@ -307,7 +372,7 @@ export class PreOrdersService {
       }
       shippingZoneName = zone.name;
     }
-    const priced = priceOrderLines(lineInputs, shippingCost, channel);
+    const priced = await this.priceChannel(lineInputs, shippingCost, channel);
     const whatsapp = await this.settingsService.getWhatsappLink();
     const message = this.whatsappService.buildCheckoutMessage({
       prefix: whatsapp.messagePrefix,
@@ -322,6 +387,8 @@ export class PreOrdersService {
         qty: line.quantity,
         price: line.unitPrice,
         deliveryNote: line.deliveryNote,
+        extrasLabel: formatExtrasLabel(line.extrasSnapshot),
+        packageName: line.packageName,
       })),
       total: priced.total,
       type: priced.type,
@@ -377,6 +444,9 @@ export class PreOrdersService {
               unitPrice: line.unitPrice,
               priceType: line.priceType,
               deliveryNote: line.deliveryNote,
+              extrasSnapshot: line.extrasSnapshot,
+              packageId: line.packageId,
+              packageName: line.packageName,
             })),
           },
         },
@@ -475,7 +545,20 @@ export class PreOrdersService {
     }> = [];
 
     if (dto.items) {
-      const lineInputs = await this.buildLines(dto.items);
+      const channel =
+        existing.type === OrderType.MAYORISTA ? 'wholesale' : 'retail';
+      const items =
+        channel === 'wholesale'
+          ? dto.items.map((item) => {
+              if (item.extras) return item;
+              const prev = existing.items.find((row) => row.watchId === item.watchId);
+              return {
+                ...item,
+                extras: snapshotToSelections(prev?.extrasSnapshot),
+              };
+            })
+          : dto.items;
+      const lineInputs = await this.buildLines(items);
       stockLines = lineInputs.map((line) => ({
         watchId: line.watchId,
         quantity: line.quantity,
@@ -505,9 +588,7 @@ export class PreOrdersService {
           shippingCost = Math.max(0, Math.round(dto.manualShippingCost));
         }
       }
-      const channel =
-        existing.type === OrderType.MAYORISTA ? 'wholesale' : 'retail';
-      const priced = priceOrderLines(lineInputs, shippingCost, channel);
+      const priced = await this.priceChannel(lineInputs, shippingCost, channel);
       pricingPatch = {
         type: priced.type,
         subtotal: priced.subtotal,
@@ -525,6 +606,9 @@ export class PreOrdersService {
             unitPrice: line.unitPrice,
             priceType: line.priceType,
             deliveryNote: line.deliveryNote,
+            extrasSnapshot: line.extrasSnapshot,
+            packageId: line.packageId,
+            packageName: line.packageName,
           })),
         },
       };
@@ -729,4 +813,23 @@ export class PreOrdersService {
 
     return expired.length;
   }
+}
+
+function snapshotToSelections(raw: unknown) {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((row) => {
+    if (!row || typeof row !== 'object') return [];
+    const extra = row as { extraId?: string; quantity?: number };
+    if (!extra.extraId || !extra.quantity) return [];
+    return [{ extraId: extra.extraId, quantity: extra.quantity }];
+  });
+}
+
+function formatExtrasLabel(
+  extras: Array<{ name: string; quantity: number }>,
+) {
+  const parts = extras
+    .filter((extra) => extra.quantity > 0)
+    .map((extra) => `${extra.quantity} ${extra.name} extra por reloj`);
+  return parts.length ? parts.join(', ') : null;
 }

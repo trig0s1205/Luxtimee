@@ -3,6 +3,8 @@ import type { CartItemDto, WatchPublicDto } from '@luxtime/shared';
 
 const STORAGE_KEY = 'LUXTIMEE-cart-wholesale';
 
+export type WholesaleCartExtra = { extraId: string; name: string; quantity: number };
+
 export const useWholesaleCartStore = defineStore('wholesale-cart', {
   state: () => ({
     items: [] as CartItemDto[],
@@ -12,7 +14,7 @@ export const useWholesaleCartStore = defineStore('wholesale-cart', {
   getters: {
     unitCount: (state) => state.items.reduce((sum, item) => sum + item.quantity, 0),
     subtotal: (state) => state.items.reduce((sum, item) => {
-      const price = item.wholesalePrice ?? item.retailPrice;
+      const price = item.quotedUnitPrice ?? item.wholesalePrice ?? item.retailPrice;
       return sum + price * item.quantity;
     }, 0),
     itemCount: (state) => state.items.length,
@@ -32,10 +34,11 @@ export const useWholesaleCartStore = defineStore('wholesale-cart', {
 
     persist() {
       if (!import.meta.client) return;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.items));
+      const slim = this.items.map(({ quotedUnitPrice: _quoted, ...item }) => item);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(slim));
     },
 
-    addFromWatch(watch: WatchPublicDto, quantity = 1) {
+    addFromWatch(watch: WatchPublicDto, quantity = 1, extras: WholesaleCartExtra[] = []) {
       this.hydrate();
       const stock = watch.stock ?? 0;
       const existing = this.items.find((i) => i.watchId === watch.id);
@@ -49,6 +52,7 @@ export const useWholesaleCartStore = defineStore('wholesale-cart', {
       if (existing) {
         existing.stock = stock;
         existing.quantity += quantity;
+        if (extras.length) existing.extras = extras;
       } else {
         this.items.push({
           watchId: watch.id,
@@ -60,6 +64,7 @@ export const useWholesaleCartStore = defineStore('wholesale-cart', {
           retailPrice: watch.retailPrice,
           wholesalePrice: watch.wholesalePrice ?? watch.retailPrice,
           stock,
+          extras,
         });
       }
       this.persist();
@@ -96,7 +101,38 @@ export const useWholesaleCartStore = defineStore('wholesale-cart', {
     },
 
     unitPrice(item: CartItemDto) {
-      return item.wholesalePrice ?? item.retailPrice;
+      return item.quotedUnitPrice ?? item.wholesalePrice ?? item.retailPrice;
+    },
+
+    setExtra(watchId: string, extra: WholesaleCartExtra) {
+      this.hydrate();
+      const item = this.items.find((row) => row.watchId === watchId);
+      if (!item) return;
+      const extras = [...(item.extras ?? [])];
+      const index = extras.findIndex((row) => row.extraId === extra.extraId);
+      if (extra.quantity <= 0) {
+        if (index >= 0) extras.splice(index, 1);
+      } else if (index >= 0) {
+        extras[index] = extra;
+      } else {
+        extras.push(extra);
+      }
+      item.extras = extras;
+      item.quotedUnitPrice = undefined;
+      this.persist();
+    },
+
+    applyQuote(lines: Array<{ watchId: string; unitPrice: number }>) {
+      let changed = false;
+      for (const item of this.items) {
+        const line = lines.find((row) => row.watchId === item.watchId);
+        const next = line?.unitPrice;
+        if (item.quotedUnitPrice !== next) {
+          item.quotedUnitPrice = next;
+          changed = true;
+        }
+      }
+      if (changed) this.persist();
     },
 
     toCheckoutItems() {
@@ -104,6 +140,9 @@ export const useWholesaleCartStore = defineStore('wholesale-cart', {
         watchId: item.watchId,
         quantity: item.quantity,
         deliveryNote: item.deliveryNote?.trim() || undefined,
+        extras: (item.extras ?? [])
+          .filter((extra) => extra.quantity > 0)
+          .map((extra) => ({ extraId: extra.extraId, quantity: extra.quantity })),
       }));
     },
 

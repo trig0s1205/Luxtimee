@@ -20,6 +20,8 @@ export class WhatsappService {
       qty: number;
       price: number;
       deliveryNote?: string | null;
+      extrasLabel?: string | null;
+      packageName?: string | null;
     }>;
     total: number;
     type: string;
@@ -32,6 +34,8 @@ export class WhatsappService {
           `*${index + 1}.* ${item.label}`,
           item.sku?.trim() ? `   *SKU:* ${item.sku.trim()}` : null,
           `   _Cantidad:_ x${item.qty}  ·  _Precio unit.:_ $${item.price.toLocaleString('es-CO')}`,
+          item.extrasLabel?.trim() ? `   _Extras:_ ${item.extrasLabel.trim()}` : null,
+          item.packageName?.trim() ? `   _Paquete:_ ${item.packageName.trim()}` : null,
           lineTotal !== item.price
             ? `   _Subtotal:_ $${lineTotal.toLocaleString('es-CO')}`
             : null,

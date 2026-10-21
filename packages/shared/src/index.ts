@@ -61,6 +61,7 @@ export * from './utils/order-status.js';
 export * from './utils/text.js';
 export * from './utils/sku-search.js';
 export * from './utils/homepage-hero.js';
+export * from './utils/wholesale-quote.js';
 export * from './types/warranty-history.js';
 export * from './types/inventory.js';
 export * from './types/wholesale-access.js';

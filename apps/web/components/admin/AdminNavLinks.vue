@@ -34,6 +34,7 @@ const prePedidosLinks = [
 
 const linksAfterPedidos: AdminNavLink[] = [
   { to: '/admin/socios-mayoristas', label: 'Mayoristas' },
+  { to: '/admin/mayorista-ofertas', label: 'Ofertas mayorista' },
   { to: '/admin/garantias', label: 'Garantías' },
   { to: '/admin/envios', label: 'Envíos', superOnly: true },
 ];

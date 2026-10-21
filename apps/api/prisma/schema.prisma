@@ -241,6 +241,7 @@ model Watch {
   waitlist         WaitlistEntry[]
   wishlist         WishlistItem[]
   certificates     Certificate[]
+  wholesalePackageWatches WholesalePackageWatch[]
 
   @@index([brandId])
   @@index([categoryId])
@@ -315,6 +316,9 @@ model OrderItem {
   unitPrice    Int
   priceType    PriceType
   deliveryNote String?   @db.Text
+  extrasSnapshot Json     @default("[]")
+  packageId    String?
+  packageName  String?
   createdAt    DateTime  @default(now())
 
   order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -442,6 +446,41 @@ model AuditLog {
 
   @@index([entity, entityId])
   @@index([createdAt])
+}
+
+model WholesaleExtra {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  price     Int      @default(0)
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WholesalePackage {
+  id          String    @id @default(cuid())
+  name        String
+  minQuantity Int
+  unitPrice   Int
+  isActive    Boolean   @default(true)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  watches WholesalePackageWatch[]
+}
+
+model WholesalePackageWatch {
+  packageId String
+  watchId   String
+
+  package WholesalePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  watch   Watch            @relation(fields: [watchId], references: [id], onDelete: Cascade)
+
+  @@id([packageId, watchId])
+  @@index([watchId])
 }
 
 model WholesaleAccess {

@@ -4,15 +4,16 @@ import { formatCop } from '~/utils/format';
 definePageMeta({ middleware: ['wholesale'] });
 
 const route = useRoute();
-const catalog = useCatalogData();
+const catalogApi = useCatalogData();
 const cart = useWholesaleCartStore();
 const analytics = useAnalytics();
+const { catalog: offers } = useWholesaleQuote();
 
 const slug = computed(() => String(route.params.slug));
 
 const { data: watch, error } = await useAsyncData(
   'wholesale-product',
-  () => catalog.getWholesaleBySlug(slug.value),
+  () => catalogApi.getWholesaleBySlug(slug.value),
   { watch: [slug], server: false },
 );
 
@@ -20,11 +21,29 @@ if (error.value) {
   throw createError({ statusCode: 404, message: 'Producto no encontrado' });
 }
 
-const displayPrice = computed(() => watch.value?.wholesalePrice ?? watch.value?.retailPrice ?? 0);
+const displayPrice = computed(() => {
+  const base = watch.value?.wholesalePrice ?? watch.value?.retailPrice ?? 0;
+  const extras = offers.value?.extras ?? [];
+  const extraTotal = extras.reduce((sum, extra) => sum + extra.price * (selected[extra.id] ?? 0), 0);
+  return base + extraTotal;
+});
+
+const selected = reactive<Record<string, number>>({});
+
+function onExtraChange(extra: { extraId: string; quantity: number }) {
+  selected[extra.extraId] = extra.quantity;
+}
 
 function addToCart() {
   if (!watch.value) return;
-  cart.addFromWatch(watch.value);
+  const picked = (offers.value?.extras ?? [])
+    .filter((extra) => (selected[extra.id] ?? 0) > 0)
+    .map((extra) => ({
+      extraId: extra.id,
+      name: extra.name,
+      quantity: selected[extra.id] ?? 0,
+    }));
+  cart.addFromWatch(watch.value, 1, picked);
   analytics.track('add_to_cart', { slug: watch.value.slug, channel: 'wholesale' });
 }
 
@@ -51,6 +70,12 @@ useSeoMeta({
         <p class="text-sm text-lux-white-dim mt-2">{{ watch.movementType }} · Ref. {{ watch.reference || watch.slug }}</p>
         <p class="text-lux-gold font-display text-3xl mt-6">{{ formatCop(displayPrice) }}</p>
         <p class="text-xs text-lux-white-dim mt-2">Precio mayorista · Stock {{ watch.stock }}</p>
+        <WholesaleExtraPicker
+          class="mt-6"
+          :extras="offers?.extras ?? []"
+          :selected="Object.entries(selected).map(([extraId, quantity]) => ({ extraId, quantity }))"
+          @change="onExtraChange"
+        />
 
         <button type="button" class="btn-primary mt-8" :disabled="watch.stock === 0" @click="addToCart">
           Agregar al carrito mayorista

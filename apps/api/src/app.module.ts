@@ -31,6 +31,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
 import { SegmentationModule } from './segmentation/segmentation.module';
 import { WholesaleAccessModule } from './wholesale-access/wholesale-access.module';
+import { WholesaleOffersModule } from './wholesale-offers/wholesale-offers.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { CacheModule } from './common/cache/cache.module';
 import { ResponseCacheInterceptor } from './common/cache/response-cache.interceptor';
@@ -78,6 +79,7 @@ const isProd = process.env.NODE_ENV === 'production';
     SegmentationModule,
     WarrantyHistoriesModule,
     WholesaleAccessModule,
+    WholesaleOffersModule,
   ],
   providers: [
     {

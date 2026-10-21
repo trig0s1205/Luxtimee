@@ -139,7 +139,9 @@ const stockTone = computed(() => {
         <span class="ww-stock-badge" :class="`ww-stock--${stockTone}`">{{ stockLabel }}</span>
       </div>
 
-      <h3 class="ww-model">{{ watch.model }}</h3>
+      <h3 class="ww-model">
+        <NuxtLink :to="`/mayoristas/catalogo/${watch.slug}`">{{ watch.model }}</NuxtLink>
+      </h3>
       <p class="ww-movement">
         {{ watch.movementType }}<span v-if="watch.reference"> · Ref. {{ watch.reference }}</span>
       </p>

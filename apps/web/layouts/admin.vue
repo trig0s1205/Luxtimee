@@ -25,6 +25,7 @@ const ADMIN_ROUTES = [
   '/admin/garantias',
   '/admin/envios',
   '/admin/socios-mayoristas',
+  '/admin/mayorista-ofertas',
   '/admin/configuracion',
   '/admin/dashboards/salud',
   '/admin/dashboards/analytics',

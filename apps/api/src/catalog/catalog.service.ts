@@ -113,7 +113,7 @@ export class CatalogService {
         {
           OR: [
             { mechanismId: { not: null } },
-            { AND: [{ movementType: { not: null } }, { NOT: { movementType: '' } }] },
+            { movementType: { not: '' } },
           ],
         },
       ],

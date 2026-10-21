@@ -75,6 +75,8 @@ export class OrdersService {
         unitPrice: item.unitPrice,
         priceType: item.priceType,
         deliveryNote: item.deliveryNote,
+        extrasSnapshot: item.extrasSnapshot,
+        packageName: item.packageName,
         warrantyRegistered:
           item.warrantyHistory?.status === 'GARANTIA_REGISTRADA',
       })),

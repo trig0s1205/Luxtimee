@@ -12,6 +12,13 @@ const retailCart = useCartStore();
 const wholesaleCart = useWholesaleCartStore();
 
 const cart = computed(() => (props.channel === 'wholesale' ? wholesaleCart : retailCart));
+const extraLabel = computed(() => {
+  if (props.channel !== 'wholesale') return '';
+  return (props.item.extras ?? [])
+    .filter((extra) => extra.quantity > 0)
+    .map((extra) => `${extra.quantity} ${extra.name ?? 'extra'}`)
+    .join(', ');
+});
 </script>
 
 <template>
@@ -21,6 +28,7 @@ const cart = computed(() => (props.channel === 'wholesale' ? wholesaleCart : ret
     </div>
     <div class="cart-item-info">
       <p class="cart-item-name">{{ item.productName }}</p>
+      <p v-if="channel === 'wholesale' && extraLabel" class="cart-item-price">{{ extraLabel }}</p>
       <p class="cart-item-price">{{ formatCop(cart.unitPrice(item)) }}</p>
       <div class="cart-qty">
         <button type="button" class="qty-btn" @click="cart.setQuantity(item.watchId, item.quantity - 1)">−</button>

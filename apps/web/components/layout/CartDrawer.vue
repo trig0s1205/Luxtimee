@@ -4,6 +4,7 @@ import { formatCop } from '~/utils/format';
 const { open, channel, closeCart } = useCartDrawer();
 const retailCart = useCartStore();
 const wholesaleCart = useWholesaleCartStore();
+useWholesaleQuote();
 const { t } = useLocale();
 const { confirm } = useConfirm();
 
