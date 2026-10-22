@@ -6,6 +6,7 @@ export type ZipEntry = {
   localOffset: number;
   encrypted: boolean;
   modifiedAt?: number;
+  createdAt?: number;
 };
 
 const ZIP_LOCAL = 0x04034b50;
@@ -74,7 +75,7 @@ export async function readZipEntries(file: File): Promise<ZipEntry[]> {
     const nameStart = cursor + 46;
     const name = new TextDecoder().decode(cd.subarray(nameStart, nameStart + nameLength));
     const extraStart = nameStart + nameLength;
-    const ntfsModifiedAt = readNtfsModifiedAt(cd.subarray(extraStart, extraStart + extraLength));
+    const ntfsTimes = readNtfsTimes(cd.subarray(extraStart, extraStart + extraLength));
     if (
       uncompressedSize === 0xffffffff ||
       compressedSize === 0xffffffff ||
@@ -89,7 +90,8 @@ export async function readZipEntries(file: File): Promise<ZipEntry[]> {
       uncompressedSize,
       localOffset,
       encrypted: (flags & 1) === 1,
-      modifiedAt: ntfsModifiedAt ?? modifiedAt,
+      modifiedAt: ntfsTimes.modifiedAt ?? modifiedAt,
+      createdAt: ntfsTimes.createdAt,
     });
     cursor = nameStart + nameLength + extraLength + commentLength;
   }
@@ -121,8 +123,18 @@ export async function readZipEntry(file: File, entry: ZipEntry): Promise<Uint8Ar
   return inflateRaw(compressed);
 }
 
-function readNtfsModifiedAt(extra: Uint8Array) {
-  if (extra.length < 4) return undefined;
+function filetimeToMs(view: DataView, offset: number) {
+  const low = view.getUint32(offset, true);
+  const high = view.getUint32(offset + 4, true);
+  const filetime = BigInt(high) * 4294967296n + BigInt(low);
+  if (filetime <= 0n) return undefined;
+  const ms = Number(filetime / 10000n - 11644473600000n);
+  return Number.isFinite(ms) && ms > 0 ? ms : undefined;
+}
+
+function readNtfsTimes(extra: Uint8Array) {
+  const times: { modifiedAt?: number; createdAt?: number } = {};
+  if (extra.length < 4) return times;
   const view = new DataView(extra.buffer, extra.byteOffset, extra.byteLength);
   let cursor = 0;
   while (cursor + 4 <= extra.length) {
@@ -137,19 +149,18 @@ function readNtfsModifiedAt(extra: Uint8Array) {
         const tag = view.getUint16(tagCursor, true);
         const tagSize = view.getUint16(tagCursor + 2, true);
         const tagStart = tagCursor + 4;
-        if (tag === 0x0001 && tagSize >= 8 && tagStart + 8 <= extra.length) {
-          const low = view.getUint32(tagStart, true);
-          const high = view.getUint32(tagStart + 4, true);
-          const filetime = BigInt(high) * 4294967296n + BigInt(low);
-          const ms = Number(filetime / 10000n - 11644473600000n);
-          if (Number.isFinite(ms) && ms > 0) return ms;
+        if (tag === 0x0001 && tagStart + 8 <= extra.length) {
+          times.modifiedAt = filetimeToMs(view, tagStart);
+          if (tagSize >= 24 && tagStart + 24 <= extra.length) {
+            times.createdAt = filetimeToMs(view, tagStart + 16);
+          }
         }
         tagCursor = tagStart + tagSize;
       }
     }
     cursor = start + size;
   }
-  return undefined;
+  return times;
 }
 
 function dosDateTimeToMs(time: number, date: number) {

@@ -241,7 +241,7 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
           name,
           size: entry.uncompressedSize,
           mime: '',
-          modifiedAt: entry.modifiedAt,
+          modifiedAt: entry.createdAt ?? entry.modifiedAt,
           entry,
         };
       });

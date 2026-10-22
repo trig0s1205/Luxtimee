@@ -60,7 +60,7 @@ function onPick(event: Event) {
           <button type="button" class="admin-pagination-btn" @click="close">Cerrar</button>
         </header>
         <p class="admin-bulk-draft-copy">
-          Sube un ZIP o elige fotos sueltas. Se ordenan por fecha, de la más antigua a la más nueva, aunque la diferencia sea de milisegundos. Si coinciden, se respeta el orden de la carpeta. La impar es el frente y la par el dorso.
+          Comprime la carpeta donde están las fotos y sube ese ZIP. El orden es la hora en que cada foto se guardó en esa carpeta, no la fecha que trae la imagen de WhatsApp. De la más antigua a la más nueva: la impar es el frente y la par el dorso.
           JPEG, PNG o WEBP, máximo 10 MB cada una y 500 fotos. Los borradores quedan en pendientes de información y no se publican.
         </p>
         <p class="admin-bulk-draft-copy">
