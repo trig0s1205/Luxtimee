@@ -10,7 +10,12 @@ export type BulkDeleteJob = {
   progress: number;
 };
 
-const CONCURRENCY = 3;
+const BATCH_SIZE = 500;
+
+type BulkDeleteResponse = {
+  deletedIds: string[];
+  missingIds: string[];
+};
 
 export const useWatchBulkDeleteStore = defineStore('watchBulkDelete', {
   state: () => ({
@@ -46,34 +51,46 @@ export const useWatchBulkDeleteStore = defineStore('watchBulkDelete', {
           progress: 0,
         });
       }
-      this._tick();
+      this._pump();
     },
 
-    _tick() {
-      while (this._running < CONCURRENCY) {
-        const job = this.jobs.find((item) => item.status === 'queued');
-        if (!job) return;
+    _pump() {
+      if (this._running) return;
+      const batch = this.jobs.filter((job) => job.status === 'queued').slice(0, BATCH_SIZE);
+      if (!batch.length) return;
+      this._running = 1;
+      void this._runBatch(batch);
+    },
+
+    async _runBatch(batch: BulkDeleteJob[]) {
+      for (const job of batch) {
         job.status = 'running';
-        job.progress = 12;
-        this._running += 1;
-        void this._run(job);
+        job.progress = 30;
       }
-    },
-
-    async _run(job: BulkDeleteJob) {
       const timer = setInterval(() => {
-        if (job.status === 'running' && job.progress < 88) job.progress += 7;
+        for (const job of batch) {
+          if (job.status === 'running' && job.progress < 88) job.progress += 7;
+        }
       }, 180);
       try {
-        await useApi().del(`/watches/${job.id}`);
-        job.progress = 100;
-        job.status = 'done';
+        const res = await useApi().post<BulkDeleteResponse>('/watches/bulk-delete', {
+          ids: batch.map((job) => job.id),
+        });
+        const deleted = new Set(res.deletedIds ?? []);
+        for (const job of batch) {
+          if (deleted.has(job.id)) {
+            job.progress = 100;
+            job.status = 'done';
+          } else {
+            job.status = 'error';
+          }
+        }
       } catch {
-        job.status = 'error';
+        for (const job of batch) job.status = 'error';
       } finally {
         clearInterval(timer);
-        this._running = Math.max(0, this._running - 1);
-        this._tick();
+        this._running = 0;
+        this._pump();
       }
     },
 

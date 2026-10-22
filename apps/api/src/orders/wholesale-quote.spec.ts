@@ -79,6 +79,48 @@ describe('quoteWholesaleCart', () => {
     expect(quote.lines[1].packageId).toBeNull();
   });
 
+  it('suma el mismo extra repetido en la línea', () => {
+    const quote = quoteWholesaleCart(
+      [
+        {
+          watchId: 'w1',
+          quantity: 1,
+          wholesalePrice: 50000,
+          extras: [
+            { extraId: 'caja', quantity: 1 },
+            { extraId: 'caja', quantity: 1 },
+          ],
+        },
+      ],
+      extras,
+      packages,
+    );
+    expect(quote.lines[0].extras).toEqual([
+      { extraId: 'caja', name: 'Caja', unitPrice: 5000, quantity: 2 },
+    ]);
+    expect(quote.lines[0].unitPrice).toBe(60000);
+  });
+
+  it('rechaza extras repetidos que superan el máximo', () => {
+    expect(() =>
+      quoteWholesaleCart(
+        [
+          {
+            watchId: 'w1',
+            quantity: 1,
+            wholesalePrice: 50000,
+            extras: [
+              { extraId: 'caja', quantity: 60 },
+              { extraId: 'caja', quantity: 50 },
+            ],
+          },
+        ],
+        extras,
+        packages,
+      ),
+    ).toThrow('Cantidad de extra inválida');
+  });
+
   it('rechaza un extra que no existe', () => {
     expect(() =>
       quoteWholesaleCart(

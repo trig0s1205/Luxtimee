@@ -25,7 +25,12 @@ import type { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { WatchesService } from './watches.service';
-import { CreateWatchDto, UpdateWatchDto, WatchQueryDto } from './dto';
+import {
+  BulkDeleteWatchesDto,
+  CreateWatchDto,
+  UpdateWatchDto,
+  WatchQueryDto,
+} from './dto';
 import { Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -171,6 +176,12 @@ export class WatchesController {
     @CurrentUser() user: { role: Role },
   ) {
     return this.watchesService.update(id, dto, user.role);
+  }
+
+  @Post('bulk-delete')
+  @Audit('DELETE', 'Watch')
+  bulkRemove(@Body() dto: BulkDeleteWatchesDto) {
+    return this.watchesService.bulkRemove(dto.ids);
   }
 
   @Delete(':id')

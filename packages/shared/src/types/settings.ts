@@ -10,6 +10,7 @@ export interface HomepageHeroConfig {
 
 export interface HomepageFeaturedConfig {
   enabled: boolean;
+  watchesEnabled: boolean;
   label: string;
   titleLead: string;
   titleEm: string;

@@ -15,6 +15,7 @@ import {
 import {
   isAlwaysFreeShippingZone,
   PRE_ORDER_RESPONSE_HOURS,
+  type WholesaleQuotedLine,
 } from '@luxtime/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -38,6 +39,11 @@ import { formatWatchOrderLabel } from '../orders/watch-description.util';
 import { WholesaleAccessService } from '../wholesale-access/wholesale-access.service';
 import { WholesaleOffersService } from '../wholesale-offers/wholesale-offers.service';
 import { storefrontHideWhenEmpty } from '../common/utils/storefront-stock.util';
+import {
+  mergePreOrderItems,
+  parseExtrasSnapshot,
+  repricePreservedWholesaleLine,
+} from './pre-order-lines';
 
 const activePreOrderWhere = {
   stage: OrderStage.PRE_ORDER,
@@ -128,12 +134,14 @@ export class PreOrdersService {
     }[],
   ) {
     if (!items.length) throw new BadRequestException('El carrito está vacío');
+    const merged = mergePreOrderItems(items);
     const watches = await this.prisma.watch.findMany({
-      where: { id: { in: items.map((i) => i.watchId) }, isActive: true },
+      where: { id: { in: merged.map((i) => i.watchId) }, isActive: true },
       include: { brand: true, category: true },
     });
-    const lines = items.map((item) => {
-      const watch = watches.find((w) => w.id === item.watchId);
+    const byId = new Map(watches.map((watch) => [watch.id, watch]));
+    return merged.map((item) => {
+      const watch = byId.get(item.watchId);
       if (!watch)
         throw new BadRequestException(`Reloj no disponible: ${item.watchId}`);
       if (watch.stock < item.quantity) {
@@ -154,7 +162,6 @@ export class PreOrdersService {
         extras: (item.extras ?? []).filter((extra) => extra.quantity > 0),
       };
     });
-    return lines;
   }
 
   private async priceChannel(
@@ -188,7 +195,7 @@ export class PreOrdersService {
         extras: line.extras,
       })),
     );
-    const byWatch = new Map(quoted.lines.map((line) => [line.watchId, line]));
+    const byWatch = indexQuotesByWatch(quoted.lines);
     const lines = lineInputs.map((line) => {
       const quote = byWatch.get(line.watchId);
       if (!quote) throw new BadRequestException('No se pudo cotizar el pedido');
@@ -215,13 +222,120 @@ export class PreOrdersService {
     };
   }
 
+  private async priceWholesaleEdit(
+    lineInputs: Awaited<ReturnType<PreOrdersService['buildLines']>>,
+    shippingCost: number,
+    existingItems: OrderWithRelations['items'],
+  ) {
+    const previousByWatch = new Map<
+      string,
+      OrderWithRelations['items'][number]
+    >();
+    for (const item of existingItems) {
+      if (!previousByWatch.has(item.watchId))
+        previousByWatch.set(item.watchId, item);
+    }
+    const fresh = lineInputs.filter(
+      (line) => !previousByWatch.has(line.watchId),
+    );
+    let quotedByWatch = new Map<string, WholesaleQuotedLine>();
+    if (fresh.length) {
+      const quoted = await this.wholesaleOffers.quoteLines(
+        lineInputs.map((line) => ({
+          watchId: line.watchId,
+          quantity: line.quantity,
+          wholesalePrice: line.wholesalePrice,
+          extras: previousByWatch.has(line.watchId) ? [] : line.extras,
+        })),
+      );
+      quotedByWatch = indexQuotesByWatch(quoted.lines);
+    }
+    const hasFrozen = lineInputs.some((line) =>
+      previousByWatch.has(line.watchId),
+    );
+    const catalog = hasFrozen
+      ? await this.wholesaleOffers.getPublicCatalog()
+      : null;
+
+    const lines = lineInputs.map((line) => {
+      const prev = previousByWatch.get(line.watchId);
+      if (!prev) {
+        const quote = quotedByWatch.get(line.watchId);
+        if (!quote)
+          throw new BadRequestException('No se pudo cotizar el pedido');
+        return {
+          ...line,
+          unitPrice: quote.unitPrice,
+          priceType: PriceType.WHOLESALE,
+          lineTotal: quote.lineTotal,
+          extrasSnapshot: quote.extras,
+          packageId: quote.packageId,
+          packageName: quote.packageName,
+        };
+      }
+      let priced: ReturnType<typeof repricePreservedWholesaleLine>;
+      try {
+        priced = repricePreservedWholesaleLine({
+          quantity: line.quantity,
+          previousUnitPrice: prev.unitPrice,
+          previousExtras: parseExtrasSnapshot(prev.extrasSnapshot),
+          requestedExtras: line.extras,
+          catalogExtras: catalog?.extras ?? [],
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'No se pudo cotizar el pedido';
+        throw new BadRequestException(message);
+      }
+      return {
+        ...line,
+        unitPrice: priced.unitPrice,
+        priceType: PriceType.WHOLESALE,
+        lineTotal: priced.lineTotal,
+        extrasSnapshot: priced.extras,
+        packageId: prev.packageId,
+        packageName: prev.packageName,
+      };
+    });
+    const unitCount = lines.reduce((sum, line) => sum + line.quantity, 0);
+    const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
+    return {
+      type: OrderType.MAYORISTA,
+      unitCount,
+      subtotal,
+      shippingCost,
+      total: subtotal + shippingCost,
+      depositExpected: 10_000 * unitCount,
+      lines,
+    };
+  }
+
   private async reserveStockForItems(
     tx: Prisma.TransactionClient,
     items: Array<{ watchId: string; quantity: number; productName?: string }>,
   ) {
+    const totals = new Map<
+      string,
+      { quantity: number; productName?: string }
+    >();
     for (const item of items) {
+      const current = totals.get(item.watchId);
+      if (current) {
+        current.quantity += item.quantity;
+        if (!current.productName && item.productName)
+          current.productName = item.productName;
+      } else {
+        totals.set(item.watchId, {
+          quantity: item.quantity,
+          productName: item.productName,
+        });
+      }
+    }
+    for (const [watchId, item] of totals) {
       const watch = await tx.watch.findUnique({
-        where: { id: item.watchId },
+        where: { id: watchId },
         select: { stock: true, model: true, isActive: true },
       });
       if (!watch?.isActive) {
@@ -237,7 +351,7 @@ export class PreOrdersService {
       }
       const newStock = watch.stock - item.quantity;
       await tx.watch.update({
-        where: { id: item.watchId },
+        where: { id: watchId },
         data: {
           stock: newStock,
           ...(newStock === 0 ? storefrontHideWhenEmpty(0) : {}),
@@ -397,17 +511,24 @@ export class PreOrdersService {
     const now = new Date();
     const readableId = await this.nextReadableId();
     const order = await this.prisma.$transaction(async (tx) => {
+      const needed = new Map<string, number>();
       for (const line of lineInputs) {
+        needed.set(
+          line.watchId,
+          (needed.get(line.watchId) ?? 0) + line.quantity,
+        );
+      }
+      for (const [watchId, quantity] of needed) {
         const watch = await tx.watch.findUnique({
-          where: { id: line.watchId },
+          where: { id: watchId },
           select: { stock: true },
         });
-        if (!watch || watch.stock < line.quantity) {
+        if (!watch || watch.stock < quantity) {
           throw new BadRequestException('Stock insuficiente para este reloj');
         }
-        const newStock = watch.stock - line.quantity;
+        const newStock = watch.stock - quantity;
         await tx.watch.update({
-          where: { id: line.watchId },
+          where: { id: watchId },
           data: {
             stock: newStock,
             ...(newStock === 0 ? storefrontHideWhenEmpty(0) : {}),
@@ -551,7 +672,9 @@ export class PreOrdersService {
         channel === 'wholesale'
           ? dto.items.map((item) => {
               if (item.extras) return item;
-              const prev = existing.items.find((row) => row.watchId === item.watchId);
+              const prev = existing.items.find(
+                (row) => row.watchId === item.watchId,
+              );
               return {
                 ...item,
                 extras: snapshotToSelections(prev?.extrasSnapshot),
@@ -588,7 +711,14 @@ export class PreOrdersService {
           shippingCost = Math.max(0, Math.round(dto.manualShippingCost));
         }
       }
-      const priced = await this.priceChannel(lineInputs, shippingCost, channel);
+      const priced =
+        channel === 'wholesale'
+          ? await this.priceWholesaleEdit(
+              lineInputs,
+              shippingCost,
+              existing.items,
+            )
+          : await this.priceChannel(lineInputs, shippingCost, channel);
       pricingPatch = {
         type: priced.type,
         subtotal: priced.subtotal,
@@ -816,18 +946,24 @@ export class PreOrdersService {
 }
 
 function snapshotToSelections(raw: unknown) {
-  if (!Array.isArray(raw)) return [];
-  return raw.flatMap((row) => {
-    if (!row || typeof row !== 'object') return [];
-    const extra = row as { extraId?: string; quantity?: number };
-    if (!extra.extraId || !extra.quantity) return [];
-    return [{ extraId: extra.extraId, quantity: extra.quantity }];
-  });
+  return parseExtrasSnapshot(raw).map(({ extraId, quantity }) => ({
+    extraId,
+    quantity,
+  }));
 }
 
-function formatExtrasLabel(
-  extras: Array<{ name: string; quantity: number }>,
-) {
+function indexQuotesByWatch<T extends { watchId: string }>(lines: T[]) {
+  const byWatch = new Map<string, T>();
+  for (const line of lines) {
+    if (byWatch.has(line.watchId)) {
+      throw new BadRequestException('El pedido repite un reloj');
+    }
+    byWatch.set(line.watchId, line);
+  }
+  return byWatch;
+}
+
+function formatExtrasLabel(extras: Array<{ name: string; quantity: number }>) {
   const parts = extras
     .filter((extra) => extra.quantity > 0)
     .map((extra) => `${extra.quantity} ${extra.name} extra por reloj`);

@@ -61,6 +61,15 @@ export interface WholesaleQuoteResult {
 
 const MAX_EXTRA_QTY = 99;
 
+function mergeExtraQuantities(extras: WholesaleExtraSelection[]) {
+  const totals = new Map<string, number>();
+  for (const extra of extras) {
+    if (extra.quantity <= 0) continue;
+    totals.set(extra.extraId, (totals.get(extra.extraId) ?? 0) + extra.quantity);
+  }
+  return [...totals.entries()].map(([extraId, quantity]) => ({ extraId, quantity }));
+}
+
 export function quoteWholesaleCart(
   lines: WholesaleQuoteInputLine[],
   extras: WholesaleExtraDef[],
@@ -75,7 +84,7 @@ export function quoteWholesaleCart(
     if (!Number.isInteger(line.wholesalePrice) || line.wholesalePrice < 0) {
       throw new Error('Precio mayorista inválido');
     }
-    const selected = (line.extras ?? []).filter((extra) => extra.quantity > 0);
+    const selected = mergeExtraQuantities(line.extras ?? []);
     const quotedExtras: WholesaleQuotedExtra[] = selected.map((extra) => {
       if (!Number.isInteger(extra.quantity) || extra.quantity < 0 || extra.quantity > MAX_EXTRA_QTY) {
         throw new Error('Cantidad de extra inválida');
