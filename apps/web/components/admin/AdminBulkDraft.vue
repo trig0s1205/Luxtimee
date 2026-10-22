@@ -60,7 +60,7 @@ function onPick(event: Event) {
           <button type="button" class="admin-pagination-btn" @click="close">Cerrar</button>
         </header>
         <p class="admin-bulk-draft-copy">
-          Sube un ZIP o elige fotos sueltas. Se ordenan por nombre (001, 002, 010): la impar es el frente y la par el dorso.
+          Sube un ZIP o elige fotos sueltas. Se ordenan por fecha, de la más antigua a la más nueva, aunque la diferencia sea de milisegundos. Si coinciden, se respeta el orden de la carpeta. La impar es el frente y la par el dorso.
           JPEG, PNG o WEBP, máximo 10 MB cada una y 500 fotos. Los borradores quedan en pendientes de información y no se publican.
         </p>
         <p class="admin-bulk-draft-copy">

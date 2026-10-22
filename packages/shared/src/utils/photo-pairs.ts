@@ -7,6 +7,7 @@ export type PhotoPairInput = {
   name: string;
   size: number;
   mime?: string;
+  modifiedAt?: number;
 };
 
 export type PhotoPairError = {
@@ -36,6 +37,17 @@ const IMAGE_BY_EXT: Record<string, string> = {
 
 export function compareNaturalNames(a: string, b: string): number {
   return a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' });
+}
+
+function hasModifiedAt(value: number | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+export function comparePhotoOrder(a: PhotoPairInput, b: PhotoPairInput): number {
+  const aTime = a.modifiedAt;
+  const bTime = b.modifiedAt;
+  if (hasModifiedAt(aTime) && hasModifiedAt(bTime) && aTime !== bTime) return aTime - bTime;
+  return 0;
 }
 
 export function imageKind(name: string, mime?: string): string | null {
@@ -70,7 +82,7 @@ export function planPhotoPairs<T extends PhotoPairInput>(
   batchId: string,
   maxBytes = MAX_WATCH_IMAGE_BYTES,
 ): { pairs: PhotoPair<T>[]; errors: PhotoPairError[] } {
-  const ordered = [...files].sort((a, b) => compareNaturalNames(a.name, b.name));
+  const ordered = [...files].sort(comparePhotoOrder);
   const errors: PhotoPairError[] = [];
 
   if (!ordered.length) {

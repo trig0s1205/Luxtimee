@@ -174,6 +174,7 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
         name: file.name,
         size: file.size,
         mime: file.type,
+        modifiedAt: file.lastModified,
         file,
       }));
       const planned = planPhotoPairs(inputs, batchId, MAX_WATCH_IMAGE_BYTES);
@@ -240,6 +241,7 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
           name,
           size: entry.uncompressedSize,
           mime: '',
+          modifiedAt: entry.modifiedAt,
           entry,
         };
       });

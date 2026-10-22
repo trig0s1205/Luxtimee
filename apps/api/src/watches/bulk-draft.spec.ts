@@ -52,17 +52,46 @@ function serviceWith(repo: Record<string, jest.Mock>, images?: Record<string, je
 describe('planPhotoPairs', () => {
   const file = (name: string, size = 100, mime = 'image/jpeg') => ({ name, size, mime });
 
-  it('ordena por nombre natural y empareja impar/par', () => {
+  it('ordena por fecha y, si no hay fecha, por nombre', () => {
+    const plannedByDate = planPhotoPairs(
+      [
+        { name: 'b.jpg', size: 100, mime: 'image/jpeg', modifiedAt: 400 },
+        { name: 'a.jpg', size: 100, mime: 'image/jpeg', modifiedAt: 100 },
+        { name: 'd.jpg', size: 100, mime: 'image/jpeg', modifiedAt: 300 },
+        { name: 'c.jpg', size: 100, mime: 'image/jpeg', modifiedAt: 200 },
+      ],
+      'batch-fecha',
+    );
+    expect(plannedByDate.errors).toEqual([]);
+    expect(plannedByDate.pairs.map((pair) => [pair.front.name, pair.back.name])).toEqual([
+      ['a.jpg', 'c.jpg'],
+      ['d.jpg', 'b.jpg'],
+    ]);
+
     const planned = planPhotoPairs(
       [file('010.jpg'), file('002.jpg'), file('001.jpg'), file('003.jpg')],
       'batch-1',
     );
     expect(planned.errors).toEqual([]);
     expect(planned.pairs.map((pair) => [pair.front.name, pair.back.name])).toEqual([
-      ['001.jpg', '002.jpg'],
-      ['003.jpg', '010.jpg'],
+      ['010.jpg', '002.jpg'],
+      ['001.jpg', '003.jpg'],
     ]);
-    expect(planned.pairs[0]?.idempotencyKey).toBe('batch-1:001.jpg|002.jpg');
+    expect(planned.pairs[0]?.idempotencyKey).toBe('batch-1:010.jpg|002.jpg');
+
+    const tied = planPhotoPairs(
+      [
+        { name: 'z.jpg', size: 100, mime: 'image/jpeg', modifiedAt: 5 },
+        { name: 'a.jpg', size: 100, mime: 'image/jpeg', modifiedAt: 5 },
+        { name: 'm.jpg', size: 100, mime: 'image/jpeg', modifiedAt: 5 },
+        { name: 'b.jpg', size: 100, mime: 'image/jpeg', modifiedAt: 5 },
+      ],
+      'batch-empate',
+    );
+    expect(tied.pairs.map((pair) => [pair.front.name, pair.back.name])).toEqual([
+      ['z.jpg', 'a.jpg'],
+      ['m.jpg', 'b.jpg'],
+    ]);
   });
 
   it('reporta cantidad impar, tipo y peso con el nombre del archivo', () => {
