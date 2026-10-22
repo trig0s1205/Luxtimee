@@ -136,9 +136,8 @@ function onPick(event: Event) {
 .admin-bulk-draft {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 8px;
-  margin-bottom: 16px;
 }
 
 .admin-bulk-draft-list {

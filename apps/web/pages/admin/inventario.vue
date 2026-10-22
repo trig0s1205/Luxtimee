@@ -475,11 +475,12 @@ async function finishBulkDraft() {
         <button type="button" class="admin-pagination-btn" @click="selectionMode ? exitSelection() : (selectionMode = true)">
           {{ selectionMode ? 'Cerrar selección' : 'Selección' }}
         </button>
-        <UiLuxButton @click="openCreate">+ Nuevo Reloj</UiLuxButton>
+        <div class="admin-inventory-create">
+          <UiLuxButton @click="openCreate">+ Nuevo Reloj</UiLuxButton>
+          <AdminBulkDraft v-if="auth.isSuperAdmin" />
+        </div>
       </div>
     </div>
-
-    <AdminBulkDraft v-if="auth.isSuperAdmin" />
 
     <AdminInventoryInsights :insights="insights" :loading="insightsPending" />
 
@@ -575,8 +576,24 @@ async function finishBulkDraft() {
 
 .admin-inventory-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
+}
+
+.admin-inventory-create {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.admin-inventory-create .admin-bulk-draft {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.admin-inventory-create .admin-bulk-draft > button {
+  width: 100%;
 }
 
 .admin-selection-bar {
