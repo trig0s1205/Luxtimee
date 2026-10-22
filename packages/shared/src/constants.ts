@@ -26,5 +26,9 @@ export const MAX_VIDEO_DURATION_TOLERANCE_SEC = 0.35;
 export const MAX_VIDEO_OUTPUT_BYTES = 10 * 1024 * 1024;
 /** Peso máximo aceptado en subida cruda (iPhone); se comprime en servidor. */
 export const MAX_VIDEO_INPUT_BYTES = 120 * 1024 * 1024;
+/** Peso máximo de cada foto de reloj (JPEG, PNG o WEBP). */
+export const MAX_WATCH_IMAGE_BYTES = 10 * 1024 * 1024;
+/** Tope de fotos por lote de borradores (250 relojes). */
+export const MAX_BULK_DRAFT_PHOTOS = 500;
 /** Resolución máxima de altura del video optimizado. */
 export const MAX_VIDEO_HEIGHT_PX = 1080;

@@ -8,7 +8,7 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "prisma generate --schema=../api/prisma/schema.prisma && nuxt prepare",
-    "lint": "eslint .",
+    "lint": "ESLINT_USE_FLAT_CONFIG=true eslint . --max-warnings 0",
     "typecheck": "nuxt typecheck",
     "test:e2e": "playwright test"
   },
@@ -27,6 +27,8 @@
   },
   "devDependencies": {
     "@nuxt/eslint": "^0.7.5",
+    "@nuxt/eslint-config": "0.7.6",
+    "eslint": "8.57.1",
     "@nuxtjs/tailwindcss": "^6.13.1",
     "@playwright/test": "^1.51.0",
     "@types/qrcode": "^1.5.5",

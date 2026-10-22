@@ -1,4 +1,5 @@
 export * from './bulk-delete-watches.dto';
+export * from './bulk-draft-watch.dto';
 export * from './create-watch.dto';
 export * from './update-watch.dto';
 export * from './watch-query.dto';

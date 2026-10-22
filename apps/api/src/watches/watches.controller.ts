@@ -27,10 +27,15 @@ import { Role } from '@prisma/client';
 import { WatchesService } from './watches.service';
 import {
   BulkDeleteWatchesDto,
+  BulkDraftWatchDto,
   CreateWatchDto,
   UpdateWatchDto,
   WatchQueryDto,
 } from './dto';
+import {
+  BULK_DRAFT_THROTTLE,
+  BULK_DRAFT_UPLOAD_LIMITS,
+} from './utils/bulk-draft.util';
 import { Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -182,6 +187,42 @@ export class WatchesController {
   @Audit('DELETE', 'Watch')
   bulkRemove(@Body() dto: BulkDeleteWatchesDto) {
     return this.watchesService.bulkRemove(dto.ids);
+  }
+
+  @Post('bulk-draft')
+  @Roles(Role.SUPER_ADMIN)
+  @Throttle(BULK_DRAFT_THROTTLE)
+  @Audit('CREATE', 'Watch')
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'image1', maxCount: 1 },
+        { name: 'image2', maxCount: 1 },
+      ],
+      {
+        storage: memoryStorage(),
+        fileFilter: imageFileFilter,
+        limits: BULK_DRAFT_UPLOAD_LIMITS,
+      },
+    ),
+  )
+  bulkDraft(
+    @UploadedFiles()
+    files: {
+      image1?: Express.Multer.File[];
+      image2?: Express.Multer.File[];
+    },
+    @Body() dto: BulkDraftWatchDto,
+    @CurrentUser() user: { role: Role },
+  ) {
+    return this.watchesService.createBulkDraft(
+      {
+        image1: files?.image1?.[0],
+        image2: files?.image2?.[0],
+        idempotencyKey: dto.idempotencyKey,
+      },
+      user.role,
+    );
   }
 
   @Delete(':id')

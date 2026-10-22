@@ -1,9 +1,15 @@
 <script setup lang="ts">
-import type { BrandDto, CareTemplateDto, CategoryDto, MechanismDto, WatchStaffDto } from '@luxtime/shared';
-import { WatchStatus } from '@luxtime/shared';
+import {
+  MAX_VIDEO_DURATION_SEC,
+  WatchStatus,
+  type BrandDto,
+  type CareTemplateDto,
+  type CategoryDto,
+  type MechanismDto,
+  type WatchStaffDto,
+} from '@luxtime/shared';
 import { calcMarginPercent } from '~/utils/margin';
 import { validateWatchVideoFile } from '~/utils/video-validation';
-import { MAX_VIDEO_DURATION_SEC } from '@luxtime/shared';
 
 type WatchFormPayload = {
   brandId: string;

@@ -82,6 +82,7 @@ const submitError = ref('');
 
 const mediaQueue = useMediaUploadStore();
 const bulkDelete = useWatchBulkDeleteStore();
+const bulkDraft = useWatchBulkDraftStore();
 
 const selectionMode = ref(false);
 const selectingAll = ref(false);
@@ -145,11 +146,6 @@ watch(staffReady, (ready) => {
     void refreshCare();
   }
 }, { immediate: true });
-
-onMounted(() => {
-  if (pending.value) return;
-  if (!watches.value.length) void reloadInventory();
-});
 
 useAdminRefetchWhenAuthed([refresh, refreshInsights, refreshCare, loadCatalogMeta]);
 
@@ -334,7 +330,7 @@ async function handleSubmit(form: WatchFormPayload) {
 
 async function handleDelete(watch: WatchStaffDto) {
   const ok = await confirm({
-    title: `¿Eliminar permanentemente ${watch.brand.name} ${watch.model}?`,
+    title: `¿Quitar del inventario ${watch.brand.name} ${watch.model}?`,
     destructive: true,
     confirmLabel: 'Eliminar',
   });
@@ -358,18 +354,32 @@ function exitSelection() {
   selected.value = {};
 }
 
+function withoutSelected(id: string) {
+  return Object.fromEntries(Object.entries(selected.value).filter(([key]) => key !== id));
+}
+
 function toggleSelect(watch: WatchStaffDto) {
-  const next = { ...selected.value };
-  if (next[watch.id]) delete next[watch.id];
-  else next[watch.id] = { model: watch.model, brandName: watch.brand.name };
-  selected.value = next;
+  if (selected.value[watch.id]) {
+    selected.value = withoutSelected(watch.id);
+    return;
+  }
+  selected.value = {
+    ...selected.value,
+    [watch.id]: { model: watch.model, brandName: watch.brand.name },
+  };
 }
 
 function toggleVisible(on: boolean) {
+  if (!on) {
+    const hidden = new Set(tableWatches.value.map((watch) => watch.id));
+    selected.value = Object.fromEntries(
+      Object.entries(selected.value).filter(([id]) => !hidden.has(id)),
+    );
+    return;
+  }
   const next = { ...selected.value };
   for (const watch of tableWatches.value) {
-    if (on) next[watch.id] = { model: watch.model, brandName: watch.brand.name };
-    else delete next[watch.id];
+    next[watch.id] = { model: watch.model, brandName: watch.brand.name };
   }
   selected.value = next;
 }
@@ -380,7 +390,6 @@ async function selectAllFiltered() {
   try {
     const collected: Record<string, { model: string; brandName: string }> = {};
     let page = 1;
-    let totalCount = 0;
     do {
       const res = await api.get<PaginatedResponse<WatchStaffDto>>('/watches', {
         search: query.search || undefined,
@@ -389,13 +398,12 @@ async function selectAllFiltered() {
         limit: 100,
       });
       if (token !== selectToken) return;
-      totalCount = res.total;
       for (const watch of res.data) {
         collected[watch.id] = { model: watch.model, brandName: watch.brand.name };
       }
-      if (!res.data.length) break;
+      if (res.data.length < 100) break;
       page += 1;
-    } while (Object.keys(collected).length < totalCount && page <= 50);
+    } while (page <= 200);
     if (token === selectToken) selected.value = collected;
   } catch (err: unknown) {
     if (token === selectToken) toast.error(extractApiErrorMessage(err, 'No se pudo seleccionar el inventario'));
@@ -408,7 +416,7 @@ async function handleBulkDelete() {
   const items = Object.entries(selected.value).map(([id, meta]) => ({ id, ...meta }));
   if (!items.length) return;
   const ok = await confirm({
-    title: `¿Eliminar permanentemente ${items.length} relojes?`,
+    title: `¿Quitar del inventario ${items.length} relojes?`,
     message: 'Puedes seguir navegando mientras se eliminan.',
     destructive: true,
     confirmLabel: 'Eliminar',
@@ -422,6 +430,10 @@ watch(() => bulkDelete.pendingCount, (n, prev) => {
   if ((prev ?? 0) > 0 && n === 0) void finishBulkDelete();
 });
 
+watch(() => bulkDraft.pendingCount, (n, prev) => {
+  if ((prev ?? 0) > 0 && n === 0 && !bulkDraft.preparing) void finishBulkDraft();
+});
+
 async function finishBulkDelete() {
   const failed = bulkDelete.failedCount;
   const done = bulkDelete.doneCount;
@@ -433,6 +445,20 @@ async function finishBulkDelete() {
   if (failed) toast.warning(`${done} eliminados. ${failed} no se pudieron eliminar.`);
   else if (done) toast.success(done === 1 ? 'Reloj eliminado correctamente' : `${done} relojes eliminados`);
   bulkDelete.clearFinished();
+}
+
+async function finishBulkDraft() {
+  const failed = bulkDraft.failedCount;
+  const done = bulkDraft.doneCount;
+  invalidateAdminCachePrefix('admin-watches-');
+  invalidateAdminCache('inventory-insights');
+  invalidateStorefrontCatalogCaches();
+  await refresh();
+  await refreshInsights();
+  if (failed && done) toast.warning(`${done} borradores listos. ${failed} pares fallaron.`);
+  else if (failed) toast.warning(failed === 1 ? 'No se pudo crear el borrador.' : `${failed} pares no se pudieron crear.`);
+  else if (done) toast.success(done === 1 ? 'Borrador creado' : `${done} borradores creados`);
+  bulkDraft.clearFinished();
 }
 </script>
 
@@ -452,6 +478,8 @@ async function finishBulkDelete() {
         <UiLuxButton @click="openCreate">+ Nuevo Reloj</UiLuxButton>
       </div>
     </div>
+
+    <AdminBulkDraft v-if="auth.isSuperAdmin" />
 
     <AdminInventoryInsights :insights="insights" :loading="insightsPending" />
 

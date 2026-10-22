@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { MAX_VIDEO_INPUT_BYTES } from '@luxtime/shared';
+import { MAX_VIDEO_INPUT_BYTES, MAX_WATCH_IMAGE_BYTES } from '@luxtime/shared';
 
 const GENERIC_CONTENT_TYPES = new Set([
   '',
@@ -14,7 +14,7 @@ function isGenericContentType(mime?: string) {
 
 const IMAGE_JPEG = Buffer.from([0xff, 0xd8, 0xff]);
 const IMAGE_PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_IMAGE_BYTES = MAX_WATCH_IMAGE_BYTES;
 const MAX_SVG_BYTES = 512 * 1024;
 const MAX_VIDEO_BYTES = MAX_VIDEO_INPUT_BYTES;
 const SVG_UNSAFE =
