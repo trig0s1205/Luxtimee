@@ -13,6 +13,11 @@ function close() {
   open.value = false;
 }
 
+function pickFiles() {
+  if (store.preparing) return;
+  input.value?.click();
+}
+
 function onPick(event: Event) {
   const list = (event.target as HTMLInputElement).files;
   if (!list?.length) return;
@@ -23,9 +28,7 @@ function onPick(event: Event) {
 
 <template>
   <div class="admin-bulk-draft">
-    <button type="button" class="admin-pagination-btn" @click="open = true">
-      Carga por fotos
-    </button>
+    <UiLuxButton @click="open = true">Carga por fotos</UiLuxButton>
     <p v-if="store.preparing" class="admin-pagination-info">{{ store.prepareLabel || 'Revisando fotos…' }}</p>
     <ul v-if="store.activeJobs.length" class="admin-bulk-draft-list">
       <li
@@ -66,6 +69,7 @@ function onPick(event: Event) {
         <p v-if="store.largeZipWarning" class="admin-bulk-draft-warn">
           Este ZIP pesa más de 200 MB. Si falla la lectura, vuelve a intentarlo con las fotos sueltas.
         </p>
+        <UiLuxButton :disabled="store.preparing" @click="pickFiles">Elegir archivos</UiLuxButton>
         <input
           ref="input"
           type="file"
@@ -122,8 +126,14 @@ function onPick(event: Event) {
 }
 
 .admin-bulk-draft-file {
-  color: var(--lux-white);
-  font-size: 13px;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
 .admin-bulk-draft-errors {

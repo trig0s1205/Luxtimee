@@ -592,6 +592,7 @@ async function finishBulkDraft() {
   margin-bottom: 0;
 }
 
+.admin-inventory-create > button,
 .admin-inventory-create .admin-bulk-draft > button {
   width: 100%;
 }
