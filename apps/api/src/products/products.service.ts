@@ -22,7 +22,7 @@ export class ProductsService {
 
   private mapWatch<T extends Record<string, unknown>>(watch: T, role?: Role) {
     if (role === Role.SUPER_ADMIN) return watch;
-    const { cost, profitPercent, ...rest } = watch;
+    const { cost: _cost, profitPercent: _profitPercent, ...rest } = watch;
     return rest;
   }
 

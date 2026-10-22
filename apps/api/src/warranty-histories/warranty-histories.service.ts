@@ -126,7 +126,7 @@ export class WarrantyHistoriesService {
   }
 
   async findForExport(period: WarrantyHistoryPeriod = 'day') {
-    const since = this.periodStart('day');
+    const since = this.periodStart(period);
     const where: Prisma.WarrantyHistoryWhereInput = {
       status: WarrantyHistoryStatus.GARANTIA_REGISTRADA,
       serviceDate: { gte: since! },

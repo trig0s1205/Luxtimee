@@ -142,7 +142,7 @@ async function saveCost(item: PendingWatchItemDto) {
   try {
     await api.patch(`/watches/${item.watch.id}`, { cost });
     toast.success('Costo asignado correctamente.');
-    delete costDrafts[item.watch.id];
+    Reflect.deleteProperty(costDrafts, item.watch.id);
     await refresh();
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'Error al guardar el costo.'));

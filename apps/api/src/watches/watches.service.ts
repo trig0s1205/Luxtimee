@@ -20,10 +20,11 @@ import { computeWatchFinancials } from './utils/margin.util';
 import { slugify } from '../common/utils/slug.util';
 import { SettingsService } from '../settings/settings.service';
 import { ImageProcessingService } from '../integrations/image-processing.service';
-import { mkdir, unlink, writeFile } from 'fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'fs/promises';
 import { extname, join } from 'path';
 import { randomUUID } from 'crypto';
-import { assertMediaFile } from '../common/utils/file-magic.util';
+import { assertImageBuffer, assertMediaFile } from '../common/utils/file-magic.util';
+import { BULK_DRAFT_IDEMPOTENCY_FIELD } from './utils/bulk-draft.util';
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
 import { storefrontHideWhenEmpty } from '../common/utils/storefront-stock.util';
@@ -235,11 +236,6 @@ export class WatchesService {
     const brand = await this.watchesRepository.findBrandById(brandId!);
     if (!brand) throw new NotFoundException('Marca no encontrada');
     const reference = this.normalizeReference(dto.reference);
-    const sku = (
-      await this.watchesRepository.allocateSku(retailPrice!, dto.gender)
-    )
-      .trim()
-      .toUpperCase();
 
     const slugBase = slugify(`${model}-${Date.now()}`);
     const uniqueSlug = await this.ensureUniqueSlug(slugBase);
@@ -259,7 +255,7 @@ export class WatchesService {
       videoUrl: null,
     });
     const data: Prisma.WatchCreateInput = {
-      sku,
+      sku: 'PENDING',
       brand: { connect: { id: brandId! } },
       model: model!,
       reference,
@@ -315,7 +311,11 @@ export class WatchesService {
       data.mechanism = { connect: { id: dto.mechanismId } };
     }
 
-    const watch = await this.watchesRepository.create(data);
+    const watch = await this.watchesRepository.createAllocatingSku(
+      data,
+      retailPrice!,
+      dto.gender,
+    );
     this.logger.log(`[watches:create] ${watch.id} sku=${watch.sku}`);
     this.cache.invalidateTag(CACHE_TAGS.catalog);
     return watch;
@@ -374,7 +374,19 @@ export class WatchesService {
     if (dto.waterResistance !== undefined)
       data.waterResistance = dto.waterResistance;
     if (dto.functions) data.functions = dto.functions;
-    if (dto.specs) data.specs = dto.specs;
+    if (dto.specs) {
+      const previous = existing.specs;
+      const previousKey =
+        previous && typeof previous === 'object' && !Array.isArray(previous)
+          ? (previous as Record<string, unknown>)[BULK_DRAFT_IDEMPOTENCY_FIELD]
+          : undefined;
+      data.specs = {
+        ...dto.specs,
+        ...(typeof previousKey === 'string'
+          ? { [BULK_DRAFT_IDEMPOTENCY_FIELD]: previousKey }
+          : {}),
+      } as Prisma.InputJsonValue;
+    }
     if (dto.retailPrice !== undefined) data.retailPrice = dto.retailPrice;
     if (dto.wholesalePrice !== undefined)
       data.wholesalePrice = dto.wholesalePrice;
@@ -715,7 +727,7 @@ export class WatchesService {
 
     try {
       buffer = await this.imageProcessing.processWithMicroservice(file);
-    } catch (error) {
+    } catch (_error) {
       this.logger.warn('upload_failed slot=image reason=process');
       buffer = file.buffer;
       needsReview = true;
@@ -814,17 +826,203 @@ export class WatchesService {
     baseUrl: string,
   ) {
     const watch = await this.watchesRepository.findById(id);
+    for (const file of files) {
+      const buffer = await readFile(file.path);
+      try {
+        assertImageBuffer(buffer, file.mimetype);
+      } catch (error) {
+        await unlink(file.path).catch(() => undefined);
+        throw error;
+      }
+    }
     const uploadedUrls = files.map(
       (file) => `${baseUrl}/uploads/watches/${file.filename}`,
     );
     const mergedImages = [...watch.images, ...uploadedUrls];
     const mainImageIndex = watch.images.length === 0 ? 0 : watch.mainImageIndex;
 
-    return this.watchesRepository.update(id, {
-      images: mergedImages,
-      mainImageIndex,
-      frontImageUrl: mergedImages[mainImageIndex] ?? null,
-    });
+    try {
+      const updated = await this.watchesRepository.update(id, {
+        images: mergedImages,
+        mainImageIndex,
+        frontImageUrl: mergedImages[mainImageIndex] ?? null,
+      });
+      this.cache.invalidateTag(CACHE_TAGS.catalog);
+      return updated;
+    } catch (error) {
+      await Promise.all(
+        files.map((file) => unlink(file.path).catch(() => undefined)),
+      );
+      throw error;
+    }
+  }
+
+  async createBulkDraft(
+    input: {
+      image1?: Express.Multer.File;
+      image2?: Express.Multer.File;
+      idempotencyKey?: string;
+    },
+    role: Role,
+  ) {
+    if (role !== Role.SUPER_ADMIN) {
+      throw new ForbiddenException(
+        'Solo Super Admin puede crear borradores por lote',
+      );
+    }
+
+    const idempotencyKey = this.normalizeIdempotencyKey(input.idempotencyKey);
+    const image1 = this.assertDraftImage(input.image1, 'image1');
+    const image2 = this.assertDraftImage(input.image2, 'image2');
+
+    const existing = await this.watchesRepository.findByBulkDraftKey(
+      idempotencyKey,
+    );
+    if (existing) return { ...existing, reused: true };
+
+    const brandId = await this.watchesRepository.findFirstBrandId();
+    if (!brandId) {
+      throw new BadRequestException(
+        'No hay marcas registradas. Crea una marca antes de subir imágenes.',
+      );
+    }
+    if (!(await this.watchesRepository.brandExists(brandId))) {
+      throw new BadRequestException('La marca seleccionada no existe');
+    }
+
+    const isProd = process.env.NODE_ENV === 'production';
+    const writtenPaths: string[] = [];
+    const storedUrls: string[] = [];
+    let imageNeedsReview = false;
+    let committed = false;
+
+    try {
+      const front = await this.processAndStoreWatchImage(
+        image1,
+        isProd,
+        writtenPaths,
+      );
+      storedUrls.push(front.url);
+      const back = await this.processAndStoreWatchImage(
+        image2,
+        isProd,
+        writtenPaths,
+      );
+      storedUrls.push(back.url);
+      imageNeedsReview = front.needsReview || back.needsReview;
+
+      const slug = await this.ensureUniqueSlug(
+        slugify(`pendiente-${randomUUID()}`),
+      );
+      const data: Prisma.WatchCreateInput = {
+        sku: 'PENDING',
+        brand: { connect: { id: brandId } },
+        model: DRAFT_WATCH_MODEL,
+        slug,
+        warrantyMonths: 1,
+        movementType: 'Automático',
+        functions: [],
+        specs: {
+          [BULK_DRAFT_IDEMPOTENCY_FIELD]: idempotencyKey,
+        },
+        retailPrice: 0,
+        wholesalePrice: 0,
+        stock: 0,
+        status: 'AGOTADO',
+        isActive: true,
+        isPublished: false,
+        isLimitedEdition: false,
+        description: null,
+        images: storedUrls,
+        mainImageIndex: 0,
+        frontImageUrl: storedUrls[0] ?? null,
+        backImageUrl: storedUrls[1] ?? null,
+        primaryImageUrl: storedUrls[0] ?? null,
+        secondaryImageUrl: storedUrls[1] ?? null,
+        imageNeedsReview,
+      };
+      await this.applyGlobalCommission(data);
+      this.applySuperAdminFinancials(data, {
+        cost: null,
+        retailPrice: 0,
+        wholesalePrice: 0,
+      });
+
+      const result = await this.watchesRepository.createBulkDraftOnce({
+        idempotencyKey,
+        retailPrice: 0,
+        gender: null,
+        data,
+      });
+
+      if (!result.created) {
+        await this.discardStoredMedia(storedUrls);
+        return { ...result.watch, reused: true };
+      }
+
+      committed = true;
+      this.logger.log(
+        `[watches:bulk-draft] ${result.watch.id} sku=${result.watch.sku}`,
+      );
+      this.cache.invalidateTag(CACHE_TAGS.catalog);
+      return { ...result.watch, reused: false };
+    } catch (error) {
+      if (!committed) {
+        await this.discardStoredMedia(storedUrls);
+        await Promise.all(
+          writtenPaths.map((path) => unlink(path).catch(() => undefined)),
+        );
+      }
+      throw error;
+    }
+  }
+
+  private normalizeIdempotencyKey(value: unknown) {
+    if (typeof value !== 'string') {
+      throw new BadRequestException('Falta la clave de idempotencia del par');
+    }
+    const key = value.trim();
+    if (key.length < 8 || key.length > 500 || /[\u0000-\u001F\u007F]/.test(key)) {
+      throw new BadRequestException('La clave de idempotencia del par no es válida');
+    }
+    return key;
+  }
+
+  private assertDraftImage(
+    file: Express.Multer.File | undefined,
+    slot: 'image1' | 'image2',
+  ) {
+    const label = file?.originalname?.trim() || slot;
+    if (!file?.buffer?.length) {
+      throw new BadRequestException(`${label}: falta la imagen`);
+    }
+    try {
+      assertMediaFile(file, 'image');
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        const response = error.getResponse();
+        const message =
+          typeof response === 'string'
+            ? response
+            : response && typeof response === 'object' && 'message' in response
+              ? String((response as { message?: unknown }).message ?? '')
+              : '';
+        throw new BadRequestException(
+          `${label}: ${message || 'imagen no válida'}`,
+        );
+      }
+      throw error;
+    }
+    return file;
+  }
+
+  private async discardStoredMedia(urls: Array<string | null | undefined>) {
+    const stored = urls.filter((url): url is string => typeof url === 'string' && url.length > 0);
+    await this.bestEffortDeleteUrls(stored, []);
+    for (const url of stored) {
+      if (!url.includes('res.cloudinary.com')) continue;
+      await this.imageProcessing.deleteCloudinaryAsset(url);
+    }
   }
 
   private async ensureUniqueSlug(slug: string, excludeId?: string) {

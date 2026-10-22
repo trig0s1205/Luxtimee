@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { OrderStage, OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
@@ -7,7 +7,7 @@ import type {
 } from '@luxtime/shared';
 import { findWatchIdsByFlexibleSkuSearch } from '../common/utils/sku-search.util';
 import { formatWatchSku, resolveSkuPrefix } from './utils/sku.util';
-import { CreateWatchDto, UpdateWatchDto } from './dto';
+import { BULK_DRAFT_IDEMPOTENCY_FIELD } from './utils/bulk-draft.util';
 import { WatchQueryDto } from './dto/watch-query.dto';
 
 const watchInclude = {
@@ -17,6 +17,19 @@ const watchInclude = {
   warrantyTemplate: true,
   careTemplate: true,
 } as const;
+
+function isSkuUniqueConflict(error: unknown) {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== 'P2002'
+  ) {
+    return false;
+  }
+  const target = error.meta?.target;
+  const text = Array.isArray(target) ? target.join(',') : String(target ?? '');
+  if (!text || text === 'undefined') return true;
+  return text.toLowerCase().includes('sku');
+}
 
 @Injectable()
 export class WatchesRepository {
@@ -141,44 +154,124 @@ export class WatchesRepository {
     });
   }
 
-  async ensureUniqueSku(sku: string) {
-    let candidate = sku;
-    let suffix = 1;
-    while (await this.prisma.watch.findUnique({ where: { sku: candidate } })) {
-      candidate = `${sku}-${suffix.toString(36).toUpperCase()}`;
-      suffix++;
-    }
-    return candidate;
+  async allocateSku(
+    retailPrice: number,
+    gender?: string | null,
+  ): Promise<string> {
+    return this.prisma.$transaction((tx) =>
+      this.allocateSkuLocked(tx, retailPrice, gender),
+    );
   }
 
-  async getNextSkuSequence(prefix: string): Promise<number> {
-    const rows = await this.prisma.watch.findMany({
+  async createAllocatingSku(
+    data: Prisma.WatchCreateInput,
+    retailPrice: number,
+    gender?: string | null,
+  ) {
+    const { sku: _ignored, ...rest } = data;
+    return this.insertWithSkuRetry(rest, retailPrice, gender);
+  }
+
+  async findByBulkDraftKey(key: string) {
+    return this.prisma.watch.findFirst({
       where: {
-        sku: { startsWith: `${prefix}-` },
         deletedAt: null,
+        specs: {
+          path: [BULK_DRAFT_IDEMPOTENCY_FIELD],
+          equals: key,
+        },
       },
+      include: watchInclude,
+    });
+  }
+
+  async createBulkDraftOnce(input: {
+    idempotencyKey: string;
+    retailPrice: number;
+    gender?: string | null;
+    data: Prisma.WatchCreateInput;
+  }) {
+    const { sku: _ignored, ...rest } = input.data;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          await this.lockKey(tx, 'luxtime-bulk-draft', input.idempotencyKey);
+          const existing = await tx.watch.findFirst({
+            where: {
+              deletedAt: null,
+              specs: {
+                path: [BULK_DRAFT_IDEMPOTENCY_FIELD],
+                equals: input.idempotencyKey,
+              },
+            },
+            include: watchInclude,
+          });
+          if (existing) return { watch: existing, created: false as const };
+          const sku = await this.allocateSkuLocked(
+            tx,
+            input.retailPrice,
+            input.gender,
+          );
+          const watch = await tx.watch.create({
+            data: { ...rest, sku },
+            include: watchInclude,
+          });
+          return { watch, created: true as const };
+        });
+      } catch (error) {
+        if (isSkuUniqueConflict(error) && attempt < 4) continue;
+        throw error;
+      }
+    }
+    throw new BadRequestException('No se pudo asignar un SKU único');
+  }
+
+  private async insertWithSkuRetry(
+    data: Omit<Prisma.WatchCreateInput, 'sku'>,
+    retailPrice: number,
+    gender?: string | null,
+  ) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          const sku = await this.allocateSkuLocked(tx, retailPrice, gender);
+          return tx.watch.create({
+            data: { ...data, sku },
+            include: watchInclude,
+          });
+        });
+      } catch (error) {
+        if (isSkuUniqueConflict(error) && attempt < 4) continue;
+        throw error;
+      }
+    }
+    throw new BadRequestException('No se pudo asignar un SKU único');
+  }
+
+  private async allocateSkuLocked(
+    tx: Prisma.TransactionClient,
+    retailPrice: number,
+    gender?: string | null,
+  ) {
+    const prefix = resolveSkuPrefix(retailPrice, gender);
+    await this.lockKey(tx, 'luxtime-sku', prefix);
+    const rows = await tx.watch.findMany({
+      where: { sku: { startsWith: `${prefix}-` } },
       select: { sku: true },
     });
-
     const pattern = new RegExp(`^${prefix}-(\\d+)$`);
-    let max = -1;
+    let max = 0;
     for (const row of rows) {
       const match = row.sku.match(pattern);
       if (!match) continue;
       const value = Number.parseInt(match[1], 10);
       if (Number.isFinite(value) && value > max) max = value;
     }
-    return max + 1;
+    return formatWatchSku(prefix, max + 1);
   }
 
-  async allocateSku(
-    retailPrice: number,
-    gender?: string | null,
-  ): Promise<string> {
-    const prefix = resolveSkuPrefix(retailPrice, gender);
-    const sequence = await this.getNextSkuSequence(prefix);
-    const sku = formatWatchSku(prefix, sequence);
-    return this.ensureUniqueSku(sku);
+  private lockKey(tx: Prisma.TransactionClient, namespace: string, key: string) {
+    return tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${namespace}), hashtext(${key}))`;
   }
 
   async findAllForPendingReview() {

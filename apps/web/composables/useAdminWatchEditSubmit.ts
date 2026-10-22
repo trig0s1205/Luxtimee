@@ -1,5 +1,4 @@
-import type { WatchStaffDto } from '@luxtime/shared';
-import { WatchStatus } from '@luxtime/shared';
+import type { WatchStaffDto, WatchStatus } from '@luxtime/shared';
 import { extractApiErrorMessage, isBadRequest } from '~/utils/api-error';
 import { validateWatchVideoFile } from '~/utils/video-validation';
 import { invalidateStorefrontCatalogCaches } from '~/utils/storefront-cache';

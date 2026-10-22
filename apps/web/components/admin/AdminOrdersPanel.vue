@@ -6,11 +6,11 @@ import type {
   OrderListPeriod,
   OrdersListDto,
   OrderStatusValue,
+  OrderType,
   WarrantyReplacementType,
 } from '@luxtime/shared';
 import {
   OrderStatus,
-  OrderType,
   ORDER_STATUS_LABELS,
   ORDER_TRANSITION_LABELS,
   getOrderAllowedTransitions,

@@ -38,7 +38,7 @@ import {
 import { formatWatchOrderLabel } from '../orders/watch-description.util';
 import { WholesaleAccessService } from '../wholesale-access/wholesale-access.service';
 import { WholesaleOffersService } from '../wholesale-offers/wholesale-offers.service';
-import { storefrontHideWhenEmpty } from '../common/utils/storefront-stock.util';
+import { decrementWatchStock } from '../common/utils/watch-stock.tx';
 import {
   mergePreOrderItems,
   parseExtrasSnapshot,
@@ -336,26 +336,13 @@ export class PreOrdersService {
     for (const [watchId, item] of totals) {
       const watch = await tx.watch.findUnique({
         where: { id: watchId },
-        select: { stock: true, model: true, isActive: true },
+        select: { model: true },
       });
-      if (!watch?.isActive) {
-        throw new BadRequestException(
-          `Reloj no disponible${item.productName ? `: ${item.productName}` : ''}`,
-        );
-      }
-      if (watch.stock < item.quantity) {
-        const label = item.productName ?? watch.model;
-        throw new BadRequestException(
-          `Stock insuficiente para ${label}. Edita el pre-pedido con otro reloj.`,
-        );
-      }
-      const newStock = watch.stock - item.quantity;
-      await tx.watch.update({
-        where: { id: watchId },
-        data: {
-          stock: newStock,
-          ...(newStock === 0 ? storefrontHideWhenEmpty(0) : {}),
-        },
+      const label = item.productName ?? watch?.model ?? 'este reloj';
+      await decrementWatchStock(tx, watchId, item.quantity, {
+        requireActive: true,
+        inactiveMessage: `Reloj no disponible${item.productName ? `: ${item.productName}` : ''}`,
+        message: `Stock insuficiente para ${label}. Edita el pre-pedido con otro reloj.`,
       });
     }
   }
@@ -519,21 +506,7 @@ export class PreOrdersService {
         );
       }
       for (const [watchId, quantity] of needed) {
-        const watch = await tx.watch.findUnique({
-          where: { id: watchId },
-          select: { stock: true },
-        });
-        if (!watch || watch.stock < quantity) {
-          throw new BadRequestException('Stock insuficiente para este reloj');
-        }
-        const newStock = watch.stock - quantity;
-        await tx.watch.update({
-          where: { id: watchId },
-          data: {
-            stock: newStock,
-            ...(newStock === 0 ? storefrontHideWhenEmpty(0) : {}),
-          },
-        });
+        await decrementWatchStock(tx, watchId, quantity);
       }
 
       return tx.order.create({

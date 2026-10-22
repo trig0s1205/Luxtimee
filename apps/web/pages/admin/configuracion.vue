@@ -13,9 +13,9 @@ import {
   HOMEPAGE_HERO_MAX_SLIDES,
 } from '@luxtime/shared';
 import { DEFAULT_HOMEPAGE_CONFIG, normalizeHeroSlides } from '~/utils/homepage-config';
+import { HOME_CMS_ASYNC_KEY, invalidateClientCache } from '~/utils/storefront-cache';
 
 type HeroImageVariant = 'desktop' | 'mobile';
-import { HOME_CMS_ASYNC_KEY, invalidateClientCache } from '~/utils/storefront-cache';
 
 definePageMeta({ middleware: ['admin'], keepalive: true });
 

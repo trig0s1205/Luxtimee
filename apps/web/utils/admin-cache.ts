@@ -69,5 +69,7 @@ export function writeSessionAdminCache(key: string, data: unknown) {
   if (!import.meta.client) return;
   try {
     sessionStorage.setItem(SESSION_PREFIX + key, JSON.stringify({ data, at: Date.now() }));
-  } catch {}
+  } catch {
+    /* sessionStorage no disponible */
+  }
 }

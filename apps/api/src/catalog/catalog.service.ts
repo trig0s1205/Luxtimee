@@ -25,10 +25,10 @@ export class CatalogService {
 
   private mapPublicWatch(watch: Record<string, unknown>) {
     const {
-      cost,
-      profitPercent,
+      cost: _cost,
+      profitPercent: _profitPercent,
       wholesalePrice: _wholesalePrice,
-      imageNeedsReview,
+      imageNeedsReview: _imageNeedsReview,
       ...rest
     } = watch;
 
