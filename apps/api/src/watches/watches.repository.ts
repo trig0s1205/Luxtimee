@@ -116,6 +116,31 @@ export class WatchesRepository {
     });
   }
 
+  async softDeleteMany(ids: string[]) {
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.watch.findMany({
+        where: { id: { in: ids }, deletedAt: null },
+        select: { id: true },
+      });
+      const deletedIds = existing.map((row) => row.id);
+      if (deletedIds.length) {
+        await tx.watch.updateMany({
+          where: { id: { in: deletedIds }, deletedAt: null },
+          data: {
+            deletedAt: new Date(),
+            isActive: false,
+            isPublished: false,
+          },
+        });
+      }
+      const found = new Set(deletedIds);
+      return {
+        deletedIds,
+        missingIds: ids.filter((id) => !found.has(id)),
+      };
+    });
+  }
+
   async ensureUniqueSku(sku: string) {
     let candidate = sku;
     let suffix = 1;

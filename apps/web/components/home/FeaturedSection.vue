@@ -8,20 +8,19 @@ const props = defineProps<{
   flushTop?: boolean;
 }>();
 
-/** Apagado hasta nuevo aviso. El carrusel de relojes queda en el código. */
-const FEATURED_WATCHES_ENABLED = false;
+const watchesEnabled = computed(() => props.config.watchesEnabled === true);
 
 const catalog = useCatalogData();
 const rail = ref<HTMLElement | null>(null);
 
 const { data } = useCachedAsyncData(
-  'home-featured-watches',
+  () => (watchesEnabled.value ? 'home-featured-watches' : 'home-featured-watches-off'),
   async () => {
-    if (!FEATURED_WATCHES_ENABLED) return [];
+    if (!watchesEnabled.value) return [];
     const res = await catalog.listCatalog({ limit: 8, available: 'true', sort: 'newest' });
     return res.data.filter((watch) => watch.stock > 0).slice(0, 8);
   },
-  { server: false, lazy: true, immediate: FEATURED_WATCHES_ENABLED, staleTime: STOREFRONT_CACHE_MS.catalog },
+  { server: false, lazy: true, staleTime: STOREFRONT_CACHE_MS.catalog },
 );
 
 const watches = computed(() => data.value ?? []);
@@ -57,7 +56,7 @@ function scrollRail(direction: -1 | 1) {
       </NuxtLink>
     </div>
 
-    <div v-if="FEATURED_WATCHES_ENABLED && watches.length" class="lux-collection__showcase">
+    <div v-if="watchesEnabled && watches.length" class="lux-collection__showcase">
       <button
         v-if="watches.length > 1"
         type="button"

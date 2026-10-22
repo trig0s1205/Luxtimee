@@ -81,6 +81,7 @@ const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
   },
   featured: {
     enabled: true,
+    watchesEnabled: false,
     label: 'Catálogo 2026',
     titleLead: 'Nuestros',
     titleEm: 'relojes',
@@ -145,6 +146,20 @@ const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
     { enabled: false, type: 'story',     eyebrow: '', title: '', body: '', imageUrl: '', ctaText: 'Ver catálogo', ctaLink: '/catalogo' },
   ] as [LandingAd, LandingAd, LandingAd],
 };
+
+function normalizeFeaturedConfig(
+  featured: HomepageConfigDto['featured'],
+  raw?: { watchesEnabled?: unknown },
+): HomepageConfigDto['featured'] {
+  const hasFlag =
+    !!raw && Object.prototype.hasOwnProperty.call(raw, 'watchesEnabled');
+  return {
+    ...featured,
+    watchesEnabled: hasFlag
+      ? raw.watchesEnabled === true
+      : featured.watchesEnabled === true,
+  };
+}
 
 @Injectable()
 export class SettingsService {
@@ -331,10 +346,13 @@ export class SettingsService {
         ...DEFAULT_HOMEPAGE_CONFIG.hero,
         ...(stored.hero ?? {}),
       }),
-      featured: {
-        ...DEFAULT_HOMEPAGE_CONFIG.featured,
-        ...(stored.featured ?? {}),
-      },
+      featured: normalizeFeaturedConfig(
+        {
+          ...DEFAULT_HOMEPAGE_CONFIG.featured,
+          ...(stored.featured ?? {}),
+        },
+        stored.featured,
+      ),
       founder: {
         ...DEFAULT_HOMEPAGE_CONFIG.founder,
         enabled: carouselFilled === 5 ? true : Boolean(rawFounder.enabled),
@@ -386,7 +404,10 @@ export class SettingsService {
         ? normalizeHeroConfig({ ...current.hero, ...patch.hero })
         : current.hero,
       featured: patch.featured
-        ? { ...current.featured, ...patch.featured }
+        ? normalizeFeaturedConfig(
+            { ...current.featured, ...patch.featured },
+            patch.featured,
+          )
         : current.featured,
       founder: patch.founder
         ? { ...current.founder, ...patch.founder }

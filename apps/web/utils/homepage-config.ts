@@ -21,6 +21,7 @@ export const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
   },
   featured: {
     enabled: true,
+    watchesEnabled: false,
     label: 'Catálogo',
     titleLead: 'Lo que está',
     titleEm: 'disponible hoy',
@@ -224,7 +225,11 @@ export function mergeHomepageConfig(remote: Partial<HomepageConfigDto> & { state
         rotationIntervalSec: remote.hero?.rotationIntervalSec ?? base.hero.rotationIntervalSec,
       };
     })(),
-    featured: { ...base.featured, ...(remote.featured ?? {}) },
+    featured: {
+      ...base.featured,
+      ...(remote.featured ?? {}),
+      watchesEnabled: remote.featured?.watchesEnabled === true,
+    },
     founder: {
       ...base.founder,
       ...(remote.founder ?? {}),

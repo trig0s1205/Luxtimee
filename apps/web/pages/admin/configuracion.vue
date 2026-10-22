@@ -1224,7 +1224,12 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
             Activo
           </label>
         </div>
+        <p class="admin-config-hint">El carrusel queda apagado hasta que lo actives. Muestra hasta 8 relojes con stock.</p>
         <div class="admin-config-fields">
+          <label class="admin-toggle-label">
+            <input v-model="home.featured.watchesEnabled" type="checkbox" />
+            Carrusel de relojes
+          </label>
           <label><span>Label</span><UiLuxInput v-model="home.featured.label" /></label>
           <label><span>Título</span><UiLuxInput v-model="home.featured.titleLead" /></label>
           <label><span>Título cursiva</span><UiLuxInput v-model="home.featured.titleEm" /></label>

@@ -1,8 +1,10 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsString,
   Max,
@@ -78,15 +80,16 @@ export class UpsertWholesalePackageDto {
   isActive?: boolean;
 
   @IsOptional()
-  @IsString()
+  @IsISO8601({}, { message: 'Fecha de inicio inválida' })
   startsAt?: string | null;
 
   @IsOptional()
-  @IsString()
+  @IsISO8601({}, { message: 'Fecha de fin inválida' })
   endsAt?: string | null;
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(500)
   @IsString({ each: true })
   watchIds?: string[];
 }
@@ -115,15 +118,16 @@ export class UpdateWholesalePackageDto {
   isActive?: boolean;
 
   @IsOptional()
-  @IsString()
+  @IsISO8601({}, { message: 'Fecha de inicio inválida' })
   startsAt?: string | null;
 
   @IsOptional()
-  @IsString()
+  @IsISO8601({}, { message: 'Fecha de fin inválida' })
   endsAt?: string | null;
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(500)
   @IsString({ each: true })
   watchIds?: string[];
 }

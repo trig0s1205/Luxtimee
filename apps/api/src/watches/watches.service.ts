@@ -10,7 +10,11 @@ import {
 import { Role } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { WatchesRepository } from './watches.repository';
-import { CreateWatchDto, UpdateWatchDto } from './dto';
+import {
+  CreateWatchDto,
+  MAX_BULK_DELETE_WATCHES,
+  UpdateWatchDto,
+} from './dto';
 import { WatchQueryDto } from './dto/watch-query.dto';
 import { computeWatchFinancials } from './utils/margin.util';
 import { slugify } from '../common/utils/slug.util';
@@ -490,6 +494,24 @@ export class WatchesService {
     this.logger.log(`[watches:delete] ${watch.id} sku=${watch.sku}`);
     this.cache.invalidateTag(CACHE_TAGS.catalog);
     return watch;
+  }
+
+  async bulkRemove(ids: string[]) {
+    const unique = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+    if (!unique.length) {
+      throw new BadRequestException('No hay relojes para eliminar');
+    }
+    if (unique.length > MAX_BULK_DELETE_WATCHES) {
+      throw new BadRequestException(
+        `Máximo ${MAX_BULK_DELETE_WATCHES} relojes por lote`,
+      );
+    }
+    const result = await this.watchesRepository.softDeleteMany(unique);
+    if (result.deletedIds.length) {
+      this.logger.log(`[watches:bulk-delete] ${result.deletedIds.length}`);
+      this.cache.invalidateTag(CACHE_TAGS.catalog);
+    }
+    return result;
   }
 
   async uploadMedia(

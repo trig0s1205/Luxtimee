@@ -147,6 +147,7 @@ watch(staffReady, (ready) => {
 }, { immediate: true });
 
 onMounted(() => {
+  if (pending.value) return;
   if (!watches.value.length) void reloadInventory();
 });
 
