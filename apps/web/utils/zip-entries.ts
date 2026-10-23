@@ -1,3 +1,5 @@
+import { readNtfsExtraTimes } from '@luxtime/shared';
+
 export type ZipEntry = {
   name: string;
   method: number;
@@ -75,7 +77,7 @@ export async function readZipEntries(file: File): Promise<ZipEntry[]> {
     const nameStart = cursor + 46;
     const name = new TextDecoder().decode(cd.subarray(nameStart, nameStart + nameLength));
     const extraStart = nameStart + nameLength;
-    const ntfsTimes = readNtfsTimes(cd.subarray(extraStart, extraStart + extraLength));
+    const ntfsTimes = readNtfsExtraTimes(cd.subarray(extraStart, extraStart + extraLength));
     if (
       uncompressedSize === 0xffffffff ||
       compressedSize === 0xffffffff ||
@@ -121,46 +123,6 @@ export async function readZipEntry(file: File, entry: ZipEntry): Promise<Uint8Ar
   );
   if (entry.method === 0) return compressed;
   return inflateRaw(compressed);
-}
-
-function filetimeToMs(view: DataView, offset: number) {
-  const low = view.getUint32(offset, true);
-  const high = view.getUint32(offset + 4, true);
-  const filetime = BigInt(high) * 4294967296n + BigInt(low);
-  if (filetime <= 0n) return undefined;
-  const ms = Number(filetime / 10000n - 11644473600000n);
-  return Number.isFinite(ms) && ms > 0 ? ms : undefined;
-}
-
-function readNtfsTimes(extra: Uint8Array) {
-  const times: { modifiedAt?: number; createdAt?: number } = {};
-  if (extra.length < 4) return times;
-  const view = new DataView(extra.buffer, extra.byteOffset, extra.byteLength);
-  let cursor = 0;
-  while (cursor + 4 <= extra.length) {
-    const id = view.getUint16(cursor, true);
-    const size = view.getUint16(cursor + 2, true);
-    const start = cursor + 4;
-    if (start + size > extra.length) break;
-    if (id === 0x000a && size >= 36) {
-      let tagCursor = start + 4;
-      const end = start + size;
-      while (tagCursor + 4 <= end) {
-        const tag = view.getUint16(tagCursor, true);
-        const tagSize = view.getUint16(tagCursor + 2, true);
-        const tagStart = tagCursor + 4;
-        if (tag === 0x0001 && tagStart + 8 <= extra.length) {
-          times.modifiedAt = filetimeToMs(view, tagStart);
-          if (tagSize >= 24 && tagStart + 24 <= extra.length) {
-            times.createdAt = filetimeToMs(view, tagStart + 16);
-          }
-        }
-        tagCursor = tagStart + tagSize;
-      }
-    }
-    cursor = start + size;
-  }
-  return times;
 }
 
 function dosDateTimeToMs(time: number, date: number) {

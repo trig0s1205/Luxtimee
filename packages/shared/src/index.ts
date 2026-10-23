@@ -63,6 +63,7 @@ export * from './utils/sku-search.js';
 export * from './utils/homepage-hero.js';
 export * from './utils/wholesale-quote.js';
 export * from './utils/photo-pairs.js';
+export * from './utils/zip-ntfs.js';
 export * from './types/warranty-history.js';
 export * from './types/inventory.js';
 export * from './types/wholesale-access.js';

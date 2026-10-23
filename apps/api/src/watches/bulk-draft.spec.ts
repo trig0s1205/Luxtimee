@@ -3,7 +3,14 @@ import { ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Prisma, Role } from '@prisma/client';
 import { validate } from 'class-validator';
-import { planPhotoPairs } from '@luxtime/shared';
+import {
+  ZIP_NO_CREATED_AT_WARNING,
+  partialCreatedAtWarning,
+  photoSortStamp,
+  planPhotoPairs,
+  readNtfsExtraTimes,
+  summarizePhotoCreatedAt,
+} from '@luxtime/shared';
 import { mkdir, unlink, writeFile } from 'fs/promises';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { BulkDraftWatchDto } from './dto/bulk-draft-watch.dto';
@@ -52,7 +59,7 @@ function serviceWith(repo: Record<string, jest.Mock>, images?: Record<string, je
 describe('planPhotoPairs', () => {
   const file = (name: string, size = 100, mime = 'image/jpeg') => ({ name, size, mime });
 
-  it('ordena por fecha y, si no hay fecha, por nombre', () => {
+  it('ordena de la más antigua a la más nueva y conserva el orden de entrada sin fecha', () => {
     const plannedByDate = planPhotoPairs(
       [
         { name: 'b.jpg', size: 100, mime: 'image/jpeg', modifiedAt: 400 },
@@ -94,6 +101,71 @@ describe('planPhotoPairs', () => {
     ]);
   });
 
+  it('prefiere createdAt en milisegundos y usa modifiedAt solo si falta', () => {
+    const planned = planPhotoPairs(
+      [
+        { name: 'dorso-tarde.jpg', size: 10, mime: 'image/jpeg', createdAt: 3_000, modifiedAt: 1 },
+        { name: 'frente-sin-creacion.jpg', size: 10, mime: 'image/jpeg', modifiedAt: 2_000 },
+        { name: 'dorso-medio.jpg', size: 10, mime: 'image/jpeg', createdAt: 1_500, modifiedAt: 9_000 },
+        { name: 'frente-temprano.jpg', size: 10, mime: 'image/jpeg', createdAt: 1_000, modifiedAt: 8_000 },
+      ],
+      'batch-ntfs',
+    );
+    expect(planned.errors).toEqual([]);
+    expect(planned.pairs.map((pair) => [pair.front.name, pair.back.name])).toEqual([
+      ['frente-temprano.jpg', 'dorso-medio.jpg'],
+      ['frente-sin-creacion.jpg', 'dorso-tarde.jpg'],
+    ]);
+
+    const createdAtTie = planPhotoPairs(
+      [
+        { name: 'z.jpg', size: 10, mime: 'image/jpeg', createdAt: 50, modifiedAt: 1 },
+        { name: 'a.jpg', size: 10, mime: 'image/jpeg', createdAt: 50, modifiedAt: 99 },
+      ],
+      'batch-empate-ntfs',
+    );
+    expect(createdAtTie.pairs.map((pair) => [pair.front.name, pair.back.name])).toEqual([
+      ['z.jpg', 'a.jpg'],
+    ]);
+
+    const zeroCreatedAt = planPhotoPairs(
+      [
+        { name: 'b.jpg', size: 10, mime: 'image/jpeg', createdAt: 0, modifiedAt: 20 },
+        { name: 'a.jpg', size: 10, mime: 'image/jpeg', createdAt: 0, modifiedAt: 10 },
+      ],
+      'batch-dos',
+    );
+    expect(zeroCreatedAt.pairs.map((pair) => [pair.front.name, pair.back.name])).toEqual([
+      ['a.jpg', 'b.jpg'],
+    ]);
+    expect(photoSortStamp({ name: 'suelta.jpg', size: 1, modifiedAt: 10 }).source).toBe('modifiedAt');
+    expect(photoSortStamp({ name: 'zip.jpg', size: 1, createdAt: 10, modifiedAt: 1 })).toEqual({
+      ms: 10,
+      source: 'createdAt',
+    });
+  });
+
+  it('avisa si el ZIP no trae creación NTFS y lista las que faltan', () => {
+    const none = summarizePhotoCreatedAt([
+      { name: 'b.jpg', size: 1, modifiedAt: 20 },
+      { name: 'a.jpg', size: 1, modifiedAt: 10 },
+    ]);
+    expect(none.none).toBe(true);
+    expect(none.missing).toEqual(['a.jpg', 'b.jpg']);
+    expect(ZIP_NO_CREATED_AT_WARNING).toContain('NTFS');
+    expect(ZIP_NO_CREATED_AT_WARNING).toContain('7-Zip');
+    expect(ZIP_NO_CREATED_AT_WARNING).toContain('Carpeta comprimida');
+
+    const partial = summarizePhotoCreatedAt([
+      { name: 'con-fecha.jpg', size: 1, createdAt: 5, modifiedAt: 1 },
+      { name: 'sin-fecha.jpg', size: 1, modifiedAt: 2 },
+      { name: 'otra-sin.jpg', size: 1, modifiedAt: 9 },
+    ]);
+    expect(partial.none).toBe(false);
+    expect(partial.missing).toEqual(['sin-fecha.jpg', 'otra-sin.jpg']);
+    expect(partialCreatedAtWarning(partial.missing)).toContain('sin-fecha.jpg, otra-sin.jpg');
+  });
+
   it('reporta cantidad impar, tipo y peso con el nombre del archivo', () => {
     const odd = planPhotoPairs([file('001.jpg'), file('002.jpg'), file('003.jpg')], 'b');
     expect(odd.errors.some((error) => error.fileName === '003.jpg' && error.message.includes('par'))).toBe(true);
@@ -111,6 +183,47 @@ describe('planPhotoPairs', () => {
     const planned = planPhotoPairs(files, 'b');
     expect(planned.pairs).toEqual([]);
     expect(planned.errors.some((error) => error.message.includes('500'))).toBe(true);
+  });
+});
+
+describe('readNtfsExtraTimes', () => {
+  function writeFiletime(view: DataView, offset: number, ms: number) {
+    const filetime = BigInt(ms + 11_644_473_600_000) * 10_000n;
+    view.setUint32(offset, Number(filetime & 0xffffffffn), true);
+    view.setUint32(offset + 4, Number(filetime >> 32n), true);
+  }
+
+  function ntfsExtra(modifiedAt: number, createdAt: number, size = 32) {
+    const bytes = new Uint8Array(4 + size);
+    const view = new DataView(bytes.buffer);
+    view.setUint16(0, 0x000a, true);
+    view.setUint16(2, size, true);
+    view.setUint16(8, 0x0001, true);
+    view.setUint16(10, 24, true);
+    writeFiletime(view, 12, modifiedAt);
+    writeFiletime(view, 20, modifiedAt);
+    writeFiletime(view, 28, createdAt);
+    return bytes;
+  }
+
+  it('lee la creación NTFS del Explorador de Windows (tamaño 32, sin contar la cabecera)', () => {
+    const modifiedAt = 1_700_000_000_000;
+    const createdAt = 1_700_000_005_000;
+    const extra = ntfsExtra(modifiedAt, createdAt);
+    expect(extra.length).toBe(36);
+    expect(new DataView(extra.buffer).getUint16(2, true)).toBe(32);
+    expect(readNtfsExtraTimes(extra)).toEqual({ modifiedAt, createdAt });
+    const padded = new Uint8Array(10 + extra.length);
+    padded.set(extra, 10);
+    expect(readNtfsExtraTimes(padded.subarray(10))).toEqual({ modifiedAt, createdAt });
+  });
+
+  it('ignora un extra NTFS incompleto', () => {
+    const extra = new Uint8Array(8);
+    const view = new DataView(extra.buffer);
+    view.setUint16(0, 0x000a, true);
+    view.setUint16(2, 4, true);
+    expect(readNtfsExtraTimes(extra)).toEqual({});
   });
 });
 

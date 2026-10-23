@@ -1,8 +1,12 @@
 import { defineStore } from 'pinia';
 import {
   MAX_WATCH_IMAGE_BYTES,
+  photoSortStamp,
   planPhotoPairs,
+  summarizePhotoCreatedAt,
   type PhotoPairError,
+  type PhotoPairInput,
+  type PhotoSortSource,
 } from '@luxtime/shared';
 import { extractApiErrorMessage } from '~/utils/api-error';
 import { retryAfterMs, sniffImageKind } from '~/utils/draft-image';
@@ -34,7 +38,35 @@ type StoredPair = {
   backType: string;
 };
 
+export type BulkDraftPreviewPair = {
+  id: string;
+  batchId: string;
+  idempotencyKey: string;
+  frontName: string;
+  backName: string;
+  frontUrl: string;
+  backUrl: string;
+  frontSortAt?: number;
+  backSortAt?: number;
+  frontSortSource: PhotoSortSource;
+  backSortSource: PhotoSortSource;
+};
+
+export type BulkDraftPreview = {
+  source: 'zip' | 'loose';
+  noCreatedAt: boolean;
+  missingCreatedAt: string[];
+  pairs: BulkDraftPreviewPair[];
+};
+
+type HeldPair = Omit<BulkDraftPreviewPair, 'frontUrl' | 'backUrl'> & StoredPair;
+
+type PersistedPreview = Omit<BulkDraftPreview, 'pairs'> & {
+  pairs: Array<Omit<BulkDraftPreviewPair, 'frontUrl' | 'backUrl'>>;
+};
+
 const LS_KEY = 'luxtimee.bulk-draft.v1';
+const PREVIEW_KEY = 'luxtimee.bulk-draft.preview.v1';
 const DB_NAME = 'luxtimee-bulk-draft';
 const DB_STORE = 'pairs';
 
@@ -93,6 +125,19 @@ function zipBaseName(name: string) {
   return name.split(/[/\\]/).pop() || name;
 }
 
+function sortMeta(file: PhotoPairInput) {
+  const stamp = photoSortStamp(file);
+  return { sortAt: stamp.ms, sortSource: stamp.source };
+}
+
+function revokePreviewUrls(pairs: BulkDraftPreviewPair[]) {
+  if (typeof URL === 'undefined' || !URL.revokeObjectURL) return;
+  for (const pair of pairs) {
+    URL.revokeObjectURL(pair.frontUrl);
+    URL.revokeObjectURL(pair.backUrl);
+  }
+}
+
 export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
   state: () => ({
     jobs: [] as BulkDraftJob[],
@@ -100,6 +145,8 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
     prepareLabel: '',
     prepareErrors: [] as PhotoPairError[],
     largeZipWarning: false,
+    preview: null as BulkDraftPreview | null,
+    confirming: false,
     _running: 0,
     _hydrated: false,
   }),
@@ -114,6 +161,7 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
     hydrate() {
       if (!import.meta.client || this._hydrated) return;
       this._hydrated = true;
+      this._discardUnconfirmedPreview();
       try {
         const raw = localStorage.getItem(LS_KEY);
         if (!raw) return;
@@ -142,6 +190,7 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
     },
 
     async begin(files: File[]) {
+      if (this.preparing) return;
       this.prepareErrors = [];
       this.largeZipWarning = false;
       if (!files.length) return;
@@ -155,6 +204,7 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
       }
       this.preparing = true;
       try {
+        if (this.preview) await this.cancelPreview();
         if (zip) await this._beginZip(zip);
         else await this._beginLoose(files);
       } catch (error) {
@@ -183,7 +233,7 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
         return;
       }
       const errors: PhotoPairError[] = [];
-      const staged: Array<BulkDraftJob & StoredPair> = [];
+      const staged: HeldPair[] = [];
       for (const [index, pair] of planned.pairs.entries()) {
         this.prepareLabel = `Revisando ${index + 1} de ${planned.pairs.length}`;
         const frontType = await sniffImageKind(pair.front.file);
@@ -201,25 +251,29 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
           });
         }
         if (!frontType || !backType) continue;
+        const frontSort = sortMeta(pair.front);
+        const backSort = sortMeta(pair.back);
         staged.push({
           id: crypto.randomUUID(),
           batchId,
           idempotencyKey: pair.idempotencyKey,
           frontName: pair.front.name,
           backName: pair.back.name,
-          status: 'queued',
-          progress: 0,
           front: pair.front.file,
           back: pair.back.file,
           frontType,
           backType,
+          frontSortAt: frontSort.sortAt,
+          backSortAt: backSort.sortAt,
+          frontSortSource: frontSort.sortSource,
+          backSortSource: backSort.sortSource,
         });
       }
       if (errors.length) {
         this.prepareErrors = errors;
         return;
       }
-      await this._commitStaged(staged);
+      await this._holdPreview('loose', inputs, staged);
     },
 
     async _beginZip(file: File) {
@@ -241,7 +295,8 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
           name,
           size: entry.uncompressedSize,
           mime: '',
-          modifiedAt: entry.createdAt ?? entry.modifiedAt,
+          createdAt: entry.createdAt,
+          modifiedAt: entry.modifiedAt,
           entry,
         };
       });
@@ -250,11 +305,10 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
         this.prepareErrors = planned.errors;
         return;
       }
-      const staged: BulkDraftJob[] = [];
+      const staged: HeldPair[] = [];
       const errors: PhotoPairError[] = [];
       for (const [index, pair] of planned.pairs.entries()) {
         this.prepareLabel = `Leyendo ${index + 1} de ${planned.pairs.length}`;
-        const id = crypto.randomUUID();
         try {
           const frontBytes = await readZipEntry(file, pair.front.entry);
           const backBytes = await readZipEntry(file, pair.back.entry);
@@ -268,20 +322,22 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
             });
             continue;
           }
-          await idbPut(id, {
-            front: new Blob([frontBytes as BlobPart], { type: frontType }),
-            back: new Blob([backBytes as BlobPart], { type: backType }),
-            frontType,
-            backType,
-          });
+          const frontSort = sortMeta(pair.front);
+          const backSort = sortMeta(pair.back);
           staged.push({
-            id,
+            id: crypto.randomUUID(),
             batchId,
             idempotencyKey: pair.idempotencyKey,
             frontName: pair.front.name,
             backName: pair.back.name,
-            status: 'queued',
-            progress: 0,
+            front: new Blob([frontBytes as BlobPart], { type: frontType }),
+            back: new Blob([backBytes as BlobPart], { type: backType }),
+            frontType,
+            backType,
+            frontSortAt: frontSort.sortAt,
+            backSortAt: backSort.sortAt,
+            frontSortSource: frontSort.sortSource,
+            backSortSource: backSort.sortSource,
           });
         } catch (error) {
           errors.push({
@@ -291,36 +347,114 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
         }
       }
       if (errors.length) {
-        await Promise.all(staged.map((job) => idbDelete(job.id).catch(() => undefined)));
         this.prepareErrors = errors;
         return;
       }
-      this.jobs.push(...staged);
-      this.persist();
-      this._pump();
+      await this._holdPreview('zip', inputs, staged);
     },
 
-    async _commitStaged(staged: Array<BulkDraftJob & StoredPair>) {
-      for (const [index, job] of staged.entries()) {
-        this.prepareLabel = `Guardando ${index + 1} de ${staged.length}`;
-        await idbPut(job.id, {
-          front: job.front,
-          back: job.back,
-          frontType: job.frontType,
-          backType: job.backType,
-        });
-        this.jobs.push({
+    async _holdPreview(source: 'zip' | 'loose', inputs: readonly PhotoPairInput[], staged: HeldPair[]) {
+      const coverage = summarizePhotoCreatedAt(inputs);
+      const persisted: PersistedPreview = {
+        source,
+        noCreatedAt: source === 'zip' && coverage.none,
+        missingCreatedAt: source === 'zip' && !coverage.none ? coverage.missing : [],
+        pairs: staged.map((job) => ({
           id: job.id,
           batchId: job.batchId,
           idempotencyKey: job.idempotencyKey,
           frontName: job.frontName,
           backName: job.backName,
-          status: 'queued',
-          progress: 0,
-        });
-        this.persist();
+          frontSortAt: job.frontSortAt,
+          backSortAt: job.backSortAt,
+          frontSortSource: job.frontSortSource,
+          backSortSource: job.backSortSource,
+        })),
+      };
+      const written: string[] = [];
+      try {
+        for (const [index, job] of staged.entries()) {
+          this.prepareLabel = `Guardando ${index + 1} de ${staged.length}`;
+          await idbPut(job.id, {
+            front: job.front,
+            back: job.back,
+            frontType: job.frontType,
+            backType: job.backType,
+          });
+          written.push(job.id);
+        }
+        if (import.meta.client) localStorage.setItem(PREVIEW_KEY, JSON.stringify(persisted));
+        this.preview = {
+          ...persisted,
+          pairs: staged.map((job) => ({
+            id: job.id,
+            batchId: job.batchId,
+            idempotencyKey: job.idempotencyKey,
+            frontName: job.frontName,
+            backName: job.backName,
+            frontUrl: URL.createObjectURL(job.front),
+            backUrl: URL.createObjectURL(job.back),
+            frontSortAt: job.frontSortAt,
+            backSortAt: job.backSortAt,
+            frontSortSource: job.frontSortSource,
+            backSortSource: job.backSortSource,
+          })),
+        };
+      } catch (error) {
+        if (import.meta.client) localStorage.removeItem(PREVIEW_KEY);
+        await Promise.all(written.map((id) => idbDelete(id).catch(() => undefined)));
+        throw error;
       }
+    },
+
+    confirmPreview() {
+      const preview = this.preview;
+      if (!preview || this.confirming) return;
+      this.confirming = true;
+      const jobs: BulkDraftJob[] = preview.pairs.map((pair) => ({
+        id: pair.id,
+        batchId: pair.batchId,
+        idempotencyKey: pair.idempotencyKey,
+        frontName: pair.frontName,
+        backName: pair.backName,
+        status: 'queued',
+        progress: 0,
+      }));
+      this._dropPreviewRecord();
+      this.jobs.push(...jobs);
+      this.persist();
+      this.confirming = false;
       this._pump();
+    },
+
+    async cancelPreview() {
+      if (this.confirming || !this.preview) return;
+      const ids = this.preview.pairs.map((pair) => pair.id);
+      this._dropPreviewRecord();
+      await Promise.all(ids.map((id) => idbDelete(id).catch(() => undefined)));
+    },
+
+    _dropPreviewRecord() {
+      const pairs = this.preview?.pairs ?? [];
+      this.preview = null;
+      if (import.meta.client) localStorage.removeItem(PREVIEW_KEY);
+      revokePreviewUrls(pairs);
+    },
+
+    _discardUnconfirmedPreview() {
+      if (!import.meta.client) return;
+      try {
+        const raw = localStorage.getItem(PREVIEW_KEY);
+        if (!raw) return;
+        localStorage.removeItem(PREVIEW_KEY);
+        const parsed = JSON.parse(raw) as PersistedPreview;
+        const ids = Array.isArray(parsed?.pairs) ? parsed.pairs.map((pair) => pair.id) : [];
+        void Promise.all(
+          ids.filter((id) => typeof id === 'string').map((id) => idbDelete(id).catch(() => undefined)),
+        );
+      } catch {
+        localStorage.removeItem(PREVIEW_KEY);
+      }
     },
 
     retry(id: string) {
