@@ -6,6 +6,8 @@ import {
   planPhotoPairs,
   retryFailedBulkDraftJobs,
   summarizePhotoCreatedAt,
+  swapBulkDraftPairSides,
+  swapBulkDraftStoredSides,
   type BulkDraftQueueStatus,
   type PhotoPairError,
   type PhotoPairInput,
@@ -36,6 +38,7 @@ type BulkDraftRuntime = {
 };
 
 let runtime: BulkDraftRuntime | null = null;
+let swapTail: Promise<void> = Promise.resolve();
 
 export function bindWatchBulkDraftRuntime(next: BulkDraftRuntime) {
   runtime = next;
@@ -419,7 +422,7 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
           });
           written.push(job.id);
         }
-        if (import.meta.client) localStorage.setItem(PREVIEW_KEY, JSON.stringify(persisted));
+        this._writePreviewMeta(persisted);
         this.preview = {
           ...persisted,
           pairs: staged.map((job) => ({
@@ -443,27 +446,81 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
       }
     },
 
-    confirmPreview() {
-      const preview = this.preview;
-      if (!preview || this.confirming) return;
+    async confirmPreview() {
+      if (!this.preview || this.confirming) return;
       this.confirming = true;
-      const jobs: BulkDraftJob[] = preview.pairs.map((pair) => ({
-        id: pair.id,
-        batchId: pair.batchId,
-        idempotencyKey: pair.idempotencyKey,
-        frontName: pair.frontName,
-        backName: pair.backName,
-        status: 'queued',
-        progress: 0,
-      }));
-      this._dropPreviewRecord();
-      this.jobs.push(...jobs);
-      this.persist();
-      this.confirming = false;
-      this._pump();
+      try {
+        await swapTail;
+        const preview = this.preview;
+        if (!preview) return;
+        const jobs: BulkDraftJob[] = preview.pairs.map((pair) => ({
+          id: pair.id,
+          batchId: pair.batchId,
+          idempotencyKey: pair.idempotencyKey,
+          frontName: pair.frontName,
+          backName: pair.backName,
+          status: 'queued',
+          progress: 0,
+        }));
+        this._dropPreviewRecord();
+        this.jobs.push(...jobs);
+        this.persist();
+        this._pump();
+      } finally {
+        this.confirming = false;
+      }
+    },
+
+    swapPreviewPair(id: string) {
+      if (!this.preview || this.confirming) return;
+      const run = swapTail.then(() => this._applyPreviewSwap(id));
+      swapTail = run.then(() => undefined, () => undefined);
+      return run;
+    },
+
+    async _applyPreviewSwap(id: string) {
+      const preview = this.preview;
+      if (!preview) return;
+      const pair = preview.pairs.find((item) => item.id === id);
+      if (!pair) return;
+      const before = { ...pair };
+      Object.assign(pair, swapBulkDraftPairSides(pair));
+      this._writePreviewMeta(this._previewMeta());
+      try {
+        const stored = await idbGet(id);
+        if (!stored) throw new Error('Faltan las fotos de este par.');
+        await idbPut(id, swapBulkDraftStoredSides(stored));
+      } catch {
+        if (this.preview?.pairs.some((item) => item.id === id)) {
+          Object.assign(pair, before);
+          this._writePreviewMeta(this._previewMeta());
+        }
+      }
+    },
+
+    _previewMeta(): PersistedPreview | null {
+      const preview = this.preview;
+      if (!preview) return null;
+      return {
+        source: preview.source,
+        noCreatedAt: preview.noCreatedAt,
+        missingCreatedAt: preview.missingCreatedAt,
+        pairs: preview.pairs.map(({ frontUrl: _frontUrl, backUrl: _backUrl, ...rest }) => rest),
+      };
+    },
+
+    _writePreviewMeta(persisted: PersistedPreview | null) {
+      if (!import.meta.client) return;
+      if (!persisted) {
+        localStorage.removeItem(PREVIEW_KEY);
+        return;
+      }
+      localStorage.setItem(PREVIEW_KEY, JSON.stringify(persisted));
     },
 
     async cancelPreview() {
+      if (this.confirming || !this.preview) return;
+      await swapTail;
       if (this.confirming || !this.preview) return;
       const ids = this.preview.pairs.map((pair) => pair.id);
       this._dropPreviewRecord();
