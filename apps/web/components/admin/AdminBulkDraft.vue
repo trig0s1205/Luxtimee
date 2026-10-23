@@ -70,6 +70,14 @@ function formatSortMs(ms?: number) {
     <p v-else-if="store.preview && !open" class="admin-pagination-info">
       Hay {{ store.preview.pairs.length }} pares sin confirmar. Ábrelos para revisarlos: no se sube nada hasta confirmar.
     </p>
+    <button
+      v-if="store.failedCount && !open"
+      type="button"
+      class="admin-pagination-btn"
+      @click="store.retryFailed()"
+    >
+      Reintentar todas
+    </button>
     <ul v-if="store.activeJobs.length" class="admin-bulk-draft-list">
       <li
         v-for="job in store.activeJobs"
@@ -183,9 +191,17 @@ function formatSortMs(ms?: number) {
               {{ error.message }}
             </li>
           </ul>
-          <p v-if="store.pendingCount" class="admin-pagination-info">
-            Puedes cerrar esta ventana: la carga sigue y se reanuda si recargas la página.
+          <p v-if="store.pendingCount || store.failedCount" class="admin-pagination-info">
+            Puedes cerrar esta ventana o salir de Inventario: la carga sigue. Si recargas la página, se reanuda.
           </p>
+          <button
+            v-if="store.failedCount"
+            type="button"
+            class="admin-pagination-btn"
+            @click="store.retryFailed()"
+          >
+            Reintentar todas
+          </button>
         </template>
       </div>
     </div>
