@@ -70,6 +70,14 @@ function formatSortMs(ms?: number) {
     <p v-else-if="store.preview && !open" class="admin-pagination-info">
       Hay {{ store.preview.pairs.length }} pares sin confirmar. Ábrelos para revisarlos: no se sube nada hasta confirmar.
     </p>
+    <button
+      v-if="store.failedCount && !open"
+      type="button"
+      class="admin-pagination-btn"
+      @click="store.retryFailed()"
+    >
+      Reintentar todas
+    </button>
     <ul v-if="store.activeJobs.length" class="admin-bulk-draft-list">
       <li
         v-for="job in store.activeJobs"
@@ -114,7 +122,7 @@ function formatSortMs(ms?: number) {
             Este ZIP pesa más de 200 MB. Si falla la lectura, vuelve a intentarlo con las fotos sueltas.
           </p>
           <p class="admin-bulk-draft-copy">
-            {{ store.preview.pairs.length }} pares, de la más antigua a la más nueva. La primera es el frente y la segunda el dorso. Nada se sube hasta que confirmes.
+            {{ store.preview.pairs.length }} pares, de la más antigua a la más nueva. La primera es el frente y la segunda el dorso. Si un par salió al revés, intercámbialo. Nada se sube hasta que confirmes.
           </p>
           <ol class="admin-bulk-draft-preview">
             <li v-for="(pair, index) in visiblePairs" :key="pair.id">
@@ -127,6 +135,18 @@ function formatSortMs(ms?: number) {
                   <small>{{ sortLabel(pair.frontSortAt, pair.frontSortSource, store.preview.source === 'loose') }}</small>
                 </figcaption>
               </figure>
+              <button
+                type="button"
+                class="admin-bulk-draft-swap"
+                :disabled="store.confirming"
+                aria-label="Intercambiar frente y dorso"
+                @click="store.swapPreviewPair(pair.id)"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                  <path d="M7 7h11M15 4l3 3-3 3" />
+                  <path d="M17 17H6M9 14l-3 3 3 3" />
+                </svg>
+              </button>
               <figure class="admin-bulk-draft-shot">
                 <img :src="pair.backUrl" :alt="`Dorso ${pair.backName}`" />
                 <figcaption>
@@ -183,9 +203,17 @@ function formatSortMs(ms?: number) {
               {{ error.message }}
             </li>
           </ul>
-          <p v-if="store.pendingCount" class="admin-pagination-info">
-            Puedes cerrar esta ventana: la carga sigue y se reanuda si recargas la página.
+          <p v-if="store.pendingCount || store.failedCount" class="admin-pagination-info">
+            Puedes cerrar esta ventana o salir de Inventario: la carga sigue. Si recargas la página, se reanuda.
           </p>
+          <button
+            v-if="store.failedCount"
+            type="button"
+            class="admin-pagination-btn"
+            @click="store.retryFailed()"
+          >
+            Reintentar todas
+          </button>
         </template>
       </div>
     </div>
@@ -283,9 +311,31 @@ function formatSortMs(ms?: number) {
 }
 
 .admin-bulk-draft-preview li {
-  grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr);
-  align-items: start;
+  grid-template-columns: 28px minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
   border-bottom: var(--border-hairline);
+}
+
+.admin-bulk-draft-swap {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(200, 169, 110, 0.45);
+  background: transparent;
+  color: var(--lux-gold, #c8a96e);
+  cursor: pointer;
+}
+
+.admin-bulk-draft-swap:hover:not(:disabled) {
+  border-color: var(--lux-gold, #c8a96e);
+  color: var(--lux-white);
+}
+
+.admin-bulk-draft-swap:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .admin-bulk-draft-index {
@@ -347,7 +397,11 @@ function formatSortMs(ms?: number) {
 
 @media (max-width: 640px) {
   .admin-bulk-draft-preview li {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+
+  .admin-bulk-draft-index {
+    grid-column: 1 / -1;
   }
 
   .admin-bulk-draft-shot {

@@ -178,3 +178,48 @@ export function planPhotoPairs<T extends PhotoPairInput>(
   }
   return { pairs, errors: [] };
 }
+
+export type BulkDraftSideFields = {
+  batchId: string;
+  frontName: string;
+  backName: string;
+  idempotencyKey: string;
+  frontSortAt?: number;
+  backSortAt?: number;
+  frontSortSource: PhotoSortSource;
+  backSortSource: PhotoSortSource;
+  frontUrl?: string;
+  backUrl?: string;
+};
+
+export function swapBulkDraftPairSides<T extends BulkDraftSideFields>(pair: T): T {
+  const frontName = pair.backName;
+  const backName = pair.frontName;
+  return {
+    ...pair,
+    frontName,
+    backName,
+    frontSortAt: pair.backSortAt,
+    backSortAt: pair.frontSortAt,
+    frontSortSource: pair.backSortSource,
+    backSortSource: pair.frontSortSource,
+    frontUrl: pair.backUrl,
+    backUrl: pair.frontUrl,
+    idempotencyKey: bulkDraftIdempotencyKey(pair.batchId, frontName, backName),
+  };
+}
+
+export function swapBulkDraftStoredSides<T extends {
+  front: unknown;
+  back: unknown;
+  frontType: string;
+  backType: string;
+}>(stored: T): T {
+  return {
+    ...stored,
+    front: stored.back as T['front'],
+    back: stored.front as T['front'],
+    frontType: stored.backType,
+    backType: stored.frontType,
+  };
+}

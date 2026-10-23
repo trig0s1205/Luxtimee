@@ -1,14 +1,21 @@
 import { defineStore } from 'pinia';
 import {
   MAX_WATCH_IMAGE_BYTES,
+  normalizeResumedBulkDraftJob,
   photoSortStamp,
   planPhotoPairs,
+  retryFailedBulkDraftJobs,
   summarizePhotoCreatedAt,
+  swapBulkDraftPairSides,
+  swapBulkDraftStoredSides,
+  type BulkDraftQueueStatus,
   type PhotoPairError,
   type PhotoPairInput,
   type PhotoSortSource,
 } from '@luxtime/shared';
+import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
 import { extractApiErrorMessage } from '~/utils/api-error';
+import { invalidateStorefrontCatalogCaches } from '~/utils/storefront-cache';
 import { retryAfterMs, sniffImageKind } from '~/utils/draft-image';
 import {
   isJunkZipName,
@@ -17,7 +24,35 @@ import {
   shouldRecommendLooseFiles,
 } from '~/utils/zip-entries';
 
-export type BulkDraftStatus = 'queued' | 'running' | 'done' | 'error';
+export type BulkDraftStatus = BulkDraftQueueStatus;
+
+export type BulkDraftSettlement = {
+  seq: number;
+  done: number;
+  failed: number;
+};
+
+type BulkDraftRuntime = {
+  uploadBase: string;
+  run: (fn: () => Promise<string>) => Promise<string>;
+};
+
+let runtime: BulkDraftRuntime | null = null;
+let swapTail: Promise<void> = Promise.resolve();
+
+export function bindWatchBulkDraftRuntime(next: BulkDraftRuntime) {
+  runtime = next;
+}
+
+function currentUploadBase() {
+  if (runtime?.uploadBase) return runtime.uploadBase.replace(/\/$/, '');
+  return useApiUploadUrl().replace(/\/$/, '');
+}
+
+function inAppContext(fn: () => Promise<string>): Promise<string> {
+  if (runtime) return runtime.run(fn);
+  return fn();
+}
 
 export type BulkDraftJob = {
   id: string;
@@ -147,8 +182,11 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
     largeZipWarning: false,
     preview: null as BulkDraftPreview | null,
     confirming: false,
+    settlement: null as BulkDraftSettlement | null,
+    ackedSettlement: 0,
     _running: 0,
     _hydrated: false,
+    _completedRuns: 0,
   }),
   getters: {
     pendingCount: (state) =>
@@ -169,15 +207,15 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
         if (!Array.isArray(jobs)) return;
         this.jobs = jobs
           .filter((job) => job && typeof job.idempotencyKey === 'string')
-          .map((job) => ({
-            ...job,
-            status: job.status === 'running' ? 'queued' : job.status,
-            progress: job.status === 'done' ? 100 : 0,
-          }));
+          .map((job) => normalizeResumedBulkDraftJob(job));
       } catch {
         this.jobs = [];
       }
       this._pump();
+      if (!this.pendingCount && this.doneCount) {
+        this._completedRuns += 1;
+        this._noteSettlement();
+      }
     },
 
     persist() {
@@ -215,6 +253,7 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
       } finally {
         this.preparing = false;
         this.prepareLabel = '';
+        this._noteSettlement();
       }
     },
 
@@ -383,7 +422,7 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
           });
           written.push(job.id);
         }
-        if (import.meta.client) localStorage.setItem(PREVIEW_KEY, JSON.stringify(persisted));
+        this._writePreviewMeta(persisted);
         this.preview = {
           ...persisted,
           pairs: staged.map((job) => ({
@@ -407,27 +446,81 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
       }
     },
 
-    confirmPreview() {
-      const preview = this.preview;
-      if (!preview || this.confirming) return;
+    async confirmPreview() {
+      if (!this.preview || this.confirming) return;
       this.confirming = true;
-      const jobs: BulkDraftJob[] = preview.pairs.map((pair) => ({
-        id: pair.id,
-        batchId: pair.batchId,
-        idempotencyKey: pair.idempotencyKey,
-        frontName: pair.frontName,
-        backName: pair.backName,
-        status: 'queued',
-        progress: 0,
-      }));
-      this._dropPreviewRecord();
-      this.jobs.push(...jobs);
-      this.persist();
-      this.confirming = false;
-      this._pump();
+      try {
+        await swapTail;
+        const preview = this.preview;
+        if (!preview) return;
+        const jobs: BulkDraftJob[] = preview.pairs.map((pair) => ({
+          id: pair.id,
+          batchId: pair.batchId,
+          idempotencyKey: pair.idempotencyKey,
+          frontName: pair.frontName,
+          backName: pair.backName,
+          status: 'queued',
+          progress: 0,
+        }));
+        this._dropPreviewRecord();
+        this.jobs.push(...jobs);
+        this.persist();
+        this._pump();
+      } finally {
+        this.confirming = false;
+      }
+    },
+
+    swapPreviewPair(id: string) {
+      if (!this.preview || this.confirming) return;
+      const run = swapTail.then(() => this._applyPreviewSwap(id));
+      swapTail = run.then(() => undefined, () => undefined);
+      return run;
+    },
+
+    async _applyPreviewSwap(id: string) {
+      const preview = this.preview;
+      if (!preview) return;
+      const pair = preview.pairs.find((item) => item.id === id);
+      if (!pair) return;
+      const before = { ...pair };
+      Object.assign(pair, swapBulkDraftPairSides(pair));
+      this._writePreviewMeta(this._previewMeta());
+      try {
+        const stored = await idbGet(id);
+        if (!stored) throw new Error('Faltan las fotos de este par.');
+        await idbPut(id, swapBulkDraftStoredSides(stored));
+      } catch {
+        if (this.preview?.pairs.some((item) => item.id === id)) {
+          Object.assign(pair, before);
+          this._writePreviewMeta(this._previewMeta());
+        }
+      }
+    },
+
+    _previewMeta(): PersistedPreview | null {
+      const preview = this.preview;
+      if (!preview) return null;
+      return {
+        source: preview.source,
+        noCreatedAt: preview.noCreatedAt,
+        missingCreatedAt: preview.missingCreatedAt,
+        pairs: preview.pairs.map(({ frontUrl: _frontUrl, backUrl: _backUrl, ...rest }) => rest),
+      };
+    },
+
+    _writePreviewMeta(persisted: PersistedPreview | null) {
+      if (!import.meta.client) return;
+      if (!persisted) {
+        localStorage.removeItem(PREVIEW_KEY);
+        return;
+      }
+      localStorage.setItem(PREVIEW_KEY, JSON.stringify(persisted));
     },
 
     async cancelPreview() {
+      if (this.confirming || !this.preview) return;
+      await swapTail;
       if (this.confirming || !this.preview) return;
       const ids = this.preview.pairs.map((pair) => pair.id);
       this._dropPreviewRecord();
@@ -458,24 +551,37 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
     },
 
     retry(id: string) {
-      const job = this.jobs.find((item) => item.id === id);
-      if (!job || job.status !== 'error') return;
-      job.status = 'queued';
-      job.progress = 0;
-      job.errorMessage = undefined;
+      this._queueRetries(new Set([id]));
+    },
+
+    retryFailed() {
+      this._queueRetries();
+    },
+
+    _queueRetries(onlyIds?: ReadonlySet<string>) {
+      const next = retryFailedBulkDraftJobs(this.jobs, onlyIds);
+      if (next === this.jobs) return;
+      this.jobs = next as BulkDraftJob[];
       this.persist();
       this._pump();
     },
 
-    retryFailed() {
-      for (const job of this.jobs) {
-        if (job.status !== 'error') continue;
-        job.status = 'queued';
-        job.progress = 0;
-        job.errorMessage = undefined;
-      }
-      this.persist();
-      this._pump();
+    ackSettlement(seq: number) {
+      if (this.settlement?.seq === seq) this.ackedSettlement = seq;
+    },
+
+    _noteSettlement() {
+      if (this._running || this.pendingCount || this.preparing || !this._completedRuns) return;
+      const done = this.doneCount;
+      const failed = this.failedCount;
+      this._completedRuns = 0;
+      if (!done && !failed) return;
+      invalidateAdminCachePrefix('admin-watches-');
+      invalidateAdminCache('inventory-insights');
+      invalidateStorefrontCatalogCaches();
+      const seq = (this.settlement?.seq ?? 0) + 1;
+      this.clearFinished();
+      this.settlement = { seq, done, failed };
     },
 
     _pump() {
@@ -487,13 +593,14 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
     },
 
     async _run(job: BulkDraftJob) {
-      job.status = 'running';
-      job.progress = 12;
-      this.persist();
-      const timer = setInterval(() => {
-        if (job.status === 'running' && job.progress < 88) job.progress += 6;
-      }, 200);
+      let timer: ReturnType<typeof setInterval> | undefined;
       try {
+        job.status = 'running';
+        job.progress = 12;
+        this.persist();
+        timer = setInterval(() => {
+          if (job.status === 'running' && job.progress < 88) job.progress += 6;
+        }, 200);
         const stored = await idbGet(job.id);
         if (!stored) {
           throw new Error('Faltan las fotos en este navegador. Vuelve a elegir el par.');
@@ -508,18 +615,24 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
         job.status = 'error';
         job.errorMessage = extractApiErrorMessage(error, 'No se pudo crear el borrador');
       } finally {
-        clearInterval(timer);
-        this.persist();
+        if (timer) clearInterval(timer);
+        this._completedRuns += 1;
         this._running = 0;
+        try {
+          this.persist();
+        } catch {
+          /* la cola en memoria sigue */
+        }
         this._pump();
+        this._noteSettlement();
       }
     },
 
     async _post(job: BulkDraftJob, stored: StoredPair) {
-      const uploadBase = useApiUploadUrl().replace(/\/$/, '');
+      const uploadBase = currentUploadBase();
       const auth = useAuthStore();
       const crossOrigin = /^https?:\/\//i.test(uploadBase) && !uploadBase.startsWith('/');
-      let token = await auth.ensureAccessToken(true);
+      let token = await inAppContext(() => auth.ensureAccessToken(true));
       let authRetried = false;
       let rateRetries = 0;
 
@@ -537,7 +650,7 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
         });
         if (response.status === 401 && !authRetried) {
           authRetried = true;
-          token = await auth.ensureAccessToken(true);
+          token = await inAppContext(() => auth.ensureAccessToken(true));
           continue;
         }
         if (response.status === 429) {

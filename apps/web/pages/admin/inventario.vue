@@ -430,8 +430,35 @@ watch(() => bulkDelete.pendingCount, (n, prev) => {
   if ((prev ?? 0) > 0 && n === 0) void finishBulkDelete();
 });
 
-watch(() => bulkDraft.pendingCount, (n, prev) => {
-  if ((prev ?? 0) > 0 && n === 0 && !bulkDraft.preparing) void finishBulkDraft();
+const router = useRouter();
+const seenBulkSettlement = ref(0);
+
+async function consumeBulkSettlement() {
+  if (!router.currentRoute.value.path.startsWith('/admin/inventario')) return;
+  const settlement = bulkDraft.settlement;
+  if (!settlement) return;
+  if (settlement.seq === seenBulkSettlement.value || settlement.seq === bulkDraft.ackedSettlement) {
+    seenBulkSettlement.value = settlement.seq;
+    return;
+  }
+  seenBulkSettlement.value = settlement.seq;
+  bulkDraft.ackSettlement(settlement.seq);
+  const { done, failed } = settlement;
+  await refresh();
+  await refreshInsights();
+  if (failed && done) toast.warning(`${done} borradores listos. ${failed} pares fallaron.`);
+  else if (failed) toast.warning(failed === 1 ? 'No se pudo crear el borrador.' : `${failed} pares no se pudieron crear.`);
+  else if (done) toast.success(done === 1 ? 'Borrador creado' : `${done} borradores creados`);
+}
+
+watch(() => bulkDraft.settlement?.seq ?? 0, () => {
+  void consumeBulkSettlement();
+}, { immediate: true });
+watch(() => router.currentRoute.value.path, () => {
+  void consumeBulkSettlement();
+});
+onActivated(() => {
+  void consumeBulkSettlement();
 });
 
 async function finishBulkDelete() {
@@ -447,19 +474,6 @@ async function finishBulkDelete() {
   bulkDelete.clearFinished();
 }
 
-async function finishBulkDraft() {
-  const failed = bulkDraft.failedCount;
-  const done = bulkDraft.doneCount;
-  invalidateAdminCachePrefix('admin-watches-');
-  invalidateAdminCache('inventory-insights');
-  invalidateStorefrontCatalogCaches();
-  await refresh();
-  await refreshInsights();
-  if (failed && done) toast.warning(`${done} borradores listos. ${failed} pares fallaron.`);
-  else if (failed) toast.warning(failed === 1 ? 'No se pudo crear el borrador.' : `${failed} pares no se pudieron crear.`);
-  else if (done) toast.success(done === 1 ? 'Borrador creado' : `${done} borradores creados`);
-  bulkDraft.clearFinished();
-}
 </script>
 
 <template>

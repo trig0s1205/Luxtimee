@@ -74,6 +74,26 @@ onMounted(() => {
   );
 });
 
+const bulkDraft = useWatchBulkDraftStore();
+const bulkNotice = computed(() => {
+  if (!auth.isSuperAdmin) return '';
+  const pending = bulkDraft.pendingCount;
+  if (pending > 0) {
+    return pending === 1
+      ? 'Carga por fotos en curso: queda 1 par. Puedes cambiar de sección.'
+      : `Carga por fotos en curso: quedan ${pending} pares. Puedes cambiar de sección.`;
+  }
+  const settlement = bulkDraft.settlement;
+  if (!settlement || settlement.seq === bulkDraft.ackedSettlement) return '';
+  const { done, failed } = settlement;
+  if (done && failed) return `Carga por fotos: ${done} borradores listos y ${failed} pares con error.`;
+  if (failed === 1) return 'Carga por fotos: 1 par falló. En Inventario puedes reintentarlo.';
+  if (failed) return `Carga por fotos: ${failed} pares fallaron. En Inventario puedes reintentarlos.`;
+  if (done === 1) return 'Carga por fotos: 1 borrador creado.';
+  if (done) return `Carga por fotos: ${done} borradores creados.`;
+  return '';
+});
+
 const { open: sidebarOpen, close: closeSidebar } = useAdminSidebar();
 
 watch(sidebarOpen, (isOpen) => {
@@ -109,6 +129,7 @@ async function logout() {
 
     <div class="admin-content-column">
       <AdminTopBar />
+      <p v-if="bulkNotice" class="admin-bulk-live" role="status">{{ bulkNotice }}</p>
       <main class="admin-main">
         <slot />
       </main>
@@ -123,5 +144,16 @@ async function logout() {
 @import '~/assets/css/admin-dashboard.css';
 @import '~/assets/css/admin-tables.css';
 @import '~/assets/css/admin-records.css';
+
+.admin-bulk-live {
+  margin: 0;
+  padding: 8px 16px;
+  font-family: var(--lux-font-body);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--lux-white);
+  background: rgba(200, 169, 110, 0.16);
+  border-bottom: 1px solid rgba(200, 169, 110, 0.45);
+}
 </style>
 
