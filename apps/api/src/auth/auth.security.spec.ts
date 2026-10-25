@@ -213,9 +213,9 @@ describe('auth security', () => {
           isGlobal: true,
           ignoreEnvFile: true,
           load: [() => ({
-            JWT_SECRET: ACCESS_SECRET,
+            JWT_SECRET: `${ACCESS_SECRET}\n`,
             JWT_REFRESH_SECRET: REFRESH_SECRET,
-            JWT_ACCESS_EXPIRES: '15m',
+            JWT_ACCESS_EXPIRES: '15m\n',
             JWT_REFRESH_EXPIRES: '7d',
             NODE_ENV: 'test',
           })],
@@ -275,6 +275,15 @@ describe('auth security', () => {
     const me = await agent.get('/api/v1/auth/me');
     expect(me.status).toBe(200);
     expect(me.body.user.id).toBe('user-1');
+
+    const withAnalytics = await request(server())
+      .get('/api/v1/auth/me')
+      .set(
+        'Cookie',
+        `_ga=GA1.1.111.222; LUXTIMEE_access=${access}; LUXTIMEE_refresh=${refresh}`,
+      );
+    expect(withAnalytics.status).toBe(200);
+    expect(withAnalytics.body.message).not.toBe('Sesión inválida o expirada');
 
     const refreshAsBearer = await request(server())
       .get('/api/v1/auth/me')

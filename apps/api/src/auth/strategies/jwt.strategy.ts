@@ -4,6 +4,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { Request } from 'express';
 import { JwtPayload } from '../auth.service';
+import { readJwtSecret } from '../jwt-config';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -18,7 +19,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
         (req: Request) => req?.cookies?.LUXTIMEE_access ?? null,
       ]),
       ignoreExpiration: false,
-      secretOrKey: config.get<string>('JWT_SECRET'),
+      secretOrKey: readJwtSecret(config.get<string>('JWT_SECRET')),
     });
   }
 

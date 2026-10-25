@@ -46,6 +46,20 @@ export function buildUpstreamUrl(origin: string, pathname: string, search = '') 
   return `${base}${path}${search}`;
 }
 
+export function incomingRequestHeaders(source: object): Headers {
+  const headers = new Headers();
+  for (const [key, raw] of Object.entries(source)) {
+    if (raw == null || raw === '') continue;
+    if (Array.isArray(raw)) {
+      const joiner = key.toLowerCase() === 'cookie' ? '; ' : ', ';
+      headers.set(key, raw.join(joiner));
+      continue;
+    }
+    if (typeof raw === 'string') headers.set(key, raw);
+  }
+  return headers;
+}
+
 export function forwardedRequestHeaders(
   input: Headers,
   cookie?: string | null,

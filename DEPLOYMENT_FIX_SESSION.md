@@ -25,12 +25,17 @@ Cloud Run, el mismo secreto:
 ```bash
 CLIENT_IP_SECRET=<secreto largo>
 COOKIE_SAME_SITE=lax
+JWT_SECRET=<secreto del access, sin comillas>
+JWT_REFRESH_SECRET=<otro secreto>
+JWT_ACCESS_EXPIRES=15m
 JWT_REFRESH_EXPIRES=90d
 FRONTEND_URL=https://www.luxtimee.com,https://luxtimee.com
 NODE_ENV=production
 ```
 
 Sin `NUXT_CLIENT_IP_SECRET` / `CLIENT_IP_SECRET`, el bloqueo y el rate limit ven la IP de salida de Vercel, no la del visitante.
+
+`JWT_SECRET` firma y verifica el access. La API recorta espacios y el salto de línea final. `JWT_ACCESS_EXPIRES=15m`. Un número sin unidad son segundos (`900`), no milisegundos.
 
 ## Vercel
 

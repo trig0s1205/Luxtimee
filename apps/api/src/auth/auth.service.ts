@@ -11,6 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { Response } from 'express';
+import { readJwtSecret, readTokenDuration } from './jwt-config';
 import { hashPassword, verifyPassword } from './password.util';
 
 export const LOGIN_LOCKOUT_THRESHOLD = 5;
@@ -29,26 +30,6 @@ export interface JwtPayload {
 }
 
 const STAFF_ROLES = new Set<Role>([Role.ADMIN, Role.SUPER_ADMIN]);
-
-function parseDurationMs(
-  value: string | undefined,
-  fallbackMs: number,
-): number {
-  if (!value) return fallbackMs;
-  const match = /^(\d+(?:\.\d+)?)(ms|s|m|h|d)$/i.exec(value.trim());
-  if (!match) return fallbackMs;
-  const amount = Number(match[1]);
-  const unit = match[2].toLowerCase();
-  const multipliers: Record<string, number> = {
-    ms: 1,
-    s: 1000,
-    m: 60_000,
-    h: 3_600_000,
-    d: 86_400_000,
-  };
-  const ms = Math.round(amount * (multipliers[unit] ?? 0));
-  return ms > 0 ? ms : fallbackMs;
-}
 
 type SessionUser = {
   id: string;
@@ -79,11 +60,7 @@ export class AuthService {
   }
 
   private accessSecret() {
-    const secret = this.config.get<string>('JWT_SECRET')?.trim();
-    if (!secret) {
-      throw new Error('JWT_SECRET no está configurado');
-    }
-    return secret;
+    return readJwtSecret(this.config.get<string>('JWT_SECRET'));
   }
 
   private refreshSecret() {
@@ -101,12 +78,12 @@ export class AuthService {
     return this.accessSecret();
   }
 
-  private accessExpires() {
-    return this.config.get<string>('JWT_ACCESS_EXPIRES', '15m');
+  private accessDuration() {
+    return readTokenDuration(this.config.get<string>('JWT_ACCESS_EXPIRES'), '15m');
   }
 
-  private refreshExpires() {
-    return this.config.get<string>('JWT_REFRESH_EXPIRES', '90d');
+  private refreshDuration() {
+    return readTokenDuration(this.config.get<string>('JWT_REFRESH_EXPIRES'), '90d');
   }
 
   async validateGoogleUser(profile: {
@@ -360,7 +337,7 @@ export class AuthService {
       { ...base, typ: 'access' satisfies TokenType },
       {
         secret: this.accessSecret(),
-        expiresIn: this.accessExpires(),
+        expiresIn: this.accessDuration().expiresIn,
       },
     );
 
@@ -368,7 +345,7 @@ export class AuthService {
       { ...base, typ: 'refresh' satisfies TokenType, jti },
       {
         secret: this.refreshSecret(),
-        expiresIn: this.refreshExpires(),
+        expiresIn: this.refreshDuration().expiresIn,
       },
     );
 
@@ -376,10 +353,7 @@ export class AuthService {
   }
 
   private async persistRefreshSession(userId: string, jti: string) {
-    const maxAge = parseDurationMs(
-      this.config.get<string>('JWT_REFRESH_EXPIRES'),
-      90 * 24 * 60 * 60 * 1000,
-    );
+    const maxAge = this.refreshDuration().maxAgeMs;
     await this.prisma.refreshSession.create({
       data: {
         id: jti,
@@ -408,7 +382,7 @@ export class AuthService {
       },
       {
         secret: this.accessSecret(),
-        expiresIn: this.accessExpires(),
+        expiresIn: this.accessDuration().expiresIn,
       },
     );
   }
@@ -456,14 +430,8 @@ export class AuthService {
     const configuredSameSite = this.config.get<'lax' | 'none'>(
       'COOKIE_SAME_SITE',
     );
-    const accessMaxAge = parseDurationMs(
-      this.config.get<string>('JWT_ACCESS_EXPIRES'),
-      15 * 60 * 1000,
-    );
-    const refreshMaxAge = parseDurationMs(
-      this.config.get<string>('JWT_REFRESH_EXPIRES'),
-      90 * 24 * 60 * 60 * 1000,
-    );
+    const accessMaxAge = this.accessDuration().maxAgeMs;
+    const refreshMaxAge = this.refreshDuration().maxAgeMs;
     const cookieOptions: {
       httpOnly: boolean;
       secure: boolean;
