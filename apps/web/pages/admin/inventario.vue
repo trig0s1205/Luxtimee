@@ -590,6 +590,8 @@ async function finishBulkDelete() {
   display: flex;
   align-items: flex-start;
   gap: 10px;
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .admin-inventory-create {
@@ -750,12 +752,33 @@ async function finishBulkDelete() {
 }
 
 @media (max-width: 768px) {
+  .admin-inventory-header,
+  .admin-inventory-actions,
+  .admin-inventory-create,
+  .admin-inventory-pagination {
+    width: 100%;
+  }
+
   .admin-inventory-toolbar {
     grid-template-columns: 1fr;
   }
 
+  .admin-inventory-pagination {
+    flex-wrap: wrap;
+  }
+
+  .admin-bulk-progress li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .admin-modal {
-    max-height: 95vh;
+    max-height: 100dvh;
+    max-width: 100%;
+  }
+
+  .admin-modal-backdrop {
+    padding: 8px;
+    align-items: flex-end;
   }
 }
 </style>

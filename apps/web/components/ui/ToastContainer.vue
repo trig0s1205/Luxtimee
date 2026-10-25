@@ -31,13 +31,17 @@ const toneClasses = {
 <style scoped>
 .admin-toast-stack {
   position: fixed;
-  top: 24px;
-  right: 24px;
+  top: 12px;
+  right: 12px;
+  left: 12px;
   z-index: 9999;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: 10px;
   pointer-events: none;
+  max-width: 420px;
+  margin-left: auto;
 }
 
 .admin-toast {
@@ -46,7 +50,8 @@ const toneClasses = {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-width: 280px;
+  min-width: 0;
+  width: 100%;
   max-width: 420px;
   padding: 14px 18px;
   border: 1px solid rgba(20, 20, 20, 0.12);
@@ -68,6 +73,8 @@ const toneClasses = {
 
 .admin-toast-message {
   color: #141414;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .admin-toast--info {

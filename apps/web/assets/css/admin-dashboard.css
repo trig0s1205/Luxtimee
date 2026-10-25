@@ -250,14 +250,15 @@
     align-items: stretch;
   }
 
-  .admin-config-tabs {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    -webkit-overflow-scrolling: touch;
+  .admin-config-tabs,
+  .admin-index-subtabs {
+    flex-wrap: wrap;
   }
 
   .admin-config-tab {
-    flex-shrink: 0;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.35;
   }
 
   .health-kpi-grid--six {

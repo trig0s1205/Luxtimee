@@ -1,5 +1,6 @@
 .admin-catalog-table-wrap {
-  overflow: hidden;
+  overflow-x: auto;
+  max-width: 100%;
   border: var(--border-hairline);
   background: var(--black-2);
 }

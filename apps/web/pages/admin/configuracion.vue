@@ -1541,6 +1541,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 1rem;
   margin-bottom: 8px;
 }
@@ -1730,7 +1731,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
 }
 
 .admin-carousel-slots--hero {
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
 }
 
 .admin-carousel-slot--hero {
@@ -1824,6 +1825,7 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
   gap: 10px;
   align-items: start;
   margin-bottom: 12px;
+  max-width: 100%;
 }
 
 .admin-proof-row__media {
@@ -1863,16 +1865,21 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
 }
 
 .admin-file-btn {
-  flex: 1;
+  flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 8px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px 10px;
   border: 1px solid rgba(200, 169, 110, 0.35);
   color: var(--lux-gold);
   font-size: 10px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  text-align: center;
   text-transform: uppercase;
+  white-space: normal;
   cursor: pointer;
 }
 
@@ -1898,8 +1905,33 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
 }
 
 @media (max-width: 640px) {
-  .admin-config-fields--grid {
+  .admin-config-fields--grid,
+  .admin-proof-row {
     grid-template-columns: 1fr;
+  }
+
+  .admin-config-card {
+    padding: 16px;
+  }
+
+  .admin-paragraph-row,
+  .admin-signature-photo-row,
+  .admin-carousel-slot-actions,
+  .admin-proof-row__actions,
+  .admin-index-save,
+  .admin-section-save {
+    flex-wrap: wrap;
+  }
+
+  .admin-index-save,
+  .admin-section-save {
+    justify-content: stretch;
+  }
+
+  .admin-index-save > button,
+  .admin-section-save > button,
+  .admin-config-panels > button {
+    width: 100%;
   }
 }
 

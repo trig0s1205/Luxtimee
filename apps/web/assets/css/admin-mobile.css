@@ -1,0 +1,67 @@
+@media (max-width: 1023px) {
+  .admin-shell,
+  .admin-layout,
+  .admin-content-column,
+  .admin-main {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .admin-bulk-live {
+    overflow-wrap: anywhere;
+  }
+
+  .admin-nav-link {
+    height: auto;
+    white-space: normal;
+    line-height: 1.35;
+  }
+
+  .admin-shell .admin-main button,
+  .admin-shell .admin-file-btn,
+  .admin-shell .admin-config-tab,
+  .admin-shell .admin-pagination-btn {
+    max-width: 100%;
+    white-space: normal;
+    height: auto;
+    line-height: 1.35;
+  }
+
+  .admin-shell .admin-main button.tracking-lux {
+    box-sizing: border-box;
+    letter-spacing: 0.06em;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .admin-shell .admin-filter-dropdown,
+  .admin-shell .admin-tag-menu {
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .admin-shell .admin-table-wrap,
+  .admin-shell .admin-catalog-table-wrap,
+  .admin-shell .health-table-card,
+  .admin-shell .admin-records-list {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .admin-shell .lux-section-title,
+  .admin-shell .health-dashboard-title {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-shell .admin-main button.tracking-lux {
+    width: 100%;
+  }
+
+  .admin-main {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}

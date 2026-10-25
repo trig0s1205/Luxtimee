@@ -25,15 +25,15 @@ async function markRead(id: string) {
       <article
         v-for="n in notifications"
         :key="n.id"
-        class="border p-4 flex justify-between gap-4"
-        :class="n.readAt ? 'border-lux-gold/10 opacity-70' : 'border-lux-gold/30'"
+        class="admin-notification"
+        :class="n.readAt ? 'admin-notification--read' : ''"
       >
-        <div>
-          <p class="text-xs uppercase tracking-widest text-lux-gold">{{ n.type }}</p>
-          <p class="text-sm text-lux-white-dim">{{ JSON.stringify(n.payload) }}</p>
-          <p class="text-[10px] text-lux-white-dim mt-1">{{ n.createdAt }}</p>
+        <div class="admin-notification-body">
+          <p class="admin-notification-type">{{ n.type }}</p>
+          <p class="admin-notification-payload">{{ JSON.stringify(n.payload) }}</p>
+          <p class="admin-notification-date">{{ n.createdAt }}</p>
         </div>
-        <button v-if="!n.readAt" type="button" class="text-xs uppercase tracking-widest text-lux-gold" @click="markRead(n.id)">
+        <button v-if="!n.readAt" type="button" class="admin-pagination-btn" @click="markRead(n.id)">
           Marcar leída
         </button>
       </article>
@@ -41,6 +41,55 @@ async function markRead(id: string) {
     </div>
   </div>
 </template>
+
+<style>
+.admin-notification {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(200, 169, 110, 0.3);
+  max-width: 100%;
+}
+
+.admin-notification--read {
+  border-color: rgba(200, 169, 110, 0.1);
+  opacity: 0.7;
+}
+
+.admin-notification-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.admin-notification-type {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lux-gold);
+}
+
+.admin-notification-payload,
+.admin-notification-date {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--lux-white-dim);
+  overflow-wrap: anywhere;
+}
+
+.admin-notification-date {
+  font-size: 10px;
+}
+
+@media (max-width: 640px) {
+  .admin-notification {
+    flex-direction: column;
+  }
+}
+</style>
 
 
 

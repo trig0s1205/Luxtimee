@@ -172,7 +172,8 @@ function closeLightbox() {
 
 <style scoped>
 .admin-table-wrap {
-  overflow: hidden;
+  overflow-x: auto;
+  max-width: 100%;
   border: var(--border-hairline);
   background: var(--lux-black-2);
 }
@@ -441,7 +442,19 @@ function closeLightbox() {
 @media (max-width: 768px) {
   .admin-table th,
   .admin-table td {
-    padding: 10px 12px;
+    padding: 10px 8px;
+  }
+
+  .admin-table-thumb {
+    width: 52px;
+    height: 52px;
+  }
+
+  .admin-table-actions {
+    position: sticky;
+    right: 0;
+    background: var(--lux-black-2);
+    box-shadow: -8px 0 10px rgba(255, 255, 255, 0.85);
   }
 
   .admin-table:not(.admin-table--select) th:nth-child(4),

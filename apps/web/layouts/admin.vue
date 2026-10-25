@@ -139,6 +139,7 @@ async function logout() {
 @import '~/assets/css/admin-dashboard.css';
 @import '~/assets/css/admin-tables.css';
 @import '~/assets/css/admin-records.css';
+@import '~/assets/css/admin-mobile.css';
 
 .admin-bulk-live {
   margin: 0;
