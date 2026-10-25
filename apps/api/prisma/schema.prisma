@@ -83,11 +83,16 @@ model User {
   name      String
   phone     String?
   passwordHash String?
+  tokenVersion        Int              @default(0)
+  failedLoginAttempts Int              @default(0)
+  lockedUntil         DateTime?
+  failedLoginAt       DateTime?
   role      Role             @default(CUSTOMER)
   segment   CustomerSegment?
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
+  refreshSessions    RefreshSession[]
   savedShipping      SavedShipping?
   orders             Order[]
   assignedOrders     Order[]            @relation("AssignedOrders")
@@ -96,6 +101,17 @@ model User {
   validatedContacts  MarketingContact[] @relation("ValidatedContacts")
   warrantyHistories  WarrantyHistory[]  @relation("RegisteredWarranties")
   wholesaleGrants    WholesaleAccess[]  @relation("WholesaleGrants")
+}
+
+model RefreshSession {
+  id        String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model SavedShipping {

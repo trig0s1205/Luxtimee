@@ -1,3 +1,15 @@
+const DEV_STAFF_LOGIN_SLUG = 'dev-portal-lx9k2';
+
+export function resolveStaffLoginSlug(
+  configured: string | undefined | null,
+  nodeEnv?: string,
+) {
+  const slug = configured?.trim() ?? '';
+  if (slug) return slug;
+  if (nodeEnv === 'production') return '';
+  return DEV_STAFF_LOGIN_SLUG;
+}
+
 export function staffLoginBasePath(slug: string) {
   return `/acceso/${slug}`;
 }

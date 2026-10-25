@@ -5,8 +5,6 @@ import { extractApiErrorMessage, isBadRequest } from '~/utils/api-error';
 import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
 import { validateWatchVideoFile } from '~/utils/video-validation';
 import { invalidateStorefrontCatalogCaches } from '~/utils/storefront-cache';
-import { resolveAccessToken } from '~/utils/auth-token';
-
 const AdminWatchFormLazy = defineAsyncComponent(() => import('~/components/admin/AdminWatchForm.vue'));
 
 type WatchFormPayload = {
@@ -110,7 +108,7 @@ const watchesKey = computed(() =>
 );
 
 const staffReady = computed(
-  () => auth.loaded && auth.isStaff && !auth.isLocalSession && !!resolveAccessToken(auth.accessToken),
+  () => auth.loaded && auth.hasApiSession,
 );
 
 const { data: paginated, refresh, pending, error: watchesError } = useAdminCachedData(

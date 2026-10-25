@@ -124,11 +124,11 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
           });
         }
 
-        let token = await auth.ensureAccessToken(true);
+        let token = await auth.ensureUploadToken();
         let res = await postUpload(token);
 
         if (res.status === 401) {
-          token = await auth.ensureAccessToken(true);
+          token = await auth.ensureUploadToken(true);
           res = await postUpload(token);
         }
 
