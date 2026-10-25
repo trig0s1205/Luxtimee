@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { BrandDto, CategoryDto, ShippingZoneDto } from '@luxtime/shared';
 import { preloadRouteComponents } from '#app';
-import { resolveAccessToken } from '~/utils/auth-token';
 import { warmupAdminModules } from '~/utils/admin-warmup';
 
 const auth = useAuthStore();
@@ -50,11 +49,7 @@ onMounted(() => {
   const adminData = useAdminDataStore();
 
   async function loadSharedAdminData() {
-    try {
-      await auth.ensureAccessToken();
-    } catch {
-      return;
-    }
+    if (!auth.hasApiSession) return;
     catalog.invalidate();
     await catalog.ensureAll({
       brands: () => api.get<BrandDto[]>('/brands'),
@@ -67,9 +62,9 @@ onMounted(() => {
   void loadSharedAdminData().catch(() => null);
 
   watch(
-    () => resolveAccessToken(auth.accessToken),
-    (token, prev) => {
-      if (token && token !== prev) void loadSharedAdminData().catch(() => null);
+    () => (auth.hasApiSession ? auth.sessionCheckedAt : 0),
+    (ts, prev) => {
+      if (ts && ts !== prev) void loadSharedAdminData().catch(() => null);
     },
   );
 });

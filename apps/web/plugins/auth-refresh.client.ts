@@ -1,5 +1,3 @@
-import { resolveAccessToken } from '~/utils/auth-token';
-
 const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 
 export default defineNuxtPlugin(() => {
@@ -8,7 +6,7 @@ export default defineNuxtPlugin(() => {
 
   async function refreshStaffSession() {
     auth.hydrateTokens();
-    if (!auth.isStaff || !resolveAccessToken(auth.accessToken)) return;
+    if (!auth.hasApiSession) return;
     if (!router.currentRoute.value.path.startsWith('/admin')) return;
 
     try {

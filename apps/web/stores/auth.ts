@@ -1,13 +1,10 @@
 import { defineStore } from 'pinia';
-import type { AuthRefreshDto, AuthSessionDto, AuthUserDto } from '@luxtime/shared';
+import type { AuthSessionDto, AuthUserDto } from '@luxtime/shared';
 import { Role } from '@luxtime/shared';
 import {
-  authFetchHeaders,
+  clearLegacyStoredTokens,
   clearStoredTokens,
-  loadStoredTokens,
-  loadStoredUser,
-  resolveAccessToken,
-  saveStoredTokens,
+  readJwtExpMs,
   saveStoredUser,
 } from '~/utils/auth-token';
 import {
@@ -28,15 +25,19 @@ function isStaffUser(user: AuthUserDto | null) {
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null as AuthUserDto | null,
-    accessToken: null as string | null,
     loaded: false,
     isLocalSession: false,
     sessionCheckedAt: 0,
+    uploadToken: null as string | null,
+    uploadTokenExp: 0,
   }),
   getters: {
     isAuthenticated: (state) => !!state.user,
     isStaff: (state) => state.user?.role === 'ADMIN' || state.user?.role === 'SUPER_ADMIN',
     isSuperAdmin: (state) => state.user?.role === 'SUPER_ADMIN',
+    hasApiSession: (state) =>
+      !state.isLocalSession
+      && (state.user?.role === 'ADMIN' || state.user?.role === 'SUPER_ADMIN'),
   },
   actions: {
     setUser(user: AuthUserDto | null, isLocalSession = false) {
@@ -44,13 +45,6 @@ export const useAuthStore = defineStore('auth', {
       this.isLocalSession = isLocalSession;
       this.loaded = true;
       if (user) this.sessionCheckedAt = Date.now();
-    },
-    setTokens(accessToken: string | null, refreshToken?: string | null) {
-      this.accessToken = accessToken;
-      if (import.meta.client) {
-        saveStoredTokens(accessToken, refreshToken);
-        if (accessToken) invalidateStaffAdminCaches();
-      }
     },
     hydrateLocal() {
       if (!LOCAL_AUTH_ENABLED) return;
@@ -60,27 +54,16 @@ export const useAuthStore = defineStore('auth', {
       }
     },
     hydrateTokens() {
-      if (!import.meta.client) return;
-      const { accessToken } = loadStoredTokens();
-      this.accessToken = accessToken;
-      if (!this.user) {
-        const storedUser = loadStoredUser<AuthUserDto>();
-        if (storedUser && isStaffUser(storedUser)) {
-          this.user = storedUser;
-          this.loaded = true;
-          if (!resolveAccessToken(this.accessToken)) {
-            this.user = null;
-            this.loaded = false;
-            saveStoredUser(null);
-          }
-        }
-      }
+      clearLegacyStoredTokens();
+    },
+    clearUploadToken() {
+      this.uploadToken = null;
+      this.uploadTokenExp = 0;
     },
     applySession(data: AuthSessionDto, isLocalSession = false) {
       clearLocalSession();
-      if (data.accessToken) {
-        this.setTokens(data.accessToken, data.refreshToken ?? null);
-      }
+      clearLegacyStoredTokens();
+      this.clearUploadToken();
       this.setUser(data.user, isLocalSession);
       if (import.meta.client && isStaffUser(data.user)) {
         saveStoredUser(data.user);
@@ -89,43 +72,39 @@ export const useAuthStore = defineStore('auth', {
     },
     async refreshSession() {
       const baseUrl = useApiBaseUrl();
-      const stored = loadStoredTokens();
-      const body = stored.refreshToken ? { refreshToken: stored.refreshToken } : undefined;
-      const data = await $fetch<AuthRefreshDto>(`${baseUrl}/auth/refresh`, {
+      await $fetch(`${baseUrl}/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
-        body,
         timeout: AUTH_TIMEOUT_MS,
         retry: 0,
-        headers: authFetchHeaders(this.accessToken),
       });
-      if (data.accessToken) {
-        this.setTokens(data.accessToken, data.refreshToken ?? stored.refreshToken ?? null);
-      }
     },
-    async ensureAccessToken(forceRefresh = false): Promise<string> {
-      this.hydrateTokens();
-      if (!forceRefresh) {
-        const existing = resolveAccessToken(this.accessToken);
-        if (existing) return existing;
+    async ensureUploadToken(force = false): Promise<string> {
+      if (!force && this.uploadToken && this.uploadTokenExp > Date.now() + 15_000) {
+        return this.uploadToken;
       }
-      await this.refreshSession();
-      const token = resolveAccessToken(this.accessToken);
-      if (!token) {
+      const baseUrl = useApiBaseUrl();
+      const data = await $fetch<{ accessToken?: string }>(`${baseUrl}/auth/upload-token`, {
+        method: 'POST',
+        credentials: 'include',
+        timeout: AUTH_TIMEOUT_MS,
+        retry: 0,
+      });
+      if (!data.accessToken) {
         throw new Error('Tu sesión expiró. Cierra sesión e ingresa de nuevo.');
       }
-      return token;
+      this.uploadToken = data.accessToken;
+      this.uploadTokenExp = readJwtExpMs(data.accessToken);
+      return data.accessToken;
     },
     async fetchMe(options: { allowRefresh?: boolean } = {}) {
       const { allowRefresh = true } = options;
       this.hydrateTokens();
       const baseUrl = useApiBaseUrl();
-      const token = resolveAccessToken(this.accessToken);
       const fetchOptions = {
         credentials: 'include' as const,
         timeout: AUTH_TIMEOUT_MS,
         retry: 0 as const,
-        headers: authFetchHeaders(token),
       };
 
       try {
@@ -134,11 +113,6 @@ export const useAuthStore = defineStore('auth', {
           clearLocalSession();
           this.setUser(data.user, false);
           if (import.meta.client) saveStoredUser(data.user);
-          if (!resolveAccessToken(this.accessToken)) {
-            try {
-              await this.refreshSession();
-            } catch { /* cookies siguen valiendo para /api/v1 */ }
-          }
         } else {
           this.setUser(null, false);
           if (import.meta.client) saveStoredUser(null);
@@ -148,21 +122,11 @@ export const useAuthStore = defineStore('auth', {
         if (allowRefresh) {
           try {
             await this.refreshSession();
-            const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, {
-              credentials: 'include',
-              timeout: AUTH_TIMEOUT_MS,
-              retry: 0,
-              headers: authFetchHeaders(resolveAccessToken(this.accessToken)),
-            });
+            const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, fetchOptions);
             if (isStaffUser(data.user)) {
               clearLocalSession();
               this.setUser(data.user, false);
               if (import.meta.client) saveStoredUser(data.user);
-              if (!resolveAccessToken(this.accessToken)) {
-                try {
-                  await this.refreshSession();
-                } catch { /* cookies siguen valiendo para /api/v1 */ }
-              }
               return;
             }
           } catch { /* refresh falló */ }
@@ -176,16 +140,14 @@ export const useAuthStore = defineStore('auth', {
           }
         }
 
-        if (isStaffUser(this.user) && (resolveAccessToken(this.accessToken) || Date.now() - this.sessionCheckedAt < 30_000)) {
+        if (isStaffUser(this.user) && Date.now() - this.sessionCheckedAt < 30_000) {
           return;
         }
 
         const hadStaffSession = isStaffUser(this.user);
         this.setUser(null, false);
-        if (hadStaffSession) {
-          this.setTokens(null, null);
-          if (import.meta.client) saveStoredUser(null);
-        }
+        this.clearUploadToken();
+        if (hadStaffSession && import.meta.client) saveStoredUser(null);
       }
     },
     localLogin(email: string, password: string) {
@@ -218,30 +180,30 @@ export const useAuthStore = defineStore('auth', {
         credentials: 'include',
       });
       this.applySession(data, false);
-      if (!resolveAccessToken(this.accessToken)) {
-        try {
-          await this.refreshSession();
-        } catch { /* cookies pueden bastar */ }
-      }
       return data.user;
     },
     async logout() {
       clearLocalSession();
       clearStoredTokens();
+      this.clearUploadToken();
       if (import.meta.client) {
         sessionStorage.removeItem(AUTH_REDIRECT_KEY);
       }
       const baseUrl = useApiBaseUrl();
+      const callLogout = () => $fetch(`${baseUrl}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        timeout: AUTH_TIMEOUT_MS,
+        retry: 0,
+      });
       try {
-        await $fetch(`${baseUrl}/auth/logout`, {
-          method: 'POST',
-          credentials: 'include',
-          timeout: AUTH_TIMEOUT_MS,
-          retry: 0,
-          headers: authFetchHeaders(this.accessToken),
-        });
-      } catch { /* */ }
-      this.accessToken = null;
+        await callLogout();
+      } catch {
+        try {
+          await this.refreshSession();
+          await callLogout();
+        } catch { /* */ }
+      }
       this.setUser(null, false);
       this.loaded = false;
       if (import.meta.client) invalidateStaffAdminCaches();

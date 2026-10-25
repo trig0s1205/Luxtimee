@@ -545,10 +545,10 @@ async function uploadHomepageImages(endpoint: string, file: File): Promise<strin
     });
   }
 
-  let token = await auth.ensureAccessToken(true);
+  let token = await auth.ensureUploadToken();
   let res = await post(token);
   if (res.status === 401) {
-    token = await auth.ensureAccessToken(true);
+    token = await auth.ensureUploadToken(true);
     res = await post(token);
   }
   if (!res.ok) {

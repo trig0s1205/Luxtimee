@@ -9,6 +9,7 @@ import { AbuseGuardMiddleware } from './common/middleware/abuse-guard.middleware
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.set('trust proxy', 1);
   const isProd = process.env.NODE_ENV === 'production';
   const frontendOrigins = (process.env.FRONTEND_URL ?? '')
     .split(',')
@@ -39,20 +40,19 @@ async function bootstrap() {
       crossOriginResourcePolicy: { policy: 'cross-origin' },
       contentSecurityPolicy: isProd
         ? {
-            useDefaults: true,
+            useDefaults: false,
             directives: {
-              defaultSrc: ["'self'"],
-              imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
-              mediaSrc: ["'self'", 'blob:', 'https:'],
-              scriptSrc: ["'self'"],
-              styleSrc: [
-                "'self'",
-                "'unsafe-inline'",
-                'https://fonts.googleapis.com',
-              ],
-              fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
-              connectSrc: ["'self'", ...frontendOrigins],
+              defaultSrc: ["'none'"],
+              baseUri: ["'none'"],
+              formAction: ["'none'"],
               frameAncestors: ["'none'"],
+              objectSrc: ["'none'"],
+              scriptSrc: ["'none'"],
+              styleSrc: ["'none'"],
+              connectSrc: ["'none'"],
+              fontSrc: ["'none'"],
+              imgSrc: ["'self'"],
+              mediaSrc: ["'self'"],
             },
           }
         : false,

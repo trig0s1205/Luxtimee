@@ -151,9 +151,9 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
-# Uploads locales (dev legacy — producción usa Cloudinary)
-apps/api/uploads/**/*
-!apps/api/uploads/**/.gitkeep
+# Uploads locales (dev legacy — producción usa Cloudinary) y archivo de fotos
+/Fotos relojes.zip
+apps/api/uploads/
 
 .DS_Store
 .turbo

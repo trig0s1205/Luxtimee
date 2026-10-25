@@ -2,7 +2,6 @@ import type { AsyncDataOptions } from '#app';
 import type { MaybeRefOrGetter } from 'vue';
 import { toValue } from 'vue';
 import { ADMIN_CACHE_MS, invalidateAdminCache, readAdminCache, writeAdminCache } from '~/utils/admin-cache';
-import { resolveAccessToken } from '~/utils/auth-token';
 
 type AdminCachedOptions<T, E = T> = Omit<AsyncDataOptions<T, T, never, E>, 'getCachedData'> & {
   staleTime?: number;
@@ -30,13 +29,6 @@ export function useAdminCachedData<T, E = T>(
       if (import.meta.client) {
         const auth = useAuthStore();
         auth.hydrateTokens();
-        if (auth.isStaff && !auth.isLocalSession && !resolveAccessToken(auth.accessToken)) {
-          try {
-            await auth.ensureAccessToken();
-          } catch {
-            throw createError({ statusCode: 401, statusMessage: 'Sesión expirada' });
-          }
-        }
         if (!skipCache) {
           const hit = readAdminCache<T>(resolved, staleTime);
           if (hit !== undefined) return hit;

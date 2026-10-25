@@ -10,7 +10,7 @@
     "postinstall": "prisma generate --schema=../api/prisma/schema.prisma && nuxt prepare",
     "lint": "node ./scripts/lint.mjs",
     "typecheck": "nuxt typecheck",
-    "test:unit": "node --import ./scripts/register-jiti.mjs --test utils/seo.test.ts server/utils/sitemap-build.test.ts",
+    "test:unit": "node --import ./scripts/register-jiti.mjs --test utils/seo.test.ts utils/staff-login.test.ts server/utils/sitemap-build.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

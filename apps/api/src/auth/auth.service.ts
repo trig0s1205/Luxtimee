@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import {
   BadRequestException,
   ConflictException,
@@ -12,10 +13,19 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Response } from 'express';
 import { hashPassword, verifyPassword } from './password.util';
 
+export const LOGIN_LOCKOUT_THRESHOLD = 5;
+export const LOGIN_LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
+export const INVALID_CREDENTIALS_MESSAGE = 'Correo o contraseña incorrectos';
+
+export type TokenType = 'access' | 'refresh';
+
 export interface JwtPayload {
   sub: string;
   email: string;
   role: Role;
+  typ: TokenType;
+  tv: number;
+  jti?: string;
 }
 
 const STAFF_ROLES = new Set<Role>([Role.ADMIN, Role.SUPER_ADMIN]);
@@ -40,9 +50,19 @@ function parseDurationMs(
   return ms > 0 ? ms : fallbackMs;
 }
 
+type SessionUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  phone: string | null;
+  tokenVersion: number;
+};
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private warnedRefreshFallback = false;
 
   constructor(
     private prisma: PrismaService,
@@ -56,6 +76,37 @@ export class AuthService {
         'No tienes acceso al panel de administración',
       );
     }
+  }
+
+  private accessSecret() {
+    const secret = this.config.get<string>('JWT_SECRET')?.trim();
+    if (!secret) {
+      throw new Error('JWT_SECRET no está configurado');
+    }
+    return secret;
+  }
+
+  private refreshSecret() {
+    const dedicated = this.config.get<string>('JWT_REFRESH_SECRET')?.trim();
+    if (dedicated) return dedicated;
+    if (
+      this.config.get('NODE_ENV') === 'production' &&
+      !this.warnedRefreshFallback
+    ) {
+      this.warnedRefreshFallback = true;
+      this.logger.warn(
+        'JWT_REFRESH_SECRET no está definido; se usa JWT_SECRET. Define un secreto distinto en Cloud Run.',
+      );
+    }
+    return this.accessSecret();
+  }
+
+  private accessExpires() {
+    return this.config.get<string>('JWT_ACCESS_EXPIRES', '15m');
+  }
+
+  private refreshExpires() {
+    return this.config.get<string>('JWT_REFRESH_EXPIRES', '90d');
   }
 
   async validateGoogleUser(profile: {
@@ -88,17 +139,87 @@ export class AuthService {
   }
 
   async loginWithPassword(email: string, password: string, clientIp?: string) {
+    const normalized = email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() },
+      where: { email: normalized },
     });
 
-    if (!user?.passwordHash || !verifyPassword(password, user.passwordHash)) {
-      this.logFailedLogin(email, clientIp);
-      throw new UnauthorizedException('Correo o contraseña incorrectos');
+    if (user?.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+      this.logFailedLogin(normalized, clientIp);
+      throw new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE);
+    }
+
+    const passwordOk = Boolean(
+      user?.passwordHash && verifyPassword(password, user.passwordHash),
+    );
+
+    if (!user || !passwordOk) {
+      if (user) await this.recordFailedLogin(user);
+      this.logFailedLogin(normalized, clientIp);
+      throw new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE);
+    }
+
+    if (user.failedLoginAttempts || user.lockedUntil || user.failedLoginAt) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+          failedLoginAt: null,
+        },
+      });
     }
 
     this.assertStaffRole(user.role);
     return user;
+  }
+
+  /**
+   * El contador vive en Postgres: Cloud Run puede correr varias instancias y
+   * escala a cero, así que un mapa en memoria no se comparte y se pierde.
+   * Solo se cuenta sobre usuarios existentes para no llenar la tabla con emails arbitrarios.
+   */
+  private async recordFailedLogin(user: {
+    id: string;
+    failedLoginAttempts: number;
+    failedLoginAt: Date | null;
+  }) {
+    const now = new Date();
+    const stale =
+      !user.failedLoginAt ||
+      now.getTime() - user.failedLoginAt.getTime() > LOGIN_LOCKOUT_WINDOW_MS;
+
+    if (stale) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: 1,
+          failedLoginAt: now,
+          lockedUntil: null,
+        },
+      });
+      return;
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: { increment: 1 },
+        failedLoginAt: now,
+      },
+      select: { failedLoginAttempts: true },
+    });
+
+    if (updated.failedLoginAttempts >= LOGIN_LOCKOUT_THRESHOLD) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: 0,
+          lockedUntil: new Date(now.getTime() + LOGIN_LOCKOUT_WINDOW_MS),
+          failedLoginAt: now,
+        },
+      });
+    }
   }
 
   logFailedLogin(email: string, clientIp?: string) {
@@ -175,11 +296,24 @@ export class AuthService {
       );
     }
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: userId },
-      data: { passwordHash: hashPassword(newPassword) },
+      data: {
+        passwordHash: hashPassword(newPassword),
+        tokenVersion: { increment: 1 },
+      },
       select: { id: true, email: true, name: true, role: true, phone: true },
     });
+    await this.prisma.refreshSession.deleteMany({ where: { userId } });
+    return updated;
+  }
+
+  async revokeSessions(userId: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { tokenVersion: { increment: 1 } },
+    });
+    await this.prisma.refreshSession.deleteMany({ where: { userId } });
   }
 
   async mockLogin(email: string, name: string) {
@@ -198,24 +332,120 @@ export class AuthService {
     });
   }
 
-  async issueTokens(user: { id: string; email: string; role: Role }) {
-    const payload: JwtPayload = {
+  private async loadSessionUser(userId: string): Promise<SessionUser> {
+    const current = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        phone: true,
+        tokenVersion: true,
+      },
+    });
+    if (!current) throw new UnauthorizedException();
+    return current;
+  }
+
+  private async signPair(user: SessionUser, jti: string) {
+    const base = {
       sub: user.id,
       email: user.email,
       role: user.role,
+      tv: user.tokenVersion,
     };
 
-    const accessToken = await this.jwtService.signAsync(payload, {
-      secret: this.config.get<string>('JWT_SECRET'),
-      expiresIn: this.config.get<string>('JWT_ACCESS_EXPIRES', '15m'),
-    });
+    const accessToken = await this.jwtService.signAsync(
+      { ...base, typ: 'access' satisfies TokenType },
+      {
+        secret: this.accessSecret(),
+        expiresIn: this.accessExpires(),
+      },
+    );
 
-    const refreshToken = await this.jwtService.signAsync(payload, {
-      secret: this.config.get<string>('JWT_SECRET'),
-      expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES', '90d'),
-    });
+    const refreshToken = await this.jwtService.signAsync(
+      { ...base, typ: 'refresh' satisfies TokenType, jti },
+      {
+        secret: this.refreshSecret(),
+        expiresIn: this.refreshExpires(),
+      },
+    );
 
     return { accessToken, refreshToken };
+  }
+
+  private async persistRefreshSession(userId: string, jti: string) {
+    const maxAge = parseDurationMs(
+      this.config.get<string>('JWT_REFRESH_EXPIRES'),
+      90 * 24 * 60 * 60 * 1000,
+    );
+    await this.prisma.refreshSession.create({
+      data: {
+        id: jti,
+        userId,
+        expiresAt: new Date(Date.now() + maxAge),
+      },
+    });
+  }
+
+  async issueTokens(user: { id: string }) {
+    const current = await this.loadSessionUser(user.id);
+    const jti = randomUUID();
+    await this.persistRefreshSession(current.id, jti);
+    return this.signPair(current, jti);
+  }
+
+  async issueAccessToken(userId: string) {
+    const current = await this.loadSessionUser(userId);
+    return this.jwtService.signAsync(
+      {
+        sub: current.id,
+        email: current.email,
+        role: current.role,
+        tv: current.tokenVersion,
+        typ: 'access' satisfies TokenType,
+      },
+      {
+        secret: this.accessSecret(),
+        expiresIn: this.accessExpires(),
+      },
+    );
+  }
+
+  async refresh(refreshToken: string) {
+    let payload: JwtPayload;
+    try {
+      payload = await this.jwtService.verifyAsync<JwtPayload>(refreshToken, {
+        secret: this.refreshSecret(),
+      });
+    } catch {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+
+    if (payload?.typ !== 'refresh' || !payload.sub || !payload.jti) {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+
+    const current = await this.loadSessionUser(payload.sub);
+    if (current.tokenVersion !== payload.tv) {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+
+    const consumed = await this.prisma.refreshSession.deleteMany({
+      where: {
+        id: payload.jti,
+        userId: current.id,
+        expiresAt: { gt: new Date() },
+      },
+    });
+    if (consumed.count !== 1) {
+      throw new UnauthorizedException('Refresh token inválido');
+    }
+
+    const jti = randomUUID();
+    await this.persistRefreshSession(current.id, jti);
+    return this.signPair(current, jti);
   }
 
   setAuthCookies(

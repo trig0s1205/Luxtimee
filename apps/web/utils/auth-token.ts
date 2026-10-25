@@ -2,26 +2,14 @@ const ACCESS_KEY = 'luxtimee_access';
 const REFRESH_KEY = 'luxtimee_refresh';
 const USER_KEY = 'luxtimee_user';
 
-export function loadStoredTokens() {
-  if (!import.meta.client) {
-    return { accessToken: null as string | null, refreshToken: null as string | null };
-  }
-  return {
-    accessToken: localStorage.getItem(ACCESS_KEY),
-    refreshToken: localStorage.getItem(REFRESH_KEY),
-  };
-}
-
-export function saveStoredTokens(accessToken: string | null, refreshToken?: string | null) {
+export function clearLegacyStoredTokens() {
   if (!import.meta.client) return;
-  if (accessToken) localStorage.setItem(ACCESS_KEY, accessToken);
-  else localStorage.removeItem(ACCESS_KEY);
-  if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
-  else if (refreshToken === null) localStorage.removeItem(REFRESH_KEY);
+  localStorage.removeItem(ACCESS_KEY);
+  localStorage.removeItem(REFRESH_KEY);
 }
 
 export function clearStoredTokens() {
-  saveStoredTokens(null, null);
+  clearLegacyStoredTokens();
   if (import.meta.client) localStorage.removeItem(USER_KEY);
 }
 
@@ -31,23 +19,19 @@ export function saveStoredUser(user: { id: string; email: string; name: string; 
   else localStorage.removeItem(USER_KEY);
 }
 
-export function loadStoredUser<T extends { id: string; email: string; name: string; role: string }>(): T | null {
-  if (!import.meta.client) return null;
-  const raw = localStorage.getItem(USER_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
-  }
-}
-
-export function resolveAccessToken(current: string | null): string | null {
-  if (current) return current;
-  return loadStoredTokens().accessToken;
-}
-
 export function authFetchHeaders(accessToken: string | null): Record<string, string> {
   if (!accessToken) return {};
   return { Authorization: `Bearer ${accessToken}` };
+}
+
+export function readJwtExpMs(token: string) {
+  try {
+    const part = token.split('.')[1];
+    if (!part) return 0;
+    const padded = part.replace(/-/g, '+').replace(/_/g, '/');
+    const json = JSON.parse(atob(padded)) as { exp?: number };
+    return typeof json.exp === 'number' ? json.exp * 1000 : 0;
+  } catch {
+    return 0;
+  }
 }

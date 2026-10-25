@@ -64,12 +64,6 @@ export class AbuseGuardMiddleware implements NestMiddleware {
   }
 
   private resolveIp(req: Request): string {
-    const cf = req.headers['cf-connecting-ip'];
-    if (typeof cf === 'string' && cf.trim()) return cf.trim();
-    const forwarded = req.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string' && forwarded.length) {
-      return forwarded.split(',')[0]?.trim() || req.ip || 'unknown';
-    }
     return req.ip || req.socket.remoteAddress || 'unknown';
   }
 

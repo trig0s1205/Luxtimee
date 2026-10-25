@@ -1,6 +1,4 @@
-import type { AuthRefreshDto } from '@luxtime/shared';
-import { authFetchHeaders, loadStoredTokens, resolveAccessToken } from '~/utils/auth-token';
-import { API_TIMEOUT_MS, AUTH_TIMEOUT_MS } from '~/utils/api-timeout';
+import { API_TIMEOUT_MS } from '~/utils/api-timeout';
 
 type QueryValue = string | number | boolean | undefined;
 
@@ -26,24 +24,9 @@ export function useApi() {
   async function refreshSession() {
     const auth = useAuthStore();
     if (!refreshPromise) {
-      const stored = loadStoredTokens();
-      const body = stored.refreshToken ? { refreshToken: stored.refreshToken } : undefined;
-      refreshPromise = $fetch<AuthRefreshDto>(`${baseUrl}/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-        body,
-        timeout: AUTH_TIMEOUT_MS,
-        retry: 0,
-        headers: authFetchHeaders(resolveAccessToken(auth.accessToken)),
-      })
-        .then((data) => {
-          if (data.accessToken) {
-            auth.setTokens(data.accessToken, data.refreshToken ?? stored.refreshToken ?? null);
-          }
-        })
-        .finally(() => {
-          refreshPromise = null;
-        });
+      refreshPromise = auth.refreshSession().finally(() => {
+        refreshPromise = null;
+      });
     }
     await refreshPromise;
   }
@@ -58,13 +41,6 @@ export function useApi() {
       });
     }
 
-    const token = resolveAccessToken(auth.accessToken);
-    if (token && token !== auth.accessToken) {
-      auth.accessToken = token;
-    }
-
-    const hadToken = !!token;
-
     try {
       const response = await $fetch(`${baseUrl}${path}`, {
         method: options.method ?? 'GET',
@@ -72,17 +48,10 @@ export function useApi() {
         query: options.query,
         credentials: 'include',
         timeout: API_TIMEOUT_MS,
-        headers: authFetchHeaders(token),
       });
       return response as T;
     } catch (err: unknown) {
       if (isUnauthorized(err) && !options._retried) {
-        const lateToken = resolveAccessToken(auth.accessToken);
-        if (lateToken && !hadToken) {
-          auth.accessToken = lateToken;
-          return request<T>(path, { ...options, _retried: true });
-        }
-
         try {
           await refreshSession();
           return request<T>(path, { ...options, _retried: true });
