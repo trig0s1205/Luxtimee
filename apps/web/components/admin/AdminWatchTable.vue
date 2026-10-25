@@ -76,7 +76,7 @@ function closeLightbox() {
           <th>Marca & Modelo</th>
           <th>Precio público</th>
           <th>Stock</th>
-          <th>Estado</th>
+          <th class="admin-table-status"><span class="admin-table-status-label">Estado</span></th>
           <th class="admin-table-actions">Acciones</th>
         </tr>
       </thead>
@@ -126,8 +126,12 @@ function closeLightbox() {
           </td>
           <td>{{ formatCop(watch.retailPrice) }}</td>
           <td>{{ watch.stock }}</td>
-          <td>
-            <span class="admin-status" :class="statusClass(watch.status)">
+          <td class="admin-table-status">
+            <span
+              class="admin-status"
+              :class="[statusClass(watch.status), watch.stock > 0 ? 'admin-status--units' : 'admin-status--empty']"
+              :aria-label="watch.stock > 0 ? 'Hay unidades' : 'Agotado'"
+            >
               {{ statusLabels[watch.status] ?? watch.status }}
             </span>
           </td>
@@ -450,11 +454,47 @@ function closeLightbox() {
     height: 52px;
   }
 
+  .admin-table-status {
+    width: 16px;
+    text-align: center;
+  }
+
+  .admin-table-status-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .admin-status {
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    gap: 0;
+    border: 0;
+    background: transparent;
+    font-size: 0;
+    overflow: hidden;
+  }
+
+  .admin-status::before {
+    width: 8px;
+    height: 8px;
+  }
+
+  .admin-status--units::before {
+    background: #3dbe6e;
+  }
+
+  .admin-status--empty::before {
+    background: #e04545;
+  }
+
   .admin-table-actions {
     position: sticky;
     right: 0;
     background: var(--lux-black-2);
-    box-shadow: -8px 0 10px rgba(255, 255, 255, 0.85);
   }
 
   .admin-table:not(.admin-table--select) th:nth-child(4),
