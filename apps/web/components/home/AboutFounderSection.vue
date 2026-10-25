@@ -50,7 +50,7 @@ const signatureSrc = computed(() => resolve(props.config.signatureImageUrl));
             <img
               v-if="signatureSrc"
               :src="signatureSrc"
-              alt=""
+              :alt="props.config.signatureName ? `Firma de ${props.config.signatureName}` : 'Firma LUXTIMEE'"
               class="lux-founder__signature-img"
             />
             <span v-else>LX</span>

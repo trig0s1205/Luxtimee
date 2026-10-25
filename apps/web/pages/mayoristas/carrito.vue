@@ -8,7 +8,6 @@ const { catalog, quote } = useWholesaleQuote();
 
 onMounted(() => cart.hydrate());
 
-useSeoMeta({ title: 'Carrito mayorista — LUXTIMEE' });
 
 const WHOLESALE_MIN = 4;
 const meetsMinimum = computed(() => cart.unitCount >= WHOLESALE_MIN);
@@ -21,7 +20,7 @@ function linePackage(watchId: string) {
 
 <template>
   <div class="mayoristas-page px-6 md:px-16 py-12 max-w-4xl mx-auto">
-    <UiSectionHeader label="Mayorista" title="Tu carrito mayorista" />
+    <UiSectionHeader label="Mayorista" title="Tu carrito mayorista" heading="h1" />
 
     <div v-if="!cart.items.length" class="text-center py-20 text-lux-white-dim">
       <p class="mb-6">Tu carrito mayorista está vacío.</p>

@@ -36,6 +36,8 @@ const stockLabel = computed(() => {
 
 function onCardClick(e: MouseEvent) {
   if ((e.target as HTMLElement).closest('.add-btn')) return;
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+  e.preventDefault();
   openProduct(props.watch.slug);
   emit('select', props.watch);
 }
@@ -59,8 +61,12 @@ function onAdd(e: Event) {
   <article
     class="products-card reveal"
     :style="delay != null ? { transitionDelay: `${delay}s` } : undefined"
-    @click="onCardClick"
   >
+    <NuxtLink
+      :to="`/producto/${watch.slug}`"
+      class="products-card__link"
+      @click="onCardClick"
+    >
     <div class="products-img">
       <div
         v-if="showLimitedEdition || stockLabel"
@@ -87,8 +93,31 @@ function onAdd(e: Event) {
       <p class="products-ref">{{ watch.movementType }}</p>
       <div class="products-bottom">
         <p class="products-price">{{ formatCop(watch.retailPrice) }}</p>
-        <button type="button" class="add-btn" :aria-label="t('product.add')" @click="onAdd">+</button>
+        <span class="products-card__add-slot" aria-hidden="true" />
       </div>
     </div>
+    </NuxtLink>
+    <button type="button" class="add-btn products-card__add" :aria-label="t('product.add')" @click="onAdd">+</button>
   </article>
 </template>
+
+<style scoped>
+.products-card__link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.products-card__add-slot {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+}
+
+.products-card__add {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2;
+}
+</style>

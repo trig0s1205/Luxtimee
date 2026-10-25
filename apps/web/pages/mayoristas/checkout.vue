@@ -60,7 +60,6 @@ watch(() => form.shippingZoneId, () => {
 
 onMounted(() => cart.hydrate());
 
-useSeoMeta({ title: 'Checkout mayorista — LUXTIMEE' });
 
 async function submit() {
   error.value = '';
@@ -114,7 +113,7 @@ async function submit() {
 
 <template>
   <div class="mayoristas-page px-6 md:px-16 py-12 max-w-2xl mx-auto">
-    <UiSectionHeader label="Mayorista" title="Checkout mayorista" />
+    <UiSectionHeader label="Mayorista" title="Checkout mayorista" heading="h1" />
 
     <CheckoutSuccessPanel
       v-if="success"

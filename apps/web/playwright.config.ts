@@ -13,6 +13,7 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   use: {
     baseURL,
+    channel: process.env.PLAYWRIGHT_CHANNEL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     launchOptions: {

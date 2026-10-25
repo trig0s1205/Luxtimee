@@ -9,6 +9,8 @@ import {
 } from '~/utils/chart-series';
 import { formatCop } from '~/utils/format';
 
+const ApexChart = defineAsyncComponent(() => import('vue3-apexcharts'));
+
 export type ChartOption = {
   key: string;
   label: string;

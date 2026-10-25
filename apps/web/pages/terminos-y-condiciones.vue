@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import { termsSections } from '~/constants/legal-content';
 
-useSeoMeta({
-  title: 'Términos y Condiciones — LUXTIMEE',
-  description: 'Términos y condiciones de compra de relojes de lujo en LUXTIMEE. Envíos nacionales en Colombia.',
-});
 </script>
 
 <template>

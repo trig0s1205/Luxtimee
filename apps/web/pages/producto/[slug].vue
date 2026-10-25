@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { WatchPublicDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
+import { absoluteAssetUrl, productJsonLd } from '~/utils/seo';
 import { buildRelatedWatches } from '~/utils/similar-watches';
 import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 
@@ -37,14 +38,35 @@ if (error.value) {
   throw createError({ statusCode: 404, message: 'Producto no encontrado' });
 }
 
-watchEffect(() => {
-  if (!watch.value) return;
-  useSeoMeta({
-    title: `${watch.value.brand.name} ${watch.value.model} — LUXTIMEE`,
-    description: watch.value.description?.trim()
-      || `${watch.value.movementType}. ${watch.value.stock > 0 ? 'Disponible' : 'Agotado'}.`,
-    ogImage: watch.value.frontImageUrl ?? undefined,
-  });
+usePageSeo(() => {
+  const item = watch.value;
+  if (!item) return {};
+  const name = `${item.brand.name} ${item.model}`.trim();
+  const description = item.description?.trim()
+    || `${item.brand.name} ${item.model}. ${item.movementType}. ${item.stock > 0 ? 'Disponible' : 'Agotado'}.`;
+  const images = [watchPrimaryImage(item), watchSecondaryImage(item)].filter((url): url is string => Boolean(url));
+  return {
+    title: `${name} — LUXTIMEE`,
+    description,
+    image: images[0] ? absoluteAssetUrl(images[0]) : undefined,
+    imageAlt: name,
+    ogType: 'product' as const,
+    breadcrumbs: [
+      { name: 'Inicio', path: '/' },
+      { name: 'Catálogo', path: '/catalogo' },
+      { name, path: `/producto/${item.slug}` },
+    ],
+    jsonLd: [productJsonLd({
+      name,
+      description,
+      sku: item.sku,
+      brand: item.brand.name,
+      slug: item.slug,
+      price: item.retailPrice,
+      availability: item.stock > 0 ? 'InStock' : 'OutOfStock',
+      images,
+    })],
+  };
 });
 
 function addToCart() {

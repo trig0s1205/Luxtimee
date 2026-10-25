@@ -177,7 +177,7 @@ onBeforeUnmount(() => {
                 <img
                   :src="slide.desktopSrc"
                   :srcset="slide.desktopSrcSet"
-                  alt=""
+                  alt="Promoción LUXTIMEE: ver el catálogo de relojes"
                   class="home-promo-hero__img"
                   sizes="100vw"
                   :fetchpriority="i === 0 ? 'high' : 'auto'"
