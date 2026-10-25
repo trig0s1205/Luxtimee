@@ -4,9 +4,15 @@ import { OrdersController } from './orders.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { CertificatesModule } from '../certificates/certificates.module';
 import { CacheModule } from '../common/cache/cache.module';
+import { IntegrationsModule } from '../integrations/integrations.module';
 
 @Module({
-  imports: [NotificationsModule, CertificatesModule, CacheModule],
+  imports: [
+    NotificationsModule,
+    CertificatesModule,
+    CacheModule,
+    IntegrationsModule,
+  ],
   controllers: [OrdersController],
   providers: [OrdersService],
   exports: [OrdersService],

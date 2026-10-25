@@ -4,6 +4,8 @@ import { WhatsappService } from './whatsapp.service';
 import { Ga4Service } from './ga4.service';
 import { ReportsService } from './reports.service';
 import { ResendService } from './resend.service';
+import { CustomerMailer } from './customer-mailer.service';
+import { CustomerNotifier } from './customer-notifier.service';
 
 @Module({
   providers: [
@@ -12,6 +14,8 @@ import { ResendService } from './resend.service';
     Ga4Service,
     ReportsService,
     ResendService,
+    CustomerMailer,
+    CustomerNotifier,
   ],
   exports: [
     ImageProcessingService,
@@ -19,6 +23,8 @@ import { ResendService } from './resend.service';
     Ga4Service,
     ReportsService,
     ResendService,
+    CustomerMailer,
+    CustomerNotifier,
   ],
 })
 export class IntegrationsModule {}

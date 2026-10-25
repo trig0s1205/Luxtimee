@@ -102,6 +102,7 @@ export interface OrderDto {
   createdAt: string;
   updatedAt: string;
   items: OrderItemDto[];
+  customerWhatsappUrl?: string | null;
 }
 
 export interface UpdatePreOrderDto {

@@ -1,7 +1,7 @@
-import { OrderType, PriceType } from '@prisma/client';
+import { OrderStatus, OrderType, PriceType } from '@prisma/client';
 import { priceOrderLines, resolveOrderType } from './order-pricing.util';
 import { assertValidTransition } from './state-machine';
-import { OrderStatus } from '@prisma/client';
+import { isInventoryDeducted } from './orders.service';
 
 describe('order-pricing', () => {
   it('retail siempre cobra al detal aunque haya 4+ unidades', () => {
@@ -64,6 +64,45 @@ describe('state-machine', () => {
     expect(() =>
       assertValidTransition(OrderStatus.PENDIENTE, OrderStatus.PAGADO),
     ).not.toThrow();
+  });
+
+  it('el abono confirmado ya descontó stock, salvo si el pedido está cancelado', () => {
+    expect(
+      isInventoryDeducted({
+        status: OrderStatus.PENDIENTE,
+        depositConfirmed: true,
+      }),
+    ).toBe(true);
+    expect(
+      isInventoryDeducted({
+        status: OrderStatus.PAGADO,
+        depositConfirmed: true,
+      }),
+    ).toBe(true);
+    expect(
+      isInventoryDeducted({
+        status: OrderStatus.PAGADO,
+        depositConfirmed: false,
+      }),
+    ).toBe(true);
+    expect(
+      isInventoryDeducted({
+        status: OrderStatus.PENDIENTE,
+        depositConfirmed: false,
+      }),
+    ).toBe(false);
+    expect(
+      isInventoryDeducted({
+        status: OrderStatus.CANCELADO,
+        depositConfirmed: true,
+      }),
+    ).toBe(false);
+    expect(
+      isInventoryDeducted({
+        status: null,
+        depositConfirmed: true,
+      }),
+    ).toBe(false);
   });
 
   it('omite enviado en pedidos locales', () => {

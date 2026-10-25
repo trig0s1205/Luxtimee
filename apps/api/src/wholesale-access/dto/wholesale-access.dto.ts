@@ -2,10 +2,12 @@ import {
   IsBoolean,
   IsEmail,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsString,
   Max,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import {
@@ -42,6 +44,12 @@ export class CreateWholesaleAccessBodyDto {
   @Min(MIN_WHOLESALE_COOKIE_DAYS)
   @Max(MAX_WHOLESALE_COOKIE_DAYS)
   cookieDurationDays?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value))
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsISO8601()
+  expiresAt?: string | null;
 }
 
 export class UpdateWholesaleAccessBodyDto {
@@ -73,6 +81,12 @@ export class UpdateWholesaleAccessBodyDto {
   @Min(MIN_WHOLESALE_COOKIE_DAYS)
   @Max(MAX_WHOLESALE_COOKIE_DAYS)
   cookieDurationDays?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value))
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsISO8601()
+  expiresAt?: string | null;
 }
 
 export class ActivateWholesaleSessionDto {

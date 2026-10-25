@@ -1,7 +1,14 @@
 <script setup lang="ts">
-import type { CreateWholesaleAccessDto, WholesaleAccessDto, WholesaleAccessListDto } from '@luxtime/shared';
+import type {
+  CreateWholesaleAccessDto,
+  WholesaleAccessDto,
+  WholesaleAccessListDto,
+  WholesalerOrderHistoryDto,
+  WholesalerReportDto,
+} from '@luxtime/shared';
 import { DEFAULT_WHOLESALE_COOKIE_DAYS } from '@luxtime/shared';
 import { extractApiErrorMessage } from '~/utils/api-error';
+import { formatCop } from '~/utils/format';
 
 definePageMeta({ middleware: ['admin'], keepalive: true });
 
@@ -26,10 +33,21 @@ const form = reactive<CreateWholesaleAccessDto>({
   phone: '',
   notes: '',
   cookieDurationDays: DEFAULT_WHOLESALE_COOKIE_DAYS,
+  expiresAt: '',
 });
 
 const creating = ref(false);
 const deletingId = ref<string | null>(null);
+const freshLink = ref('');
+const history = ref<Record<string, WholesalerOrderHistoryDto | null>>({});
+const historyOpen = ref<Record<string, boolean>>({});
+
+const { data: reportData, refresh: refreshReport } = useAdminCachedData(
+  'wholesale-access-report',
+  () => api.get<WholesalerReportDto>('/wholesale-access/reports'),
+);
+
+const report = computed(() => reportData.value?.items ?? []);
 
 const { data, refresh, pending } = useAdminCachedData('wholesale-access-list', () =>
   api.get<WholesaleAccessListDto>('/wholesale-access'),
@@ -48,17 +66,20 @@ async function createAccess() {
   }
   creating.value = true;
   try {
-    await api.post<WholesaleAccessDto>('/wholesale-access', {
+    const created = await api.post<WholesaleAccessDto>('/wholesale-access', {
       ...form,
       email: form.email?.trim() || undefined,
+      expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
     });
-    toast.success('Acceso mayorista creado.');
+    freshLink.value = created.accessUrl ?? '';
+    toast.success('Acceso mayorista creado. Copia el enlace ahora.');
     form.name = '';
     form.email = '';
     form.phone = '';
     form.notes = '';
+    form.expiresAt = '';
     form.cookieDurationDays = DEFAULT_WHOLESALE_COOKIE_DAYS;
-    await refresh();
+    await Promise.all([refresh(), refreshReport()]);
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'No se pudo crear el acceso.'));
   } finally {
@@ -66,10 +87,18 @@ async function createAccess() {
   }
 }
 
-async function copyLink(item: WholesaleAccessDto) {
-  if (!import.meta.client) return;
-  await navigator.clipboard.writeText(item.accessUrl);
+async function copyText(value: string) {
+  if (!import.meta.client || !value) return;
+  await navigator.clipboard.writeText(value);
   toast.success('Enlace copiado.');
+}
+
+async function copyLink(item: WholesaleAccessDto) {
+  if (item.accessUrl) {
+    await copyText(item.accessUrl);
+    return;
+  }
+  toast.error('El enlace solo se muestra al crearlo o regenerarlo.');
 }
 
 async function toggleActive(item: WholesaleAccessDto) {
@@ -78,8 +107,9 @@ async function toggleActive(item: WholesaleAccessDto) {
 }
 
 async function regenerate(item: WholesaleAccessDto) {
-  await api.post<WholesaleAccessDto>(`/wholesale-access/${item.id}/regenerate`);
-  toast.success('Nuevo enlace generado.');
+  const created = await api.post<WholesaleAccessDto>(`/wholesale-access/${item.id}/regenerate`);
+  freshLink.value = created.accessUrl ?? '';
+  toast.success('Nuevo enlace generado. Cópialo ahora.');
   await refresh();
 }
 
@@ -88,6 +118,32 @@ async function updateDuration(item: WholesaleAccessDto, days: number) {
   await api.patch(`/wholesale-access/${item.id}`, { cookieDurationDays: days });
   toast.success('Duración de cookie actualizada.');
   await refresh();
+}
+
+async function updateExpiry(item: WholesaleAccessDto, value: string) {
+  await api.patch(`/wholesale-access/${item.id}`, {
+    expiresAt: value ? new Date(value).toISOString() : null,
+  });
+  toast.success(value ? 'Vencimiento actualizado.' : 'El enlace ya no vence.');
+  await refresh();
+}
+
+function expiryInputValue(iso: string | null) {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function isExpired(item: WholesaleAccessDto) {
+  return !!item.expiresAt && new Date(item.expiresAt).getTime() <= Date.now();
+}
+
+async function toggleHistory(id: string) {
+  historyOpen.value[id] = !historyOpen.value[id];
+  if (!historyOpen.value[id] || history.value[id]) return;
+  history.value[id] = await api.get<WholesalerOrderHistoryDto>(`/wholesale-access/${id}/orders`);
 }
 
 async function removeAccess(item: WholesaleAccessDto) {
@@ -130,8 +186,37 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE Admin' });
       @refresh="refresh()"
     />
     <p class="admin-records-hint">
-      Crea accesos privados y comparte el enlace con cada mayorista. Solo quien tenga un enlace activo puede ver el catálogo mayorista.
+      Crea accesos privados y comparte el enlace. El token se guarda como hash: solo se muestra al crearlo o regenerarlo. Los enlaces ya entregados siguen funcionando.
     </p>
+
+    <p v-if="freshLink" class="admin-records-hint break-all">
+      Enlace nuevo: {{ freshLink }}
+      <button type="button" class="admin-record-btn" @click="copyText(freshLink)">Copiar</button>
+    </p>
+
+    <section class="admin-record-export">
+      <h3>Reporte</h3>
+      <p class="admin-record-muted">Pedidos confirmados no cancelados, unidades e ingresos por mayorista.</p>
+      <div v-if="!report.length" class="admin-record-empty">Sin movimientos confirmados.</div>
+      <table v-else class="admin-record-table">
+        <thead>
+          <tr>
+            <th>Mayorista</th>
+            <th>Pedidos</th>
+            <th>Unidades</th>
+            <th>Ingresos</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in report" :key="row.id">
+            <td>{{ row.name }}</td>
+            <td>{{ row.orders }}</td>
+            <td>{{ row.units }}</td>
+            <td>{{ formatCop(row.revenue) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
 
     <section class="admin-record-export">
       <h3>Nuevo acceso</h3>
@@ -140,6 +225,10 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE Admin' });
         <UiLuxInput v-model="form.email" type="email" placeholder="Correo (opcional)" />
         <UiLuxInput v-model="form.phone" placeholder="Teléfono (opcional)" />
         <UiLuxInput v-model="form.notes" placeholder="Notas internas (opcional)" />
+        <label class="admin-record-field">
+          <span class="admin-record-muted">Vence el (opcional)</span>
+          <input v-model="form.expiresAt" class="admin-record-select" type="datetime-local" />
+        </label>
         <label class="admin-record-field">
           <span class="admin-record-muted">Duración de acceso en navegador</span>
           <select v-model.number="form.cookieDurationDays" class="admin-record-select">
@@ -167,8 +256,8 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE Admin' });
               <p v-if="item.email" class="admin-record-muted">{{ item.email }}</p>
               <p v-if="item.phone" class="admin-record-muted">{{ item.phone }}</p>
             </div>
-            <UiLuxBadge :tone="item.isActive ? 'pagado' : 'cancelado'">
-              {{ item.isActive ? 'Activo' : 'Revocado' }}
+            <UiLuxBadge :tone="!item.isActive || isExpired(item) ? 'cancelado' : 'pagado'">
+              {{ !item.isActive ? 'Revocado' : isExpired(item) ? 'Vencido' : 'Activo' }}
             </UiLuxBadge>
           </div>
           <p v-if="item.notes" class="admin-record-muted mt-3">{{ item.notes }}</p>
@@ -184,7 +273,22 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE Admin' });
               </option>
             </select>
           </label>
-          <p class="admin-record-muted mt-2 text-xs break-all">{{ item.accessUrl }}</p>
+          <label class="admin-record-field mt-3">
+            <span class="admin-record-muted">
+              Vencimiento del enlace{{ item.expiresAt ? `: ${new Date(item.expiresAt).toLocaleString('es-CO')}` : ': sin fecha' }}
+            </span>
+            <input
+              class="admin-record-select"
+              type="datetime-local"
+              :value="expiryInputValue(item.expiresAt)"
+              @change="updateExpiry(item, ($event.target as HTMLInputElement).value)"
+            />
+          </label>
+          <button type="button" class="admin-record-btn admin-record-btn--ghost" @click="updateExpiry(item, '')">
+            Quitar vencimiento
+          </button>
+          <p v-if="item.accessUrl" class="admin-record-muted mt-2 text-xs break-all">{{ item.accessUrl }}</p>
+          <p v-else class="admin-record-muted mt-2 text-xs">Enlace oculto. Regenera para copiar uno nuevo.</p>
           <div class="admin-record-actions">
             <button type="button" class="admin-record-btn admin-record-btn--primary" @click="copyLink(item)">
               Copiar enlace
@@ -194,6 +298,9 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE Admin' });
             </button>
             <button type="button" class="admin-record-btn admin-record-btn--ghost" @click="regenerate(item)">
               Nuevo enlace
+            </button>
+            <button type="button" class="admin-record-btn admin-record-btn--ghost" @click="toggleHistory(item.id)">
+              {{ historyOpen[item.id] ? 'Ocultar historial' : 'Historial' }}
             </button>
             <button
               v-if="!item.isActive"
@@ -205,6 +312,13 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE Admin' });
               {{ deletingId === item.id ? '...' : 'Eliminar' }}
             </button>
           </div>
+          <ul v-if="historyOpen[item.id]" class="admin-record-list">
+            <li v-if="!history[item.id]" class="admin-record-muted">Cargando historial...</li>
+            <li v-else-if="!history[item.id]?.items.length" class="admin-record-muted">Sin pedidos.</li>
+            <li v-for="order in history[item.id]?.items ?? []" :key="order.id" class="admin-record-muted">
+              {{ order.readableId }} · {{ order.stage }} {{ order.status || '' }} · {{ order.units }} u · {{ formatCop(order.total) }}
+            </li>
+          </ul>
         </div>
       </article>
       <p v-if="!items.length" class="admin-record-empty">Aún no hay mayoristas autorizados.</p>
@@ -226,6 +340,20 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE Admin' });
   background: rgba(0, 0, 0, 0.35);
   color: inherit;
   font-size: 14px;
+}
+
+.admin-record-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.admin-record-table th,
+.admin-record-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(200, 169, 110, 0.15);
 }
 </style>
 

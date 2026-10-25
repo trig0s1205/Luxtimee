@@ -217,6 +217,16 @@ useSeoMeta({ title: props.seoTitle });
             <AdminAccordionSection title="Cliente" :subtitle="order.customerName">
               <p>{{ order.customerName }}</p>
               <p class="admin-record-muted">{{ order.customerPhone || 'Sin teléfono' }}</p>
+              <a
+                v-if="order.customerWhatsappUrl"
+                class="admin-record-btn"
+                :href="order.customerWhatsappUrl"
+                target="_blank"
+                rel="noopener"
+                @click.stop
+              >
+                Avisar por WhatsApp
+              </a>
               <p class="admin-record-muted">{{ order.customerAddress }}</p>
             </AdminAccordionSection>
 
