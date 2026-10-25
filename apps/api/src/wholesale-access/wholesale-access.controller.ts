@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -57,6 +58,28 @@ export class WholesaleAccessController {
   @UseGuards(RolesGuard)
   list() {
     return this.wholesaleAccessService.list();
+  }
+
+  @Get('reports')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  reports() {
+    return this.wholesaleAccessService.report();
+  }
+
+  @Get(':id/orders')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  orders(
+    @Param('id') id: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.wholesaleAccessService.listOrders(
+      id,
+      Number(page) || 1,
+      Number(limit) || 20,
+    );
   }
 
   @Post()

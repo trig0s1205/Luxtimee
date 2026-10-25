@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   OrderStage,
   OrderStatus,
@@ -14,7 +19,16 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import type { OrdersPeriod } from './dto/orders-query.dto';
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
-import { decrementWatchStock } from '../common/utils/watch-stock.tx';
+import {
+  reserveWatchStock,
+  restoreWatchStock,
+  STOCK_TRANSACTION,
+} from '../common/utils/watch-stock.tx';
+import { CustomerNotifier } from '../integrations/customer-notifier.service';
+import {
+  buildCustomerWhatsappUrl,
+  customerStatusWhatsappMessage,
+} from '../integrations/customer-whatsapp';
 
 const orderInclude = {
   items: {
@@ -32,8 +46,13 @@ const inventoryDeductedStatuses: OrderStatus[] = [
   OrderStatus.ENTREGADO,
 ];
 
-function isInventoryDeducted(status: OrderStatus | null): boolean {
-  return status !== null && inventoryDeductedStatuses.includes(status);
+export function isInventoryDeducted(order: {
+  status: OrderStatus | null;
+  depositConfirmed: boolean;
+}): boolean {
+  if (!order.status || order.status === OrderStatus.CANCELADO) return false;
+  if (order.depositConfirmed) return true;
+  return inventoryDeductedStatuses.includes(order.status);
 }
 
 type OrderWithRelations = Prisma.OrderGetPayload<{
@@ -42,11 +61,14 @@ type OrderWithRelations = Prisma.OrderGetPayload<{
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
     private certificatesService: CertificatesService,
     private cache: MemoryCacheService,
+    private customerNotifier: CustomerNotifier,
   ) {}
 
   private mapOrder(order: OrderWithRelations) {
@@ -83,7 +105,36 @@ export class OrdersService {
             isNational: shippingZone.isNational,
           }
         : null,
+      customerWhatsappUrl: buildCustomerWhatsappUrl(
+        order.customerPhone,
+        customerStatusWhatsappMessage(order),
+      ),
     };
+  }
+
+  private async notifyCustomer(
+    order: {
+      readableId: string;
+      customerName: string;
+      customerEmail: string;
+      customerPhone: string | null;
+      wholesaleAccessId: string | null;
+    },
+    event: 'canceled' | 'shipped',
+  ) {
+    try {
+      await this.customerNotifier.notifyOrder({
+        event,
+        readableId: order.readableId,
+        customerName: order.customerName,
+        customerEmail: order.customerEmail,
+        customerPhone: order.customerPhone,
+        wholesaleAccessId: order.wholesaleAccessId,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Aviso de ${order.readableId} no enviado: ${message}`);
+    }
   }
 
   async findAllOrders(
@@ -166,39 +217,65 @@ export class OrdersService {
     const isNational = order.shippingZone?.isNational ?? false;
     assertValidTransition(order.status, next, isNational);
 
-    const data: Prisma.OrderUpdateInput = { status: next };
-    if (next === OrderStatus.PAGADO) data.paidAt = new Date();
-    if (next === OrderStatus.ENVIADO) data.shippedAt = new Date();
-    if (next === OrderStatus.ENTREGADO) data.deliveredAt = new Date();
     if (next === OrderStatus.CANCELADO) {
       await this.prisma.$transaction(async (tx) => {
-        if (isInventoryDeducted(order.status)) {
+        const claimed = await tx.order.updateMany({
+          where: {
+            id,
+            status: order.status,
+            depositConfirmed: order.depositConfirmed,
+          },
+          data: { status: OrderStatus.CANCELADO, canceledAt: new Date() },
+        });
+        if (claimed.count !== 1) {
+          throw new BadRequestException('El pedido ya cambió de estado');
+        }
+        if (isInventoryDeducted(order)) {
           await this.restoreInventory(order.items, tx);
         }
         await tx.order.delete({ where: { id } });
-      });
+      }, STOCK_TRANSACTION);
       this.cache.invalidateTag(CACHE_TAGS.catalog);
       await this.notificationsService.emit({
         type: 'ORDER_STATUS_CHANGED',
         targetRole: Role.ADMIN,
         payload: { orderId: id, status: next, readableId: order.readableId },
       });
+      await this.notifyCustomer(order, 'canceled');
       return { id, deleted: true };
     }
 
+    const data: Prisma.OrderUpdateManyMutationInput = { status: next };
+    if (next === OrderStatus.PAGADO) data.paidAt = new Date();
+    if (next === OrderStatus.ENVIADO) data.shippedAt = new Date();
+    if (next === OrderStatus.ENTREGADO) data.deliveredAt = new Date();
+
     const updated = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.order.updateMany({
+        where: {
+          id,
+          status: order.status,
+          depositConfirmed: order.depositConfirmed,
+        },
+        data,
+      });
+      if (claimed.count !== 1) {
+        throw new BadRequestException('El pedido ya cambió de estado');
+      }
       if (next === OrderStatus.PAGADO && !order.depositConfirmed) {
         await this.deductInventory(order.items, tx);
       }
-      return tx.order.update({
+      return tx.order.findUniqueOrThrow({
         where: { id },
-        data,
         include: orderInclude,
       });
-    });
+    }, STOCK_TRANSACTION);
 
     if (next === OrderStatus.PAGADO) {
       await this.certificatesService.generateForOrder(id);
+    }
+    if (next === OrderStatus.ENVIADO) {
+      await this.notifyCustomer(order, 'shipped');
     }
 
     await this.notificationsService.emit({
@@ -239,7 +316,7 @@ export class OrdersService {
       throw new NotFoundException('Pedido no encontrado');
     }
 
-    const data: Prisma.OrderUpdateInput = {};
+    const data: Prisma.OrderUpdateManyMutationInput = {};
 
     if (dto.customerAddress !== undefined) {
       data.customerAddress = dto.customerAddress;
@@ -250,41 +327,63 @@ export class OrdersService {
       data.total = order.subtotal + dto.shippingCost;
     }
 
-    if (dto.status !== undefined) {
-      const next = dto.status as OrderStatus;
-      if (next !== order.status) {
-        if (next === OrderStatus.CANCELADO) {
-          data.canceledAt = new Date();
-        } else if (
-          next === OrderStatus.PAGADO &&
-          order.status !== OrderStatus.PAGADO
-        ) {
-          data.paidAt = new Date();
-        } else if (next === OrderStatus.ENVIADO) {
-          data.shippedAt = new Date();
-        } else if (next === OrderStatus.ENTREGADO) {
-          data.deliveredAt = new Date();
-        }
-        data.status = next;
+    let next: OrderStatus | undefined;
+    if (dto.status !== undefined && dto.status !== order.status) {
+      next = dto.status;
+      if (next === OrderStatus.CANCELADO) {
+        data.canceledAt = new Date();
+      } else if (
+        next === OrderStatus.PAGADO &&
+        order.status !== OrderStatus.PAGADO
+      ) {
+        data.paidAt = new Date();
+      } else if (next === OrderStatus.ENVIADO) {
+        data.shippedAt = new Date();
+      } else if (next === OrderStatus.ENTREGADO) {
+        data.deliveredAt = new Date();
       }
+      data.status = next;
     }
 
+    const shouldRestore =
+      next === OrderStatus.CANCELADO && isInventoryDeducted(order);
+    const shouldDeduct =
+      next === OrderStatus.PAGADO &&
+      order.status !== OrderStatus.PAGADO &&
+      !order.depositConfirmed;
+
     const updated = await this.prisma.$transaction(async (tx) => {
-      if (dto.status !== undefined && dto.status !== order.status) {
-        const next = dto.status as OrderStatus;
-        if (next === OrderStatus.CANCELADO && isInventoryDeducted(order.status)) {
-          await this.restoreInventory(order.items, tx);
-        }
-        if (next === OrderStatus.PAGADO && order.status !== OrderStatus.PAGADO) {
-          await this.deductInventory(order.items, tx);
+      if (Object.keys(data).length) {
+        const claimed = await tx.order.updateMany({
+          where: {
+            id,
+            status: order.status,
+            depositConfirmed: order.depositConfirmed,
+          },
+          data,
+        });
+        if (claimed.count !== 1) {
+          throw new BadRequestException('El pedido ya cambió de estado');
         }
       }
-      return tx.order.update({
+      if (shouldRestore) {
+        await this.restoreInventory(order.items, tx);
+      }
+      if (shouldDeduct) {
+        await this.deductInventory(order.items, tx);
+      }
+      return tx.order.findUniqueOrThrow({
         where: { id },
-        data,
         include: orderInclude,
       });
-    });
+    }, STOCK_TRANSACTION);
+
+    if (next === OrderStatus.ENVIADO) {
+      await this.notifyCustomer(updated, 'shipped');
+    }
+    if (next === OrderStatus.CANCELADO) {
+      await this.notifyCustomer(updated, 'canceled');
+    }
 
     await this.notificationsService.emit({
       type: 'ORDER_STATUS_CHANGED',
@@ -309,11 +408,22 @@ export class OrdersService {
       throw new NotFoundException('Pedido no encontrado');
     }
     await this.prisma.$transaction(async (tx) => {
-      if (isInventoryDeducted(order.status)) {
+      const claimed = await tx.order.updateMany({
+        where: {
+          id,
+          status: order.status,
+          depositConfirmed: order.depositConfirmed,
+        },
+        data: { status: OrderStatus.CANCELADO, canceledAt: new Date() },
+      });
+      if (claimed.count !== 1) {
+        throw new BadRequestException('El pedido ya cambió de estado');
+      }
+      if (isInventoryDeducted(order)) {
         await this.restoreInventory(order.items, tx);
       }
       await tx.order.delete({ where: { id } });
-    });
+    }, STOCK_TRANSACTION);
     this.cache.invalidateTag(CACHE_TAGS.catalog);
     return { id, deleted: true };
   }
@@ -322,15 +432,7 @@ export class OrdersService {
     items: { watchId: string; quantity: number }[],
     tx: Prisma.TransactionClient,
   ) {
-    for (const item of items) {
-      await tx.watch.update({
-        where: { id: item.watchId },
-        data: {
-          stock: { increment: item.quantity },
-          status: 'DISPONIBLE',
-        },
-      });
-    }
+    await restoreWatchStock(tx, items);
     this.cache.invalidateTag(CACHE_TAGS.catalog);
   }
 
@@ -338,9 +440,9 @@ export class OrdersService {
     items: { watchId: string; quantity: number }[],
     tx: Prisma.TransactionClient,
   ) {
-    for (const item of items) {
-      await decrementWatchStock(tx, item.watchId, item.quantity);
-    }
+    await reserveWatchStock(tx, items, {
+      message: 'Stock insuficiente para este reloj',
+    });
     this.cache.invalidateTag(CACHE_TAGS.catalog);
   }
 }

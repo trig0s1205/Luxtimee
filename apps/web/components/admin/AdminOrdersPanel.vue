@@ -350,6 +350,16 @@ useSeoMeta({ title: props.seoTitle });
               <p>{{ order.customerName }}</p>
               <p v-if="order.customerPhone" class="admin-record-muted">{{ order.customerPhone }}</p>
               <p class="admin-record-muted">{{ order.customerAddress }}</p>
+              <a
+                v-if="order.customerWhatsappUrl"
+                class="admin-record-btn"
+                :href="order.customerWhatsappUrl"
+                target="_blank"
+                rel="noopener"
+                @click.stop
+              >
+                Avisar por WhatsApp
+              </a>
             </AdminAccordionSection>
 
             <AdminAccordionSection title="Envío" :subtitle="shippingLabel(order)">

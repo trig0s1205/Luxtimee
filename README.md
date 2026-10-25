@@ -51,4 +51,8 @@ Ver `docs/PROGRESO.md` y `.github/workflows/`. No se despliega automáticamente 
 
 ## Mocks
 
-`USE_MOCKS=true` en API: OAuth mock, Cloudinary, Resend, WhatsApp, GA4.
+`USE_MOCKS=true` en API: OAuth mock, Cloudinary, Resend, WhatsApp, GA4 y el correo al cliente.
+
+## Correo al cliente
+
+Los cambios de pre-pedido y pedido (creado, abono confirmado, suspendido, cancelado, enviado) intentan un correo. Hace falta `EMAIL_FROM` y, en este orden, `SMTP_HOST` (más `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_SECURE`) o `RESEND_API_KEY`. Si no hay proveedor, o `USE_MOCKS=true`, no se envía nada. El admin también ve un enlace de WhatsApp con el mensaje ya escrito.

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -15,6 +16,7 @@ import {
 import {
   isAlwaysFreeShippingZone,
   PRE_ORDER_RESPONSE_HOURS,
+  WHOLESALE_MIN_UNITS,
   type WholesaleQuotedLine,
 } from '@luxtime/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -38,7 +40,17 @@ import {
 import { formatWatchOrderLabel } from '../orders/watch-description.util';
 import { WholesaleAccessService } from '../wholesale-access/wholesale-access.service';
 import { WholesaleOffersService } from '../wholesale-offers/wholesale-offers.service';
-import { decrementWatchStock } from '../common/utils/watch-stock.tx';
+import {
+  reserveWatchStock,
+  restoreWatchStock,
+  STOCK_TRANSACTION,
+} from '../common/utils/watch-stock.tx';
+import { CustomerNotifier } from '../integrations/customer-notifier.service';
+import type { CustomerOrderEvent } from '../integrations/customer-notifier.service';
+import {
+  buildCustomerWhatsappUrl,
+  customerStatusWhatsappMessage,
+} from '../integrations/customer-whatsapp';
 import {
   mergePreOrderItems,
   parseExtrasSnapshot,
@@ -74,6 +86,8 @@ type OrderWithRelations = Prisma.OrderGetPayload<{
 
 @Injectable()
 export class PreOrdersService {
+  private readonly logger = new Logger(PreOrdersService.name);
+
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
@@ -81,6 +95,7 @@ export class PreOrdersService {
     private whatsappService: WhatsappService,
     private wholesaleAccessService: WholesaleAccessService,
     private wholesaleOffers: WholesaleOffersService,
+    private customerNotifier: CustomerNotifier,
   ) {}
 
   private mapOrder(order: OrderWithRelations) {
@@ -118,7 +133,36 @@ export class PreOrdersService {
             isNational: shippingZone.isNational,
           }
         : null,
+      customerWhatsappUrl: buildCustomerWhatsappUrl(
+        order.customerPhone,
+        customerStatusWhatsappMessage(order),
+      ),
     };
+  }
+
+  private async notifyCustomer(
+    order: {
+      readableId: string;
+      customerName: string;
+      customerEmail: string;
+      customerPhone: string | null;
+      wholesaleAccessId: string | null;
+    },
+    event: CustomerOrderEvent,
+  ) {
+    try {
+      await this.customerNotifier.notifyOrder({
+        event,
+        readableId: order.readableId,
+        customerName: order.customerName,
+        customerEmail: order.customerEmail,
+        customerPhone: order.customerPhone,
+        wholesaleAccessId: order.wholesaleAccessId,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Aviso de ${order.readableId} no enviado: ${message}`);
+    }
   }
 
   private preOrderExpiryThreshold() {
@@ -312,39 +356,16 @@ export class PreOrdersService {
     };
   }
 
-  private async reserveStockForItems(
+  private async reservePreOrderStock(
     tx: Prisma.TransactionClient,
     items: Array<{ watchId: string; quantity: number; productName?: string }>,
   ) {
-    const totals = new Map<
-      string,
-      { quantity: number; productName?: string }
-    >();
-    for (const item of items) {
-      const current = totals.get(item.watchId);
-      if (current) {
-        current.quantity += item.quantity;
-        if (!current.productName && item.productName)
-          current.productName = item.productName;
-      } else {
-        totals.set(item.watchId, {
-          quantity: item.quantity,
-          productName: item.productName,
-        });
-      }
-    }
-    for (const [watchId, item] of totals) {
-      const watch = await tx.watch.findUnique({
-        where: { id: watchId },
-        select: { model: true },
-      });
-      const label = item.productName ?? watch?.model ?? 'este reloj';
-      await decrementWatchStock(tx, watchId, item.quantity, {
-        requireActive: true,
-        inactiveMessage: `Reloj no disponible${item.productName ? `: ${item.productName}` : ''}`,
-        message: `Stock insuficiente para ${label}. Edita el pre-pedido con otro reloj.`,
-      });
-    }
+    const label = items.find((item) => item.productName)?.productName;
+    await reserveWatchStock(tx, items, {
+      requireActive: true,
+      inactiveMessage: `Reloj no disponible${label ? `: ${label}` : ''}`,
+      message: `Stock insuficiente para ${label ?? 'este reloj'}. Edita el pre-pedido con otro reloj.`,
+    });
   }
 
   private async nextReadableId() {
@@ -364,6 +385,7 @@ export class PreOrdersService {
     }
     let channel: 'retail' | 'wholesale' = 'retail';
     let wholesaleAccessId: string | undefined;
+    let customerEmail = '';
     let source: OrderSource = OrderSource.WEB;
     if (wholesaleToken) {
       const session =
@@ -375,12 +397,14 @@ export class PreOrdersService {
       }
       channel = 'wholesale';
       wholesaleAccessId = session.id;
+      customerEmail = session.email ?? '';
       source = OrderSource.MAYORISTA;
     }
     return this.createOrder({
       dto,
       userId,
       wholesaleAccessId,
+      customerEmail,
       channel,
       source,
       includeWhatsappUrl: true,
@@ -436,6 +460,7 @@ export class PreOrdersService {
     dto: CreatePreOrderDto | CreateManualPreOrderDto;
     userId?: string;
     wholesaleAccessId?: string;
+    customerEmail?: string;
     channel: 'retail' | 'wholesale';
     source: OrderSource;
     includeWhatsappUrl: boolean;
@@ -444,17 +469,13 @@ export class PreOrdersService {
       dto,
       userId,
       wholesaleAccessId,
+      customerEmail,
       channel,
       source,
       includeWhatsappUrl,
     } = options;
     if (channel === 'wholesale') {
-      const totalQty = dto.items.reduce((sum, i) => sum + i.quantity, 0);
-      if (totalQty < 4) {
-        throw new BadRequestException(
-          'El pedido mínimo mayorista es de 4 unidades',
-        );
-      }
+      this.assertWholesaleMinimum(dto.items);
     }
     const lineInputs = await this.buildLines(dto.items);
     let shippingCost = 0;
@@ -498,16 +519,7 @@ export class PreOrdersService {
     const now = new Date();
     const readableId = await this.nextReadableId();
     const order = await this.prisma.$transaction(async (tx) => {
-      const needed = new Map<string, number>();
-      for (const line of lineInputs) {
-        needed.set(
-          line.watchId,
-          (needed.get(line.watchId) ?? 0) + line.quantity,
-        );
-      }
-      for (const [watchId, quantity] of needed) {
-        await decrementWatchStock(tx, watchId, quantity);
-      }
+      await reserveWatchStock(tx, lineInputs);
 
       return tx.order.create({
         data: {
@@ -517,7 +529,7 @@ export class PreOrdersService {
           source,
           customerName: dto.customerName,
           customerAddress: dto.customerAddress,
-          customerEmail: '',
+          customerEmail: customerEmail?.trim() || '',
           customerPhone: dto.customerPhone,
           userId,
           wholesaleAccessId,
@@ -546,13 +558,14 @@ export class PreOrdersService {
         },
         include: orderInclude,
       });
-    });
+    }, STOCK_TRANSACTION);
 
     await this.notificationsService.emit({
       type: 'NEW_PRE_ORDER',
       targetRole: Role.ADMIN,
       payload: { orderId: order.id, readableId: order.readableId },
     });
+    await this.notifyCustomer(order, 'created');
 
     const mapped = this.mapOrder(order);
     if (!includeWhatsappUrl) {
@@ -641,6 +654,9 @@ export class PreOrdersService {
     if (dto.items) {
       const channel =
         existing.type === OrderType.MAYORISTA ? 'wholesale' : 'retail';
+      if (channel === 'wholesale') {
+        this.assertWholesaleMinimum(dto.items);
+      }
       const items =
         channel === 'wholesale'
           ? dto.items.map((item) => {
@@ -744,31 +760,94 @@ export class PreOrdersService {
       ...pricingPatch,
     };
 
-    const order =
-      autoReactivate && dto.items
-        ? await this.prisma.$transaction(async (tx) => {
-            await this.reserveStockForItems(tx, stockLines);
-            return tx.order.update({
-              where: { id },
-              data: updateData,
-              include: orderInclude,
-            });
-          })
-        : await this.prisma.order.update({
-            where: { id },
-            data: updateData,
-            include: orderInclude,
-          });
+    if (!dto.items) {
+      const order = await this.prisma.order.update({
+        where: { id },
+        data: updateData,
+        include: orderInclude,
+      });
+      return this.mapOrder(order);
+    }
+
+    const order = await this.prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM "Order" WHERE id = ${id} FOR UPDATE
+      `;
+      if (!locked.length) {
+        throw new NotFoundException('Pre-pedido no encontrado');
+      }
+      const current = await tx.order.findUnique({
+        where: { id },
+        include: { items: true },
+      });
+      if (!current) throw new NotFoundException('Pre-pedido no encontrado');
+      assertPreOrderEditable(current.stage, current.canceledAt);
+      if (!current.suspendedAt) {
+        await restoreWatchStock(tx, current.items);
+      }
+      await this.reservePreOrderStock(tx, stockLines);
+      return tx.order.update({
+        where: { id },
+        data: {
+          ...updateData,
+          ...(current.suspendedAt
+            ? { suspendedAt: null, preOrderActiveAt: new Date() }
+            : {}),
+        },
+        include: orderInclude,
+      });
+    }, STOCK_TRANSACTION);
     return this.mapOrder(order);
   }
 
-  async deletePreOrder(id: string) {
-    const existing = await this.prisma.order.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException('Pre-pedido no encontrado');
-    if (existing.stage !== OrderStage.PRE_ORDER) {
-      throw new BadRequestException('Solo se pueden eliminar pre-pedidos');
+  private assertWholesaleMinimum(
+    items: Array<{
+      watchId: string;
+      quantity: number;
+      deliveryNote?: string | null;
+      extras?: Array<{ extraId: string; quantity: number }>;
+    }>,
+  ) {
+    const totalQty = mergePreOrderItems(items).reduce(
+      (sum, item) => sum + item.quantity,
+      0,
+    );
+    if (totalQty < WHOLESALE_MIN_UNITS) {
+      throw new BadRequestException(
+        `El pedido mínimo mayorista es de ${WHOLESALE_MIN_UNITS} unidades`,
+      );
     }
-    await this.prisma.order.delete({ where: { id } });
+  }
+
+  async deletePreOrder(id: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<
+        Array<{
+          id: string;
+          stage: string;
+          suspendedAt: Date | null;
+          canceledAt: Date | null;
+        }>
+      >`
+        SELECT id, stage::text AS stage, "suspendedAt", "canceledAt"
+        FROM "Order"
+        WHERE id = ${id}
+        FOR UPDATE
+      `;
+      const existing = locked[0];
+      if (!existing) throw new NotFoundException('Pre-pedido no encontrado');
+      if (existing.stage !== OrderStage.PRE_ORDER) {
+        throw new BadRequestException('Solo se pueden eliminar pre-pedidos');
+      }
+      if (!existing.suspendedAt && !existing.canceledAt) {
+        const items = await tx.orderItem.findMany({
+          where: { orderId: id },
+          select: { watchId: true, quantity: true },
+        });
+        await restoreWatchStock(tx, items);
+      }
+      await tx.order.delete({ where: { id } });
+    }, STOCK_TRANSACTION);
     return { id, deleted: true };
   }
 
@@ -805,6 +884,7 @@ export class PreOrdersService {
       targetRole: Role.ADMIN,
       payload: { orderId: order.id, readableId: order.readableId },
     });
+    await this.notifyCustomer(order, 'deposit_confirmed');
 
     return this.mapOrder(order);
   }
@@ -824,23 +904,28 @@ export class PreOrdersService {
 
     const now = new Date();
     const order = await this.prisma.$transaction(async (tx) => {
-      await this.reserveStockForItems(
-        tx,
-        existing.items.map((item) => ({
-          watchId: item.watchId,
-          quantity: item.quantity,
-          productName: item.productName,
-        })),
-      );
-      return tx.order.update({
-        where: { id },
-        data: {
-          suspendedAt: null,
-          preOrderActiveAt: now,
+      const claimed = await tx.order.updateMany({
+        where: {
+          id,
+          stage: OrderStage.PRE_ORDER,
+          canceledAt: null,
+          suspendedAt: { not: null },
         },
+        data: { suspendedAt: null, preOrderActiveAt: now },
+      });
+      if (claimed.count !== 1) {
+        throw new BadRequestException('El pre-pedido ya está activo');
+      }
+      const items = await tx.orderItem.findMany({
+        where: { orderId: id },
+        select: { watchId: true, quantity: true, productName: true },
+      });
+      await this.reservePreOrderStock(tx, items);
+      return tx.order.findUniqueOrThrow({
+        where: { id },
         include: orderInclude,
       });
-    });
+    }, STOCK_TRANSACTION);
 
     await this.notificationsService.emit({
       type: 'PRE_ORDER_REACTIVATED',
@@ -852,19 +937,52 @@ export class PreOrdersService {
   }
 
   async cancelPreOrder(id: string) {
-    const existing = await this.prisma.order.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException('Pre-pedido no encontrado');
-    assertPreOrderEditable(existing.stage, existing.canceledAt);
-    const order = await this.prisma.order.update({
-      where: { id },
-      data: { canceledAt: new Date() },
-      include: orderInclude,
-    });
+    const order = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.order.findUnique({ where: { id } });
+      if (!existing) throw new NotFoundException('Pre-pedido no encontrado');
+      assertPreOrderEditable(existing.stage, existing.canceledAt);
+      const now = new Date();
+      const activeClaim = await tx.order.updateMany({
+        where: {
+          id,
+          stage: OrderStage.PRE_ORDER,
+          canceledAt: null,
+          suspendedAt: null,
+        },
+        data: { canceledAt: now },
+      });
+      if (activeClaim.count === 1) {
+        const items = await tx.orderItem.findMany({
+          where: { orderId: id },
+          select: { watchId: true, quantity: true },
+        });
+        await restoreWatchStock(tx, items);
+      } else {
+        const suspendedClaim = await tx.order.updateMany({
+          where: {
+            id,
+            stage: OrderStage.PRE_ORDER,
+            canceledAt: null,
+            suspendedAt: { not: null },
+          },
+          data: { canceledAt: now },
+        });
+        if (suspendedClaim.count !== 1) {
+          throw new BadRequestException(
+            'Solo se pueden editar pre-pedidos activos',
+          );
+        }
+      }
+      return tx.order.findUniqueOrThrow({
+        where: { id },
+        include: orderInclude,
+      });
+    }, STOCK_TRANSACTION);
+    await this.notifyCustomer(order, 'canceled');
     return this.mapOrder(order);
   }
 
   async countPreOrders() {
-    await this.suspendExpiredPreOrders();
     const [active, suspended] = await Promise.all([
       this.prisma.order.count({ where: activePreOrderWhere }),
       this.prisma.order.count({ where: suspendedPreOrderWhere }),
@@ -887,34 +1005,48 @@ export class PreOrdersService {
       select: {
         id: true,
         readableId: true,
-        items: { select: { watchId: true, quantity: true } },
+        customerName: true,
+        customerEmail: true,
+        customerPhone: true,
+        wholesaleAccessId: true,
       },
     });
 
     if (!expired.length) return 0;
 
     const now = new Date();
-    await this.prisma.order.updateMany({
-      where: { id: { in: expired.map((order) => order.id) } },
-      data: { suspendedAt: now },
-    });
-
+    let suspended = 0;
     for (const order of expired) {
-      for (const item of order.items) {
-        await this.prisma.watch.update({
-          where: { id: item.watchId },
-          data: { stock: { increment: item.quantity } },
+      const didSuspend = await this.prisma.$transaction(async (tx) => {
+        const updated = await tx.order.updateMany({
+          where: {
+            id: order.id,
+            suspendedAt: null,
+            canceledAt: null,
+            stage: OrderStage.PRE_ORDER,
+            depositConfirmed: false,
+          },
+          data: { suspendedAt: now },
         });
-      }
-
+        if (updated.count !== 1) return false;
+        const items = await tx.orderItem.findMany({
+          where: { orderId: order.id },
+          select: { watchId: true, quantity: true },
+        });
+        await restoreWatchStock(tx, items);
+        return true;
+      }, STOCK_TRANSACTION);
+      if (!didSuspend) continue;
+      suspended += 1;
       await this.notificationsService.emit({
         type: 'PRE_ORDER_SUSPENDED',
         targetRole: Role.ADMIN,
         payload: { orderId: order.id, readableId: order.readableId },
       });
+      await this.notifyCustomer(order, 'suspended');
     }
 
-    return expired.length;
+    return suspended;
   }
 }
 
