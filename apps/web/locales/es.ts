@@ -23,6 +23,7 @@ export default {
     story: 'Nuestra historia',
     aboutUs: 'Nosotros',
     wholesale: 'Mayoristas',
+    local: 'Relojería en Bucaramanga',
     newsletter: 'Newsletter',
     rights: '© 2026 LUXTIMEE. Todos los derechos reservados.',
     privacyShort: 'Privacidad',

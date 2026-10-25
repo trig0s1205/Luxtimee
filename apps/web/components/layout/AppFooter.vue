@@ -57,6 +57,7 @@ const { data: platform } = await useCachedAsyncData('footer-platform', () =>
           <li><NuxtLink to="/" @click="onFooterSection('nosotros', $event)">{{ t('footer.story') }}</NuxtLink></li>
           <li><NuxtLink to="/" @click="onFooterSection('nosotros', $event)">{{ t('footer.aboutUs') }}</NuxtLink></li>
           <li><NuxtLink to="/mayoristas">{{ t('footer.wholesale') }}</NuxtLink></li>
+          <li><NuxtLink to="/relojeria-bucaramanga">{{ t('footer.local') }}</NuxtLink></li>
           <li><NuxtLink to="/" @click="onFooterSection('contacto', $event)">{{ t('nav.contact') }}</NuxtLink></li>
         </ul>
       </div>

@@ -22,7 +22,13 @@ const { data: watch, error } = await useCachedAsyncData(
 
 const { data: catalogPool, refresh: refreshCatalogPool } = await useCachedAsyncData<WatchPublicDto[]>(
   () => `product-related-pool-${slug.value}`,
-  async () => (await catalog.listCatalog({ limit: 100, available: 'true' })).data,
+  async () => {
+    try {
+      return (await catalog.listCatalog({ limit: 100, available: 'true' })).data;
+    } catch {
+      return [];
+    }
+  },
   { default: (): WatchPublicDto[] => [], staleTime: STOREFRONT_CACHE_MS.catalog },
 );
 

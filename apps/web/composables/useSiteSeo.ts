@@ -11,9 +11,11 @@ import {
   formatDocumentTitle,
   isNoIndexPath,
   jsonLdGraph,
+  localBusinessJsonLd,
   organizationJsonLd,
   serializeJsonLd,
   shouldEmitCanonical,
+  splitSameAs,
   staticPageSeo,
   websiteJsonLd,
   type Breadcrumb,
@@ -38,9 +40,27 @@ export function usePageSeo(input: MaybeRefOrGetter<PageSeoOverride>) {
   }, { immediate: true, deep: true });
 }
 
+function isPrivateShell(path: string) {
+  return path.startsWith('/acceso') || path.startsWith('/vigilancia') || path.startsWith('/admin');
+}
+
+function privateDocumentTitle(path: string) {
+  if (path.startsWith('/admin')) return 'Administración — LUXTIMEE';
+  if (path.startsWith('/vigilancia')) return 'Acceso restringido — LUXTIMEE';
+  if (path.startsWith('/acceso')) return 'Acceso — LUXTIMEE';
+  return undefined;
+}
+
 export function useSiteSeo() {
   const route = useRoute();
+  const config = useRuntimeConfig();
   const bag = useState<Record<string, PageSeoOverride>>('luxtimee-page-seo', () => ({}));
+  const business = localBusinessJsonLd({
+    phone: String(config.public.businessPhone || ''),
+    whatsapp: String(config.public.businessWhatsapp || ''),
+    openingHours: String(config.public.businessOpeningHours || ''),
+    sameAs: splitSameAs(String(config.public.businessSameAs || '')),
+  });
 
   const resolved = computed(() => {
     const path = route.path;
@@ -52,7 +72,7 @@ export function useSiteSeo() {
     const imageIsDefault = !override.image;
     const noindex = override.noindex ?? isNoIndexPath(path);
     const breadcrumbs = override.breadcrumbs ?? fallback?.breadcrumbs ?? [];
-    const nodes: Record<string, unknown>[] = [organizationJsonLd(), websiteJsonLd()];
+    const nodes: Record<string, unknown>[] = [organizationJsonLd(), websiteJsonLd(), business];
     if (breadcrumbs.length > 1) nodes.push(breadcrumbJsonLd(breadcrumbs));
     if (override.jsonLd?.length) nodes.push(...override.jsonLd);
     return {
@@ -70,7 +90,18 @@ export function useSiteSeo() {
 
   useHead(() => {
     const path = canonicalPath(route.path);
-    if (path.startsWith('/acceso') || path.startsWith('/vigilancia') || path.startsWith('/admin')) return {};
+    const fallback = privateDocumentTitle(path);
+    if (!isPrivateShell(path) || !fallback) return {};
+    return { title: fallback };
+  }, { tagPriority: 100 });
+
+  useHead(() => {
+    const path = canonicalPath(route.path);
+    if (isPrivateShell(path)) {
+      return {
+        meta: [{ name: 'robots', key: 'robots', content: 'noindex, nofollow' }],
+      };
+    }
     const seo = resolved.value;
     const meta: Array<Record<string, string>> = [
       { property: 'og:site_name', content: BRAND },
@@ -80,7 +111,7 @@ export function useSiteSeo() {
       { property: 'og:image:alt', content: seo.imageAlt },
       { name: 'twitter:card', content: 'summary_large_image' },
       { name: 'twitter:image', content: seo.image },
-      { name: 'robots', content: seo.robots },
+      { name: 'robots', key: 'robots', content: seo.robots },
     ];
     if (seo.imageIsDefault) {
       meta.push(

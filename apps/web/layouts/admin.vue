@@ -12,6 +12,47 @@ if (!auth.user || (auth.user.role !== 'ADMIN' && auth.user.role !== 'SUPER_ADMIN
 
 const api = useApi();
 
+const ADMIN_TITLE_BY_PATH: Record<string, string> = {
+  '/admin': 'Administración — LUXTIMEE',
+  '/admin/inventario': 'Inventario — LUXTIMEE',
+  '/admin/auditoria': 'Auditoría — LUXTIMEE',
+  '/admin/catalog-settings': 'Catálogo — LUXTIMEE',
+  '/admin/configuracion': 'Configuración — LUXTIMEE',
+  '/admin/cuidados': 'Cuidados — LUXTIMEE',
+  '/admin/envios': 'Envíos — LUXTIMEE',
+  '/admin/garantias': 'Garantías — LUXTIMEE',
+  '/admin/multimedia': 'Multimedia — LUXTIMEE',
+  '/admin/notificaciones': 'Notificaciones — LUXTIMEE',
+  '/admin/pedidos': 'Pedidos — LUXTIMEE',
+  '/admin/pedidos/detal': 'Pedidos al detal — LUXTIMEE',
+  '/admin/pedidos/mayor': 'Pedidos al por mayor — LUXTIMEE',
+  '/admin/pending-costs': 'Costos pendientes — LUXTIMEE',
+  '/admin/pending-info': 'Pendientes de info — LUXTIMEE',
+  '/admin/pre-pedidos': 'Pre-pedidos — LUXTIMEE',
+  '/admin/pre-pedidos/activos': 'Pre-pedidos activos — LUXTIMEE',
+  '/admin/pre-pedidos/suspendidos': 'Pre-pedidos suspendidos — LUXTIMEE',
+  '/admin/pre-pedidos/nuevo': 'Nuevo pre-pedido — LUXTIMEE',
+  '/admin/resenas': 'Reseñas — LUXTIMEE',
+  '/admin/secretaria': 'Secretaría — LUXTIMEE',
+  '/admin/socios-mayoristas': 'Socios mayoristas — LUXTIMEE',
+  '/admin/ventas': 'Ventas — LUXTIMEE',
+  '/admin/whatsapp': 'WhatsApp — LUXTIMEE',
+  '/admin/mayorista-ofertas': 'Ofertas mayorista — LUXTIMEE',
+  '/admin/dashboards/analytics': 'Tráfico web — LUXTIMEE',
+  '/admin/dashboards/ganancia': 'Ganancia — LUXTIMEE',
+  '/admin/dashboards/salud': 'Salud del negocio — LUXTIMEE',
+};
+
+const route = useRoute();
+
+useHead(() => {
+  const path = route.path.split('?')[0]?.replace(/\/+$/, '') || '/admin';
+  return {
+    title: ADMIN_TITLE_BY_PATH[path] ?? 'Administración — LUXTIMEE',
+    meta: [{ name: 'robots', key: 'robots', content: 'noindex, nofollow' }],
+  };
+}, { tagPriority: 100 });
+
 const ADMIN_ROUTES = [
   '/admin/inventario',
   '/admin/catalog-settings',

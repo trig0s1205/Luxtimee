@@ -68,12 +68,12 @@ export function shouldEmitCanonical(path: string) {
 
 export const PAGE_SEO: Record<string, PageSeo> = {
   '/': {
-    title: 'LUXTIMEE — Relojes de lujo',
-    description: DEFAULT_DESCRIPTION,
+    title: 'Relojes de lujo en Bucaramanga y Piedecuesta | LUXTIMEE',
+    description: 'Relojes de lujo con stock real en Piedecuesta y Bucaramanga. Fotos reales, precio en pesos y envío a toda Colombia. Confirmas tu pedido por WhatsApp.',
   },
   '/catalogo': {
-    title: 'Catálogo de relojes — LUXTIMEE',
-    description: 'Explora el catálogo de relojes de lujo de LUXTIMEE. Filtra por marca, mecanismo y precio. Stock real en Colombia.',
+    title: 'Catálogo de relojes de lujo en Colombia | LUXTIMEE',
+    description: 'Catálogo de relojes de lujo con stock real en Colombia. Filtra por marca, mecanismo y precio. Entrega en Bucaramanga, Piedecuesta y envío nacional.',
     breadcrumbs: [
       { name: 'Inicio', path: '/' },
       { name: 'Catálogo', path: '/catalogo' },
@@ -96,8 +96,8 @@ export const PAGE_SEO: Record<string, PageSeo> = {
     ],
   },
   '/mayoristas': {
-    title: 'Mayoristas — LUXTIMEE',
-    description: 'Programa mayorista LUXTIMEE: precios exclusivos, pedido mínimo y acceso privado al catálogo.',
+    title: 'Relojes al por mayor en Colombia | LUXTIMEE Mayoristas',
+    description: 'Relojes al por mayor en Colombia. Precios exclusivos, pedido mínimo y acceso privado al catálogo LUXTIMEE para mayoristas autorizados.',
     breadcrumbs: [
       { name: 'Inicio', path: '/' },
       { name: 'Mayoristas', path: '/mayoristas' },
@@ -119,6 +119,14 @@ export const PAGE_SEO: Record<string, PageSeo> = {
   '/mayoristas/checkout': {
     title: 'Checkout mayorista — LUXTIMEE',
     description: 'Confirma la entrega de tu pedido mayorista LUXTIMEE y cierra la compra por WhatsApp.',
+  },
+  '/relojeria-bucaramanga': {
+    title: 'Relojería en Bucaramanga y Piedecuesta | LUXTIMEE',
+    description: 'Relojería LUXTIMEE en Piedecuesta, Santander. Relojes de lujo con fotos reales, entrega en Bucaramanga y el área metropolitana, y envíos a toda Colombia.',
+    breadcrumbs: [
+      { name: 'Inicio', path: '/' },
+      { name: 'Relojería en Bucaramanga', path: '/relojeria-bucaramanga' },
+    ],
   },
   '/sorteos': {
     title: 'Sorteos exclusivos — LUXTIMEE',
@@ -152,6 +160,112 @@ export function staticPageSeo(path: string) {
 
 export function serializeJsonLd(data: unknown) {
   return JSON.stringify(data).replace(/</g, '\\u003c');
+}
+
+const SERVICE_CITIES = ['Bucaramanga', 'Piedecuesta', 'Floridablanca', 'Girón'] as const;
+
+export type LocalBusinessInput = {
+  phone?: string | null;
+  whatsapp?: string | null;
+  openingHours?: string | null;
+  sameAs?: string[] | null;
+};
+
+export function splitSameAs(raw?: string | null) {
+  if (!raw) return [];
+  const out: string[] = [];
+  for (const part of raw.split(/[\s,]+/)) {
+    const value = part.trim();
+    if (!/^https?:\/\//i.test(value)) continue;
+    try {
+      const url = new URL(value);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') continue;
+      out.push(url.toString());
+    } catch {
+      /* url inválida */
+    }
+  }
+  return [...new Set(out)];
+}
+
+function cleanContact(value?: string | null) {
+  const trimmed = value?.trim() ?? '';
+  return trimmed || undefined;
+}
+
+export function localBusinessJsonLd(input: LocalBusinessInput = {}) {
+  const node: Record<string, unknown> = {
+    '@type': ['JewelryStore', 'LocalBusiness'],
+    '@id': `${CANONICAL_ORIGIN}/#localbusiness`,
+    name: BRAND,
+    url: CANONICAL_ORIGIN,
+    image: absoluteAssetUrl(DEFAULT_OG_IMAGE_PATH),
+    logo: `${CANONICAL_ORIGIN}/favicon.png`,
+    currenciesAccepted: 'COP',
+    paymentAccepted: 'Transferencia bancaria, Nequi, Daviplata',
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: 'Piedecuesta',
+      addressRegion: 'Santander',
+      addressCountry: 'CO',
+    },
+    areaServed: SERVICE_CITIES.map((name) => ({
+      '@type': 'City',
+      name,
+      containedInPlace: {
+        '@type': 'AdministrativeArea',
+        name: 'Santander',
+        addressCountry: 'CO',
+      },
+    })),
+    parentOrganization: { '@id': `${CANONICAL_ORIGIN}/#organization` },
+  };
+
+  const phone = cleanContact(input.phone);
+  if (phone) node.telephone = phone;
+
+  const hours = cleanContact(input.openingHours);
+  if (hours) node.openingHours = hours;
+
+  const sameAs = [...(input.sameAs ?? []).filter((item) => /^https?:\/\//i.test(item.trim()))];
+  const whatsapp = cleanContact(input.whatsapp);
+  if (whatsapp) {
+    if (/^https?:\/\//i.test(whatsapp)) sameAs.push(whatsapp);
+    else {
+      node.contactPoint = {
+        '@type': 'ContactPoint',
+        telephone: whatsapp,
+        contactType: 'customer service',
+        availableLanguage: ['Spanish', 'es'],
+      };
+    }
+  }
+  const uniqueSameAs = [...new Set(sameAs.map((item) => item.trim()))];
+  if (uniqueSameAs.length) node.sameAs = uniqueSameAs;
+
+  return node;
+}
+
+export function faqPageJsonLd(items: { question?: string | null; answer?: string | null }[]) {
+  const cleaned = items
+    .map((item) => ({
+      question: item.question?.trim() ?? '',
+      answer: item.answer?.trim() ?? '',
+    }))
+    .filter((item) => item.question && item.answer);
+  if (!cleaned.length) return null;
+  return {
+    '@type': 'FAQPage',
+    '@id': `${CANONICAL_ORIGIN}/#faq`,
+    mainEntity: cleaned.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer,
+      },
+    })),
+  };
 }
 
 export function organizationJsonLd() {
@@ -258,6 +372,7 @@ export function buildRobotsTxt(origin = CANONICAL_ORIGIN) {
 const SITEMAP_PATHS = [
   '/',
   '/catalogo',
+  '/relojeria-bucaramanga',
   '/mayoristas',
   '/sorteos',
   '/politica-de-privacidad',

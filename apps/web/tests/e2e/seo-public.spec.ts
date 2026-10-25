@@ -5,7 +5,7 @@ const local = /localhost|127\.0\.0\.1/.test(process.env.PLAYWRIGHT_BASE_URL ?? '
 test.describe('SEO de páginas públicas', () => {
   test.skip(!local, 'Corre contra el build local');
 
-  const pages = ['/', '/catalogo', '/carrito', '/checkout', '/mayoristas', '/sorteos', '/politica-de-privacidad', '/terminos-y-condiciones'];
+  const pages = ['/', '/catalogo', '/relojeria-bucaramanga', '/carrito', '/checkout', '/mayoristas', '/sorteos', '/politica-de-privacidad', '/terminos-y-condiciones'];
 
   for (const path of pages) {
     test(`${path} tiene un h1, título, descripción, canonical y Open Graph`, async ({ page }) => {
@@ -18,6 +18,17 @@ test.describe('SEO de páginas públicas', () => {
       expect(response?.status()).toBeLessThan(400);
       await expect(page.locator('h1')).toHaveCount(1);
       await expect(page).toHaveTitle(/LUXTIMEE/);
+      if (path === '/') {
+        await expect(page.locator('.home-hero-heading')).toHaveCount(0);
+        await expect(page.locator('h1')).toHaveClass(/sr-only/);
+        await expect(page).toHaveTitle('Relojes de lujo en Bucaramanga y Piedecuesta | LUXTIMEE');
+      }
+      if (path === '/catalogo') {
+        await expect(page).toHaveTitle('Catálogo de relojes de lujo en Colombia | LUXTIMEE');
+      }
+      if (path === '/mayoristas') {
+        await expect(page).toHaveTitle('Relojes al por mayor en Colombia | LUXTIMEE Mayoristas');
+      }
       const description = page.locator('meta[name="description"]');
       await expect(description).toHaveCount(1);
       await expect(description).toHaveAttribute('content', /.+/);
@@ -46,6 +57,7 @@ test.describe('SEO de páginas públicas', () => {
     expect(sitemap.ok()).toBeTruthy();
     const xml = await sitemap.text();
     expect(xml).toContain('/producto/');
+    expect(xml).toContain('/relojeria-bucaramanga');
     expect(xml).toContain('<lastmod>');
     const robots = await (await request.get('/robots.txt')).text();
     expect(robots).toContain('Sitemap: https://www.luxtimee.com/sitemap.xml');
@@ -62,6 +74,12 @@ test.describe('SEO de páginas públicas', () => {
     const graph = raw.map((item) => JSON.parse(item));
     const nodes = graph.flatMap((item) => item['@graph'] ?? [item]);
     const product = nodes.find((node) => node['@type'] === 'Product');
+    const business = nodes.find((node) => {
+      const type = node['@type'];
+      return type === 'JewelryStore' || type === 'LocalBusiness' || (Array.isArray(type) && type.includes('JewelryStore'));
+    });
+    expect(business?.address?.addressLocality).toBe('Piedecuesta');
+    expect(business?.telephone).toBeUndefined();
     expect(product?.offers?.priceCurrency).toBe('COP');
     expect(product?.sku).toBeTruthy();
     const missing = await request.get('/producto/slug-que-no-existe-e2e');

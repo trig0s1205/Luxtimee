@@ -97,24 +97,48 @@ export function buildSitemapXml(entries: SitemapEntry[]) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
 }
 
+function readWatchList(payload: unknown): SitemapWatch[] | null {
+  if (Array.isArray(payload)) return payload as SitemapWatch[];
+  if (payload && typeof payload === 'object' && Array.isArray((payload as CatalogPage).data)) {
+    return (payload as CatalogPage).data ?? [];
+  }
+  return null;
+}
+
+async function fetchPaginatedCatalog(base: string, fetchPage: FetchLike) {
+  const watches: SitemapWatch[] = [];
+  let page = 1;
+  let total = Number.POSITIVE_INFINITY;
+  while (watches.length < total && page <= 100) {
+    const url = `${base}/catalog?limit=200&page=${page}`;
+    const res = await fetchPage(url);
+    const batch = readWatchList(res);
+    if (!batch) throw new Error('respuesta de catálogo inválida');
+    watches.push(...batch);
+    total = res && typeof res.total === 'number' ? res.total : watches.length;
+    if (!batch.length) break;
+    page += 1;
+  }
+  return watches;
+}
+
 export async function fetchPublishedWatches(bases: string[], fetchPage: FetchLike, log: (message: string, extra?: unknown) => void) {
   let lastError: unknown;
   for (const base of bases) {
+    const sitemapUrl = `${base}/catalog/sitemap`;
     try {
-      const watches: SitemapWatch[] = [];
-      let page = 1;
-      let total = Number.POSITIVE_INFINITY;
-      while (watches.length < total && page <= 100) {
-        const url = `${base}/catalog?limit=200&page=${page}`;
-        const res = await fetchPage(url);
-        if (!res || !Array.isArray(res.data)) {
-          throw new Error('respuesta de catálogo inválida');
-        }
-        watches.push(...res.data);
-        total = typeof res.total === 'number' ? res.total : watches.length;
-        if (!res.data.length) break;
-        page += 1;
-      }
+      const listed = readWatchList(await fetchPage(sitemapUrl));
+      if (!listed) throw new Error('respuesta de sitemap inválida');
+      log(`[sitemap] ${listed.length} productos desde ${sitemapUrl}`);
+      return { watches: listed, source: sitemapUrl };
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      log(`[sitemap] falló ${sitemapUrl}`, message);
+    }
+
+    try {
+      const watches = await fetchPaginatedCatalog(base, fetchPage);
       log(`[sitemap] catálogo cargado desde ${base}: ${watches.length} productos`);
       return { watches, source: base };
     } catch (error) {
