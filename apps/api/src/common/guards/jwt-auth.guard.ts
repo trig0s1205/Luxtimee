@@ -1,6 +1,7 @@
 import {
   Injectable,
   ExecutionContext,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -9,6 +10,8 @@ import { IS_PUBLIC_KEY } from '../decorators/metadata.decorators';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
+  private readonly logger = new Logger(JwtAuthGuard.name);
+
   constructor(private reflector: Reflector) {
     super();
   }
@@ -31,8 +34,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(context);
   }
 
-  handleRequest<T>(err: Error | null, user: T): T {
+  handleRequest<T>(err: Error | null, user: T, info?: unknown): T {
     if (err || !user) {
+      if (!err && info instanceof Error) {
+        this.logger.warn(`jwt_rejected reason=${info.name}`);
+      }
       throw err || new UnauthorizedException('Sesión inválida o expirada');
     }
     return user;

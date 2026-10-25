@@ -10,16 +10,13 @@ import {
   setResponseHeader,
   setResponseStatus,
 } from 'h3';
-import { buildUpstreamUrl, proxyHttp, readSetCookies, resolveApiOrigin } from '../../../utils/api-proxy';
-
-function headerEntries(source: ReturnType<typeof getRequestHeaders>) {
-  const headers = new Headers();
-  for (const [key, value] of Object.entries(source)) {
-    if (!value) continue;
-    headers.set(key, Array.isArray(value) ? value.join(', ') : value);
-  }
-  return headers;
-}
+import {
+  buildUpstreamUrl,
+  incomingRequestHeaders,
+  proxyHttp,
+  readSetCookies,
+  resolveApiOrigin,
+} from '../../../utils/api-proxy';
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig();
@@ -52,7 +49,7 @@ export default defineEventHandler(async (event) => {
 
   const response = await proxyHttp(buildUpstreamUrl(origin, url.pathname, url.search), {
     method,
-    headers: headerEntries(getRequestHeaders(event)),
+    headers: incomingRequestHeaders(getRequestHeaders(event)),
     cookie: getRequestHeader(event, 'cookie'),
     clientIpSecret: String(config.clientIpSecret || ''),
     body: body ? new Uint8Array(body) : undefined,

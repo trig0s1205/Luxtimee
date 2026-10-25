@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   buildUpstreamUrl,
   forwardedRequestHeaders,
+  incomingRequestHeaders,
   proxyHttp,
   resolveApiOrigin,
   rewriteSetCookie,
@@ -16,6 +17,54 @@ test('normaliza el origen del API', () => {
   assert.equal(resolveApiOrigin('', true), null);
   assert.equal(resolveApiOrigin('', false), 'http://127.0.0.1:3001');
   assert.equal(buildUpstreamUrl('https://api.example.run.app', '/api/v1/auth/me', '?x=1'), 'https://api.example.run.app/api/v1/auth/me?x=1');
+});
+
+test('Cookie múltiple no se une con coma', () => {
+  const headers = incomingRequestHeaders({
+    cookie: ['LUXTIMEE_access=aaa.bbb.ccc', 'LUXTIMEE_refresh=ddd.eee.fff', '_ga=GA1.1.1.1'],
+    'x-forwarded-for': ['203.0.113.9', '104.16.1.1'],
+  });
+  assert.equal(
+    headers.get('cookie'),
+    'LUXTIMEE_access=aaa.bbb.ccc; LUXTIMEE_refresh=ddd.eee.fff; _ga=GA1.1.1.1',
+  );
+  assert.equal(headers.get('x-forwarded-for'), '203.0.113.9, 104.16.1.1');
+});
+
+test('dos Set-Cookie con Expires sobreviven separados', async () => {
+  let seenCookie = '';
+  const upstream = createServer((req, res) => {
+    seenCookie = req.headers.cookie || '';
+    res.statusCode = 201;
+    res.setHeader('content-type', 'application/json');
+    res.setHeader('set-cookie', [
+      'LUXTIMEE_access=aaa.bbb.ccc; Max-Age=900; Path=/; Expires=Sun, 25 Oct 2026 21:00:00 GMT; HttpOnly; Secure; SameSite=Lax',
+      'LUXTIMEE_refresh=ddd.eee.fff; Max-Age=7776000; Path=/; Expires=Sat, 23 Jan 2027 21:00:00 GMT; HttpOnly; Secure; SameSite=Lax',
+    ]);
+    res.end('{}');
+  });
+  await new Promise<void>((resolve) => upstream.listen(0, '127.0.0.1', () => resolve()));
+  const { port } = upstream.address() as AddressInfo;
+  try {
+    const cookie = 'LUXTIMEE_access=old; LUXTIMEE_refresh=old; _ga=GA1.1.9.9';
+    const response = await proxyHttp(`http://127.0.0.1:${port}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: new Headers({ 'content-type': 'application/json' }),
+      cookie,
+      body: '{}',
+    });
+    const cookies = response.headers.getSetCookie();
+    assert.equal(cookies.length, 2);
+    assert.match(cookies[0], /^LUXTIMEE_access=aaa\.bbb\.ccc;/);
+    assert.match(cookies[1], /^LUXTIMEE_refresh=ddd\.eee\.fff;/);
+    assert.match(cookies[0], /Expires=Sun, 25 Oct 2026 21:00:00 GMT/);
+    assert.equal(cookies.some((header) => header.includes(', LUXTIMEE_')), false);
+    assert.equal(seenCookie, cookie);
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      upstream.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
 });
 
 test('Set-Cookie pierde el Domain del upstream', () => {
