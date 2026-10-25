@@ -18,6 +18,13 @@ import { invalidateStaffAdminCaches } from '~/utils/admin-cache';
 import { AUTH_REDIRECT_KEY } from '~/utils/auth-redirect';
 import { AUTH_TIMEOUT_MS } from '~/utils/api-timeout';
 
+function isUnauthorized(err: unknown) {
+  if (!err || typeof err !== 'object') return false;
+  const status = (err as { statusCode?: number; status?: number }).statusCode
+    ?? (err as { status?: number }).status;
+  return status === 401;
+}
+
 function isStaffUser(user: AuthUserDto | null) {
   return user?.role === Role.ADMIN || user?.role === Role.SUPER_ADMIN;
 }
@@ -72,7 +79,7 @@ export const useAuthStore = defineStore('auth', {
     },
     async refreshSession() {
       const baseUrl = useApiBaseUrl();
-      await $fetch(`${baseUrl}/auth/refresh`, {
+      await apiFetch(`${baseUrl}/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
         timeout: AUTH_TIMEOUT_MS,
@@ -84,12 +91,20 @@ export const useAuthStore = defineStore('auth', {
         return this.uploadToken;
       }
       const baseUrl = useApiBaseUrl();
-      const data = await $fetch<{ accessToken?: string }>(`${baseUrl}/auth/upload-token`, {
+      const requestToken = () => apiFetch<{ accessToken?: string }>(`${baseUrl}/auth/upload-token`, {
         method: 'POST',
         credentials: 'include',
         timeout: AUTH_TIMEOUT_MS,
         retry: 0,
       });
+      let data: { accessToken?: string };
+      try {
+        data = await requestToken();
+      } catch (err) {
+        if (!isUnauthorized(err)) throw err;
+        await this.refreshSession();
+        data = await requestToken();
+      }
       if (!data.accessToken) {
         throw new Error('Tu sesión expiró. Cierra sesión e ingresa de nuevo.');
       }
@@ -108,7 +123,7 @@ export const useAuthStore = defineStore('auth', {
       };
 
       try {
-        const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, fetchOptions);
+        const data = await apiFetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, fetchOptions);
         if (isStaffUser(data.user)) {
           clearLocalSession();
           this.setUser(data.user, false);
@@ -122,7 +137,7 @@ export const useAuthStore = defineStore('auth', {
         if (allowRefresh) {
           try {
             await this.refreshSession();
-            const data = await $fetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, fetchOptions);
+            const data = await apiFetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, fetchOptions);
             if (isStaffUser(data.user)) {
               clearLocalSession();
               this.setUser(data.user, false);
@@ -164,7 +179,7 @@ export const useAuthStore = defineStore('auth', {
     },
     async mockLogin(email: string, name: string) {
       const baseUrl = useApiBaseUrl();
-      const data = await $fetch<AuthSessionDto>(`${baseUrl}/auth/mock-login`, {
+      const data = await apiFetch<AuthSessionDto>(`${baseUrl}/auth/mock-login`, {
         method: 'POST',
         body: { email, name },
         credentials: 'include',
@@ -174,7 +189,7 @@ export const useAuthStore = defineStore('auth', {
     },
     async credentialLogin(email: string, password: string) {
       const baseUrl = useApiBaseUrl();
-      const data = await $fetch<AuthSessionDto>(`${baseUrl}/auth/login`, {
+      const data = await apiFetch<AuthSessionDto>(`${baseUrl}/auth/login`, {
         method: 'POST',
         body: { email: email.trim(), password },
         credentials: 'include',
@@ -190,7 +205,7 @@ export const useAuthStore = defineStore('auth', {
         sessionStorage.removeItem(AUTH_REDIRECT_KEY);
       }
       const baseUrl = useApiBaseUrl();
-      const callLogout = () => $fetch(`${baseUrl}/auth/logout`, {
+      const callLogout = () => apiFetch(`${baseUrl}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
         timeout: AUTH_TIMEOUT_MS,

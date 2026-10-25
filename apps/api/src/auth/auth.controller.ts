@@ -15,6 +15,7 @@ import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { Request, Response } from 'express';
+import { resolveClientIp } from '../common/utils/client-ip';
 import { AuthService } from './auth.service';
 import { resolveStaffLoginSlug } from './staff-login-slug';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -103,7 +104,7 @@ export class AuthController {
     const user = await this.authService.loginWithPassword(
       dto.email,
       dto.password,
-      req.ip,
+      resolveClientIp(req),
     );
     const tokens = await this.authService.issueTokens(user);
     this.authService.setAuthCookies(res, tokens);
