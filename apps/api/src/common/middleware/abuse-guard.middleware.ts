@@ -1,5 +1,6 @@
 import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
+import { resolveClientIp } from '../utils/client-ip';
 
 const ABUSE_PATTERNS: RegExp[] = [
   /(\bunion\b[\s\S]{0,40}\bselect\b)/i,
@@ -64,7 +65,7 @@ export class AbuseGuardMiddleware implements NestMiddleware {
   }
 
   private resolveIp(req: Request): string {
-    return req.ip || req.socket.remoteAddress || 'unknown';
+    return resolveClientIp(req);
   }
 
   private buildHaystack(req: Request): string {

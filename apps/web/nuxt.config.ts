@@ -59,9 +59,9 @@ export default defineNuxtConfig({
     '/': { swr: false },
     '/catalogo': { swr: false },
     '/admin/**': { ssr: false },
+    // /api/v1 lo atiende server/routes/api/v1. Un rewrite externo de Vercel no reenvía Cookie.
     ...(apiUpstream
       ? {
-          '/api/v1/**': { proxy: `${apiUpstream}/api/v1/**` },
           '/uploads/**': { proxy: `${apiUpstream}/uploads/**` },
         }
       : {}),
@@ -70,6 +70,8 @@ export default defineNuxtConfig({
     '@luxtime/shared': fileURLToPath(new URL('../../packages/shared/src/index.ts', import.meta.url)),
   },
   runtimeConfig: {
+    apiUpstreamUrl: apiUpstream || '',
+    clientIpSecret: process.env.NUXT_CLIENT_IP_SECRET || '',
     apiInternalUrl: internalApiUrl(),
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL
@@ -147,10 +149,6 @@ export default defineNuxtConfig({
   },
   nitro: {
     devProxy: {
-      '/api': {
-        target: 'http://127.0.0.1:3001/api',
-        changeOrigin: true,
-      },
       '/uploads': {
         target: 'http://127.0.0.1:3001/uploads',
         changeOrigin: true,

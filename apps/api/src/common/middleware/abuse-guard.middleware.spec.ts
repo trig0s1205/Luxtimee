@@ -7,12 +7,14 @@ function invoke(
   mw: AbuseGuardMiddleware,
   ip: string,
   url: string,
+  headers: Record<string, string> = {},
 ) {
   const req = {
     ip,
     headers: {
       'x-forwarded-for': '203.0.113.9',
       'cf-connecting-ip': '198.51.100.1',
+      ...headers,
     },
     method: 'GET',
     originalUrl: url,
@@ -55,6 +57,40 @@ describe('AbuseGuardMiddleware', () => {
 
     const otherClient = invoke(mw, '10.2.2.2', '/api/v1/health');
     expect(otherClient.continued).toBe(true);
+  });
+
+  it('con secreto agrupa por la IP firmada y no por CF-Connecting-IP', () => {
+    const previous = process.env.CLIENT_IP_SECRET;
+    process.env.CLIENT_IP_SECRET = 'edge-secret';
+    try {
+      const mw = new AbuseGuardMiddleware();
+      const signed = {
+        'x-luxtimee-client-ip': '203.0.113.44',
+        'x-luxtimee-proxy-secret': 'edge-secret',
+      };
+      for (let i = 0; i < 8; i += 1) {
+        const hit = invoke(mw, '10.9.9.9', '/api?q=<script>', signed);
+        expect(hit.status).toBe(403);
+      }
+      const blocked = invoke(mw, '10.8.8.8', '/api/v1/health', signed);
+      expect(blocked.continued).toBe(false);
+      expect(blocked.body?.message).toBe('IP temporalmente bloqueada');
+
+      const otherSigned = invoke(mw, '10.8.8.8', '/api/v1/health', {
+        'x-luxtimee-client-ip': '203.0.113.45',
+        'x-luxtimee-proxy-secret': 'edge-secret',
+      });
+      expect(otherSigned.continued).toBe(true);
+
+      const wrongSecret = invoke(mw, '10.7.7.7', '/api/v1/health', {
+        'x-luxtimee-client-ip': '203.0.113.44',
+        'x-luxtimee-proxy-secret': 'otro',
+      });
+      expect(wrongSecret.continued).toBe(true);
+    } finally {
+      if (previous === undefined) delete process.env.CLIENT_IP_SECRET;
+      else process.env.CLIENT_IP_SECRET = previous;
+    }
   });
 });
 

@@ -42,7 +42,7 @@ export function useApi() {
     }
 
     try {
-      const response = await $fetch(`${baseUrl}${path}`, {
+      const response = await apiFetch(`${baseUrl}${path}`, {
         method: options.method ?? 'GET',
         body: options.body as Record<string, unknown> | BodyInit | null | undefined,
         query: options.query,
