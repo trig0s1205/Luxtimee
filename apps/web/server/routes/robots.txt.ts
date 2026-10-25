@@ -1,5 +1,7 @@
+import { buildRobotsTxt } from '../../utils/seo';
+
 export default defineEventHandler((event) => {
-  const config = useRuntimeConfig();
-  setHeader(event, 'Content-Type', 'text/plain');
-  return `User-agent: *\nAllow: /\nSitemap: ${config.public.siteUrl}/sitemap.xml\n`;
+  setHeader(event, 'Content-Type', 'text/plain; charset=utf-8');
+  setHeader(event, 'Cache-Control', 'public, max-age=3600');
+  return buildRobotsTxt();
 });

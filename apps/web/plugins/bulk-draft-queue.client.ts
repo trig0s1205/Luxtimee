@@ -1,21 +1,21 @@
-import { bindWatchBulkDraftRuntime } from '~/stores/watch-bulk-draft';
-
 export default defineNuxtPlugin((nuxtApp) => {
   const auth = useAuthStore();
-  const store = useWatchBulkDraftStore();
-  bindWatchBulkDraftRuntime({
-    uploadBase: useApiUploadUrl().replace(/\/$/, ''),
-    run: (fn) => Promise.resolve(nuxtApp.runWithContext(fn)),
-  });
+  let started = false;
 
-  function boot() {
+  async function boot() {
     auth.hydrateTokens();
-    if (!auth.isSuperAdmin) return;
-    store.hydrate();
+    if (!auth.isSuperAdmin || started) return;
+    started = true;
+    const { bindWatchBulkDraftRuntime, useWatchBulkDraftStore } = await import('~/stores/watch-bulk-draft');
+    bindWatchBulkDraftRuntime({
+      uploadBase: useApiUploadUrl().replace(/\/$/, ''),
+      run: (fn) => Promise.resolve(nuxtApp.runWithContext(fn)),
+    });
+    useWatchBulkDraftStore().hydrate();
   }
 
-  boot();
-  watch(() => auth.isSuperAdmin, (isSuper) => {
-    if (isSuper) boot();
+  void boot();
+  watch(() => auth.isSuperAdmin, () => {
+    void boot();
   });
 });

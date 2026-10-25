@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { BrandDto, CategoryDto, MechanismDto, PaginatedResponse, WatchPublicDto } from '@luxtime/shared';
 import { normalizeGender, resolveCatalogRouteQuery, sanitizeCatalogQuery } from '~/utils/catalog-filters';
+import { filterMockCatalog, isLocalCatalogBase } from '~/utils/mock-catalog';
 import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 
 const route = useRoute();
@@ -24,8 +25,9 @@ const gender = ref(FILTER_NONE);
 const minPrice = ref('');
 const maxPrice = ref('');
 const sort = ref<CatalogSort>('newest');
-const searchQuery = ref('');
-const debouncedSearch = ref('');
+const initialSearch = typeof route.query.search === 'string' ? route.query.search : '';
+const searchQuery = ref(initialSearch);
+const debouncedSearch = ref(initialSearch);
 const loadPages = ref(1);
 const mobilePage = ref(1);
 const isMobileCatalog = ref(false);
@@ -97,6 +99,10 @@ const { data: catalogResult, pending, refresh } = await useCachedAsyncData<Pagin
   () =>
     $fetch<PaginatedResponse<WatchPublicDto>>(`${apiBase}/catalog`, {
       query: buildCatalogParams(),
+    }).catch((error) => {
+      console.error('[catalog] no se pudo cargar el catálogo', error);
+      if (isLocalCatalogBase(apiBase)) return filterMockCatalog(buildCatalogParams());
+      return { data: [], total: 0, page: 1, limit: DESKTOP_PAGE_SIZE };
     }),
   {
     default: (): PaginatedResponse<WatchPublicDto> => ({ data: [], total: 0, page: 1, limit: DESKTOP_PAGE_SIZE }),
@@ -212,9 +218,14 @@ watch([brand, movement, category, gender, minPrice, maxPrice, sort], onFilterCha
 
 watch(() => route.query, (query) => {
   const preset = resolveCatalogRouteQuery(query as Record<string, unknown>);
-  if (!preset.category) return;
+  const search = typeof query.search === 'string' ? query.search : '';
+  if (!preset.category && search === debouncedSearch.value) return;
   skipFilterWatch = true;
-  category.value = preset.category;
+  if (preset.category) category.value = preset.category;
+  if (search !== debouncedSearch.value) {
+    searchQuery.value = search;
+    debouncedSearch.value = search;
+  }
   skipFilterWatch = false;
   resetCatalogPaging();
   scheduleRefresh();
@@ -238,10 +249,6 @@ onUnmounted(() => {
   if (import.meta.client) window.removeEventListener('resize', syncMobileCatalog);
 });
 
-useSeoMeta({
-  title: 'Catálogo — LUXTIMEE Luxury Timepieces',
-  description: 'Explora nuestro catálogo de relojes de lujo. Filtra por marca, mecanismo y disponibilidad.',
-});
 </script>
 
 <template>

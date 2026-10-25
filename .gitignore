@@ -74,6 +74,10 @@ web_modules/
 .env
 .env.*
 !.env.example
+!.env.defaults
+
+# Cookie jars (pueden contener sesiones). Invalidar las sesiones si este archivo llegó a un commit.
+cookies.txt
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache

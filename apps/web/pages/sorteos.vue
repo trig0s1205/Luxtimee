@@ -1,7 +1,6 @@
 <script setup lang="ts">
 const { scrollToHomeSection } = useHomeSectionNav();
 
-useSeoMeta({ title: 'Sorteos LUXTIMEE | Detalles Exclusivos' });
 </script>
 
 <template>

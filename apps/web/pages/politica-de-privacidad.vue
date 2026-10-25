@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import { privacySections } from '~/constants/legal-content';
 
-useSeoMeta({
-  title: 'Política de Privacidad — LUXTIMEE',
-  description: 'Política de tratamiento de datos personales de LUXTIMEE. Ley 1581 de 2012 — Habeas Data Colombia.',
-});
 </script>
 
 <template>

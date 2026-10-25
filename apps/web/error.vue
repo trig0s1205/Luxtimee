@@ -7,9 +7,15 @@ const is404 = computed(() => props.error.statusCode === 404);
 
 useHead({
   title: is404.value ? 'Ruta no encontrada — LUXTIMEE' : 'Error — LUXTIMEE',
+  htmlAttrs: { lang: 'es-CO' },
 });
 
-useSeoMeta({ robots: 'noindex, nofollow' });
+useSeoMeta({
+  description: is404.value
+    ? 'La página que buscas no existe en LUXTIMEE.'
+    : 'Ocurrió un error inesperado en LUXTIMEE.',
+  robots: 'noindex, nofollow',
+});
 
 function goHome() {
   clearError({ redirect: '/' });

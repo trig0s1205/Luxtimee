@@ -6,7 +6,6 @@ onMounted(async () => {
   await fetchSession();
 });
 
-useSeoMeta({ title: 'Mayoristas — LUXTIMEE' });
 </script>
 
 <template>

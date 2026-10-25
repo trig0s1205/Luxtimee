@@ -48,7 +48,7 @@ onMounted(() => {
           <!-- SPOTLIGHT layout: big image left, text right -->
           <template v-if="ad.type === 'spotlight'">
             <div v-if="ad.imageUrl" class="landing-ads-spotlight__image">
-              <img :src="ad.imageUrl" :alt="ad.title" />
+              <img :src="ad.imageUrl" :alt="ad.title || 'Promoción LUXTIMEE'" />
             </div>
             <div class="landing-ads-spotlight__content">
               <p v-if="ad.eyebrow" class="landing-ads-eyebrow">{{ ad.eyebrow }}</p>
@@ -68,7 +68,7 @@ onMounted(() => {
           <!-- EDITORIAL layout: full-width image top, centered text below -->
           <template v-else-if="ad.type === 'editorial'">
             <div v-if="ad.imageUrl" class="landing-ads-editorial__image">
-              <img :src="ad.imageUrl" :alt="ad.title" />
+              <img :src="ad.imageUrl" :alt="ad.title || 'Promoción LUXTIMEE'" />
             </div>
             <div class="landing-ads-editorial__content">
               <p v-if="ad.eyebrow" class="landing-ads-eyebrow">{{ ad.eyebrow }}</p>
@@ -88,7 +88,7 @@ onMounted(() => {
           <!-- STORY layout: full-bleed background image, text overlay at bottom -->
           <template v-else>
             <div v-if="ad.imageUrl" class="landing-ads-story__bg">
-              <img :src="ad.imageUrl" :alt="ad.title" />
+              <img :src="ad.imageUrl" :alt="ad.title || 'Promoción LUXTIMEE'" />
             </div>
             <div class="landing-ads-story__content">
               <p v-if="ad.eyebrow" class="landing-ads-eyebrow">{{ ad.eyebrow }}</p>

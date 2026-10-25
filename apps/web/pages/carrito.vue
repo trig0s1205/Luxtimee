@@ -6,12 +6,11 @@ const cart = useCartStore();
 
 onMounted(() => cart.hydrate());
 
-useSeoMeta({ title: 'Carrito — LUXTIMEE' });
 </script>
 
 <template>
   <div class="px-6 md:px-16 py-12 max-w-4xl mx-auto">
-    <UiSectionHeader label="Compra" title="Tu carrito" />
+    <UiSectionHeader label="Compra" title="Tu carrito" heading="h1" />
 
     <p class="mb-6 text-sm text-lux-white-dim">
       {{ WHOLESALE_BANNER }}

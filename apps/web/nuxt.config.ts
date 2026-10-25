@@ -1,4 +1,25 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { formatDocumentTitle } from './utils/seo';
+
+const webRoot = dirname(fileURLToPath(import.meta.url));
+
+function applyEnvDefaults() {
+  const file = resolve(webRoot, '.env.defaults');
+  if (!existsSync(file)) return;
+  for (const line of readFileSync(file, 'utf8').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq <= 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const value = trimmed.slice(eq + 1).trim().replace(/^['"]|['"]$/g, '');
+    if (!process.env[key]) process.env[key] = value;
+  }
+}
+
+applyEnvDefaults();
 
 const apiUpstream = process.env.NUXT_API_UPSTREAM_URL?.replace(/\/$/, '');
 const publicApiBase = process.env.NUXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '');
@@ -17,7 +38,8 @@ function internalApiUrl(): string {
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
-  devtools: { enabled: true },
+  devtools: { enabled: process.env.NODE_ENV !== 'production' },
+  sourcemap: false,
   experimental: {
     appManifest: false,
   },
@@ -57,7 +79,7 @@ export default defineNuxtConfig({
       apiAssetsUrl: process.env.NUXT_PUBLIC_API_ASSETS_URL
         ?? (apiUpstream || process.env.NUXT_LAN === 'true' ? '' : 'http://localhost:3001'),
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000',
-      staffLoginSlug: process.env.NUXT_PUBLIC_STAFF_LOGIN_SLUG || 'dev-portal-lx9k2',
+      staffLoginSlug: process.env.NUXT_PUBLIC_STAFF_LOGIN_SLUG || '',
       ga4MeasurementId: process.env.NUXT_PUBLIC_GA4_MEASUREMENT_ID || '',
       googleSiteVerification: process.env.NUXT_PUBLIC_GOOGLE_SITE_VERIFICATION || '',
     },
@@ -89,6 +111,33 @@ export default defineNuxtConfig({
       };
       patchAdminTransitions(pages);
     },
+    'build:manifest'(manifest) {
+      const markers = [
+        'layouts/admin',
+        'pages/admin',
+        'components/admin',
+        'middleware/admin',
+        'apexcharts',
+        'vue3-apexcharts',
+        'watch-bulk-draft',
+        'zip-entries',
+        'admin-warmup',
+        'admin-cache',
+        'stores/admin',
+        'composables/useAdmin',
+      ];
+      const isAdminBundle = (value: string) => markers.some((marker) => value.includes(marker));
+      for (const [key, chunk] of Object.entries(manifest)) {
+        const id = `${key} ${chunk.src ?? ''} ${chunk.file ?? ''} ${chunk.name ?? ''}`;
+        if (chunk.isEntry && chunk.dynamicImports) {
+          chunk.dynamicImports = chunk.dynamicImports.filter((item) => !isAdminBundle(item));
+        }
+        if (!chunk.isEntry && isAdminBundle(id)) {
+          chunk.prefetch = false;
+          chunk.preload = false;
+        }
+      }
+    },
   },
   nitro: {
     devProxy: {
@@ -105,8 +154,9 @@ export default defineNuxtConfig({
   app: {
     pageTransition: { name: 'lux-page', mode: 'out-in' },
     head: {
-      htmlAttrs: { 'data-theme': 'light' },
-      title: 'LuxTimee — Luxury Watches',
+      htmlAttrs: { lang: 'es-CO', 'data-theme': 'light' },
+      title: 'LUXTIMEE — Relojes de lujo',
+      titleTemplate: formatDocumentTitle as unknown as string,
       script: [
         {
           key: 'luxtimee-theme-boot',

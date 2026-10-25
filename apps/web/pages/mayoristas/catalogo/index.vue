@@ -67,7 +67,6 @@ function goToPage(next: number) {
   }
 }
 
-useSeoMeta({ title: 'Catálogo mayorista — LUXTIMEE' });
 </script>
 
 <template>

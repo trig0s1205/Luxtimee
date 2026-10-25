@@ -1,28 +1,30 @@
-import type { PaginatedResponse, WatchPublicDto } from '@luxtime/shared';
+import { buildSitemapEntries, buildSitemapXml, catalogBaseCandidates, resolveSitemapWatches } from '../utils/sitemap-build';
+import { CANONICAL_ORIGIN } from '../../utils/seo';
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig();
-  const siteUrl = config.public.siteUrl as string;
-  const apiBase = config.apiInternalUrl as string;
-
-  let watches: WatchPublicDto[] = [];
+  let requestOrigin = '';
   try {
-    const res = await $fetch<PaginatedResponse<WatchPublicDto>>(`${apiBase}/catalog`, { query: { limit: 100 } });
-    watches = res.data;
+    requestOrigin = getRequestURL(event).origin;
   } catch {
-    watches = [];
+    requestOrigin = '';
   }
-
-  const staticRoutes = ['', '/catalogo', '/mayoristas', '/sorteos'];
-  const urls = [
-    ...staticRoutes.map((path) => `${siteUrl}${path}`),
-    ...watches.map((w) => `${siteUrl}/producto/${w.slug}`),
-  ];
-
-  const body = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map((loc) => `  <url><loc>${loc}</loc></url>`).join('\n')}
-</urlset>`;
-
-  return new Response(body, { headers: { 'Content-Type': 'application/xml' } });
+  const bases = catalogBaseCandidates({
+    apiInternalUrl: String(config.apiInternalUrl || ''),
+    publicApiBase: String(config.public.apiBaseUrl || ''),
+    siteUrl: String(config.public.siteUrl || ''),
+    requestOrigin,
+  });
+  const watches = await resolveSitemapWatches({
+    bases,
+    fetchPage: (url) => $fetch(url, { timeout: 8000 }),
+    allowMockFallback: process.env.NUXT_SITEMAP_MOCK_FALLBACK === '1'
+      ? true
+      : process.env.NUXT_SITEMAP_MOCK_FALLBACK === '0'
+        ? false
+        : undefined,
+  });
+  setHeader(event, 'Content-Type', 'application/xml; charset=utf-8');
+  setHeader(event, 'Cache-Control', 'public, max-age=300');
+  return buildSitemapXml(buildSitemapEntries(watches, CANONICAL_ORIGIN));
 });

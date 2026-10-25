@@ -55,7 +55,6 @@ onMounted(() => {
   cart.hydrate();
 });
 
-useSeoMeta({ title: 'Checkout — LUXTIMEE' });
 
 async function submit() {
   error.value = '';
@@ -105,7 +104,7 @@ async function submit() {
 
 <template>
   <div class="px-6 md:px-16 py-12 max-w-2xl mx-auto">
-    <UiSectionHeader label="Intención de compra" title="Checkout" />
+    <UiSectionHeader label="Intención de compra" title="Checkout" heading="h1" />
 
     <CheckoutSuccessPanel
       v-if="success"

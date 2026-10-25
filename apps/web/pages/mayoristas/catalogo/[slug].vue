@@ -47,9 +47,11 @@ function addToCart() {
   analytics.track('add_to_cart', { slug: watch.value.slug, channel: 'wholesale' });
 }
 
-useSeoMeta({
-  title: watch.value ? `${watch.value.brand.name} ${watch.value.model} — Mayorista` : 'Mayorista',
-});
+usePageSeo(() => ({
+  title: watch.value ? `${watch.value.brand.name} ${watch.value.model} — Mayorista` : 'Catálogo mayorista — LUXTIMEE',
+  description: 'Ficha privada del catálogo mayorista LUXTIMEE.',
+  noindex: true,
+}));
 </script>
 
 <template>

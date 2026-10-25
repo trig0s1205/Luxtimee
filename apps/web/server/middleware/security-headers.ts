@@ -1,5 +1,11 @@
+import { isNoIndexPath } from '~/utils/seo';
+
 export default defineEventHandler((event) => {
   const isProd = process.env.NODE_ENV === 'production';
+  const path = getRequestURL(event).pathname;
+  if (isNoIndexPath(path)) {
+    setHeader(event, 'X-Robots-Tag', 'noindex, nofollow');
+  }
 
   setHeader(event, 'X-Frame-Options', 'DENY');
   setHeader(event, 'X-Content-Type-Options', 'nosniff');

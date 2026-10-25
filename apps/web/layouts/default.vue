@@ -34,6 +34,8 @@ const mainClass = computed(() => {
   return typeof custom === 'string' ? custom : 'pt-28';
 });
 
+useSiteSeo();
+
 useHead(() => ({
   htmlAttrs: { lang: locale.value === 'es' ? 'es-CO' : 'en' },
 }));
