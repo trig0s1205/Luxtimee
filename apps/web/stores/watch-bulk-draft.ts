@@ -632,7 +632,7 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
       const uploadBase = currentUploadBase();
       const auth = useAuthStore();
       const crossOrigin = /^https?:\/\//i.test(uploadBase) && !uploadBase.startsWith('/');
-      let token = await inAppContext(() => auth.ensureAccessToken(true));
+      let token = await inAppContext(() => auth.ensureUploadToken());
       let authRetried = false;
       let rateRetries = 0;
 
@@ -650,7 +650,7 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
         });
         if (response.status === 401 && !authRetried) {
           authRetried = true;
-          token = await inAppContext(() => auth.ensureAccessToken(true));
+          token = await inAppContext(() => auth.ensureUploadToken(true));
           continue;
         }
         if (response.status === 429) {

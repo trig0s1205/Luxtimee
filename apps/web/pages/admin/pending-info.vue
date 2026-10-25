@@ -10,7 +10,6 @@ import type {
 } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { extractApiErrorMessage } from '~/utils/api-error';
-import { resolveAccessToken } from '~/utils/auth-token';
 import type { AdminWatchFormPayload } from '~/composables/useAdminWatchEditSubmit';
 
 const AdminWatchFormLazy = defineAsyncComponent(() => import('~/components/admin/AdminWatchForm.vue'));
@@ -35,7 +34,7 @@ const savingForm = ref(false);
 const submitError = ref('');
 
 const staffReady = computed(
-  () => auth.loaded && auth.isStaff && !auth.isLocalSession && !!resolveAccessToken(auth.accessToken),
+  () => auth.loaded && auth.hasApiSession,
 );
 
 const brands = computed(() => catalogStore.brands ?? []);

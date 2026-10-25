@@ -12,11 +12,12 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { Request, Response } from 'express';
+import { resolveClientIp } from '../common/utils/client-ip';
 import { AuthService } from './auth.service';
+import { resolveStaffLoginSlug } from './staff-login-slug';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/metadata.decorators';
 import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
@@ -47,7 +48,6 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private config: ConfigService,
-    private jwtService: JwtService,
   ) {}
 
   @Public()
@@ -72,10 +72,13 @@ export class AuthController {
       'FRONTEND_URL',
       'http://localhost:3000',
     );
-    const slug = this.config.get<string>(
-      'STAFF_LOGIN_SLUG',
-      'dev-portal-lx9k2',
+    const slug = resolveStaffLoginSlug(
+      this.config.get<string>('STAFF_LOGIN_SLUG'),
+      this.config.get<string>('NODE_ENV'),
     );
+    if (!slug) {
+      throw new NotFoundException();
+    }
     res.redirect(`${frontend}/acceso/${slug}/exito`);
   }
 
@@ -98,14 +101,10 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const clientIp =
-      typeof req.headers['x-forwarded-for'] === 'string'
-        ? req.headers['x-forwarded-for'].split(',')[0]?.trim()
-        : req.ip;
     const user = await this.authService.loginWithPassword(
       dto.email,
       dto.password,
-      clientIp,
+      resolveClientIp(req),
     );
     const tokens = await this.authService.issueTokens(user);
     this.authService.setAuthCookies(res, tokens);
@@ -117,8 +116,6 @@ export class AuthController {
         role: user.role,
         phone: user.phone,
       },
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
     };
   }
 
@@ -147,8 +144,6 @@ export class AuthController {
         name: user.name,
         role: user.role,
       },
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
     };
   }
 
@@ -165,26 +160,15 @@ export class AuthController {
       throw new UnauthorizedException('Refresh token no encontrado');
     }
 
-    try {
-      const payload = await this.jwtService.verifyAsync(refreshToken, {
-        secret: this.config.get<string>('JWT_SECRET'),
-      });
+    const tokens = await this.authService.refresh(refreshToken);
+    this.authService.setAuthCookies(res, tokens);
+    return { ok: true };
+  }
 
-      const user = await this.authService.getUserById(payload.sub);
-      if (!user) {
-        throw new UnauthorizedException();
-      }
-
-      const tokens = await this.authService.issueTokens(user);
-      this.authService.setAuthCookies(res, tokens);
-      return {
-        ok: true,
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-      };
-    } catch {
-      throw new UnauthorizedException('Refresh token inválido');
-    }
+  @Post('upload-token')
+  async uploadToken(@CurrentUser() user: { id: string }) {
+    const accessToken = await this.authService.issueAccessToken(user.id);
+    return { accessToken };
   }
 
   @Get('me')
@@ -227,17 +211,24 @@ export class AuthController {
   async changePassword(
     @CurrentUser() user: { id: string },
     @Body() dto: ChangePasswordDto,
+    @Res({ passthrough: true }) res: Response,
   ) {
     const updated = await this.authService.changePassword(
       user.id,
       dto.newPassword,
       dto.currentPassword,
     );
+    const tokens = await this.authService.issueTokens(updated);
+    this.authService.setAuthCookies(res, tokens);
     return { user: updated };
   }
 
   @Post('logout')
-  logout(@Res({ passthrough: true }) res: Response) {
+  async logout(
+    @CurrentUser() user: { id: string },
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    await this.authService.revokeSessions(user.id);
     this.authService.clearAuthCookies(res);
     return { ok: true };
   }

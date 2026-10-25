@@ -2,18 +2,21 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { formatDocumentTitle } from './utils/seo';
+import { resolveStaffLoginSlug } from './utils/staff-login';
 
 const webRoot = dirname(fileURLToPath(import.meta.url));
 
 function applyEnvDefaults() {
   const file = resolve(webRoot, '.env.defaults');
   if (!existsSync(file)) return;
+  const isProd = process.env.NODE_ENV === 'production';
   for (const line of readFileSync(file, 'utf8').split('\n')) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
     const eq = trimmed.indexOf('=');
     if (eq <= 0) continue;
     const key = trimmed.slice(0, eq).trim();
+    if (isProd && key === 'NUXT_PUBLIC_STAFF_LOGIN_SLUG') continue;
     const value = trimmed.slice(eq + 1).trim().replace(/^['"]|['"]$/g, '');
     if (!process.env[key]) process.env[key] = value;
   }
@@ -56,9 +59,9 @@ export default defineNuxtConfig({
     '/': { swr: false },
     '/catalogo': { swr: false },
     '/admin/**': { ssr: false },
+    // /api/v1 lo atiende server/routes/api/v1. Un rewrite externo de Vercel no reenvía Cookie.
     ...(apiUpstream
       ? {
-          '/api/v1/**': { proxy: `${apiUpstream}/api/v1/**` },
           '/uploads/**': { proxy: `${apiUpstream}/uploads/**` },
         }
       : {}),
@@ -67,6 +70,8 @@ export default defineNuxtConfig({
     '@luxtime/shared': fileURLToPath(new URL('../../packages/shared/src/index.ts', import.meta.url)),
   },
   runtimeConfig: {
+    apiUpstreamUrl: apiUpstream || '',
+    clientIpSecret: process.env.NUXT_CLIENT_IP_SECRET || '',
     apiInternalUrl: internalApiUrl(),
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL
@@ -79,7 +84,10 @@ export default defineNuxtConfig({
       apiAssetsUrl: process.env.NUXT_PUBLIC_API_ASSETS_URL
         ?? (apiUpstream || process.env.NUXT_LAN === 'true' ? '' : 'http://localhost:3001'),
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000',
-      staffLoginSlug: process.env.NUXT_PUBLIC_STAFF_LOGIN_SLUG || '',
+      staffLoginSlug: resolveStaffLoginSlug(
+        process.env.NUXT_PUBLIC_STAFF_LOGIN_SLUG,
+        process.env.NODE_ENV,
+      ),
       ga4MeasurementId: process.env.NUXT_PUBLIC_GA4_MEASUREMENT_ID || '',
       googleSiteVerification: process.env.NUXT_PUBLIC_GOOGLE_SITE_VERIFICATION || '',
     },
@@ -141,10 +149,6 @@ export default defineNuxtConfig({
   },
   nitro: {
     devProxy: {
-      '/api': {
-        target: 'http://127.0.0.1:3001/api',
-        changeOrigin: true,
-      },
       '/uploads': {
         target: 'http://127.0.0.1:3001/uploads',
         changeOrigin: true,

@@ -60,7 +60,7 @@ export function useCatalogData() {
   async function listWholesaleCatalog(query: CatalogListQuery = {}) {
     const params = sanitizeCatalogQuery(query);
     const baseUrl = useApiBaseUrl();
-    return $fetch<PaginatedResponse<WatchPublicDto>>(`${baseUrl}/catalog/wholesale`, {
+    return apiFetch<PaginatedResponse<WatchPublicDto>>(`${baseUrl}/catalog/wholesale`, {
       query: params,
       credentials: 'include',
       timeout: API_TIMEOUT_MS,
@@ -69,7 +69,7 @@ export function useCatalogData() {
 
   async function getWholesaleBySlug(slug: string) {
     const baseUrl = useApiBaseUrl();
-    return $fetch<WatchPublicDto>(`${baseUrl}/catalog/wholesale/${slug}`, {
+    return apiFetch<WatchPublicDto>(`${baseUrl}/catalog/wholesale/${slug}`, {
       credentials: 'include',
       timeout: API_TIMEOUT_MS,
     });
