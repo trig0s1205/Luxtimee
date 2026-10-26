@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const route = useRoute();
-const { buildUrl, loadSettings, hasWhatsApp } = useWhatsApp();
+const { buildUrl, loadSettings, hasWhatsApp, openChat } = useWhatsApp();
 
 const hiddenPrefixes = ['/admin', '/certificado', '/checkout'];
 
@@ -15,10 +15,9 @@ onMounted(async () => {
   waUrl.value = buildUrl();
 });
 
-function onClick(event: MouseEvent) {
-  if (!waUrl.value) return;
+async function onClick(event: MouseEvent) {
   event.preventDefault();
-  openWhatsAppChat(waUrl.value);
+  await openChat();
 }
 </script>
 

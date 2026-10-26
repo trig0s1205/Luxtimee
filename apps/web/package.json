@@ -10,7 +10,7 @@
     "postinstall": "prisma generate --schema=../api/prisma/schema.prisma && nuxt prepare",
     "lint": "node ./scripts/lint.mjs",
     "typecheck": "nuxt typecheck",
-    "test:unit": "node --import ./scripts/register-jiti.mjs --test utils/seo.test.ts utils/staff-login.test.ts utils/cookie-jar.test.ts server/utils/sitemap-build.test.ts server/utils/api-proxy.test.ts server/utils/apex-redirect.test.ts",
+    "test:unit": "node --import ./scripts/register-jiti.mjs --test utils/seo.test.ts utils/staff-login.test.ts utils/cookie-jar.test.ts utils/whatsapp-link.test.ts server/utils/sitemap-build.test.ts server/utils/api-proxy.test.ts server/utils/apex-redirect.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

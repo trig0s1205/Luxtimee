@@ -19,7 +19,6 @@ export class SetWhatsappBodyDto {
   url!: string;
 
   @IsString()
-  @MinLength(1)
   @Transform(({ value }) => sanitizePlainTextOptional(value, 500) ?? '')
   messagePrefix!: string;
 }

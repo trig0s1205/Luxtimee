@@ -54,7 +54,6 @@ export class SettingsController {
 
   @Public()
   @Get('whatsapp/public')
-  @Cacheable({ ttlMs: 600_000, tag: CACHE_TAGS.settings, maxAge: 300 })
   getWhatsappPublic() {
     return this.settingsService.getWhatsappLink();
   }

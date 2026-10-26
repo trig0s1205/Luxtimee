@@ -19,6 +19,7 @@ import {
   emptyHeroSlide,
   HOMEPAGE_HERO_MAX_SLIDES,
   normalizeHeroSlides,
+  whatsappUrlFromInput,
 } from '@luxtime/shared';
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
@@ -186,15 +187,28 @@ export class SettingsService {
     return row;
   }
 
-  getWhatsappLink() {
-    return this.getJson<WhatsappSettingDto>('whatsapp_link', {
-      url: 'https://wa.me/573000000000',
+  async getWhatsappLink(): Promise<WhatsappSettingDto> {
+    const stored = await this.getJson<WhatsappSettingDto>('whatsapp_link', {
+      url: '',
       messagePrefix: 'Hola LUXTIMEE, deseo comprar:',
     });
+    return {
+      url: whatsappUrlFromInput(stored?.url) ?? '',
+      messagePrefix: stored?.messagePrefix?.trim() || 'Hola LUXTIMEE, deseo comprar:',
+    };
   }
 
-  setWhatsappLink(value: WhatsappSettingDto) {
-    return this.setJson('whatsapp_link', value);
+  async setWhatsappLink(value: WhatsappSettingDto) {
+    const url = whatsappUrlFromInput(value.url);
+    if (!url) {
+      throw new BadRequestException('El número de WhatsApp no es válido. Usa el celular con indicativo, por ejemplo 573001234567.');
+    }
+    const stored: WhatsappSettingDto = {
+      url,
+      messagePrefix: value.messagePrefix?.trim() || 'Hola LUXTIMEE, deseo comprar:',
+    };
+    await this.setJson('whatsapp_link', stored);
+    return stored;
   }
 
   getLegalDocuments() {

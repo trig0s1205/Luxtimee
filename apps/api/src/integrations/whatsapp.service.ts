@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { whatsappPhoneFromInput } from '@luxtime/shared';
 
 @Injectable()
 export class WhatsappService {
@@ -81,8 +82,8 @@ export class WhatsappService {
   }
 
   buildRedirectUrl(baseUrl: string, message: string) {
-    const digits = baseUrl.replace(/\D/g, '');
-    const phone = digits.length >= 10 ? digits : '573000000000';
+    const phone = whatsappPhoneFromInput(baseUrl);
+    if (!phone) return '';
     const text = encodeURIComponent(message);
     return `https://wa.me/${phone}?text=${text}`;
   }

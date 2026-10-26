@@ -11,6 +11,7 @@ import { authFetchHeaders } from '~/utils/auth-token';
 import {
   countHeroSlidesWithDesktop,
   HOMEPAGE_HERO_MAX_SLIDES,
+  whatsappPhoneFromInput,
 } from '@luxtime/shared';
 import { DEFAULT_HOMEPAGE_CONFIG, normalizeHeroSlides } from '~/utils/homepage-config';
 import { HOME_CMS_ASYNC_KEY, invalidateClientCache } from '~/utils/storefront-cache';
@@ -42,6 +43,7 @@ const passwordForm = reactive({
 });
 
 const whatsapp = reactive<WhatsappSettingDto>({ url: '', messagePrefix: '' });
+const whatsappPhone = ref('');
 const platform = reactive<PlatformConfigDto>({
   supportEmail: '',
   city: '',
@@ -107,7 +109,10 @@ useAsyncData('admin-config', async () => {
   emailForm.email = auth.user?.email ?? '';
 
   const whatsappRes = await api.get<WhatsappSettingDto>('/settings/whatsapp').catch(() => null);
-  if (whatsappRes) Object.assign(whatsapp, whatsappRes);
+  if (whatsappRes) {
+    Object.assign(whatsapp, whatsappRes);
+    whatsappPhone.value = whatsappPhoneFromInput(whatsappRes.url) ?? '';
+  }
 
   if (auth.isSuperAdmin) {
     const [platformRes, profitRes, commissionRes] = await Promise.all([
@@ -225,8 +230,11 @@ async function savePlatformSettings() {
 
   savingPlatform.value = true;
   try {
-    await Promise.all([
-      api.patch('/settings/whatsapp', { ...whatsapp }),
+    const [savedWhatsapp] = await Promise.all([
+      api.patch<WhatsappSettingDto>('/settings/whatsapp', {
+        url: whatsappPhone.value,
+        messagePrefix: whatsapp.messagePrefix,
+      }),
       api.patch('/settings/platform', { ...platform }),
       api.patch('/settings/profit', {
         reinvestmentPercent: Number(profit.reinvestmentPercent),
@@ -234,6 +242,9 @@ async function savePlatformSettings() {
       }),
       api.patch('/settings/commission', { percent: Number(commission.percent) }),
     ]);
+    whatsapp.url = savedWhatsapp.url;
+    whatsapp.messagePrefix = savedWhatsapp.messagePrefix;
+    whatsappPhone.value = whatsappPhoneFromInput(savedWhatsapp.url) ?? whatsappPhone.value;
     toast.success('Configuración de plataforma guardada.');
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'No se pudo guardar la configuración.'));
@@ -817,9 +828,10 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
         <h2>WhatsApp comercial</h2>
         <div class="admin-config-fields">
           <label>
-            <span>URL wa.me</span>
-            <UiLuxInput v-model="whatsapp.url" placeholder="https://wa.me/573000000000" />
+            <span>Número de WhatsApp</span>
+            <UiLuxInput v-model="whatsappPhone" placeholder="573001234567" />
           </label>
+          <p class="admin-config-hint">Todos los botones de WhatsApp de la tienda abren este número.</p>
           <label>
             <span>Prefijo del mensaje</span>
             <UiLuxInput v-model="whatsapp.messagePrefix" placeholder="Hola LUXTIMEE, deseo comprar:" />

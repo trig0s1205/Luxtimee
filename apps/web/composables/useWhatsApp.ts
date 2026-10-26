@@ -1,10 +1,9 @@
 import type { WhatsappSettingDto } from '@luxtime/shared';
+import { whatsappUrlFromInput } from '@luxtime/shared';
+import { openWhatsAppChat } from '~/utils/whatsapp-open';
 
-function isValidWaUrl(url?: string | null) {
-  if (!url?.trim()) return false;
-  const normalized = url.trim();
-  if (normalized === 'https://wa.me/' || normalized === 'https://wa.me') return false;
-  return normalized.startsWith('https://wa.me/') || normalized.startsWith('http://wa.me/');
+function canonicalWaUrl(url?: string | null) {
+  return whatsappUrlFromInput(url);
 }
 
 export function useWhatsApp() {
@@ -13,8 +12,8 @@ export function useWhatsApp() {
   const settings = useState<WhatsappSettingDto | null>('whatsapp-public', () => null);
   const loaded = useState('whatsapp-public-loaded', () => false);
 
-  async function loadSettings() {
-    if (loaded.value) return settings.value;
+  async function loadSettings(force = false) {
+    if (loaded.value && !force) return settings.value;
     try {
       settings.value = await api.get<WhatsappSettingDto>('/settings/whatsapp/public');
     } catch {
@@ -26,18 +25,16 @@ export function useWhatsApp() {
   }
 
   function buildUrl(message?: string) {
-    const url = settings.value?.url;
-    if (!isValidWaUrl(url)) return null;
-    const base = url!.trim();
+    const base = canonicalWaUrl(settings.value?.url);
+    if (!base) return null;
     if (!message?.trim()) return base;
     const prefix = settings.value?.messagePrefix?.trim();
     const text = prefix ? `${prefix} ${message}`.trim() : message.trim();
-    const sep = base.includes('?') ? '&' : '?';
-    return `${base}${sep}text=${encodeURIComponent(text)}`;
+    return `${base}?text=${encodeURIComponent(text)}`;
   }
 
   async function openChat(message?: string) {
-    await loadSettings();
+    await loadSettings(true);
     const target = buildUrl(message);
     if (!target) {
       toast.warning('WhatsApp no está configurado. Escríbenos desde la sección de contacto.');
@@ -47,7 +44,7 @@ export function useWhatsApp() {
     return true;
   }
 
-  const hasWhatsApp = computed(() => isValidWaUrl(settings.value?.url));
+  const hasWhatsApp = computed(() => Boolean(canonicalWaUrl(settings.value?.url)));
 
   return {
     settings: readonly(settings),
