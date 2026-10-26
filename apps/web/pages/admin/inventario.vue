@@ -496,6 +496,8 @@ async function finishBulkDelete() {
 
     <AdminInventoryInsights :insights="insights" :loading="insightsPending" />
 
+    <p class="admin-inventory-hint">Si el inventario no carga o no se muestra, pulsa Actualizar.</p>
+
     <div class="admin-inventory-toolbar">
       <UiAdminRefreshButton :loading="inventoryRefreshing" @click="reloadInventory()" />
       <UiLuxInput v-model="searchInput" placeholder="Buscar por SKU, marca o modelo..." @input="onSearchInput" />
@@ -657,6 +659,18 @@ async function finishBulkDelete() {
 
 .admin-watch-progress--error > span {
   background: #ff5555;
+}
+
+.admin-inventory-hint {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  max-width: 100%;
+  font-family: var(--lux-font-body);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--lux-white-dim);
+  border: 1px solid rgba(200, 169, 110, 0.28);
+  background: rgba(200, 169, 110, 0.08);
 }
 
 .admin-inventory-toolbar {

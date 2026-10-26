@@ -3,6 +3,7 @@ import type { HomepageConfigDto } from '@luxtime/shared';
 
 import { HOME_CMS_ASYNC_KEY, STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 import { getActiveHeroSlides, shouldShowFounderSection } from '~/utils/homepage-config';
+import { faqPageJsonLd } from '~/utils/seo';
 
 definePageMeta({ mainClass: 'main--home-hero' });
 
@@ -15,6 +16,14 @@ const { data: homeCms, refresh: refreshHomeCms } = await useCachedAsyncData<Home
 );
 
 const cms = computed<HomepageConfigDto>(() => homeCms.value ?? DEFAULT_HOMEPAGE_CONFIG);
+
+usePageSeo(() => {
+  const faq = cms.value.faq;
+  if (!faq?.enabled) return {};
+  const node = faqPageJsonLd(faq.items ?? []);
+  return node ? { jsonLd: [node] } : {};
+});
+
 const heroSlides = computed(() => getActiveHeroSlides(cms.value.hero));
 const showPromoHero = computed(
   () => heroSlides.value.length > 0 && cms.value.hero.enabled !== false,
@@ -28,14 +37,12 @@ onMounted(() => {
 
 <template>
   <div>
+    <h1 class="sr-only">Relojes de lujo en Bucaramanga y Piedecuesta</h1>
     <div class="home-hero-wrap">
       <HomePromoHero
         v-if="showPromoHero"
         :config="cms.hero"
       />
-      <h1 class="home-hero-heading" :class="{ 'home-hero-heading--overlay': showPromoHero }">
-        Relojes de lujo <em>LUXTIMEE</em>
-      </h1>
     </div>
 
     <ClientOnly>
@@ -76,33 +83,5 @@ onMounted(() => {
 <style scoped>
 .home-hero-wrap {
   position: relative;
-}
-
-.home-hero-heading {
-  margin: 0;
-  padding: 28px 24px 8px;
-  font-family: var(--font-display, 'Cormorant Garamond', serif);
-  font-weight: 300;
-  font-size: clamp(2.25rem, 5vw, 4.25rem);
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  text-align: center;
-  color: var(--white, #f5f5f5);
-}
-
-.home-hero-heading em {
-  font-style: italic;
-  color: var(--gold, #c8a96e);
-}
-
-.home-hero-heading--overlay {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 24px;
-  z-index: 4;
-  padding: 0 20px 8px;
-  text-shadow: 0 8px 28px rgba(0, 0, 0, 0.72);
-  pointer-events: none;
 }
 </style>

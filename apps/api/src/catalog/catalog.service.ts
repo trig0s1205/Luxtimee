@@ -230,6 +230,23 @@ export class CatalogService {
     };
   }
 
+  async listPublicSitemap() {
+    const rows = await this.prisma.watch.findMany({
+      where: this.publicCatalogWhere(),
+      select: { slug: true, updatedAt: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    return {
+      data: rows
+        .map((row) => ({
+          slug: row.slug.trim(),
+          updatedAt: row.updatedAt.toISOString(),
+        }))
+        .filter((row) => row.slug.length > 0),
+    };
+  }
+
   async findBySlug(slug: string) {
     const watch = await this.prisma.watch.findFirst({
       where: {

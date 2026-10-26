@@ -33,18 +33,40 @@ test('sitemap incluye páginas públicas y productos con lastmod', async () => {
     allowMockFallback: false,
     log: () => {},
     fetchPage: async (url) => {
-      if (url.includes('page=1')) {
-        return { data: [{ slug: 'rolex-sub', updatedAt: '2026-03-02T10:00:00.000Z' }], total: 2 };
+      if (url.endsWith('/catalog/sitemap')) {
+        return {
+          data: [
+            { slug: 'rolex-sub', updatedAt: '2026-03-02T10:00:00.000Z' },
+            { slug: 'omega-speed', createdAt: '2026-01-05T00:00:00.000Z' },
+          ],
+        };
       }
-      return { data: [{ slug: 'omega-speed', createdAt: '2026-01-05T00:00:00.000Z' }], total: 2 };
+      throw new Error('no usar el catálogo paginado');
     },
   });
   const xml = buildSitemapXml(buildSitemapEntries(watches));
+  assert.match(xml, /https:\/\/www\.luxtimee\.com\/relojeria-bucaramanga/);
   assert.match(xml, /https:\/\/www\.luxtimee\.com\/catalogo/);
   assert.match(xml, /https:\/\/www\.luxtimee\.com\/politica-de-privacidad/);
   assert.match(xml, /https:\/\/www\.luxtimee\.com\/producto\/rolex-sub/);
   assert.match(xml, /<lastmod>2026-03-02<\/lastmod>/);
   assert.match(xml, /https:\/\/www\.luxtimee\.com\/producto\/omega-speed/);
+});
+
+test('si /catalog/sitemap falla, pagina el catálogo público', async () => {
+  const watches = await resolveSitemapWatches({
+    bases: ['https://api.example/api/v1'],
+    allowMockFallback: false,
+    log: () => {},
+    fetchPage: async (url) => {
+      if (url.endsWith('/catalog/sitemap')) throw new Error('404');
+      if (url.includes('page=1')) {
+        return { data: [{ slug: 'rolex-sub', updatedAt: '2026-04-01T00:00:00.000Z' }], total: 1 };
+      }
+      return { data: [], total: 1 };
+    },
+  });
+  assert.equal(watches[0]?.slug, 'rolex-sub');
 });
 
 test('si la API local falla, usa el catálogo de respaldo y lo registra', async () => {

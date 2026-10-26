@@ -3,11 +3,16 @@ import test from 'node:test';
 import {
   buildRobotsTxt,
   canonicalUrl,
+  faqPageJsonLd,
   formatDocumentTitle,
   isNoIndexPath,
+  localBusinessJsonLd,
   productJsonLd,
+  publicSitemapPaths,
   serializeJsonLd,
   shouldEmitCanonical,
+  splitSameAs,
+  staticPageSeo,
 } from './seo';
 
 test('titleTemplate unifica la marca y no la duplica', () => {
@@ -43,6 +48,43 @@ test('robots permite rastreo general y apunta al sitemap', () => {
   assert.match(robots, /Disallow: \/checkout/);
   assert.doesNotMatch(robots, /GPTBot/);
   assert.match(robots, /Sitemap: https:\/\/www\.luxtimee\.com\/sitemap\.xml/);
+});
+
+test('títulos locales y landing en el sitemap estático', () => {
+  assert.equal(staticPageSeo('/')?.title, 'Relojes de lujo en Bucaramanga y Piedecuesta | LUXTIMEE');
+  assert.equal(staticPageSeo('/mayoristas')?.title, 'Relojes al por mayor en Colombia | LUXTIMEE Mayoristas');
+  assert.equal(staticPageSeo('/catalogo')?.title, 'Catálogo de relojes de lujo en Colombia | LUXTIMEE');
+  assert.equal(staticPageSeo('/relojeria-bucaramanga')?.title, 'Relojería en Bucaramanga y Piedecuesta | LUXTIMEE');
+  assert.ok(publicSitemapPaths().includes('/relojeria-bucaramanga'));
+});
+
+test('LocalBusiness omite teléfono, horario y redes vacíos', () => {
+  const empty = localBusinessJsonLd({});
+  assert.equal('telephone' in empty, false);
+  assert.equal('openingHours' in empty, false);
+  assert.equal('sameAs' in empty, false);
+  assert.equal('contactPoint' in empty, false);
+  assert.equal((empty.address as { addressLocality: string }).addressLocality, 'Piedecuesta');
+  assert.equal((empty.address as { addressRegion: string }).addressRegion, 'Santander');
+  const filled = localBusinessJsonLd({
+    phone: ' 3000000000 ',
+    openingHours: 'Mo-Sa 10:00-19:00',
+    sameAs: splitSameAs('https://www.instagram.com/luxtimee, no-es-url'),
+    whatsapp: 'https://wa.me/573000000000',
+  });
+  assert.equal(filled.telephone, '3000000000');
+  assert.equal(filled.openingHours, 'Mo-Sa 10:00-19:00');
+  assert.deepEqual(filled.sameAs, ['https://www.instagram.com/luxtimee', 'https://wa.me/573000000000']);
+});
+
+test('FAQPage solo incluye preguntas con respuesta', () => {
+  assert.equal(faqPageJsonLd([{ question: ' ', answer: 'x' }, { question: 'Q', answer: '' }]), null);
+  const node = faqPageJsonLd([{ question: '¿Envían?', answer: 'Sí, a Colombia.' }]);
+  const raw = serializeJsonLd(node);
+  assert.equal(raw.includes('<'), false);
+  const parsed = JSON.parse(raw) as { mainEntity: { name: string; acceptedAnswer: { text: string } }[] };
+  assert.equal(parsed.mainEntity[0]?.name, '¿Envían?');
+  assert.equal(parsed.mainEntity[0]?.acceptedAnswer.text, 'Sí, a Colombia.');
 });
 
 test('JSON-LD de producto es válido y escapa HTML', () => {

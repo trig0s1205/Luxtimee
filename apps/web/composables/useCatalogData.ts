@@ -1,10 +1,17 @@
 import type { BrandDto, CatalogListQuery, PaginatedResponse, WatchPublicDto } from '@luxtime/shared';
 import { API_TIMEOUT_MS } from '~/utils/api-timeout';
 import { sanitizeCatalogQuery } from '~/utils/catalog-filters';
-import { filterMockCatalog, findMockWatchBySlug } from '~/utils/mock-catalog';
+import { filterMockCatalog, findMockWatchBySlug, isLocalCatalogBase } from '~/utils/mock-catalog';
+
+function errorStatus(error: unknown) {
+  if (!error || typeof error !== 'object') return 0;
+  const row = error as { statusCode?: number; status?: number };
+  return row.statusCode || row.status || 0;
+}
 
 export function useCatalogData() {
   const api = useApi();
+  const mockOk = import.meta.dev || isLocalCatalogBase(useApiBaseUrl());
 
   async function listCatalog(query: CatalogListQuery = {}) {
     const params = sanitizeCatalogQuery(query);
@@ -12,9 +19,8 @@ export function useCatalogData() {
     try {
       return await api.get<PaginatedResponse<WatchPublicDto>>('/catalog', params);
     } catch (error) {
-      if (import.meta.dev) {
-        console.warn('[catalog] API fallback to mock:', error);
-      }
+      if (!mockOk) throw error;
+      if (import.meta.dev) console.warn('[catalog] API fallback to mock:', error);
       return filterMockCatalog(query);
     }
   }
@@ -22,17 +28,23 @@ export function useCatalogData() {
   async function getBySlug(slug: string) {
     try {
       return await api.get<WatchPublicDto>(`/catalog/${slug}`);
-    } catch {
-      const found = findMockWatchBySlug(slug);
-      if (!found) throw createError({ statusCode: 404, message: 'Producto no encontrado' });
-      return found;
+    } catch (error) {
+      if (mockOk) {
+        const found = findMockWatchBySlug(slug);
+        if (found) return found;
+      }
+      if (errorStatus(error) === 404) {
+        throw createError({ statusCode: 404, message: 'Producto no encontrado' });
+      }
+      throw error;
     }
   }
 
   async function getNewArrivals() {
     try {
       return await api.get<WatchPublicDto[]>('/catalog/new-arrivals');
-    } catch {
+    } catch (error) {
+      if (!mockOk) throw error;
       return filterMockCatalog({ limit: 4 }).data;
     }
   }
@@ -51,9 +63,9 @@ export function useCatalogData() {
     try {
       const best = await api.get<WatchPublicDto[]>('/catalog/best-sellers', { limit });
       return best.slice(0, limit);
-    } catch {
-      if (import.meta.dev) return filterMockCatalog({ limit }).data.slice(0, limit);
-      return [];
+    } catch (error) {
+      if (mockOk) return filterMockCatalog({ limit }).data.slice(0, limit);
+      throw error;
     }
   }
 

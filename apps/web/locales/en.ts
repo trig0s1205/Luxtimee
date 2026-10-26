@@ -23,6 +23,7 @@ export default {
     story: 'Our story',
     aboutUs: 'About us',
     wholesale: 'Wholesale',
+    local: 'Watchmaking in Bucaramanga',
     newsletter: 'Newsletter',
     rights: '© 2026 LUXTIMEE. All rights reserved.',
     privacyShort: 'Privacy',

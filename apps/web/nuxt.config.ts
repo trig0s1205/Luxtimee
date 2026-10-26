@@ -90,6 +90,10 @@ export default defineNuxtConfig({
       ),
       ga4MeasurementId: process.env.NUXT_PUBLIC_GA4_MEASUREMENT_ID || '',
       googleSiteVerification: process.env.NUXT_PUBLIC_GOOGLE_SITE_VERIFICATION || '',
+      businessPhone: process.env.NUXT_PUBLIC_BUSINESS_PHONE || '',
+      businessWhatsapp: process.env.NUXT_PUBLIC_BUSINESS_WHATSAPP || '',
+      businessOpeningHours: process.env.NUXT_PUBLIC_BUSINESS_OPENING_HOURS || '',
+      businessSameAs: process.env.NUXT_PUBLIC_BUSINESS_SAME_AS || '',
     },
   },
   devServer: {
@@ -159,7 +163,7 @@ export default defineNuxtConfig({
     pageTransition: { name: 'lux-page', mode: 'out-in' },
     head: {
       htmlAttrs: { lang: 'es-CO', 'data-theme': 'light' },
-      title: 'LUXTIMEE — Relojes de lujo',
+      title: 'Relojes de lujo en Bucaramanga y Piedecuesta | LUXTIMEE',
       titleTemplate: formatDocumentTitle as unknown as string,
       script: [
         {

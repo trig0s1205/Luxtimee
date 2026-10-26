@@ -57,6 +57,12 @@ export class CatalogController {
     return this.catalogService.findWholesaleBySlug(slug);
   }
 
+  @Get('sitemap')
+  @Cacheable({ ttlMs: 60_000, tag: CACHE_TAGS.catalog, maxAge: 300 })
+  sitemap() {
+    return this.catalogService.listPublicSitemap();
+  }
+
   @Get(':slug')
   @Cacheable({ ttlMs: 60_000, tag: CACHE_TAGS.catalog, maxAge: 60 })
   bySlug(@Param('slug') slug: string) {
