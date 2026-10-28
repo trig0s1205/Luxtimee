@@ -25,12 +25,21 @@ function next() {
   }
 }
 
-onMounted(() => {
-  // Only show on true entry navigations (not SPA client-side nav from /catalogo → /)
-  const isEntry = !sessionStorage.getItem(STORAGE_KEY);
-  if (!isEntry || activeAds.value.length === 0) return;
-  sessionStorage.setItem(STORAGE_KEY, '1');
+let alive = true;
+
+function maybeOpen() {
+  if (!import.meta.client || !alive) return;
+  if (sessionStorage.getItem(STORAGE_KEY) || activeAds.value.length === 0 || visible.value) return;
   visible.value = true;
+  queueMicrotask(() => {
+    if (alive && visible.value) sessionStorage.setItem(STORAGE_KEY, '1');
+  });
+}
+
+onMounted(maybeOpen);
+watch(activeAds, maybeOpen);
+onUnmounted(() => {
+  alive = false;
 });
 </script>
 
@@ -45,12 +54,11 @@ onMounted(() => {
           <!-- Close -->
           <button class="landing-ads-close" type="button" aria-label="Cerrar" @click="close">✕</button>
 
-          <!-- SPOTLIGHT layout: big image left, text right -->
           <template v-if="ad.type === 'spotlight'">
-            <div v-if="ad.imageUrl" class="landing-ads-spotlight__image">
+            <div v-if="ad.imageUrl" class="landing-ads-frame landing-ads-frame--spotlight">
               <img :src="ad.imageUrl" :alt="ad.title || 'Promoción LUXTIMEE'" />
             </div>
-            <div class="landing-ads-spotlight__content">
+            <div class="landing-ads-copy">
               <p v-if="ad.eyebrow" class="landing-ads-eyebrow">{{ ad.eyebrow }}</p>
               <h2 class="landing-ads-title">{{ ad.title }}</h2>
               <p v-if="ad.body" class="landing-ads-body">{{ ad.body }}</p>
@@ -65,12 +73,11 @@ onMounted(() => {
             </div>
           </template>
 
-          <!-- EDITORIAL layout: full-width image top, centered text below -->
           <template v-else-if="ad.type === 'editorial'">
-            <div v-if="ad.imageUrl" class="landing-ads-editorial__image">
+            <div v-if="ad.imageUrl" class="landing-ads-frame landing-ads-frame--editorial">
               <img :src="ad.imageUrl" :alt="ad.title || 'Promoción LUXTIMEE'" />
             </div>
-            <div class="landing-ads-editorial__content">
+            <div class="landing-ads-copy landing-ads-copy--center">
               <p v-if="ad.eyebrow" class="landing-ads-eyebrow">{{ ad.eyebrow }}</p>
               <h2 class="landing-ads-title">{{ ad.title }}</h2>
               <p v-if="ad.body" class="landing-ads-body">{{ ad.body }}</p>
@@ -85,12 +92,11 @@ onMounted(() => {
             </div>
           </template>
 
-          <!-- STORY layout: full-bleed background image, text overlay at bottom -->
           <template v-else>
-            <div v-if="ad.imageUrl" class="landing-ads-story__bg">
+            <div v-if="ad.imageUrl" class="landing-ads-frame landing-ads-frame--story">
               <img :src="ad.imageUrl" :alt="ad.title || 'Promoción LUXTIMEE'" />
             </div>
-            <div class="landing-ads-story__content">
+            <div class="landing-ads-copy landing-ads-copy--center">
               <p v-if="ad.eyebrow" class="landing-ads-eyebrow">{{ ad.eyebrow }}</p>
               <h2 class="landing-ads-title">{{ ad.title }}</h2>
               <p v-if="ad.body" class="landing-ads-body">{{ ad.body }}</p>
@@ -98,7 +104,7 @@ onMounted(() => {
                 <NuxtLink v-if="ad.ctaLink" :to="ad.ctaLink" class="landing-ads-cta" @click="close">
                   {{ ad.ctaText || 'Ver más' }}
                 </NuxtLink>
-                <button v-if="activeAds.length > 1" type="button" class="landing-ads-skip landing-ads-skip--light" @click="next">
+                <button v-if="activeAds.length > 1" type="button" class="landing-ads-skip" @click="next">
                   {{ currentIndex < activeAds.length - 1 ? 'Siguiente →' : 'Cerrar' }}
                 </button>
               </div>
@@ -125,8 +131,8 @@ onMounted(() => {
 .landing-ads-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1000;
-  background: rgba(0, 0, 0, 0.75);
+  z-index: 100001;
+  background: rgba(0, 0, 0, 0.78);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -135,224 +141,268 @@ onMounted(() => {
 
 .landing-ads-modal {
   position: relative;
-  background: #0c0c0c;
-  border: 1px solid #2a2a2a;
-  border-radius: 12px;
-  overflow: hidden;
-  max-width: 900px;
-  width: 100%;
-  max-height: 90vh;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8);
+  background: #0b0b0b;
+  border: 1px solid rgba(201, 168, 76, 0.45);
+  border-radius: 18px;
+  overflow: auto;
+  max-width: 920px;
+  width: min(920px, 100%);
+  max-height: min(92dvh, 860px);
+  box-shadow:
+    0 0 0 1px rgba(201, 168, 76, 0.12),
+    0 28px 80px rgba(0, 0, 0, 0.72),
+    0 0 48px rgba(201, 168, 76, 0.16);
 }
 
-/* ── CLOSE ── */
 .landing-ads-close {
   position: absolute;
   top: 12px;
-  right: 14px;
+  right: 12px;
   z-index: 10;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.62);
+  border: 1px solid rgba(201, 168, 76, 0.45);
   color: #fff;
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  font-size: 0.75rem;
+  width: 36px;
+  height: 36px;
+  font-size: 0.8rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
 }
-.landing-ads-close:hover { background: rgba(255, 255, 255, 0.15); }
 
-/* ── COMMON TEXT ── */
+.landing-ads-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  background:
+    radial-gradient(ellipse at center, #242424 0%, #0a0a0a 72%);
+  min-width: 0;
+}
+
+.landing-ads-frame img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
+.landing-ads-copy {
+  padding: 28px 28px 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.landing-ads-copy--center {
+  text-align: center;
+}
+
+.landing-ads-copy--center .landing-ads-actions {
+  justify-content: center;
+}
+
 .landing-ads-eyebrow {
-  font-size: 0.7rem;
-  letter-spacing: 0.14em;
+  display: inline-flex;
+  align-self: flex-start;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--color-gold, #c9a84c);
-  margin: 0 0 6px;
+  color: #e6c36a;
+  margin: 0 0 10px;
+  padding: 4px 10px;
+  border: 1px solid rgba(201, 168, 76, 0.45);
+  border-radius: 999px;
+}
+
+.landing-ads-copy--center .landing-ads-eyebrow {
+  align-self: center;
 }
 
 .landing-ads-title {
-  font-size: clamp(1.25rem, 4vw, 2rem);
+  font-size: clamp(1.45rem, 3.4vw, 2.15rem);
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.12;
   color: #fff;
   margin: 0 0 10px;
+  overflow-wrap: anywhere;
 }
 
 .landing-ads-body {
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.7);
-  line-height: 1.6;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.74);
+  line-height: 1.55;
   margin: 0 0 18px;
+  overflow-wrap: anywhere;
 }
 
 .landing-ads-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
 }
 
 .landing-ads-cta {
   display: inline-block;
-  padding: 10px 22px;
-  background: var(--color-gold, #c9a84c);
-  color: #000;
+  padding: 12px 26px;
+  background: linear-gradient(180deg, #e8c56b 0%, #c9a84c 100%);
+  color: #111;
   font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-weight: 800;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  border-radius: 4px;
+  border-radius: 999px;
   text-decoration: none;
-  transition: opacity 0.2s;
+  box-shadow: 0 8px 22px rgba(201, 168, 76, 0.28);
 }
-.landing-ads-cta:hover { opacity: 0.85; }
 
 .landing-ads-skip {
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.85rem;
   cursor: pointer;
   padding: 0;
-  transition: color 0.2s;
 }
-.landing-ads-skip:hover { color: #fff; }
-.landing-ads-skip--light { color: rgba(0, 0, 0, 0.5); }
-.landing-ads-skip--light:hover { color: #000; }
 
-/* ── DOTS ── */
 .landing-ads-dots {
   display: flex;
   justify-content: center;
-  gap: 6px;
-  padding: 12px 0 8px;
+  gap: 8px;
+  padding: 8px 0 16px;
 }
-.landing-ads-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.landing-ads-dot--active { background: var(--color-gold, #c9a84c); }
 
-/* ── SPOTLIGHT ── */
-.landing-ads-modal--spotlight .landing-ads-spotlight__image,
-.landing-ads-modal--spotlight .landing-ads-spotlight__content {
-  display: flex;
+.landing-ads-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.28);
+  cursor: pointer;
 }
+
+.landing-ads-dot--active {
+  background: #e6c36a;
+  transform: scale(1.15);
+}
+
 .landing-ads-modal--spotlight {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr auto;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  grid-template-rows: auto auto;
 }
-.landing-ads-spotlight__image {
+
+.landing-ads-frame--spotlight {
   grid-column: 1;
   grid-row: 1;
-  max-height: 500px;
-  overflow: hidden;
+  height: min(520px, 70vh);
 }
-.landing-ads-spotlight__image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.landing-ads-spotlight__content {
+
+.landing-ads-modal--spotlight .landing-ads-copy {
   grid-column: 2;
   grid-row: 1;
-  padding: 36px 28px;
-  flex-direction: column;
-  justify-content: center;
 }
+
 .landing-ads-modal--spotlight .landing-ads-dots {
   grid-column: 1 / -1;
 }
-.landing-ads-modal--spotlight .landing-ads-close {
-  top: 12px;
-  right: 14px;
-}
 
-/* ── EDITORIAL ── */
 .landing-ads-modal--editorial {
   display: flex;
   flex-direction: column;
-  max-width: 640px;
-}
-.landing-ads-editorial__image {
-  height: 260px;
-  overflow: hidden;
-}
-.landing-ads-editorial__image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.landing-ads-editorial__content {
-  padding: 28px 28px 16px;
-  text-align: center;
-}
-.landing-ads-editorial__content .landing-ads-actions {
-  justify-content: center;
+  max-width: 680px;
 }
 
-/* ── STORY ── */
+.landing-ads-frame--editorial {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  max-height: 46vh;
+}
+
 .landing-ads-modal--story {
-  max-width: 440px;
-  min-height: 520px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-}
-.landing-ads-story__bg {
-  position: absolute;
-  inset: 0;
-}
-.landing-ads-story__bg img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.landing-ads-story__content {
-  position: relative;
-  z-index: 2;
-  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
-  padding: 36px 24px 20px;
+  max-width: 460px;
 }
 
-/* ── TRANSITION ── */
+.landing-ads-frame--story {
+  aspect-ratio: 4 / 5;
+  width: 100%;
+  max-height: 54vh;
+}
+
 .landing-ads-fade-enter-active,
 .landing-ads-fade-leave-active {
   transition: opacity 0.3s ease;
 }
+
 .landing-ads-fade-enter-from,
 .landing-ads-fade-leave-to {
   opacity: 0;
 }
 
-/* ── RESPONSIVE ── */
-@media (max-width: 640px) {
+@media (max-width: 800px) {
+  .landing-ads-overlay {
+    padding: 10px;
+    align-items: flex-end;
+  }
+
+  .landing-ads-modal,
+  .landing-ads-modal--editorial,
+  .landing-ads-modal--story {
+    max-width: 100%;
+    max-height: min(94dvh, 860px);
+    border-radius: 16px 16px 12px 12px;
+  }
+
   .landing-ads-modal--spotlight {
     grid-template-columns: 1fr;
   }
-  .landing-ads-spotlight__image {
+
+  .landing-ads-frame--spotlight,
+  .landing-ads-modal--spotlight .landing-ads-copy {
+    grid-column: 1;
+  }
+
+  .landing-ads-frame--spotlight {
     grid-column: 1;
     grid-row: 1;
-    max-height: 220px;
+    height: min(42vh, 280px);
+    aspect-ratio: auto;
+    max-height: none;
   }
-  .landing-ads-spotlight__content {
-    grid-column: 1;
+
+  .landing-ads-modal--spotlight .landing-ads-copy {
     grid-row: 2;
-    padding: 20px 18px;
   }
-  .landing-ads-modal--story {
-    max-width: 100%;
-    min-height: 420px;
+
+  .landing-ads-frame--editorial {
+    aspect-ratio: 16 / 10;
+    max-height: 38vh;
+  }
+
+  .landing-ads-frame--story {
+    aspect-ratio: 4 / 5;
+    max-height: 46vh;
+  }
+
+  .landing-ads-copy {
+    padding: 18px 16px 4px;
+  }
+
+  .landing-ads-cta {
+    width: 100%;
+    text-align: center;
+  }
+
+  .landing-ads-actions {
+    width: 100%;
   }
 }
 </style>

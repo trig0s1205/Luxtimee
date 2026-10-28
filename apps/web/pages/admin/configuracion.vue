@@ -21,6 +21,7 @@ type HeroImageVariant = 'desktop' | 'mobile';
 definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const auth = useAuthStore();
+
 const api = useApi();
 const toast = useToast();
 const { resolve: resolveMedia } = useMediaUrl();
