@@ -164,14 +164,14 @@ export class OrdersService {
     const filters: Prisma.OrderWhereInput[] = [];
     if (since) filters.push(this.buildPeriodFilter(since));
     if (options.status) filters.push({ status: options.status });
-    if (options.type) filters.push({ type: options.type });
     const searchWhere = buildOrderSearchWhere(options.search);
     if (searchWhere) filters.push(searchWhere);
 
-    if (!options.type) filters.push({ type: { not: OrderType.ESPECIAL } });
-
     const where: Prisma.OrderWhereInput = {
       stage: OrderStage.ORDER,
+      ...(options.type
+        ? { type: options.type }
+        : { type: { not: OrderType.ESPECIAL } }),
       ...(filters.length ? { AND: filters } : {}),
     };
 
