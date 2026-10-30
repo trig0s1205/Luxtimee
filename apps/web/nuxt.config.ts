@@ -1,6 +1,14 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  FRESH_SWR_SECONDS,
+  HASHED_ASSET_CACHE_CONTROL,
+  LEGAL_PAGE_SWR_SECONDS,
+  PUBLIC_IMAGE_CACHE_CONTROL,
+  STATIC_PAGE_SWR_SECONDS,
+  VERCEL_FUNCTION_REGIONS,
+} from './utils/public-cache';
 import { formatDocumentTitle } from './utils/seo';
 import { resolveStaffLoginSlug } from './utils/staff-login';
 
@@ -56,13 +64,29 @@ export default defineNuxtConfig({
     '~/assets/css/storefront-light-fixes.css',
   ],
   routeRules: {
-    '/': { swr: false },
-    '/catalogo': { swr: false },
+    '/': { swr: FRESH_SWR_SECONDS },
+    '/catalogo': { swr: FRESH_SWR_SECONDS },
+    '/producto/**': { swr: FRESH_SWR_SECONDS },
+    '/relojeria-bucaramanga': { swr: STATIC_PAGE_SWR_SECONDS },
+    '/sorteos': { swr: STATIC_PAGE_SWR_SECONDS },
+    '/vigilancia': { swr: STATIC_PAGE_SWR_SECONDS },
+    '/politica-de-privacidad': { swr: LEGAL_PAGE_SWR_SECONDS },
+    '/terminos-y-condiciones': { swr: LEGAL_PAGE_SWR_SECONDS },
+    '/legal/**': { swr: LEGAL_PAGE_SWR_SECONDS },
+    '/_nuxt/**': { headers: { 'cache-control': HASHED_ASSET_CACHE_CONTROL } },
+    '/images/**': { headers: { 'cache-control': PUBLIC_IMAGE_CACHE_CONTROL } },
+    '/favicon.ico': { headers: { 'cache-control': PUBLIC_IMAGE_CACHE_CONTROL } },
+    '/favicon.png': { headers: { 'cache-control': PUBLIC_IMAGE_CACHE_CONTROL } },
+    '/apple-touch-icon.png': { headers: { 'cache-control': PUBLIC_IMAGE_CACHE_CONTROL } },
+    '/og-image.png': { headers: { 'cache-control': PUBLIC_IMAGE_CACHE_CONTROL } },
     '/admin/**': { ssr: false },
     // /api/v1 lo atiende server/routes/api/v1. Un rewrite externo de Vercel no reenvía Cookie.
     ...(apiUpstream
       ? {
-          '/uploads/**': { proxy: `${apiUpstream}/uploads/**` },
+          '/uploads/**': {
+            proxy: `${apiUpstream}/uploads/**`,
+            headers: { 'cache-control': PUBLIC_IMAGE_CACHE_CONTROL },
+          },
         }
       : {}),
   },
@@ -152,6 +176,9 @@ export default defineNuxtConfig({
     },
   },
   nitro: {
+    vercel: {
+      regions: [...VERCEL_FUNCTION_REGIONS],
+    },
     devProxy: {
       '/uploads': {
         target: 'http://127.0.0.1:3001/uploads',

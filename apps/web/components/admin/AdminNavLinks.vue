@@ -42,6 +42,7 @@ const linksAfterPedidos: AdminNavLink[] = [
 const pedidosLinks = [
   { to: '/admin/pedidos/detal', label: 'Al detal' },
   { to: '/admin/pedidos/mayor', label: 'Al mayor' },
+  { to: '/admin/pedidos/especiales', label: 'Ventas especiales' },
 ];
 
 function isActive(path: string) {

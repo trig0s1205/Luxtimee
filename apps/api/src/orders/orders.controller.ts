@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -13,6 +14,10 @@ import { OrdersService } from './orders.service';
 import { TransitionOrderDto } from '../pre-orders/dto/pre-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { OrdersQueryDto } from './dto/orders-query.dto';
+import {
+  CreateSpecialSaleDto,
+  SpecialSalesQueryDto,
+} from './dto/special-sale.dto';
 import { Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 
@@ -28,6 +33,17 @@ export class OrdersController {
       page ? Number(page) : 1,
       limit ? Number(limit) : 25,
     );
+  }
+
+  @Get('special-sales')
+  findSpecialSales(@Query() query: SpecialSalesQueryDto) {
+    return this.ordersService.findSpecialSales(query);
+  }
+
+  @Post('special-sales')
+  @Audit('CREATE', 'Order')
+  createSpecialSale(@Body() dto: CreateSpecialSaleDto) {
+    return this.ordersService.createSpecialSale(dto);
   }
 
   @Get()

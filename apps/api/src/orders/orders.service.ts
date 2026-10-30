@@ -5,9 +5,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  OrderSource,
   OrderStage,
   OrderStatus,
   OrderType,
+  PriceType,
   Prisma,
   Role,
 } from '@prisma/client';
@@ -18,6 +20,13 @@ import { assertValidTransition } from './state-machine';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import type { OrdersPeriod } from './dto/orders-query.dto';
 import { buildOrderSearchWhere } from './order-search.util';
+import type { SpecialSalesQueryDto } from './dto/special-sale.dto';
+import { CreateSpecialSaleDto } from './dto/special-sale.dto';
+import { generateReadableId } from './order-pricing.util';
+import {
+  assertSpecialSaleInput,
+  computeSpecialSaleProfit,
+} from './special-sale.util';
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
 import {
@@ -159,6 +168,8 @@ export class OrdersService {
     const searchWhere = buildOrderSearchWhere(options.search);
     if (searchWhere) filters.push(searchWhere);
 
+    if (!options.type) filters.push({ type: { not: OrderType.ESPECIAL } });
+
     const where: Prisma.OrderWhereInput = {
       stage: OrderStage.ORDER,
       ...(filters.length ? { AND: filters } : {}),
@@ -297,6 +308,7 @@ export class OrdersService {
     const where: Prisma.OrderWhereInput = {
       stage: OrderStage.ORDER,
       status: OrderStatus.ENTREGADO,
+      type: { not: OrderType.ESPECIAL },
     };
 
     const [total, orders] = await Promise.all([
@@ -311,6 +323,162 @@ export class OrdersService {
     ]);
 
     return { items: orders.map((o) => this.mapOrder(o)), total, page, limit };
+  }
+
+  async findSpecialSales(query: SpecialSalesQueryDto = {}) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const search = query.search?.trim();
+    const where: Prisma.OrderWhereInput = {
+      stage: OrderStage.ORDER,
+      type: OrderType.ESPECIAL,
+      canceledAt: null,
+      ...(search
+        ? {
+            OR: [
+              { specialNote: { contains: search, mode: 'insensitive' } },
+              {
+                specialSkuSnapshot: { contains: search, mode: 'insensitive' },
+              },
+              { readableId: { contains: search, mode: 'insensitive' } },
+              {
+                items: {
+                  some: {
+                    productName: { contains: search, mode: 'insensitive' },
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const [total, orders] = await Promise.all([
+      this.prisma.order.count({ where }),
+      this.prisma.order.findMany({
+        where,
+        include: orderInclude,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      items: orders.map((order) => this.toSpecialSale(order)),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async createSpecialSale(dto: CreateSpecialSaleDto) {
+    const { note, salePrice } = assertSpecialSaleInput({
+      salePrice: dto.salePrice,
+      note: dto.note,
+    });
+    const watch = await this.prisma.watch.findFirst({
+      where: { id: dto.watchId, deletedAt: null },
+      include: { brand: { select: { name: true } } },
+    });
+    if (!watch) {
+      throw new BadRequestException('El reloj no existe');
+    }
+    if (watch.stock <= 0) {
+      throw new BadRequestException('Sin stock para este reloj');
+    }
+    if (watch.cost == null || watch.cost <= 0) {
+      throw new BadRequestException('El reloj no tiene costo registrado');
+    }
+
+    const profit = computeSpecialSaleProfit(salePrice, watch.cost);
+    const productName = `${watch.brand.name} ${watch.model}`.trim();
+    const now = new Date();
+    const readableId = generateReadableId((await this.prisma.order.count()) + 1);
+
+    const order = await this.prisma.$transaction(async (tx) => {
+      await reserveWatchStock(tx, [{ watchId: watch.id, quantity: 1 }], {
+        message: 'Sin stock para este reloj',
+      });
+      return tx.order.create({
+        data: {
+          readableId,
+          stage: OrderStage.ORDER,
+          status: OrderStatus.ENTREGADO,
+          type: OrderType.ESPECIAL,
+          source: OrderSource.WEB,
+          customerName: '',
+          customerAddress: '',
+          customerEmail: '',
+          customerPhone: null,
+          shippingCost: 0,
+          depositExpected: 0,
+          depositConfirmed: false,
+          subtotal: salePrice,
+          total: salePrice,
+          paidAt: now,
+          deliveredAt: now,
+          specialNote: note,
+          specialSalePrice: salePrice,
+          specialCostSnapshot: watch.cost,
+          specialListPriceSnapshot: watch.retailPrice,
+          specialSkuSnapshot: watch.sku,
+          specialProfit: profit,
+          items: {
+            create: [
+              {
+                watchId: watch.id,
+                productName,
+                productSku: watch.sku,
+                productRef: watch.sku,
+                productImage:
+                  watch.frontImageUrl ??
+                  watch.primaryImageUrl ??
+                  watch.images[0] ??
+                  null,
+                quantity: 1,
+                unitPrice: salePrice,
+                priceType: PriceType.RETAIL,
+              },
+            ],
+          },
+        },
+        include: orderInclude,
+      });
+    }, STOCK_TRANSACTION);
+
+    this.cache.invalidateTag(CACHE_TAGS.catalog);
+    return this.toSpecialSale(order);
+  }
+
+  private toSpecialSale(order: {
+    id: string;
+    readableId: string;
+    createdAt: Date;
+    total: number;
+    specialNote: string | null;
+    specialSalePrice: number | null;
+    specialCostSnapshot: number | null;
+    specialListPriceSnapshot: number | null;
+    specialSkuSnapshot: string | null;
+    specialProfit: number | null;
+    items: Array<{ productName: string; watch: { sku: string } }>;
+  }) {
+    const item = order.items[0];
+    const salePrice = order.specialSalePrice ?? order.total;
+    const cost = order.specialCostSnapshot ?? 0;
+    return {
+      id: order.id,
+      readableId: order.readableId,
+      createdAt: order.createdAt.toISOString(),
+      watchName: item?.productName ?? '',
+      sku: order.specialSkuSnapshot ?? item?.watch.sku ?? '',
+      listPrice: order.specialListPriceSnapshot ?? 0,
+      salePrice,
+      cost,
+      profit: order.specialProfit ?? salePrice - cost,
+      note: order.specialNote ?? '',
+    };
   }
 
   async updateOrder(id: string, dto: UpdateOrderDto) {

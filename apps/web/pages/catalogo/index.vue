@@ -55,20 +55,26 @@ function resetCatalogPaging() {
   mobilePage.value = 1;
 }
 
-const { data: brands } = await useCachedAsyncData('catalog-brands', () =>
+const shellLazy = import.meta.client;
+
+const brandsAsync = useCachedAsyncData('catalog-brands', () =>
   $fetch<BrandDto[]>(`${apiBase}/brands/public`).catch(() => []),
-  { staleTime: STOREFRONT_CACHE_MS.static },
+  { lazy: shellLazy, staleTime: STOREFRONT_CACHE_MS.static },
 );
 
-const { data: categories } = await useCachedAsyncData('catalog-categories', () =>
+const categoriesAsync = useCachedAsyncData('catalog-categories', () =>
   $fetch<CategoryDto[]>(`${apiBase}/categories/public`).catch(() => []),
-  { staleTime: STOREFRONT_CACHE_MS.static },
+  { lazy: shellLazy, staleTime: STOREFRONT_CACHE_MS.static },
 );
 
-const { data: mechanismsData } = await useCachedAsyncData('catalog-mechanisms', () =>
+const mechanismsAsync = useCachedAsyncData('catalog-mechanisms', () =>
   $fetch<MechanismDto[]>(`${apiBase}/mechanisms/public`).catch(() => []),
-  { staleTime: STOREFRONT_CACHE_MS.static },
+  { lazy: shellLazy, staleTime: STOREFRONT_CACHE_MS.static },
 );
+
+const { data: brands } = brandsAsync;
+const { data: categories } = categoriesAsync;
+const { data: mechanismsData } = mechanismsAsync;
 
 const movements = computed(() => mechanismsData.value ?? []);
 
@@ -94,7 +100,7 @@ function buildCatalogParams() {
 
 const catalogKey = computed(() => `catalog-products-v2-${JSON.stringify(buildCatalogParams())}`);
 
-const { data: catalogResult, pending, refresh } = await useCachedAsyncData<PaginatedResponse<WatchPublicDto>>(
+const catalogAsync = useCachedAsyncData<PaginatedResponse<WatchPublicDto>>(
   catalogKey,
   () =>
     $fetch<PaginatedResponse<WatchPublicDto>>(`${apiBase}/catalog`, {
@@ -105,11 +111,16 @@ const { data: catalogResult, pending, refresh } = await useCachedAsyncData<Pagin
       return { data: [], total: 0, page: 1, limit: DESKTOP_PAGE_SIZE };
     }),
   {
+    lazy: shellLazy,
     default: (): PaginatedResponse<WatchPublicDto> => ({ data: [], total: 0, page: 1, limit: DESKTOP_PAGE_SIZE }),
     staleTime: STOREFRONT_CACHE_MS.catalog,
     watch: [catalogKey],
   },
 );
+
+const { data: catalogResult, pending, refresh } = catalogAsync;
+
+await Promise.all([brandsAsync, categoriesAsync, mechanismsAsync, catalogAsync]);
 
 const products = computed(() => catalogResult.value?.data ?? []);
 const total = computed(() => catalogResult.value?.total ?? 0);

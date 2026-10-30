@@ -1,9 +1,9 @@
-/** TTL del cliente alineado con la cache pública del API. */
+/** TTL del cliente. Catálogo, ficha, stock y precio: ≤ 60s. El resto puede vivir más. */
 export const STOREFRONT_CACHE_MS = {
   static: 10 * 60 * 1000,
-  catalog: 2 * 60 * 1000,
-  product: 3 * 60 * 1000,
-  homepage: 0,
+  catalog: 60 * 1000,
+  product: 60 * 1000,
+  homepage: 10 * 60 * 1000,
 } as const;
 
 export const HOME_CMS_ASYNC_KEY = 'home-cms-config-v7';

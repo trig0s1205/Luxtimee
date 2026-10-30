@@ -19,7 +19,7 @@ const { data: platform } = await useCachedAsyncData('footer-platform', () =>
     tiktokUrl: 'https://www.tiktok.com/',
     facebookUrl: '',
   })),
-  { staleTime: STOREFRONT_CACHE_MS.static },
+  { lazy: true, server: false, staleTime: STOREFRONT_CACHE_MS.static },
 );
 </script>
 

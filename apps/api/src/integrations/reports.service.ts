@@ -281,6 +281,7 @@ export class ReportsService {
     const orderTypeLabels: Record<string, string> = {
       DETAL: 'Al detal',
       MAYORISTA: 'Mayorista',
+      ESPECIAL: 'Venta especial',
     };
     const orderStatusLabels: Record<string, string> = {
       PENDIENTE: 'Pendiente',
@@ -519,6 +520,7 @@ export class ReportsService {
       const orderTypeLabels: Record<string, string> = {
         DETAL: 'Al detal',
         MAYORISTA: 'Mayor.',
+        ESPECIAL: 'Especial',
       };
 
       let tableY = cy;

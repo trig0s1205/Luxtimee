@@ -47,7 +47,51 @@ pnpm --filter @luxtime/web test:e2e   # requiere dev:web activo
 
 ## Despliegue
 
-Ver `docs/PROGRESO.md` y `.github/workflows/`. No se despliega automáticamente sin credenciales GCP/Vercel.
+Ver `.github/workflows/`. No se despliega automáticamente sin credenciales GCP/Vercel.
+
+## Rendimiento del storefront
+
+La tienda (`apps/web`) está en Vercel, detrás de Cloudflare. La API (`apps/api`) está en Cloud Run, región `southamerica-east1` (São Paulo).
+
+### Antes
+
+`routeRules` tenía `swr: false` en `/` y `/catalogo`. Cada visita, incluida la primera desde Google, generaba el HTML en el servidor y esperaba a la API. Con la función de Vercel en `iad1` (Virginia) y Cloud Run a escala cero, ese camino sumaba el salto de región y un arranque en frío de unos 2s. El TTFB observado era ~3,3s.
+
+El home pedía la configuración con `cache: 'no-store'` y un query `_: Date.now()` en cada hidratación, así que ni el navegador ni la caché del API podían responder. El bloque de relojes del home pedía el catálogo solo en el cliente (`server: false`): esas fichas no iban en el HTML.
+
+### Ahora
+
+| Qué | Caché | Frescura de stock y precio |
+| --- | --- | --- |
+| `/`, `/catalogo`, `/producto/**` | SWR 60s (ISR en Vercel) | El HTML cacheado incluye el SSR. Al hidratar, el cliente vuelve a pedir el dato y pinta el stock y el precio actuales. |
+| Páginas estáticas (`/sorteos`, `/relojeria-bucaramanga`, `/vigilancia`) | SWR 1h | No muestran stock ni precio. |
+| Legal | SWR 24h | No muestran stock ni precio. |
+| `/_nuxt/**` | 1 año, `immutable` | Assets con hash. |
+| `/images/**`, favicon, iconos, `/uploads/**` | 30 días | En Cloud Run, `/uploads` usa `maxAge: 30d`. En producción las fotos van por Cloudinary. |
+| Configuración del home | TTL de cliente 10 min, sin `no-store` ni query de cache-bust | No es stock ni precio. |
+| Carrito, checkout, mayoristas, admin, certificados | Sin SWR | Sesión, envío o datos del cliente. |
+
+En el navegador, home, catálogo y ficha no esperan al API: entra el shell y la grilla usa un esqueleto hasta que llegan los datos. En el servidor la misma petición sí espera, para que el HTML guardado por SWR lleve títulos, precios y fichas. El carrusel de relacionados de la ficha es solo cliente, para no sumar otro listado al TTFB.
+
+Las funciones de Vercel quedan en `gru1` (`nitro.vercel.regions` y `apps/web/vercel.json`), al lado de `southamerica-east1`.
+
+### Cloud Run
+
+`.github/workflows/deploy-api.yml` despliega con `--min-instances 0`. La primera petición tras un silencio paga el arranque en frío aunque el HTML de Vercel esté caliente: el refetch de stock y un miss de SWR siguen yendo a la API.
+
+Recomendación para producción:
+
+```bash
+gcloud run services update luxtime-api \
+  --region southamerica-east1 \
+  --min-instances 1
+```
+
+Una instancia mínima evita el arranque en frío. Tiene costo fijo. La API ya está en `southamerica-east1` y el SSR apunta a `gru1`.
+
+### Cloudflare
+
+La caché por defecto de Cloudflare no guarda HTML. El SWR lo resuelve Vercel: dentro de los 60s no vuelve a ejecutar el SSR. Si el HTML debe salir desde el edge de Cloudflare, una cache rule para `/`, `/catalogo` y `/producto/*` puede respetar el `Cache-Control` de origen y excluir `/api`, `/admin`, `/carrito`, `/checkout` y `/mayoristas`.
 
 ## Mocks
 
