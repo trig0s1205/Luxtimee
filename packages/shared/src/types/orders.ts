@@ -142,6 +142,32 @@ export interface PreOrdersListDto {
   limit: number;
 }
 
+export interface CreateSpecialSaleDto {
+  watchId: string;
+  salePrice: number;
+  note: string;
+}
+
+export interface SpecialSaleDto {
+  id: string;
+  readableId: string;
+  createdAt: string;
+  watchName: string;
+  sku: string;
+  listPrice: number;
+  salePrice: number;
+  cost: number;
+  profit: number;
+  note: string;
+}
+
+export interface SpecialSalesListDto {
+  items: SpecialSaleDto[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface PricingSummary {
   type: OrderType;
   subtotal: number;

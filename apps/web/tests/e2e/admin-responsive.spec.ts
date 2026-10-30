@@ -10,6 +10,7 @@ const ROUTES = [
   '/admin/pre-pedidos/nuevo',
   '/admin/pedidos/detal',
   '/admin/pedidos/mayor',
+  '/admin/pedidos/especiales',
   '/admin/ventas',
   '/admin/socios-mayoristas',
   '/admin/mayorista-ofertas',

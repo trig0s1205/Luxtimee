@@ -7,8 +7,8 @@ import {
   PUBLIC_IMAGE_CACHE_CONTROL,
   STATIC_PAGE_SWR_SECONDS,
   VERCEL_FUNCTION_REGIONS,
-} from './public-cache.ts';
-import { STOREFRONT_CACHE_MS } from './storefront-cache.ts';
+} from './public-cache';
+import { STOREFRONT_CACHE_MS } from './storefront-cache';
 
 test('catálogo y ficha no superan la ventana SWR', () => {
   assert.equal(FRESH_SWR_SECONDS, 60);
