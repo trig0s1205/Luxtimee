@@ -1,29 +1,19 @@
 <script setup lang="ts">
-import type { HomepageFeaturedConfig } from '@luxtime/shared';
-import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
+import type { HomepageFeaturedConfig, WatchPublicDto } from '@luxtime/shared';
 
 const props = defineProps<{
   config: HomepageFeaturedConfig;
   /** Menos espacio arriba cuando va justo debajo del banner */
   flushTop?: boolean;
+  watches?: WatchPublicDto[];
+  pending?: boolean;
 }>();
 
 const watchesEnabled = computed(() => props.config.watchesEnabled === true);
+const watches = computed(() => props.watches ?? []);
+const showSkeleton = computed(() => watchesEnabled.value && !!props.pending && watches.value.length === 0);
 
-const catalog = useCatalogData();
 const rail = ref<HTMLElement | null>(null);
-
-const { data } = useCachedAsyncData(
-  () => (watchesEnabled.value ? 'home-featured-watches' : 'home-featured-watches-off'),
-  async () => {
-    if (!watchesEnabled.value) return [];
-    const res = await catalog.listCatalog({ limit: 8, available: 'true', sort: 'newest' });
-    return res.data.filter((watch) => watch.stock > 0).slice(0, 8);
-  },
-  { server: false, lazy: true, staleTime: STOREFRONT_CACHE_MS.catalog },
-);
-
-const watches = computed(() => data.value ?? []);
 
 function scrollRail(direction: -1 | 1) {
   const el = rail.value;
@@ -56,7 +46,13 @@ function scrollRail(direction: -1 | 1) {
       </NuxtLink>
     </div>
 
-    <div v-if="watchesEnabled && watches.length" class="lux-collection__showcase">
+    <div v-if="showSkeleton" class="lux-collection__showcase lux-collection__showcase--skeleton" aria-hidden="true">
+      <div class="lux-collection__rail">
+        <div v-for="i in 4" :key="i" class="lux-collection__card lux-collection__skeleton" />
+      </div>
+    </div>
+
+    <div v-else-if="watchesEnabled && watches.length" class="lux-collection__showcase">
       <button
         v-if="watches.length > 1"
         type="button"
@@ -226,6 +222,24 @@ function scrollRail(direction: -1 | 1) {
 .lux-collection__card {
   flex: 0 0 min(240px, 72vw);
   scroll-snap-align: start;
+}
+
+.lux-collection__skeleton {
+  aspect-ratio: 3 / 4;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.09) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: lux-collection-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes lux-collection-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .lux-collection__nav {
