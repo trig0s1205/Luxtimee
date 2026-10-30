@@ -25,6 +25,19 @@
   color: var(--white-dim);
 }
 
+[data-theme="light"] .page-back.nav-back {
+  background: transparent;
+  border: none;
+  color: #8a6a32;
+}
+
+[data-theme="light"] .page-back.nav-back:hover,
+[data-theme="light"] .page-back.nav-back:focus-visible {
+  background: transparent;
+  border: none;
+  color: #141414;
+}
+
 [data-theme="light"] .nav-back:hover,
 [data-theme="light"] .nav-back:focus-visible {
   color: var(--white);

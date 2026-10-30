@@ -21,6 +21,7 @@ import { extractApiErrorMessage } from '~/utils/api-error';
 import { orderDeliveryNotes, orderHasDeliveryNotes } from '~/utils/order-delivery-notes';
 import { formatOrderExtras } from '~/utils/wholesale-extras';
 import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
+import { searchEmptyMessage } from '~/utils/search-empty';
 
 const props = defineProps<{
   orderType: OrderType;
@@ -37,6 +38,9 @@ const PAGE_SIZE = 15;
 const period = ref<OrderListPeriod>('day');
 const filter = ref<OrderStatus | 'ALL'>('ALL');
 const page = ref(1);
+const searchInput = ref('');
+const searchTerm = ref('');
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
 const updatingId = ref<string | null>(null);
 const expandedIds = ref<Set<string>>(new Set());
 const warrantyItemId = ref<string | null>(null);
@@ -74,7 +78,17 @@ function buildOrdersUrl() {
     type: props.orderType,
   });
   if (filter.value !== 'ALL') params.set('status', filter.value);
+  if (searchTerm.value) params.set('search', searchTerm.value);
   return `/orders?${params}`;
+}
+
+function onSearchInput() {
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    searchTerm.value = searchInput.value.trim();
+    page.value = 1;
+    expandedIds.value = new Set();
+  }, 300);
 }
 
 const emptyList: OrdersListDto = {
@@ -87,7 +101,7 @@ const emptyList: OrdersListDto = {
 };
 
 const dataKey = computed(() =>
-  `admin-orders-${props.orderType.toLowerCase()}-${period.value}-${filter.value}-${page.value}`,
+  `admin-orders-${props.orderType.toLowerCase()}-${period.value}-${filter.value}-${searchTerm.value}-${page.value}`,
 );
 
 const { data: ordersData, refresh, pending } = useAdminCachedData(
@@ -107,6 +121,12 @@ const totalPages = computed(() => Math.max(1, Math.ceil(totalOrders.value / PAGE
 const periodLabel = computed(
   () => periodOptions.find((item) => item.key === period.value)?.label ?? 'Hoy',
 );
+const searchMiss = computed(() => searchEmptyMessage({
+  term: searchTerm.value,
+  pending: pending.value,
+  count: orders.value.length,
+  message: 'No se encontraron pedidos',
+}));
 
 function orderSku(order: OrderDto) {
   const skus = order.items.map((item) => item.productSku).filter(Boolean);
@@ -283,6 +303,15 @@ useSeoMeta({ title: props.seoTitle });
       :title="`${title} (${totalOrders})`"
     />
     <p class="admin-records-period-label">{{ periodLabel }}</p>
+
+    <div class="admin-orders-search">
+      <UiLuxInput
+        v-model="searchInput"
+        placeholder="Buscar por SKU, cliente o pedido..."
+        @input="onSearchInput"
+      />
+      <p v-if="searchMiss" class="admin-search-empty" role="status">{{ searchMiss }}</p>
+    </div>
 
     <div class="admin-records-toolbar">
       <UiAdminRefreshButton :loading="pending" @click="refresh()" />
@@ -527,7 +556,7 @@ useSeoMeta({ title: props.seoTitle });
         </div>
       </article>
 
-      <p v-if="!orders.length" class="admin-record-empty">
+      <p v-if="!orders.length && !searchTerm" class="admin-record-empty">
         {{ filter === 'ALL' ? 'No hay pedidos en este periodo.' : 'No hay pedidos con este estado.' }}
       </p>
     </div>

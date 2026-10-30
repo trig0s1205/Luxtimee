@@ -393,24 +393,26 @@ onUnmounted(() => {
             </svg>
           </div>
 
-          <div class="catalog-field" :class="{ 'is-active': minPrice !== '' }">
-            <input
-              v-model="minPrice"
-              type="number"
-              min="0"
-              class="catalog-select catalog-price-input"
-              :placeholder="t('catalog.minPrice')"
-            >
-          </div>
+          <div class="catalog-price-pair">
+            <div class="catalog-field" :class="{ 'is-active': minPrice !== '' }">
+              <input
+                v-model="minPrice"
+                type="number"
+                min="0"
+                class="catalog-select catalog-price-input"
+                :placeholder="t('catalog.minPrice')"
+              >
+            </div>
 
-          <div class="catalog-field" :class="{ 'is-active': maxPrice !== '' }">
-            <input
-              v-model="maxPrice"
-              type="number"
-              min="0"
-              class="catalog-select catalog-price-input"
-              :placeholder="t('catalog.maxPrice')"
-            >
+            <div class="catalog-field" :class="{ 'is-active': maxPrice !== '' }">
+              <input
+                v-model="maxPrice"
+                type="number"
+                min="0"
+                class="catalog-select catalog-price-input"
+                :placeholder="t('catalog.maxPrice')"
+              >
+            </div>
           </div>
 
         </div>
@@ -560,7 +562,7 @@ onUnmounted(() => {
         </Transition>
       </Teleport>
 
-      <section class="catalog-section">
+      <section class="catalog-section" :class="{ 'catalog-results--settled': hasActiveFilters }">
         <div v-if="isInitialLoad" class="catalog-skeleton-wrap" aria-hidden="true">
           <div class="catalog-skeleton-grid catalog-skeleton-grid--desktop">
             <div v-for="i in 6" :key="i" class="catalog-skeleton-card" />
@@ -579,6 +581,7 @@ onUnmounted(() => {
               v-for="(w, i) in products"
               :key="w.id"
               :watch="w"
+              :instant="hasActiveFilters"
               :delay="(i % 6) * 0.05"
             />
           </div>
@@ -597,6 +600,7 @@ onUnmounted(() => {
                 >
                   <CatalogProductCard
                     :watch="w"
+                    :instant="hasActiveFilters"
                     :delay="colIndex * 0.04"
                   />
                 </div>
@@ -639,9 +643,27 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.catalog-price-pair {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 12px;
+  min-width: max-content;
+}
+
 .catalog-price-input {
+  width: 168px;
+  min-width: 168px;
+  height: 44px;
   text-transform: none;
-  letter-spacing: normal;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.catalog-results--settled :deep(.products-card.reveal) {
+  opacity: 1;
+  transform: none;
+  transition: none;
 }
 
 .catalog-price-input::placeholder {

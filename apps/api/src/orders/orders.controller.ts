@@ -52,6 +52,7 @@ export class OrdersController {
       period: query.period,
       status: query.status,
       type: query.type,
+      search: query.search,
       page: query.page,
       limit: query.limit,
     });

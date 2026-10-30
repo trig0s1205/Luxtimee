@@ -84,7 +84,8 @@ export class ProductsService {
   }
 
   async update(id: string, dto: UpdateWatchDto, role: Role) {
-    await this.findOneStaff(id, role);
+    const existing = await this.prisma.watch.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Reloj no encontrado');
 
     const data: Prisma.WatchUpdateInput = {};
     if (dto.brandId) data.brand = { connect: { id: dto.brandId } };
@@ -111,6 +112,18 @@ export class ProductsService {
       if (dto.cost !== undefined) data.cost = dto.cost;
       if (dto.profitPercent !== undefined)
         data.profitPercent = dto.profitPercent;
+    }
+
+    if (
+      dto.retailPrice !== undefined &&
+      dto.retailPrice !== existing.retailPrice
+    ) {
+      data.sku = await this.watchesRepository.allocateReplacementSku({
+        watchId: existing.id,
+        currentSku: existing.sku,
+        retailPrice: dto.retailPrice,
+        gender: existing.gender,
+      });
     }
 
     const watch = await this.prisma.watch.update({

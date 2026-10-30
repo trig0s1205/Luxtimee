@@ -334,6 +334,7 @@ model OrderItem {
   orderId      String
   watchId      String
   productName  String
+  productSku   String
   productRef   String
   productImage String?
   quantity     Int
@@ -351,6 +352,7 @@ model OrderItem {
   warrantyHistory WarrantyHistory?
 
   @@index([orderId])
+  @@index([productSku])
 }
 
 model MarketingContact {

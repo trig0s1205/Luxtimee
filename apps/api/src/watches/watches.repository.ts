@@ -6,7 +6,12 @@ import type {
   InventoryInsightsDto,
 } from '@luxtime/shared';
 import { findWatchIdsByFlexibleSkuSearch } from '../common/utils/sku-search.util';
-import { formatWatchSku, resolveSkuPrefix } from './utils/sku.util';
+import { buildWatchTextSearchOr } from '../common/utils/watch-text-search.util';
+import {
+  formatWatchSku,
+  recomputeSkuKeepingSequence,
+  resolveSkuPrefix,
+} from './utils/sku.util';
 import { BULK_DRAFT_IDEMPOTENCY_FIELD } from './utils/bulk-draft.util';
 import { WatchQueryDto } from './dto/watch-query.dto';
 
@@ -49,13 +54,7 @@ export class WatchesRepository {
     if (query.search) {
       const term = query.search.trim();
       const skuIds = await findWatchIdsByFlexibleSkuSearch(this.prisma, term);
-      where.OR = [
-        { model: { contains: term, mode: 'insensitive' } },
-        { reference: { contains: term, mode: 'insensitive' } },
-        { sku: { contains: term, mode: 'insensitive' } },
-        { brand: { name: { contains: term, mode: 'insensitive' } } },
-        ...(skuIds.length ? [{ id: { in: skuIds } }] : []),
-      ];
+      where.OR = buildWatchTextSearchOr(term, skuIds);
     }
 
     const page = Math.max(1, query.page ?? 1);
@@ -106,6 +105,36 @@ export class WatchesRepository {
     return this.prisma.watch.create({
       data,
       include: watchInclude,
+    });
+  }
+
+  async allocateReplacementSku(input: {
+    watchId: string;
+    currentSku: string;
+    retailPrice: number;
+    gender?: string | null;
+  }) {
+    const desired = recomputeSkuKeepingSequence(
+      input.currentSku,
+      input.retailPrice,
+      input.gender,
+    );
+    if (!desired || desired.toUpperCase() === input.currentSku.trim().toUpperCase()) {
+      return input.currentSku;
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const prefix = resolveSkuPrefix(input.retailPrice, input.gender);
+      await this.lockKey(tx, 'luxtime-sku', prefix);
+      const taken = await tx.watch.findFirst({
+        where: { sku: desired, NOT: { id: input.watchId } },
+        select: { id: true },
+      });
+      const sku = taken
+        ? await this.allocateSkuLocked(tx, input.retailPrice, input.gender)
+        : desired;
+      await tx.watch.update({ where: { id: input.watchId }, data: { sku } });
+      return sku;
     });
   }
 

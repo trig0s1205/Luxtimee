@@ -71,7 +71,7 @@ export class WarrantyHistoriesService {
         customerName: toUpperText(item.order.customerName),
         customerAddress: toUpperText(item.order.customerAddress),
         customerPhone: toUpperTextOptional(item.order.customerPhone),
-        productSku: item.watch.sku,
+        productSku: item.productSku?.trim() || item.watch.sku,
         productName: toUpperText(item.productName),
         saleDate,
         serviceDate: new Date(),

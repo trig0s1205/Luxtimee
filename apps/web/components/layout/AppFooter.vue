@@ -3,7 +3,6 @@ import type { PlatformConfigDto } from '@luxtime/shared';
 import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 
 const { t } = useLocale();
-const route = useRoute();
 const { scrollToHomeSection } = useHomeSectionNav();
 
 async function onFooterSection(sectionId: string, event: MouseEvent) {
@@ -66,7 +65,7 @@ const { data: platform } = await useCachedAsyncData('footer-platform', () =>
     <div class="footer-bottom">
       <div class="footer-bottom-copy">
         <p>{{ t('footer.rights') }}</p>
-        <p v-if="route.path === '/'" class="footer-dev-credit">TRG1205</p>
+        <p class="footer-dev-credit">TRG1205</p>
       </div>
       <div class="footer-legal">
         <NuxtLink to="/politica-de-privacidad">{{ t('footer.privacyShort') }}</NuxtLink>

@@ -6,6 +6,7 @@ import { optimizeCloudinaryImageUrl } from '~/utils/media-url';
 const props = defineProps<{
   watch: WatchPublicDto;
   delay?: number;
+  instant?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -20,6 +21,40 @@ const { watchPrimaryImage } = useMediaUrl();
 
 const imageUrl = computed(() => optimizeCloudinaryImageUrl(watchPrimaryImage(props.watch), 480));
 const imageReady = ref(false);
+const rootEl = ref<HTMLElement | null>(null);
+const revealed = ref(props.instant === true);
+let stopReveal: (() => void) | null = null;
+
+watch(() => props.instant, (value) => {
+  if (value) revealed.value = true;
+});
+
+onMounted(() => {
+  if (revealed.value || !import.meta.client) return;
+  const el = rootEl.value;
+  if (!el) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    revealed.value = true;
+    return;
+  }
+  const rect = el.getBoundingClientRect();
+  const inView = rect.width > 0 && rect.height > 0 && rect.top < window.innerHeight * 0.92 && rect.bottom > 0;
+  if (inView) {
+    requestAnimationFrame(() => {
+      revealed.value = true;
+    });
+    return;
+  }
+  const observer = new IntersectionObserver((entries) => {
+    if (!entries.some((entry) => entry.isIntersecting)) return;
+    revealed.value = true;
+    observer.disconnect();
+  }, { threshold: 0.08 });
+  observer.observe(el);
+  stopReveal = () => observer.disconnect();
+});
+
+onUnmounted(() => stopReveal?.());
 
 watch(imageUrl, () => {
   imageReady.value = false;
@@ -59,8 +94,10 @@ function onAdd(e: Event) {
 
 <template>
   <article
+    ref="rootEl"
     class="products-card reveal"
-    :style="delay != null ? { transitionDelay: `${delay}s` } : undefined"
+    :class="{ visible: revealed }"
+    :style="delay != null && !revealed ? { transitionDelay: `${delay}s` } : undefined"
   >
     <NuxtLink
       :to="`/producto/${watch.slug}`"

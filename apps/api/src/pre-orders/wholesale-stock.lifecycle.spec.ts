@@ -174,6 +174,7 @@ describe('ciclo de stock mayorista', () => {
             {
               watchId,
               productName: 'Modelo test',
+              productSku: 'RM-001',
               productRef: 'modelo',
               quantity: 4,
               unitPrice: 80_000,

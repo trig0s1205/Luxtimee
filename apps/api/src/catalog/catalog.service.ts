@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { findWatchIdsByFlexibleSkuSearch } from '../common/utils/sku-search.util';
+import { buildWatchTextSearchOr } from '../common/utils/watch-text-search.util';
 import { CatalogQueryDto } from './dto/catalog-query.dto';
 import { DRAFT_WATCH_MODEL } from '../watches/utils/watch-pending.util';
 
@@ -165,13 +166,7 @@ export class CatalogService {
         search,
         { catalogOnly: true },
       );
-      where.OR = [
-        { model: { contains: search, mode: 'insensitive' } },
-        { reference: { contains: search, mode: 'insensitive' } },
-        { sku: { contains: search, mode: 'insensitive' } },
-        { brand: { name: { contains: search, mode: 'insensitive' } } },
-        ...(skuIds.length ? [{ id: { in: skuIds } }] : []),
-      ];
+      where.OR = buildWatchTextSearchOr(search, skuIds);
     }
 
     return where;
