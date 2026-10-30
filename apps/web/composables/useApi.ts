@@ -6,6 +6,7 @@ type RequestOptions = {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   body?: unknown;
   query?: Record<string, QueryValue>;
+  signal?: AbortSignal;
   _retried?: boolean;
 };
 
@@ -46,6 +47,7 @@ export function useApi() {
         method: options.method ?? 'GET',
         body: options.body as Record<string, unknown> | BodyInit | null | undefined,
         query: options.query,
+        signal: options.signal,
         credentials: 'include',
         timeout: API_TIMEOUT_MS,
       });
@@ -64,7 +66,8 @@ export function useApi() {
   }
 
   return {
-    get: <T>(path: string, query?: Record<string, QueryValue>) => request<T>(path, { query }),
+    get: <T>(path: string, query?: Record<string, QueryValue>, init?: { signal?: AbortSignal }) =>
+      request<T>(path, { query, signal: init?.signal }),
     post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
     patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
     del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),

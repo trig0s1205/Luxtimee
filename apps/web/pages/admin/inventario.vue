@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { BrandDto, CareTemplateDto, CategoryDto, MechanismDto, InventoryInsightsDto, PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
 import { WatchStatus } from '@luxtime/shared';
-import { extractApiErrorMessage, isBadRequest } from '~/utils/api-error';
+import { extractApiErrorMessage, isAbortError, isBadRequest } from '~/utils/api-error';
 import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
 import { validateWatchVideoFile } from '~/utils/video-validation';
 import { invalidateStorefrontCatalogCaches } from '~/utils/storefront-cache';
@@ -104,19 +104,37 @@ const categories = computed(() => catalogStore.categories);
 const mechanisms = computed(() => catalogStore.mechanisms);
 
 // Brands/categories desde cache Pinia + watches en paralelo sin bloquear UI
-const watchesKey = computed(() =>
-  `admin-watches-${query.search}-${query.brand}-${loadPages.value}`,
-);
-
 const staffReady = computed(
   () => auth.loaded && auth.hasApiSession,
 );
 
-const { data: paginated, refresh, pending, error: watchesError } = useAdminCachedData(
-  watchesKey,
-  () => api.get<PaginatedResponse<WatchStaffDto>>('/watches', fetchQuery.value as Record<string, string | number | boolean | undefined>),
-  { watch: [watchesKey] },
-);
+const paginated = ref<PaginatedResponse<WatchStaffDto> | null>(null);
+const listPending = ref(false);
+let listAbort: AbortController | null = null;
+let listRequest = 0;
+
+async function refreshWatches() {
+  if (!staffReady.value) return;
+  const requestId = ++listRequest;
+  listAbort?.abort();
+  const controller = new AbortController();
+  listAbort = controller;
+  listPending.value = true;
+  try {
+    const res = await api.get<PaginatedResponse<WatchStaffDto>>(
+      '/watches',
+      fetchQuery.value as Record<string, string | number | boolean | undefined>,
+      { signal: controller.signal },
+    );
+    if (requestId !== listRequest) return;
+    paginated.value = res;
+  } catch (err: unknown) {
+    if (requestId !== listRequest || isAbortError(err)) return;
+    toast.error(extractApiErrorMessage(err, 'No se pudo cargar el inventario'));
+  } finally {
+    if (requestId === listRequest) listPending.value = false;
+  }
+}
 
 const { data: insights, pending: insightsPending, refresh: refreshInsights, error: insightsError } = useAdminCachedData(
   'inventory-insights',
@@ -140,23 +158,25 @@ async function loadCatalogMeta() {
 watch(staffReady, (ready) => {
   if (ready) {
     void loadCatalogMeta();
-    void refresh();
     void refreshInsights();
     void refreshCare();
   }
 }, { immediate: true });
 
-useAdminRefetchWhenAuthed([refresh, refreshInsights, refreshCare, loadCatalogMeta]);
+watch(fetchQuery, () => {
+  if (staffReady.value) void refreshWatches();
+}, { deep: true, immediate: true });
 
-watch([watchesError, insightsError], ([wErr, iErr]) => {
-  const err = wErr ?? iErr;
+useAdminRefetchWhenAuthed([refreshWatches, refreshInsights, refreshCare, loadCatalogMeta]);
+
+watch(insightsError, (err) => {
   if (err) toast.error(extractApiErrorMessage(err, 'No se pudo cargar el inventario'));
 });
 
 const watches = computed(() => paginated.value?.data ?? []);
 const inventorySearchMiss = computed(() => searchEmptyMessage({
   term: query.search,
-  pending: pending.value,
+  pending: listPending.value,
   count: watches.value.length,
   message: 'No se encontraron relojes',
 }));
@@ -169,10 +189,10 @@ const offscreenJobs = computed(() => {
 });
 const total = computed(() => paginated.value?.total ?? 0);
 const hasMore = computed(() => watches.value.length < total.value);
-const inventoryRefreshing = computed(() => pending.value || insightsPending.value);
+const inventoryRefreshing = computed(() => insightsPending.value);
 
 async function reloadInventory() {
-  await Promise.all([refresh(), refreshInsights()]);
+  await Promise.all([refreshWatches(), refreshInsights()]);
 }
 
 watch(() => query.brand, () => {
@@ -317,11 +337,10 @@ async function handleSubmit(form: WatchFormPayload) {
       });
     }
 
-    invalidateAdminCache(watchesKey.value);
+    invalidateAdminCachePrefix('admin-watches-');
     invalidateAdminCache('inventory-insights');
     invalidateStorefrontCatalogCaches();
-    // Refresh en background sin await para no bloquear el cierre
-    void refresh();
+    void refreshWatches();
     void refreshInsights();
   } catch (err: unknown) {
     const message = extractApiErrorMessage(err, 'Error al guardar el reloj');
@@ -343,9 +362,9 @@ async function handleDelete(watch: WatchStaffDto) {
   try {
     await api.del(`/watches/${watch.id}`);
     toast.success('Reloj eliminado correctamente');
-    invalidateAdminCache(watchesKey.value);
+    invalidateAdminCachePrefix('admin-watches-');
     invalidateAdminCache('inventory-insights');
-    await refresh();
+    await refreshWatches();
     await refreshInsights();
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'Error al eliminar el reloj'));
@@ -449,7 +468,7 @@ async function consumeBulkSettlement() {
   seenBulkSettlement.value = settlement.seq;
   bulkDraft.ackSettlement(settlement.seq);
   const { done, failed } = settlement;
-  await refresh();
+  await refreshWatches();
   await refreshInsights();
   if (failed && done) toast.warning(`${done} borradores listos. ${failed} pares fallaron.`);
   else if (failed) toast.warning(failed === 1 ? 'No se pudo crear el borrador.' : `${failed} pares no se pudieron crear.`);
@@ -472,7 +491,7 @@ async function finishBulkDelete() {
   invalidateAdminCachePrefix('admin-watches-');
   invalidateAdminCache('inventory-insights');
   invalidateStorefrontCatalogCaches();
-  await refresh();
+  await refreshWatches();
   await refreshInsights();
   if (failed) toast.warning(`${done} eliminados. ${failed} no se pudieron eliminar.`);
   else if (done) toast.success(done === 1 ? 'Reloj eliminado correctamente' : `${done} relojes eliminados`);
@@ -509,6 +528,7 @@ async function finishBulkDelete() {
       <UiAdminRefreshButton :loading="inventoryRefreshing" @click="reloadInventory()" />
       <div class="admin-inventory-search">
         <UiLuxInput v-model="searchInput" placeholder="Buscar por SKU, marca o modelo..." @input="onSearchInput" />
+        <p v-if="listPending && watches.length" class="admin-search-pending" role="status">Buscando...</p>
         <p v-if="inventorySearchMiss" class="admin-search-empty" role="status">{{ inventorySearchMiss }}</p>
       </div>
 
@@ -539,7 +559,7 @@ async function finishBulkDelete() {
 
     <AdminWatchTable
       :watches="tableWatches"
-      :loading="pending && !watches.length"
+      :loading="listPending && !watches.length"
       :selection-mode="selectionMode"
       :selected-ids="selectedIds"
       :progress-by-id="progressById"
@@ -553,10 +573,10 @@ async function finishBulkDelete() {
       <button
         type="button"
         class="admin-pagination-btn"
-        :disabled="pending"
+        :disabled="listPending"
         @click="loadMore"
       >
-        {{ pending ? 'Cargando...' : 'Cargar más' }}
+        {{ listPending ? 'Cargando...' : 'Cargar más' }}
       </button>
       <span class="admin-pagination-info">
         Mostrando {{ watches.length }} de {{ total }}
@@ -689,6 +709,13 @@ async function finishBulkDelete() {
   gap: 12px;
   margin-bottom: 20px;
   align-items: start;
+}
+
+.admin-search-pending {
+  margin: 8px 0 0;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--lux-gold, #c9a84c);
 }
 
 .admin-inventory-search {

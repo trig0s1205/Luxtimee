@@ -80,3 +80,11 @@ export function extractApiErrorMessage(err: unknown, fallback: string): string {
 export function isBadRequest(err: unknown) {
   return readStatus(err) === 400;
 }
+
+export function isAbortError(err: unknown) {
+  if (!err || typeof err !== 'object') return false;
+  const name = (err as { name?: string }).name;
+  if (name === 'AbortError') return true;
+  const cause = (err as { cause?: { name?: string } }).cause;
+  return cause?.name === 'AbortError';
+}
