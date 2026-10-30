@@ -30,6 +30,7 @@ enum OrderStatus {
 enum OrderType {
   DETAL
   MAYORISTA
+  ESPECIAL
 }
 
 enum OrderSource {
@@ -299,6 +300,12 @@ model Order {
   subtotal         Int          @default(0)
   total            Int          @default(0)
   whatsappMessage  String?      @db.Text
+  specialNote              String? @db.Text
+  specialSalePrice         Int?
+  specialCostSnapshot      Int?
+  specialListPriceSnapshot Int?
+  specialSkuSnapshot       String?
+  specialProfit            Int?
   assignedToId     String?
   paidAt           DateTime?
   shippedAt        DateTime?

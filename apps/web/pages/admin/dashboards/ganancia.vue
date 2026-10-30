@@ -118,6 +118,7 @@ const kpis = computed(() => {
 const orderTypeLabels: Record<string, string> = {
   DETAL: 'Al detal',
   MAYORISTA: 'Mayorista',
+  ESPECIAL: 'Venta especial',
 };
 
 const orderStatusLabels: Record<string, string> = {

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { OrderStage, OrderStatus } from '@prisma/client';
+import { profitBreakdownFromLine } from '../orders/special-sale.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import { PreOrdersService } from '../pre-orders/pre-orders.service';
@@ -80,13 +81,14 @@ export class DashboardsService {
       if (since && saleAt < since) return [];
 
       return order.items.map((item) => {
-        const revenue = item.unitPrice * item.quantity;
-        const cost = (item.watch.cost ?? 0) * item.quantity;
-        const grossProfit = revenue - cost;
-        const commissionAmount = Math.round(
-          grossProfit * (commissionPercent / 100),
-        );
-        const netProfit = grossProfit - commissionAmount;
+        const priced = profitBreakdownFromLine({
+          orderType: order.type,
+          unitPrice: item.unitPrice,
+          quantity: item.quantity,
+          liveCost: item.watch.cost,
+          costSnapshot: order.specialCostSnapshot,
+          commissionPercent,
+        });
         return {
           orderId: order.id,
           readableId: order.readableId,
@@ -95,11 +97,11 @@ export class DashboardsService {
           priceType: item.priceType,
           productName: item.productName,
           quantity: item.quantity,
-          revenue,
-          cost,
-          profit: netProfit,
+          revenue: priced.revenue,
+          cost: priced.cost,
+          profit: priced.profit,
           commissionPercent,
-          commission: commissionAmount,
+          commission: priced.commission,
           paidAt: saleAt.toISOString(),
         };
       });

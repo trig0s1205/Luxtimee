@@ -20,6 +20,7 @@ export enum OrderStatus {
 export enum OrderType {
   DETAL = 'DETAL',
   MAYORISTA = 'MAYORISTA',
+  ESPECIAL = 'ESPECIAL',
 }
 
 export enum OrderSource {
