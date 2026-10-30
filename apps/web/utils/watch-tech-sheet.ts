@@ -9,6 +9,19 @@ const SPEC_KEY_LABELS: Record<string, string> = {
   waterResistance: 'Resistencia al agua',
 };
 
+const INTERNAL_SPEC_KEYS = new Set([
+  'bulkdraftidempotencykey',
+]);
+
+export function isCustomerSpecKey(key: string) {
+  const normalized = key.replace(/[^a-z0-9]/gi, '').toLowerCase();
+  if (!normalized) return false;
+  if (key.startsWith('_') || key.startsWith('$')) return false;
+  if (INTERNAL_SPEC_KEYS.has(normalized)) return false;
+  if (normalized.startsWith('bulkdraft')) return false;
+  return true;
+}
+
 function formatSpecKey(key: string) {
   if (SPEC_KEY_LABELS[key]) return SPEC_KEY_LABELS[key];
   return key
@@ -63,7 +76,8 @@ export function buildWatchTechSpecs(watch: WatchPublicDto): TechSpecRow[] {
   }
 
   for (const [key, value] of Object.entries(watch.specs ?? {})) {
-    if (value) add(formatSpecKey(key), value);
+    if (!isCustomerSpecKey(key) || !value) continue;
+    add(formatSpecKey(key), value);
   }
 
   return rows;

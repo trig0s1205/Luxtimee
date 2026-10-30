@@ -17,6 +17,7 @@ import { CertificatesService } from '../certificates/certificates.service';
 import { assertValidTransition } from './state-machine';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import type { OrdersPeriod } from './dto/orders-query.dto';
+import { buildOrderSearchWhere } from './order-search.util';
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
 import {
@@ -84,7 +85,7 @@ export class OrdersService {
       items: items.map((item) => ({
         id: item.id,
         watchId: item.watchId,
-        productSku: item.watch.sku,
+        productSku: item.productSku?.trim() || item.watch.sku,
         productName: item.productName,
         productRef: item.productRef,
         productImage: item.productImage,
@@ -142,6 +143,7 @@ export class OrdersService {
       period?: OrdersPeriod;
       status?: OrderStatus;
       type?: OrderType;
+      search?: string;
       page?: number;
       limit?: number;
     } = {},
@@ -150,12 +152,16 @@ export class OrdersService {
     const page = options.page ?? 1;
     const limit = options.limit ?? 15;
     const since = this.periodStart(period);
+    const filters: Prisma.OrderWhereInput[] = [];
+    if (since) filters.push(this.buildPeriodFilter(since));
+    if (options.status) filters.push({ status: options.status });
+    if (options.type) filters.push({ type: options.type });
+    const searchWhere = buildOrderSearchWhere(options.search);
+    if (searchWhere) filters.push(searchWhere);
 
     const where: Prisma.OrderWhereInput = {
       stage: OrderStage.ORDER,
-      ...(since ? this.buildPeriodFilter(since) : {}),
-      ...(options.status ? { status: options.status } : {}),
-      ...(options.type ? { type: options.type } : {}),
+      ...(filters.length ? { AND: filters } : {}),
     };
 
     const [total, orders] = await Promise.all([

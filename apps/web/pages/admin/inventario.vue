@@ -5,6 +5,7 @@ import { extractApiErrorMessage, isBadRequest } from '~/utils/api-error';
 import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
 import { validateWatchVideoFile } from '~/utils/video-validation';
 import { invalidateStorefrontCatalogCaches } from '~/utils/storefront-cache';
+import { searchEmptyMessage } from '~/utils/search-empty';
 const AdminWatchFormLazy = defineAsyncComponent(() => import('~/components/admin/AdminWatchForm.vue'));
 
 type WatchFormPayload = {
@@ -153,6 +154,12 @@ watch([watchesError, insightsError], ([wErr, iErr]) => {
 });
 
 const watches = computed(() => paginated.value?.data ?? []);
+const inventorySearchMiss = computed(() => searchEmptyMessage({
+  term: query.search,
+  pending: pending.value,
+  count: watches.value.length,
+  message: 'No se encontraron relojes',
+}));
 const tableWatches = computed(() =>
   watches.value.filter((watch) => progressById.value[watch.id]?.status !== 'done'),
 );
@@ -500,7 +507,10 @@ async function finishBulkDelete() {
 
     <div class="admin-inventory-toolbar">
       <UiAdminRefreshButton :loading="inventoryRefreshing" @click="reloadInventory()" />
-      <UiLuxInput v-model="searchInput" placeholder="Buscar por SKU, marca o modelo..." @input="onSearchInput" />
+      <div class="admin-inventory-search">
+        <UiLuxInput v-model="searchInput" placeholder="Buscar por SKU, marca o modelo..." @input="onSearchInput" />
+        <p v-if="inventorySearchMiss" class="admin-search-empty" role="status">{{ inventorySearchMiss }}</p>
+      </div>
 
       <select v-model="query.brand" class="admin-filter-select">
         <option value="">Todas las marcas</option>
@@ -675,9 +685,20 @@ async function finishBulkDelete() {
 
 .admin-inventory-toolbar {
   display: grid;
-  grid-template-columns: 1fr 200px 200px;
+  grid-template-columns: auto minmax(240px, 1fr) minmax(180px, 240px);
   gap: 12px;
   margin-bottom: 20px;
+  align-items: start;
+}
+
+.admin-inventory-search {
+  min-width: 0;
+}
+
+@media (max-width: 820px) {
+  .admin-inventory-toolbar {
+    grid-template-columns: 1fr;
+  }
 }
 
 .admin-filter-select {

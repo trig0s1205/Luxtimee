@@ -3,6 +3,7 @@ import type { WatchPublicDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { absoluteAssetUrl, productJsonLd } from '~/utils/seo';
 import { buildRelatedWatches } from '~/utils/similar-watches';
+import { buildProductWhatsappMessage } from '~/utils/product-whatsapp';
 import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 
 const RELATED_WATCHES_TOTAL = 18;
@@ -12,7 +13,13 @@ const slug = computed(() => String(route.params.slug));
 const catalog = useCatalogData();
 const cart = useCartStore();
 const analytics = useAnalytics();
+const { t } = useLocale();
+const { openChat, loadSettings } = useWhatsApp();
 const { watchPrimaryImage, watchSecondaryImage, watchVideoUrl } = useMediaUrl();
+
+onMounted(() => {
+  void loadSettings();
+});
 
 const { data: watch, error } = await useCachedAsyncData(
   () => `product-detail-${slug.value}`,
@@ -80,6 +87,15 @@ function addToCart() {
   cart.addFromWatch(watch.value);
   analytics.track('add_to_cart', { slug: watch.value.slug });
 }
+
+function buyOnWhatsApp() {
+  if (!watch.value) return;
+  void openChat(buildProductWhatsappMessage({
+    brand: watch.value.brand.name,
+    model: watch.value.model,
+    sku: watch.value.sku,
+  }));
+}
 </script>
 
 <template>
@@ -100,10 +116,20 @@ function addToCart() {
           <h1 class="detail-title product-detail-title">{{ watch.model }}</h1>
           <p class="detail-ref">{{ watch.movementType }} · Ref. {{ watch.reference || watch.slug }}</p>
           <p class="detail-price product-detail-price">{{ formatCop(watch.retailPrice) }}</p>
+          <p
+            v-if="watch.stock > 0"
+            class="product-stock-note"
+          >
+            {{ t('product.stockExact').replace('{n}', String(watch.stock)) }}
+          </p>
+          <p v-else class="product-stock-note product-stock-note--out">{{ t('product.soldOut') }}</p>
 
           <div class="detail-actions">
             <button type="button" class="btn-add-to-cart" :disabled="watch.stock === 0" @click="addToCart">
               Agregar al carrito
+            </button>
+            <button type="button" class="btn-whatsapp" @click="buyOnWhatsApp">
+              {{ t('product.whatsapp') }}
             </button>
           </div>
         </div>

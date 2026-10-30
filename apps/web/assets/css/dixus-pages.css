@@ -576,15 +576,33 @@
 
 .catalog-filters-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 12px;
   flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .catalog-field {
   position: relative;
   flex-shrink: 0;
+}
+
+.catalog-price-pair {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 12px;
+}
+
+.catalog-price-input {
+  width: 168px;
+  min-width: 168px;
+  height: 44px;
+  text-transform: none;
+  letter-spacing: 0.02em;
 }
 
 .catalog-select {
@@ -1843,6 +1861,21 @@ body.cart-scroll-lock {
 .product-detail-price {
   font-size: clamp(24px, 3vw, 30px);
   margin: 14px 0 18px;
+}
+
+.product-stock-note {
+  margin: -8px 0 16px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  color: var(--gold-light);
+}
+
+.product-stock-note--out {
+  color: var(--white-dim);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .product-info-col .detail-actions {

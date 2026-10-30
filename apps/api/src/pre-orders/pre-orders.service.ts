@@ -113,7 +113,7 @@ export class PreOrdersService {
       items: items.map((item) => ({
         id: item.id,
         watchId: item.watchId,
-        productSku: item.watch.sku,
+        productSku: item.productSku?.trim() || item.watch.sku,
         productName: item.productName,
         productRef: item.productRef,
         productImage: item.productImage,
@@ -544,6 +544,7 @@ export class PreOrdersService {
             create: priced.lines.map((line) => ({
               watchId: line.watchId,
               productName: line.productName,
+              productSku: line.productSku || '',
               productRef: line.productRef,
               productImage: line.productImage,
               quantity: line.quantity,
@@ -719,6 +720,7 @@ export class PreOrdersService {
           create: priced.lines.map((line) => ({
             watchId: line.watchId,
             productName: line.productName,
+            productSku: line.productSku || '',
             productRef: line.productRef,
             productImage: line.productImage,
             quantity: line.quantity,

@@ -78,6 +78,19 @@
   margin-bottom: 22px;
 }
 
+.admin-orders-search {
+  max-width: 440px;
+  margin: 0 0 14px;
+}
+
+.admin-search-empty {
+  margin: 8px 0 0;
+  font-family: var(--lux-font-body, var(--font-body));
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--lux-white, var(--white));
+}
+
 .admin-filter-dropdown {
   position: relative;
   min-width: 168px;

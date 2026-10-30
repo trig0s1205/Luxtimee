@@ -59,6 +59,7 @@ function onTouchEnd(e: TouchEvent) {
   <div v-if="slides.length" class="product-gallery">
     <div
       class="product-gallery__stage"
+      :class="{ 'product-gallery__stage--video': activeSlide?.type === 'video' }"
       @touchstart.passive="onTouchStart"
       @touchend.passive="onTouchEnd"
     >
@@ -86,9 +87,10 @@ function onTouchEnd(e: TouchEvent) {
           v-if="activeSlide?.type === 'video'"
           :key="activeSlide.key"
           :src="activeSlide.src"
-          class="product-gallery__media"
+          class="product-gallery__media product-gallery__media--video"
           controls
           playsinline
+          preload="metadata"
         />
         <img
           v-else-if="activeSlide"
@@ -150,10 +152,28 @@ function onTouchEnd(e: TouchEvent) {
   border: var(--border-hairline);
 }
 
+.product-gallery__stage--video {
+  aspect-ratio: auto;
+  height: auto;
+  display: block;
+  overflow: visible;
+  background: transparent;
+  border-color: transparent;
+}
+
 .product-gallery__media {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.product-gallery__media--video {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  background: transparent;
+  vertical-align: top;
 }
 
 .product-gallery__arrow {

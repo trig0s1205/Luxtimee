@@ -8,6 +8,7 @@ import type {
 } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { extractApiErrorMessage } from '~/utils/api-error';
+import { searchEmptyMessage } from '~/utils/search-empty';
 
 definePageMeta({ middleware: ['admin'], keepalive: true });
 useSeoMeta({ title: 'Nuevo pre-pedido — LUXTIMEE Admin' });
@@ -66,6 +67,14 @@ const depositExpected = computed(() => lines.value.reduce((sum, line) => sum + l
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 const searchResults = ref<WatchStaffDto[]>([]);
 const searchPending = ref(false);
+const searchFinishedTerm = ref('');
+const watchSearchMiss = computed(() => searchEmptyMessage({
+  term: searchFinishedTerm.value,
+  pending: searchPending.value || searchFinishedTerm.value !== watchSearch.value.trim(),
+  count: searchResults.value.length,
+  message: 'No se encontraron pedidos',
+  minLength: 2,
+}));
 
 function scheduleWatchSearch() {
   if (searchTimer) clearTimeout(searchTimer);
@@ -76,6 +85,7 @@ async function runWatchSearch() {
   const term = watchSearch.value.trim();
   if (term.length < 2) {
     searchResults.value = [];
+    searchFinishedTerm.value = '';
     return;
   }
   searchPending.value = true;
@@ -86,8 +96,10 @@ async function runWatchSearch() {
       limit: 8,
     });
     searchResults.value = res.data;
+    searchFinishedTerm.value = term;
   } catch {
     searchResults.value = [];
+    searchFinishedTerm.value = term;
   } finally {
     searchPending.value = false;
   }
@@ -114,6 +126,7 @@ function addWatch(watch: WatchStaffDto) {
   });
   watchSearch.value = '';
   searchResults.value = [];
+  searchFinishedTerm.value = '';
 }
 
 function removeLine(watchId: string) {
@@ -231,6 +244,7 @@ async function submit() {
           placeholder="Buscar por marca, modelo o SKU..."
           @input="scheduleWatchSearch"
         />
+        <p v-if="watchSearchMiss" class="admin-search-empty" role="status">{{ watchSearchMiss }}</p>
         <div v-if="searchPending" class="admin-record-muted text-sm">Buscando...</div>
         <ul v-if="searchResults.length" class="admin-record-list border border-lux-gold/15">
           <li v-for="watch in searchResults" :key="watch.id">
