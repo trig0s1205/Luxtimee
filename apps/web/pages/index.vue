@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { HomepageConfigDto } from '@luxtime/shared';
+import type { HomepageConfigDto, WatchPublicDto } from '@luxtime/shared';
 
 import { HOME_CMS_ASYNC_KEY, STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 import { getActiveHeroSlides, shouldShowFounderSection } from '~/utils/homepage-config';
@@ -9,11 +9,40 @@ definePageMeta({ mainClass: 'main--home-hero' });
 
 const { observe } = useRevealObserver();
 const { fetchConfig, DEFAULT_HOMEPAGE_CONFIG } = useHomepageConfig();
-const { data: homeCms, refresh: refreshHomeCms } = await useCachedAsyncData<HomepageConfigDto>(
+const catalog = useCatalogData();
+
+const featuredAsync = useCachedAsyncData<WatchPublicDto[]>(
+  'home-featured-watches',
+  async () => {
+    try {
+      const res = await catalog.listCatalog({ limit: 8, available: 'true', sort: 'newest' });
+      return res.data.filter((watch) => watch.stock > 0).slice(0, 8);
+    } catch (error) {
+      console.error('[home] no se pudo cargar el destacado', error);
+      return [];
+    }
+  },
+  {
+    lazy: import.meta.client,
+    default: () => [],
+    staleTime: STOREFRONT_CACHE_MS.catalog,
+  },
+);
+
+const homeAsync = useCachedAsyncData<HomepageConfigDto>(
   HOME_CMS_ASYNC_KEY,
   () => fetchConfig(),
-  { default: (): HomepageConfigDto => structuredClone(DEFAULT_HOMEPAGE_CONFIG), staleTime: STOREFRONT_CACHE_MS.homepage },
+  {
+    lazy: import.meta.client,
+    default: (): HomepageConfigDto => structuredClone(DEFAULT_HOMEPAGE_CONFIG),
+    staleTime: STOREFRONT_CACHE_MS.homepage,
+  },
 );
+
+const { data: featuredData, pending: featuredPending, refresh: refreshFeatured } = featuredAsync;
+const { data: homeCms } = homeAsync;
+
+await Promise.all([homeAsync, featuredAsync]);
 
 const cms = computed<HomepageConfigDto>(() => homeCms.value ?? DEFAULT_HOMEPAGE_CONFIG);
 
@@ -30,7 +59,7 @@ const showPromoHero = computed(
 );
 
 onMounted(() => {
-  void refreshHomeCms();
+  if ((featuredData.value?.length ?? 0) > 0) void refreshFeatured();
   nextTick(() => observe());
 });
 </script>
@@ -56,6 +85,8 @@ onMounted(() => {
       v-if="cms.featured.enabled"
       :config="cms.featured"
       :flush-top="showPromoHero"
+      :watches="featuredData || []"
+      :pending="featuredPending"
     />
 
     <LazyHomeAboutFounderSection

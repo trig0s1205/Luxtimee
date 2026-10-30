@@ -29,7 +29,10 @@ async function bootstrap() {
     }
   }
 
-  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+    prefix: '/uploads',
+    maxAge: '30d',
+  });
   app.use(cookieParser());
 
   const abuseGuard = new AbuseGuardMiddleware();
