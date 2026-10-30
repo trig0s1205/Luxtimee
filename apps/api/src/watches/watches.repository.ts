@@ -5,8 +5,7 @@ import type {
   InventoryInsightWatchDto,
   InventoryInsightsDto,
 } from '@luxtime/shared';
-import { findWatchIdsByFlexibleSkuSearch } from '../common/utils/sku-search.util';
-import { buildWatchTextSearchOr } from '../common/utils/watch-text-search.util';
+import { findWatchIdsByTextSearch } from '../common/utils/watch-text-search.util';
 import {
   formatWatchSku,
   recomputeSkuKeepingSequence,
@@ -41,6 +40,28 @@ export class WatchesRepository {
   constructor(private prisma: PrismaService) {}
 
   async findMany(query: WatchQueryDto) {
+    const page = Math.max(1, query.page ?? 1);
+    const limit = Math.max(1, Math.min(100, query.limit ?? 20));
+    const search = query.search?.trim();
+
+    if (search) {
+      const { ids, total } = await findWatchIdsByTextSearch(this.prisma, {
+        search,
+        brand: query.brand,
+        status: query.status,
+        skip: (page - 1) * limit,
+        take: limit,
+      });
+      if (!ids.length) return { data: [], total, page, limit };
+      const rows = await this.prisma.watch.findMany({
+        where: { id: { in: ids } },
+        include: watchInclude,
+      });
+      const order = new Map(ids.map((id, index) => [id, index]));
+      rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+      return { data: rows, total, page, limit };
+    }
+
     const where: Prisma.WatchWhereInput = { deletedAt: null };
 
     if (query.brand) {
@@ -50,15 +71,6 @@ export class WatchesRepository {
     if (query.status) {
       where.status = query.status;
     }
-
-    if (query.search) {
-      const term = query.search.trim();
-      const skuIds = await findWatchIdsByFlexibleSkuSearch(this.prisma, term);
-      where.OR = buildWatchTextSearchOr(term, skuIds);
-    }
-
-    const page = Math.max(1, query.page ?? 1);
-    const limit = Math.max(1, Math.min(100, query.limit ?? 20));
 
     const [data, total] = await Promise.all([
       this.prisma.watch.findMany({

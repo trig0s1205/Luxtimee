@@ -7,7 +7,8 @@ import type {
   WatchStaffDto,
 } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
-import { extractApiErrorMessage } from '~/utils/api-error';
+import { extractApiErrorMessage, isAbortError } from '~/utils/api-error';
+import { searchEmptyMessage } from '~/utils/search-empty';
 import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
 
 definePageMeta({ middleware: ['admin'], keepalive: true });
@@ -30,7 +31,18 @@ const selected = ref<WatchStaffDto | null>(null);
 const watchSearch = ref('');
 const searchResults = ref<WatchStaffDto[]>([]);
 const searchPending = ref(false);
+const searchFinishedTerm = ref('');
+const priceError = ref('');
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
+let watchSearchAbort: AbortController | null = null;
+
+const watchSearchMiss = computed(() => searchEmptyMessage({
+  term: searchFinishedTerm.value,
+  pending: searchPending.value || searchFinishedTerm.value !== watchSearch.value.trim(),
+  count: searchResults.value.length,
+  message: 'No se encontraron relojes con esa búsqueda',
+  minLength: 2,
+}));
 
 const emptyList: SpecialSalesListDto = { items: [], total: 0, page: 1, limit: PAGE_SIZE };
 
@@ -77,22 +89,31 @@ function scheduleWatchSearch() {
 
 async function runWatchSearch() {
   const term = watchSearch.value.trim();
+  watchSearchAbort?.abort();
   if (term.length < 2) {
     searchResults.value = [];
+    searchFinishedTerm.value = '';
+    searchPending.value = false;
     return;
   }
+  const controller = new AbortController();
+  watchSearchAbort = controller;
   searchPending.value = true;
   try {
     const res = await api.get<PaginatedResponse<WatchStaffDto>>('/watches', {
       search: term,
       page: 1,
       limit: 8,
-    });
+    }, { signal: controller.signal });
+    if (controller.signal.aborted) return;
     searchResults.value = res.data;
-  } catch {
+    searchFinishedTerm.value = term;
+  } catch (err: unknown) {
+    if (isAbortError(err) || controller.signal.aborted) return;
     searchResults.value = [];
+    searchFinishedTerm.value = term;
   } finally {
-    searchPending.value = false;
+    if (watchSearchAbort === controller) searchPending.value = false;
   }
 }
 
@@ -131,13 +152,14 @@ function invalidateRelated() {
 
 async function submit() {
   formError.value = '';
+  priceError.value = '';
   if (!selected.value) {
     formError.value = 'Selecciona un reloj del inventario';
     return;
   }
   const price = Number(salePrice.value);
-  if (!Number.isInteger(price) || price <= 0) {
-    formError.value = 'El precio de venta debe ser mayor a 0';
+  if (salePrice.value == null || !Number.isInteger(price) || price <= 0) {
+    priceError.value = 'El precio de venta es obligatorio y debe ser mayor a 0';
     return;
   }
   if (!note.value.trim()) {
@@ -211,6 +233,7 @@ useSeoMeta({ title: 'Ventas especiales — LUXTIMEE Admin' });
         @input="scheduleWatchSearch"
       />
       <p v-if="searchPending" class="admin-record-muted">Buscando...</p>
+      <p v-if="watchSearchMiss" class="admin-search-empty" role="status">{{ watchSearchMiss }}</p>
       <ul v-if="searchResults.length" class="admin-record-list special-results">
         <li v-for="watch in searchResults" :key="watch.id">
           <button type="button" class="admin-record-btn admin-record-btn--ghost special-result" @click="selectWatch(watch)">
@@ -240,9 +263,13 @@ useSeoMeta({ title: 'Ventas especiales — LUXTIMEE Admin' });
         type="number"
         min="1"
         step="1"
+        required
         placeholder="Ej. 30000"
         class="special-input"
+        :aria-invalid="priceError ? 'true' : undefined"
+        @input="priceError = ''"
       >
+      <p v-if="priceError" class="special-error">{{ priceError }}</p>
 
       <label class="special-label" for="special-note">Nota</label>
       <textarea

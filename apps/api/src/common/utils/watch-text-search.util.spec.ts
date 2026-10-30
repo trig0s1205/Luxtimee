@@ -1,5 +1,5 @@
 import type { Prisma } from '@prisma/client';
-import { buildWatchTextSearchOr } from './watch-text-search.util';
+import { buildWatchTextSearchOr, escapeLikeTerm, foldSearchText } from './watch-text-search.util';
 
 function containedSkus(or: Prisma.WatchWhereInput[]) {
   return or.flatMap((clause) => {
@@ -21,5 +21,14 @@ describe('buildWatchTextSearchOr', () => {
     const or = buildWatchTextSearchOr('rm 489');
     const skuClauses = containedSkus(or);
     expect(skuClauses).toEqual(expect.arrayContaining(['RM489', 'RM-489']));
+  });
+
+  it('iguala mayúsculas y tildes', () => {
+    expect(foldSearchText('CÁRTIER')).toBe('cartier');
+    expect(foldSearchText('Cartier')).toBe(foldSearchText('cártier'));
+  });
+
+  it('escapa comodines del LIKE', () => {
+    expect(escapeLikeTerm('100%_á')).toBe('100\\%\\_a');
   });
 });

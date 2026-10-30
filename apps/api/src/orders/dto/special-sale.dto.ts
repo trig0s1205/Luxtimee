@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  IsDefined,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -16,6 +17,7 @@ export class CreateSpecialSaleDto {
   @IsNotEmpty({ message: 'El reloj es obligatorio' })
   watchId!: string;
 
+  @IsDefined({ message: 'El precio de venta es obligatorio' })
   @Type(() => Number)
   @IsInt({ message: 'El precio de venta debe ser mayor a 0' })
   @Min(1, { message: 'El precio de venta debe ser mayor a 0' })
