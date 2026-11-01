@@ -1,7 +1,10 @@
 <script setup lang="ts">
-definePageMeta({ middleware: ['staff-login-token', 'guest'] });
+definePageMeta({ layout: 'auth', middleware: ['staff-login-token', 'guest'] });
 
-useHead({ htmlAttrs: { lang: 'es' } });
+useHead({
+  htmlAttrs: { lang: 'es' },
+  meta: [{ name: 'robots', content: 'noindex, nofollow' }],
+});
 
 const route = useRoute();
 const redirect = computed(() =>
@@ -10,12 +13,12 @@ const redirect = computed(() =>
 
 useSeoMeta({
   title: 'Iniciar sesión — LUXTIMEE',
-  robots: 'noindex, nofollow',
 });
 </script>
 
 <template>
   <div class="auth-page">
+    <p class="auth-mark">LUXTIMEE</p>
     <AuthLoginPanel :redirect="redirect" />
   </div>
 </template>

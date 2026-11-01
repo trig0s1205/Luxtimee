@@ -56,6 +56,7 @@ test('títulos locales y landing en el sitemap estático', () => {
   assert.equal(staticPageSeo('/catalogo')?.title, 'Catálogo de relojes de lujo en Colombia | LUXTIMEE');
   assert.equal(staticPageSeo('/relojeria-bucaramanga')?.title, 'Relojería en Bucaramanga y Piedecuesta | LUXTIMEE');
   assert.ok(publicSitemapPaths().includes('/relojeria-bucaramanga'));
+  assert.equal(publicSitemapPaths().some((path) => path.startsWith('/acceso')), false);
 });
 
 test('LocalBusiness omite teléfono, horario y redes vacíos', () => {

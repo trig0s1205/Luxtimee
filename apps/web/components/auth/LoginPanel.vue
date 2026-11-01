@@ -159,7 +159,5 @@ async function submitLogin(preset?: { email: string; password: string }) {
         Continuar con Google
       </button>
     </template>
-
-    <NuxtLink to="/" class="auth-back">← Volver al inicio</NuxtLink>
   </div>
 </template>
