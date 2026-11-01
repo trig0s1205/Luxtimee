@@ -1,4 +1,5 @@
 import type { Brand, Category, Watch } from '@prisma/client';
+import { formatProductWatchName } from '@luxtime/shared';
 
 type WatchForDescription = Watch & {
   brand: Brand;
@@ -13,8 +14,9 @@ function formatDialColor(color?: string | null) {
   return `cara ${normalized}`;
 }
 
-export function formatWatchOrderLabel(watch: WatchForDescription) {
-  const parts: string[] = [`${watch.brand.name} ${watch.model}`.trim()];
+function watchDetailParts(watch: WatchForDescription, name: string) {
+  const parts: string[] = [];
+  if (name) parts.push(name);
 
   if (watch.reference?.trim()) parts.push(`Ref. ${watch.reference.trim()}`);
   const dial = formatDialColor(watch.dialColor);
@@ -26,7 +28,6 @@ export function formatWatchOrderLabel(watch: WatchForDescription) {
   if (watch.strapMaterial?.trim()) parts.push(watch.strapMaterial.trim());
   if (watch.movementType?.trim()) parts.push(watch.movementType.trim());
   if (watch.category?.name?.trim()) parts.push(watch.category.name.trim());
-  if (watch.sku?.trim()) parts.unshift(`SKU ${watch.sku.trim()}`);
   if (watch.isLimitedEdition) {
     parts.push(
       watch.limitedEditionNumber?.trim()
@@ -35,5 +36,21 @@ export function formatWatchOrderLabel(watch: WatchForDescription) {
     );
   }
 
+  return parts;
+}
+
+export function formatWatchWhatsappLabel(watch: WatchForDescription) {
+  return watchDetailParts(
+    watch,
+    formatProductWatchName(watch.brand.name, watch.model),
+  ).join(', ');
+}
+
+export function formatWatchOrderLabel(watch: WatchForDescription) {
+  const parts = watchDetailParts(
+    watch,
+    `${watch.brand.name} ${watch.model}`.trim(),
+  );
+  if (watch.sku?.trim()) parts.unshift(`SKU ${watch.sku.trim()}`);
   return parts.join(', ');
 }
