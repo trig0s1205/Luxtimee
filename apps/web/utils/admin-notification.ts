@@ -8,17 +8,6 @@ export type StaffNotification = {
   readAt: string | null;
 };
 
-export function formatUnreadBadge(count: number) {
-  if (count <= 0) return '';
-  if (count > 99) return '99+';
-  return String(count);
-}
-
-export function adminTabTitle(base: string, unread: number) {
-  const badge = formatUnreadBadge(unread);
-  return badge ? `(${badge}) Luxtimee Admin` : base;
-}
-
 function readable(payload: Record<string, unknown>) {
   const id = payload.readableId;
   return typeof id === 'string' && id ? `#${id}` : '';
@@ -37,6 +26,8 @@ export function notificationMessage(type: string, payload: Record<string, unknow
       return ref ? `Abono confirmado en ${ref}` : 'Abono confirmado';
     case 'PRE_ORDER_SUSPENDED':
       return ref ? `Prepedido ${ref} quedó suspendido` : 'Un prepedido quedó suspendido';
+    case 'PRE_ORDER_REACTIVATED':
+      return ref ? `Prepedido ${ref} fue reactivado` : 'Un prepedido fue reactivado';
     case 'ORDER_STATUS_CHANGED': {
       const status = typeof payload.status === 'string' ? payload.status : '';
       const label = status in ORDER_STATUS_LABELS
@@ -53,7 +44,7 @@ export function notificationHref(type: string, payload: Record<string, unknown>)
   const orderId = typeof payload.orderId === 'string' ? payload.orderId : '';
   const query = orderId ? `?id=${encodeURIComponent(orderId)}` : '';
   if (type === 'PRE_ORDER_SUSPENDED') return `/admin/pre-pedidos/suspendidos${query}`;
-  if (type === 'NEW_PRE_ORDER' || type === 'PRE_ORDER_REMINDER') {
+  if (type === 'NEW_PRE_ORDER' || type === 'PRE_ORDER_REMINDER' || type === 'PRE_ORDER_REACTIVATED') {
     return `/admin/pre-pedidos/activos${query}`;
   }
   if (type === 'PRE_ORDER_CONFIRMED' || type === 'ORDER_STATUS_CHANGED') {
