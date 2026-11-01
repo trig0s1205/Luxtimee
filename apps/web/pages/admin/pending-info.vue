@@ -155,7 +155,6 @@ useSeoMeta({ title: 'Pendientes de info — LUXTIMEE Admin' });
 
 <template>
   <div class="pending-info">
-    <UiToastContainer />
     <UiSectionHeader
       label="Operaciones"
       :title="`Pendientes de info (${total})`"

@@ -1,6 +1,11 @@
 <script setup lang="ts">
 const { toasts, remove } = useToast();
 
+function runAction(toast: { id: string; action?: { onClick: () => void } }) {
+  toast.action?.onClick();
+  remove(toast.id);
+}
+
 const toneClasses = {
   success: 'admin-toast--success',
   error: 'admin-toast--error',
@@ -21,6 +26,14 @@ const toneClasses = {
           @click="remove(toast.id)"
         >
           <span class="admin-toast-message">{{ toast.message }}</span>
+          <button
+            v-if="toast.action"
+            type="button"
+            class="admin-toast-action"
+            @click.stop="runAction(toast)"
+          >
+            {{ toast.action.label }}
+          </button>
           <button type="button" class="admin-toast-close" aria-label="Cerrar">×</button>
         </div>
       </TransitionGroup>
@@ -83,6 +96,19 @@ const toneClasses = {
 
 .admin-toast--warning {
   border-left: 3px solid #f0b429;
+}
+
+.admin-toast-action {
+  flex-shrink: 0;
+  border: 1px solid rgba(20, 20, 20, 0.2);
+  background: transparent;
+  color: #141414;
+  font-family: var(--lux-font-body);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  cursor: pointer;
 }
 
 .admin-toast-close {

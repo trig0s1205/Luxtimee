@@ -2,6 +2,12 @@
 const route = useRoute();
 const auth = useAuthStore();
 const mediaQueue = useMediaUploadStore();
+const { unreadCount, soundEnabled, setSoundEnabled } = useAdminNotifications();
+
+const unreadBadge = computed(() => {
+  if (unreadCount.value <= 0) return '';
+  return unreadCount.value > 99 ? '99+' : String(unreadCount.value);
+});
 
 const emit = defineEmits<{ navigate: [] }>();
 
@@ -210,7 +216,19 @@ function onNavigate() {
           <path d="M13.7 21a2 2 0 0 1-3.4 0" />
         </svg>
         Notificaciones
+        <span
+          v-if="unreadBadge"
+          class="admin-nav-badge"
+          :aria-label="`${unreadCount} sin leer`"
+        >{{ unreadBadge }}</span>
       </NuxtLink>
+      <button
+        type="button"
+        class="admin-nav-sound"
+        @click="setSoundEnabled(!soundEnabled)"
+      >
+        {{ soundEnabled ? 'Silenciar avisos' : 'Activar sonido' }}
+      </button>
 
       <NuxtLink
         to="/admin/multimedia"

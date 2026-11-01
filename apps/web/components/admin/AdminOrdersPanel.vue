@@ -297,7 +297,6 @@ useSeoMeta({ title: props.seoTitle });
 
 <template>
   <div class="admin-records-page orders-page">
-    <UiToastContainer />
     <UiSectionHeader
       label="Ventas"
       :title="`${title} (${totalOrders})`"

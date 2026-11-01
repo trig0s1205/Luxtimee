@@ -502,8 +502,6 @@ async function finishBulkDelete() {
 
 <template>
   <div class="admin-inventory">
-    <UiToastContainer />
-
     <div class="admin-inventory-header">
       <UiSectionHeader
         label="Operaciones"

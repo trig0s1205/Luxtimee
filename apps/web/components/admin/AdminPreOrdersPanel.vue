@@ -54,6 +54,19 @@ function isExpanded(id: string) {
   return expandedIds.value.has(id);
 }
 
+const route = useRoute();
+
+watch(
+  () => [preOrders.value, route.query.id] as const,
+  () => {
+    const id = typeof route.query.id === 'string' ? route.query.id : '';
+    if (id && preOrders.value.some((order) => order.id === id)) {
+      expandedIds.value = new Set([id]);
+    }
+  },
+  { immediate: true },
+);
+
 function toggleExpanded(id: string) {
   const next = new Set(expandedIds.value);
   if (next.has(id)) next.delete(id);

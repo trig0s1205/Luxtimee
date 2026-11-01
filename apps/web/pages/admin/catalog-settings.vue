@@ -139,8 +139,6 @@ async function deleteMechanism(mechanism: MechanismDto) {
 
 <template>
   <div class="catalog-settings">
-    <UiToastContainer />
-
     <UiSectionHeader label="Catálogo" title="Marcas, clases y mecanismos" />
 
     <div class="catalog-settings-tabs">

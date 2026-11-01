@@ -177,7 +177,6 @@ useSeoMeta({ title: 'Mayoristas — LUXTIMEE Admin' });
 
 <template>
   <div class="admin-records-page">
-    <UiToastContainer />
     <UiSectionHeader
       label="Ventas"
       title="Mayoristas"

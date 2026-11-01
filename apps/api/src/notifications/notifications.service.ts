@@ -37,6 +37,17 @@ export class NotificationsService {
     });
   }
 
+  async markAllRead(role: Role) {
+    const result = await this.prisma.notification.updateMany({
+      where: {
+        readAt: null,
+        OR: [{ targetRole: role }, { targetRole: null }],
+      },
+      data: { readAt: new Date() },
+    });
+    return { updated: result.count };
+  }
+
   async unreadCount(role: Role) {
     return this.prisma.notification.count({
       where: {

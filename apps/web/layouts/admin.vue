@@ -45,11 +45,15 @@ const ADMIN_TITLE_BY_PATH: Record<string, string> = {
 };
 
 const route = useRoute();
+const { unreadCount, watchInbox } = useAdminNotifications();
+watchInbox();
 
 useHead(() => {
   const path = route.path.split('?')[0]?.replace(/\/+$/, '') || '/admin';
+  const base = ADMIN_TITLE_BY_PATH[path] ?? 'Administración — LUXTIMEE';
+  const unread = unreadCount.value;
   return {
-    title: ADMIN_TITLE_BY_PATH[path] ?? 'Administración — LUXTIMEE',
+    title: unread > 0 ? `(${unread > 99 ? '99+' : unread}) Luxtimee Admin` : base,
     meta: [{ name: 'robots', key: 'robots', content: 'noindex, nofollow' }],
   };
 }, { tagPriority: 100 });
@@ -174,6 +178,7 @@ async function logout() {
     </div>
 
     <UiConfirmDialog />
+    <UiToastContainer />
   </div>
 </template>
 

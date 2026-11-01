@@ -219,7 +219,6 @@ useSeoMeta({ title: 'Ventas especiales — LUXTIMEE Admin' });
 
 <template>
   <div class="admin-records-page">
-    <UiToastContainer />
     <UiSectionHeader label="Pedidos" title="Ventas especiales" />
     <p class="admin-records-hint">
       Venta directa de un reloj del inventario, sin cliente. El precio que escribas es el de la venta y descuenta una unidad.
