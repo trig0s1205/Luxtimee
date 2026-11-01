@@ -21,6 +21,11 @@ export class NotificationsController {
     return this.notificationsService.unreadCount(user.role);
   }
 
+  @Patch('read-all')
+  markAllRead(@CurrentUser() user: { role: Role }) {
+    return this.notificationsService.markAllRead(user.role);
+  }
+
   @Patch(':id/read')
   markRead(@Param('id') id: string) {
     return this.notificationsService.markRead(id);

@@ -736,7 +736,6 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
 
 <template>
   <div class="admin-config" :class="{ 'admin-config--wide': activeTab === 'index' }">
-    <UiToastContainer />
     <UiSectionHeader label="Sistema" title="Configuración" />
 
     <div class="admin-config-tabs">

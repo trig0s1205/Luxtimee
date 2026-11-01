@@ -88,7 +88,6 @@ async function removeZone(zone: ShippingZoneDto) {
 
 <template>
   <div>
-    <UiToastContainer />
     <UiSectionHeader
       label="Operaciones"
       title="Tarifas de envío"

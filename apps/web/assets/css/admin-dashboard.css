@@ -455,6 +455,22 @@
   font-size: 10px;
 }
 
+.admin-nav-sound {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 0 12px 8px;
+  padding: 0 0 0 26px;
+  background: none;
+  border: none;
+  color: var(--white-dim);
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+
 .admin-nav-badge {
   margin-left: auto;
   display: inline-flex;

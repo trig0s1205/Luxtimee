@@ -131,8 +131,6 @@ useSeoMeta({ title: 'Ventas — LUXTIMEE Admin' });
 
 <template>
   <div class="admin-records-page">
-    <UiToastContainer />
-
     <UiSectionHeader
       label="Módulo de ventas"
       :title="`Ventas entregadas (${total})`"
