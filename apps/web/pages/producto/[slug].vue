@@ -99,7 +99,7 @@ function buyOnWhatsApp() {
     brand: watch.value.brand.name,
     model: watch.value.model,
     sku: watch.value.sku,
-  }));
+  }), { prefix: false });
 }
 </script>
 

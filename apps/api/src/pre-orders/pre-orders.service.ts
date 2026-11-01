@@ -37,7 +37,7 @@ import {
   generateReadableId,
   priceOrderLines,
 } from '../orders/order-pricing.util';
-import { formatWatchOrderLabel } from '../orders/watch-description.util';
+import { formatWatchOrderLabel, formatWatchWhatsappLabel } from '../orders/watch-description.util';
 import { WholesaleAccessService } from '../wholesale-access/wholesale-access.service';
 import { WholesaleOffersService } from '../wholesale-offers/wholesale-offers.service';
 import {
@@ -191,13 +191,13 @@ export class PreOrdersService {
       if (watch.stock < item.quantity) {
         throw new BadRequestException(`Stock insuficiente para ${watch.model}`);
       }
-      const whatsappLabel = formatWatchOrderLabel(watch);
+      const whatsappLabel = formatWatchWhatsappLabel(watch);
       return {
         watchId: watch.id,
         quantity: item.quantity,
         retailPrice: watch.retailPrice,
         wholesalePrice: watch.wholesalePrice,
-        productName: whatsappLabel,
+        productName: formatWatchOrderLabel(watch),
         productSku: watch.sku,
         whatsappLabel,
         productRef: watch.slug,

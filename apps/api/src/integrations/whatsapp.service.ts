@@ -33,7 +33,6 @@ export class WhatsappService {
         const lineTotal = item.price * item.qty;
         return [
           `*${index + 1}.* ${item.label}`,
-          item.sku?.trim() ? `   *SKU:* ${item.sku.trim()}` : null,
           `   _Cantidad:_ x${item.qty}  ·  _Precio unit.:_ $${item.price.toLocaleString('es-CO')}`,
           item.extrasLabel?.trim() ? `   _Extras:_ ${item.extrasLabel.trim()}` : null,
           item.packageName?.trim() ? `   _Paquete:_ ${item.packageName.trim()}` : null,
@@ -43,6 +42,7 @@ export class WhatsappService {
           item.deliveryNote?.trim()
             ? `   _Nota entrega:_ ${item.deliveryNote.trim()}`
             : null,
+          item.sku?.trim() ? `   *SKU:* ${item.sku.trim()}` : null,
         ]
           .filter(Boolean)
           .join('\n');

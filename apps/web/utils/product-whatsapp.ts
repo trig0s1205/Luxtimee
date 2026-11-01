@@ -1,9 +1,11 @@
+import { formatProductWatchName } from '@luxtime/shared';
+
 export function buildProductWhatsappMessage(input: {
   brand: string;
   model: string;
   sku: string;
 }) {
-  const name = `${input.brand} ${input.model}`.replace(/\s+/g, ' ').trim();
-  const sku = input.sku.trim();
-  return `Hola, quiero comprar ${name}. SKU: ${sku}`;
+  const name = formatProductWatchName(input.brand, input.model);
+  const watch = name ? ` ${name}` : '';
+  return `Hola LUXTIMEE, quiero comprar el reloj${watch}. SKU: ${input.sku.trim()}`;
 }

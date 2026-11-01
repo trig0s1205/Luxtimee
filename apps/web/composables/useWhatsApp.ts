@@ -24,18 +24,18 @@ export function useWhatsApp() {
     return settings.value;
   }
 
-  function buildUrl(message?: string) {
+  function buildUrl(message?: string, options?: { prefix?: boolean }) {
     const base = canonicalWaUrl(settings.value?.url);
     if (!base) return null;
     if (!message?.trim()) return base;
-    const prefix = settings.value?.messagePrefix?.trim();
+    const prefix = options?.prefix === false ? '' : settings.value?.messagePrefix?.trim();
     const text = prefix ? `${prefix} ${message}`.trim() : message.trim();
     return `${base}?text=${encodeURIComponent(text)}`;
   }
 
-  async function openChat(message?: string) {
+  async function openChat(message?: string, options?: { prefix?: boolean }) {
     await loadSettings(true);
-    const target = buildUrl(message);
+    const target = buildUrl(message, options);
     if (!target) {
       toast.warning('WhatsApp no está configurado. Escríbenos desde la sección de contacto.');
       return false;
