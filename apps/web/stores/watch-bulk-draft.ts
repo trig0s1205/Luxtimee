@@ -1,28 +1,21 @@
 import { defineStore } from 'pinia';
 import {
-  MAX_WATCH_IMAGE_BYTES,
+  MAX_BULK_DRAFT_PHOTOS,
+  bulkDraftIdempotencyKey,
   normalizeResumedBulkDraftJob,
-  photoSortStamp,
-  planPhotoPairs,
   retryFailedBulkDraftJobs,
-  summarizePhotoCreatedAt,
   swapBulkDraftPairSides,
   swapBulkDraftStoredSides,
   type BulkDraftQueueStatus,
   type PhotoPairError,
-  type PhotoPairInput,
   type PhotoSortSource,
 } from '@luxtime/shared';
 import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
 import { extractApiErrorMessage } from '~/utils/api-error';
+import { moveItem, pairInOrder, sortByNaturalName } from '~/utils/bulk-photo-arrange';
+import { compressCatalogImage } from '~/utils/catalog-image';
 import { invalidateStorefrontCatalogCaches } from '~/utils/storefront-cache';
-import { retryAfterMs, sniffImageKind } from '~/utils/draft-image';
-import {
-  isJunkZipName,
-  readZipEntries,
-  readZipEntry,
-  shouldRecommendLooseFiles,
-} from '~/utils/zip-entries';
+import { retryAfterMs } from '~/utils/draft-image';
 
 export type BulkDraftStatus = BulkDraftQueueStatus;
 
@@ -68,9 +61,15 @@ export type BulkDraftJob = {
 
 type StoredPair = {
   front: Blob;
-  back: Blob;
+  back: Blob | null;
   frontType: string;
-  backType: string;
+  backType: string | null;
+};
+
+type PreparedPhoto = {
+  name: string;
+  blob: Blob;
+  type: string;
 };
 
 export type BulkDraftPreviewPair = {
@@ -87,18 +86,31 @@ export type BulkDraftPreviewPair = {
   backSortSource: PhotoSortSource;
 };
 
+export type BulkDraftOrphan = {
+  id: string;
+  name: string;
+  url: string;
+};
+
+export type BulkDraftBoardPhoto = {
+  id: string;
+  name: string;
+  url: string;
+};
+
 export type BulkDraftPreview = {
-  source: 'zip' | 'loose';
-  noCreatedAt: boolean;
-  missingCreatedAt: string[];
   pairs: BulkDraftPreviewPair[];
+  orphan: BulkDraftOrphan | null;
 };
 
 type HeldPair = Omit<BulkDraftPreviewPair, 'frontUrl' | 'backUrl'> & StoredPair;
 
-type PersistedPreview = Omit<BulkDraftPreview, 'pairs'> & {
+type PersistedPreview = {
+  orphanId?: string;
   pairs: Array<Omit<BulkDraftPreviewPair, 'frontUrl' | 'backUrl'>>;
 };
+
+const boardBlobs = new Map<string, PreparedPhoto>();
 
 const LS_KEY = 'luxtimee.bulk-draft.v1';
 const PREVIEW_KEY = 'luxtimee.bulk-draft.preview.v1';
@@ -156,21 +168,22 @@ async function idbDelete(id: string) {
   db.close();
 }
 
-function zipBaseName(name: string) {
-  return name.split(/[/\\]/).pop() || name;
+function revokeUrl(url: string) {
+  if (!url || typeof URL === 'undefined' || !URL.revokeObjectURL) return;
+  URL.revokeObjectURL(url);
 }
 
-function sortMeta(file: PhotoPairInput) {
-  const stamp = photoSortStamp(file);
-  return { sortAt: stamp.ms, sortSource: stamp.source };
-}
-
-function revokePreviewUrls(pairs: BulkDraftPreviewPair[]) {
-  if (typeof URL === 'undefined' || !URL.revokeObjectURL) return;
+function revokePreviewUrls(pairs: BulkDraftPreviewPair[], orphan: BulkDraftOrphan | null) {
   for (const pair of pairs) {
-    URL.revokeObjectURL(pair.frontUrl);
-    URL.revokeObjectURL(pair.backUrl);
+    revokeUrl(pair.frontUrl);
+    revokeUrl(pair.backUrl);
   }
+  if (orphan) revokeUrl(orphan.url);
+}
+
+function jpegName(name: string) {
+  const base = name.split(/[/\\]/).pop() || name;
+  return /\.jpe?g$/i.test(base) ? base : `${base.replace(/\.[^.]+$/, '')}.jpg`;
 }
 
 export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
@@ -179,7 +192,8 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
     preparing: false,
     prepareLabel: '',
     prepareErrors: [] as PhotoPairError[],
-    largeZipWarning: false,
+    board: null as BulkDraftBoardPhoto[] | null,
+    selection: [] as string[],
     preview: null as BulkDraftPreview | null,
     confirming: false,
     settlement: null as BulkDraftSettlement | null,
@@ -227,185 +241,146 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
       localStorage.setItem(LS_KEY, JSON.stringify(this.jobs.map(({ ...job }) => job)));
     },
 
-    async begin(files: File[]) {
+    async ingest(files: File[], mode: 'sequence' | 'arrange') {
       if (this.preparing) return;
       this.prepareErrors = [];
-      this.largeZipWarning = false;
       if (!files.length) return;
-      const zip = files.find((file) => /\.zip$/i.test(file.name));
-      if (zip && (files.length > 1 || !/\.zip$/i.test(files[0]?.name ?? ''))) {
+      const images = files.filter((file) => file.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|heif|gif|bmp|avif)$/i.test(file.name));
+      if (!images.length) {
+        this.prepareErrors = [{ fileName: '', message: 'Elige fotos. Los ZIP no se usan.' }];
+        return;
+      }
+      if (images.length > MAX_BULK_DRAFT_PHOTOS) {
         this.prepareErrors = [{
-          fileName: zip.name,
-          message: `${zip.name}: sube un solo ZIP o solo fotos sueltas.`,
+          fileName: '',
+          message: `El lote admite como máximo ${MAX_BULK_DRAFT_PHOTOS} fotos.`,
         }];
         return;
       }
       this.preparing = true;
       try {
         if (this.preview) await this.cancelPreview();
-        if (zip) await this._beginZip(zip);
-        else await this._beginLoose(files);
+        this.clearBoard();
+        const prepared: PreparedPhoto[] = [];
+        const errors: PhotoPairError[] = [];
+        for (const [index, file] of images.entries()) {
+          this.prepareLabel = `Preparando ${index + 1} de ${images.length}`;
+          try {
+            const blob = await compressCatalogImage(file);
+            prepared.push({ name: jpegName(file.name), blob, type: 'image/jpeg' });
+          } catch (error) {
+            errors.push({
+              fileName: file.name,
+              message: error instanceof Error ? error.message : `${file.name}: no se pudo preparar.`,
+            });
+          }
+        }
+        this.prepareErrors = errors;
+        if (!prepared.length) return;
+        if (mode === 'arrange') {
+          const board = sortByNaturalName(prepared).map((photo) => {
+            const id = crypto.randomUUID();
+            boardBlobs.set(id, photo);
+            return { id, name: photo.name, url: URL.createObjectURL(photo.blob) };
+          });
+          this.board = board;
+          this.selection = [];
+          return;
+        }
+        const grouped = pairInOrder(prepared);
+        await this._stageReview(grouped.pairs, grouped.leftover);
       } catch (error) {
         this.prepareErrors = [{
-          fileName: zip?.name ?? files[0]?.name ?? '',
+          fileName: images[0]?.name ?? '',
           message: error instanceof Error ? error.message : 'No se pudieron leer las fotos.',
         }];
       } finally {
         this.preparing = false;
         this.prepareLabel = '';
-        this._noteSettlement();
       }
     },
 
-    async _beginLoose(files: File[]) {
+    toggleBoardPhoto(id: string) {
+      if (!this.board?.some((photo) => photo.id === id)) return;
+      const index = this.selection.indexOf(id);
+      this.selection = index === -1
+        ? [...this.selection, id]
+        : this.selection.filter((item) => item !== id);
+    },
+
+    clearSelection() {
+      this.selection = [];
+    },
+
+    async useBoardOrder() {
+      if (!this.board?.length || this.preparing) return;
+      this.selection = this.board.map((photo) => photo.id);
+      await this.commitBoard();
+    },
+
+    async commitBoard() {
+      if (!this.board || this.preparing) return;
+      const chosen = this.selection
+        .map((id) => {
+          const photo = boardBlobs.get(id);
+          const card = this.board?.find((item) => item.id === id);
+          return photo && card ? photo : null;
+        })
+        .filter((photo): photo is PreparedPhoto => !!photo);
+      if (!chosen.length) {
+        this.prepareErrors = [{ fileName: '', message: 'Selecciona al menos una foto.' }];
+        return;
+      }
+      const grouped = pairInOrder(chosen);
+      this.preparing = true;
+      try {
+        await this._stageReview(grouped.pairs, grouped.leftover);
+        this.clearBoard();
+      } catch (error) {
+        this.prepareErrors = [{
+          fileName: '',
+          message: error instanceof Error ? error.message : 'No se pudieron armar los pares.',
+        }];
+      } finally {
+        this.preparing = false;
+        this.prepareLabel = '';
+      }
+    },
+
+    clearBoard() {
+      for (const photo of this.board ?? []) revokeUrl(photo.url);
+      for (const id of boardBlobs.keys()) boardBlobs.delete(id);
+      this.board = null;
+      this.selection = [];
+    },
+
+    async _stageReview(
+      pairs: Array<{ front: PreparedPhoto; back: PreparedPhoto }>,
+      leftover: PreparedPhoto | null,
+    ) {
       const batchId = crypto.randomUUID();
-      const inputs = files.map((file) => ({
-        name: file.name,
-        size: file.size,
-        mime: file.type,
-        modifiedAt: file.lastModified,
-        file,
+      const staged: HeldPair[] = pairs.map((pair) => ({
+        id: crypto.randomUUID(),
+        batchId,
+        idempotencyKey: bulkDraftIdempotencyKey(batchId, pair.front.name, pair.back.name),
+        frontName: pair.front.name,
+        backName: pair.back.name,
+        front: pair.front.blob,
+        back: pair.back.blob,
+        frontType: pair.front.type,
+        backType: pair.back.type,
+        frontSortSource: 'none',
+        backSortSource: 'none',
       }));
-      const planned = planPhotoPairs(inputs, batchId, MAX_WATCH_IMAGE_BYTES);
-      if (planned.errors.length) {
-        this.prepareErrors = planned.errors;
-        return;
-      }
-      const errors: PhotoPairError[] = [];
-      const staged: HeldPair[] = [];
-      for (const [index, pair] of planned.pairs.entries()) {
-        this.prepareLabel = `Revisando ${index + 1} de ${planned.pairs.length}`;
-        const frontType = await sniffImageKind(pair.front.file);
-        const backType = await sniffImageKind(pair.back.file);
-        if (!frontType) {
-          errors.push({
-            fileName: pair.front.name,
-            message: `${pair.front.name}: no es un JPEG, PNG o WEBP válido.`,
-          });
-        }
-        if (!backType) {
-          errors.push({
-            fileName: pair.back.name,
-            message: `${pair.back.name}: no es un JPEG, PNG o WEBP válido.`,
-          });
-        }
-        if (!frontType || !backType) continue;
-        const frontSort = sortMeta(pair.front);
-        const backSort = sortMeta(pair.back);
-        staged.push({
-          id: crypto.randomUUID(),
-          batchId,
-          idempotencyKey: pair.idempotencyKey,
-          frontName: pair.front.name,
-          backName: pair.back.name,
-          front: pair.front.file,
-          back: pair.back.file,
-          frontType,
-          backType,
-          frontSortAt: frontSort.sortAt,
-          backSortAt: backSort.sortAt,
-          frontSortSource: frontSort.sortSource,
-          backSortSource: backSort.sortSource,
-        });
-      }
-      if (errors.length) {
-        this.prepareErrors = errors;
-        return;
-      }
-      await this._holdPreview('loose', inputs, staged);
-    },
-
-    async _beginZip(file: File) {
-      if (shouldRecommendLooseFiles(file.size)) this.largeZipWarning = true;
-      const entries = (await readZipEntries(file)).filter((entry) => !isJunkZipName(entry.name));
-      const batchId = crypto.randomUUID();
-      const baseCounts = new Map<string, number>();
-      for (const entry of entries) {
-        const base = zipBaseName(entry.name);
-        baseCounts.set(base, (baseCounts.get(base) ?? 0) + 1);
-      }
-      const used = new Map<string, number>();
-      const inputs = entries.map((entry) => {
-        const base = zipBaseName(entry.name);
-        const next = (used.get(base) ?? 0) + 1;
-        used.set(base, next);
-        const name = (baseCounts.get(base) ?? 0) > 1 ? `${entry.name}` : base;
-        return {
-          name,
-          size: entry.uncompressedSize,
-          mime: '',
-          createdAt: entry.createdAt,
-          modifiedAt: entry.modifiedAt,
-          entry,
-        };
-      });
-      const planned = planPhotoPairs(inputs, batchId, MAX_WATCH_IMAGE_BYTES);
-      if (planned.errors.length) {
-        this.prepareErrors = planned.errors;
-        return;
-      }
-      const staged: HeldPair[] = [];
-      const errors: PhotoPairError[] = [];
-      for (const [index, pair] of planned.pairs.entries()) {
-        this.prepareLabel = `Leyendo ${index + 1} de ${planned.pairs.length}`;
-        try {
-          const frontBytes = await readZipEntry(file, pair.front.entry);
-          const backBytes = await readZipEntry(file, pair.back.entry);
-          const frontType = await sniffImageKind(new Blob([frontBytes as BlobPart]));
-          const backType = await sniffImageKind(new Blob([backBytes as BlobPart]));
-          if (!frontType || !backType) {
-            const failed = !frontType ? pair.front.name : pair.back.name;
-            errors.push({
-              fileName: failed,
-              message: `${failed}: no es un JPEG, PNG o WEBP válido.`,
-            });
-            continue;
-          }
-          const frontSort = sortMeta(pair.front);
-          const backSort = sortMeta(pair.back);
-          staged.push({
-            id: crypto.randomUUID(),
-            batchId,
-            idempotencyKey: pair.idempotencyKey,
-            frontName: pair.front.name,
-            backName: pair.back.name,
-            front: new Blob([frontBytes as BlobPart], { type: frontType }),
-            back: new Blob([backBytes as BlobPart], { type: backType }),
-            frontType,
-            backType,
-            frontSortAt: frontSort.sortAt,
-            backSortAt: backSort.sortAt,
-            frontSortSource: frontSort.sortSource,
-            backSortSource: backSort.sortSource,
-          });
-        } catch (error) {
-          errors.push({
-            fileName: pair.front.name,
-            message: error instanceof Error ? error.message : `${pair.front.name}: no se pudo leer.`,
-          });
-        }
-      }
-      if (errors.length) {
-        this.prepareErrors = errors;
-        return;
-      }
-      await this._holdPreview('zip', inputs, staged);
-    },
-
-    async _holdPreview(source: 'zip' | 'loose', inputs: readonly PhotoPairInput[], staged: HeldPair[]) {
-      const coverage = summarizePhotoCreatedAt(inputs);
+      const orphanId = leftover ? crypto.randomUUID() : '';
       const persisted: PersistedPreview = {
-        source,
-        noCreatedAt: source === 'zip' && coverage.none,
-        missingCreatedAt: source === 'zip' && !coverage.none ? coverage.missing : [],
+        orphanId: orphanId || undefined,
         pairs: staged.map((job) => ({
           id: job.id,
           batchId: job.batchId,
           idempotencyKey: job.idempotencyKey,
           frontName: job.frontName,
           backName: job.backName,
-          frontSortAt: job.frontSortAt,
-          backSortAt: job.backSortAt,
           frontSortSource: job.frontSortSource,
           backSortSource: job.backSortSource,
         })),
@@ -413,7 +388,7 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
       const written: string[] = [];
       try {
         for (const [index, job] of staged.entries()) {
-          this.prepareLabel = `Guardando ${index + 1} de ${staged.length}`;
+          this.prepareLabel = `Guardando ${index + 1} de ${staged.length + (leftover ? 1 : 0)}`;
           await idbPut(job.id, {
             front: job.front,
             back: job.back,
@@ -422,9 +397,17 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
           });
           written.push(job.id);
         }
+        if (leftover && orphanId) {
+          await idbPut(orphanId, {
+            front: leftover.blob,
+            back: null,
+            frontType: leftover.type,
+            backType: null,
+          });
+          written.push(orphanId);
+        }
         this._writePreviewMeta(persisted);
         this.preview = {
-          ...persisted,
           pairs: staged.map((job) => ({
             id: job.id,
             batchId: job.batchId,
@@ -432,12 +415,13 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
             frontName: job.frontName,
             backName: job.backName,
             frontUrl: URL.createObjectURL(job.front),
-            backUrl: URL.createObjectURL(job.back),
-            frontSortAt: job.frontSortAt,
-            backSortAt: job.backSortAt,
+            backUrl: URL.createObjectURL(job.back as Blob),
             frontSortSource: job.frontSortSource,
             backSortSource: job.backSortSource,
           })),
+          orphan: leftover && orphanId
+            ? { id: orphanId, name: leftover.name, url: URL.createObjectURL(leftover.blob) }
+            : null,
         };
       } catch (error) {
         if (import.meta.client) localStorage.removeItem(PREVIEW_KEY);
@@ -453,6 +437,7 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
         await swapTail;
         const preview = this.preview;
         if (!preview) return;
+        if (preview.orphan) void idbDelete(preview.orphan.id).catch(() => undefined);
         const jobs: BulkDraftJob[] = preview.pairs.map((pair) => ({
           id: pair.id,
           batchId: pair.batchId,
@@ -482,14 +467,19 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
       const preview = this.preview;
       if (!preview) return;
       const pair = preview.pairs.find((item) => item.id === id);
-      if (!pair) return;
+      if (!pair?.backUrl) return;
       const before = { ...pair };
       Object.assign(pair, swapBulkDraftPairSides(pair));
       this._writePreviewMeta(this._previewMeta());
       try {
         const stored = await idbGet(id);
-        if (!stored) throw new Error('Faltan las fotos de este par.');
-        await idbPut(id, swapBulkDraftStoredSides(stored));
+        if (!stored?.back || !stored.backType) throw new Error('Faltan las fotos de este par.');
+        await idbPut(id, swapBulkDraftStoredSides({
+          front: stored.front,
+          back: stored.back,
+          frontType: stored.frontType,
+          backType: stored.backType,
+        }));
       } catch {
         if (this.preview?.pairs.some((item) => item.id === id)) {
           Object.assign(pair, before);
@@ -498,13 +488,96 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
       }
     },
 
+    movePreview(id: string, direction: -1 | 1) {
+      if (!this.preview || this.confirming) return;
+      const index = this.preview.pairs.findIndex((pair) => pair.id === id);
+      this.preview.pairs = moveItem(this.preview.pairs, index, direction);
+      this._writePreviewMeta(this._previewMeta());
+    },
+
+    async removePreviewWatch(id: string) {
+      if (!this.preview || this.confirming) return;
+      const pair = this.preview.pairs.find((item) => item.id === id);
+      if (!pair) return;
+      this.preview.pairs = this.preview.pairs.filter((item) => item.id !== id);
+      revokeUrl(pair.frontUrl);
+      revokeUrl(pair.backUrl);
+      this._writePreviewMeta(this._previewMeta());
+      await idbDelete(id).catch(() => undefined);
+    },
+
+    async removePreviewPhoto(id: string, side: 'front' | 'back') {
+      if (!this.preview || this.confirming) return;
+      const pair = this.preview.pairs.find((item) => item.id === id);
+      if (!pair) return;
+      const stored = await idbGet(id);
+      if (!stored) return;
+      if (side === 'back') {
+        if (!stored.back) return;
+        revokeUrl(pair.backUrl);
+        pair.backUrl = '';
+        pair.backName = '';
+        pair.idempotencyKey = bulkDraftIdempotencyKey(pair.batchId, pair.frontName, '');
+        await idbPut(id, { ...stored, back: null, backType: null });
+      } else if (stored.back && stored.backType) {
+        revokeUrl(pair.frontUrl);
+        pair.frontUrl = pair.backUrl;
+        pair.frontName = pair.backName;
+        pair.backUrl = '';
+        pair.backName = '';
+        pair.idempotencyKey = bulkDraftIdempotencyKey(pair.batchId, pair.frontName, '');
+        await idbPut(id, {
+          front: stored.back,
+          back: null,
+          frontType: stored.backType,
+          backType: null,
+        });
+      } else {
+        await this.removePreviewWatch(id);
+        return;
+      }
+      this._writePreviewMeta(this._previewMeta());
+    },
+
+    async acceptOrphan() {
+      const orphan = this.preview?.orphan;
+      if (!orphan || this.confirming) return;
+      const stored = await idbGet(orphan.id);
+      if (!stored) return;
+      const batchId = this.preview?.pairs[0]?.batchId ?? crypto.randomUUID();
+      this.preview?.pairs.push({
+        id: orphan.id,
+        batchId,
+        idempotencyKey: bulkDraftIdempotencyKey(batchId, orphan.name, ''),
+        frontName: orphan.name,
+        backName: '',
+        frontUrl: orphan.url,
+        backUrl: '',
+        frontSortSource: 'none',
+        backSortSource: 'none',
+      });
+      if (this.preview) this.preview.orphan = null;
+      this._writePreviewMeta(this._previewMeta());
+    },
+
+    persistPreviewOrder() {
+      this._writePreviewMeta(this._previewMeta());
+    },
+
+    async discardOrphan() {
+      const orphan = this.preview?.orphan;
+      if (!orphan || this.confirming) return;
+      revokeUrl(orphan.url);
+      this.preview.orphan = null;
+      this._writePreviewMeta(this._previewMeta());
+      await idbDelete(orphan.id).catch(() => undefined);
+    },
+
     _previewMeta(): PersistedPreview | null {
       const preview = this.preview;
       if (!preview) return null;
       return {
-        source: preview.source,
-        noCreatedAt: preview.noCreatedAt,
-        missingCreatedAt: preview.missingCreatedAt,
+        orphanId: preview.orphan?.id,
         pairs: preview.pairs.map(({ frontUrl: _frontUrl, backUrl: _backUrl, ...rest }) => rest),
       };
     },
@@ -522,16 +595,20 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
       if (this.confirming || !this.preview) return;
       await swapTail;
       if (this.confirming || !this.preview) return;
-      const ids = this.preview.pairs.map((pair) => pair.id);
+      const ids = [
+        ...this.preview.pairs.map((pair) => pair.id),
+        ...(this.preview.orphan ? [this.preview.orphan.id] : []),
+      ];
       this._dropPreviewRecord();
       await Promise.all(ids.map((id) => idbDelete(id).catch(() => undefined)));
     },
 
     _dropPreviewRecord() {
       const pairs = this.preview?.pairs ?? [];
+      const orphan = this.preview?.orphan ?? null;
       this.preview = null;
       if (import.meta.client) localStorage.removeItem(PREVIEW_KEY);
-      revokePreviewUrls(pairs);
+      revokePreviewUrls(pairs, orphan);
     },
 
     _discardUnconfirmedPreview() {
@@ -541,7 +618,10 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
         if (!raw) return;
         localStorage.removeItem(PREVIEW_KEY);
         const parsed = JSON.parse(raw) as PersistedPreview;
-        const ids = Array.isArray(parsed?.pairs) ? parsed.pairs.map((pair) => pair.id) : [];
+        const ids = [
+          ...(Array.isArray(parsed?.pairs) ? parsed.pairs.map((pair) => pair.id) : []),
+          ...(typeof parsed?.orphanId === 'string' ? [parsed.orphanId] : []),
+        ];
         void Promise.all(
           ids.filter((id) => typeof id === 'string').map((id) => idbDelete(id).catch(() => undefined)),
         );
@@ -639,7 +719,9 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
       while (rateRetries < 12) {
         const body = new FormData();
         body.append('image1', new File([stored.front], job.frontName, { type: stored.frontType }));
-        body.append('image2', new File([stored.back], job.backName, { type: stored.backType }));
+        if (stored.back && stored.backType) {
+          body.append('image2', new File([stored.back], job.backName || 'dorso.jpg', { type: stored.backType }));
+        }
         body.append('idempotencyKey', job.idempotencyKey);
         const response = await fetch(`${uploadBase}/watches/bulk-draft`, {
           method: 'POST',
