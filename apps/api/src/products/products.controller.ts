@@ -70,6 +70,7 @@ export class ProductsController {
   }
 
   @Get('financial/summary')
+  @Roles(Role.SUPER_ADMIN)
   @Financial()
   financialSummary(@CurrentUser() user: { role: Role }) {
     return this.productsService.findAllStaff(user.role);

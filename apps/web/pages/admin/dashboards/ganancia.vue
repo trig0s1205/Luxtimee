@@ -6,7 +6,7 @@ import { ADMIN_CACHE_MS } from '~/utils/admin-cache';
 
 const AdminRevenueTrendChartLazy = defineAsyncComponent(() => import('~/components/admin/RevenueTrendChart.vue'));
 
-definePageMeta({ middleware: ['admin'], keepalive: true });
+definePageMeta({ middleware: ['admin', 'owner'], keepalive: true });
 
 const auth = useAuthStore();
 const api = useApi();

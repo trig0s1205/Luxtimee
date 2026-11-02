@@ -3,6 +3,7 @@ import { Role, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateWatchDto, UpdateWatchDto } from './dto/watch.dto';
 import { slugify } from '../common/utils/slug.util';
+import { isStaffRole } from '../common/utils/staff-role';
 import { WatchesRepository } from '../watches/watches.repository';
 
 const watchInclude = {
@@ -21,7 +22,7 @@ export class ProductsService {
   ) {}
 
   private mapWatch<T extends Record<string, unknown>>(watch: T, role?: Role) {
-    if (role === Role.SUPER_ADMIN) return watch;
+    if (isStaffRole(role)) return watch;
     const { cost: _cost, profitPercent: _profitPercent, ...rest } = watch;
     return rest;
   }
@@ -63,8 +64,8 @@ export class ProductsService {
       retailPrice: dto.retailPrice,
       wholesalePrice: dto.wholesalePrice,
       stock: dto.stock,
-      cost: role === Role.SUPER_ADMIN ? dto.cost : undefined,
-      profitPercent: role === Role.SUPER_ADMIN ? dto.profitPercent : undefined,
+      cost: isStaffRole(role) ? dto.cost : undefined,
+      profitPercent: isStaffRole(role) ? dto.profitPercent : undefined,
     };
 
     if (dto.warrantyTemplateId) {
@@ -108,7 +109,7 @@ export class ProductsService {
     if (dto.careTemplateId)
       data.careTemplate = { connect: { id: dto.careTemplateId } };
 
-    if (role === Role.SUPER_ADMIN) {
+    if (isStaffRole(role)) {
       if (dto.cost !== undefined) data.cost = dto.cost;
       if (dto.profitPercent !== undefined)
         data.profitPercent = dto.profitPercent;

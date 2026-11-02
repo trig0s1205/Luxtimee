@@ -2,7 +2,6 @@ import {
   BadRequestException,
   Body,
   Controller,
-  ForbiddenException,
   Delete,
   Get,
   Param,
@@ -126,7 +125,6 @@ export class WatchesController {
   }
 
   @Get('pending-cost')
-  @Roles(Role.SUPER_ADMIN)
   findPendingCost(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -142,14 +140,8 @@ export class WatchesController {
     @Query('section') section?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
-    @CurrentUser() user?: { role: Role },
   ) {
     const kind = section === 'cost' ? 'cost' : 'general';
-    if (kind === 'cost' && user?.role !== Role.SUPER_ADMIN) {
-      throw new ForbiddenException(
-        'Solo Super Admin puede ver pendientes de costo',
-      );
-    }
     return this.watchesService.findPendingInfo(
       kind,
       Number(page) || 1,
@@ -190,7 +182,6 @@ export class WatchesController {
   }
 
   @Post('bulk-draft')
-  @Roles(Role.SUPER_ADMIN)
   @Throttle(BULK_DRAFT_THROTTLE)
   @Audit('CREATE', 'Watch')
   @UseInterceptors(

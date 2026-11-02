@@ -365,7 +365,7 @@ const selectedCareTemplate = computed(() =>
     </div>
 
     <div class="admin-watch-form-body">
-      <div v-if="auth.isSuperAdmin && !isEdit" class="admin-images-only-banner">
+      <div v-if="!isEdit" class="admin-images-only-banner">
         <UiLuxCheckbox
           v-model="imagesOnlyMode"
           label="Solo imágenes (borrador) — la secretaria completa datos y video después"
@@ -476,32 +476,30 @@ const selectedCareTemplate = computed(() =>
             <input type="text" :value="form.status" disabled class="admin-form-readonly">
           </div>
 
-          <template v-if="auth.isSuperAdmin">
-            <div class="admin-form-field">
-              <label>Costo (COP)</label>
-              <UiLuxInput v-model="form.cost" type="number" placeholder="0" />
-            </div>
+          <div class="admin-form-field">
+            <label>Costo (COP)</label>
+            <UiLuxInput v-model="form.cost" type="number" placeholder="0" />
+          </div>
 
-            <div class="admin-form-field">
-              <label>% Margen al detal</label>
-              <input
-                type="text"
-                :value="retailMarginPercentage !== null ? `${retailMarginPercentage}%` : '—'"
-                disabled
-                class="admin-form-readonly"
-              >
-            </div>
+          <div class="admin-form-field">
+            <label>% Margen al detal</label>
+            <input
+              type="text"
+              :value="retailMarginPercentage !== null ? `${retailMarginPercentage}%` : '—'"
+              disabled
+              class="admin-form-readonly"
+            >
+          </div>
 
-            <div class="admin-form-field">
-              <label>% Margen mayorista</label>
-              <input
-                type="text"
-                :value="wholesaleMarginPercentage !== null ? `${wholesaleMarginPercentage}%` : '—'"
-                disabled
-                class="admin-form-readonly"
-              >
-            </div>
-          </template>
+          <div class="admin-form-field">
+            <label>% Margen mayorista</label>
+            <input
+              type="text"
+              :value="wholesaleMarginPercentage !== null ? `${wholesaleMarginPercentage}%` : '—'"
+              disabled
+              class="admin-form-readonly"
+            >
+          </div>
 
         </div>
       </div>

@@ -228,14 +228,14 @@ describe('readNtfsExtraTimes', () => {
 });
 
 describe('bulk-draft guard y límites', () => {
-  it('solo Super Admin pasa el guard', () => {
+  it('el personal pasa el guard y el cliente no', () => {
     const guard = new RolesGuard(new Reflector());
     const context = (role: Role) => ({
       getClass: () => WatchesController,
       getHandler: () => WatchesController.prototype.bulkDraft,
       switchToHttp: () => ({ getRequest: () => ({ user: { role } }) }),
     });
-    expect(() => guard.canActivate(context(Role.ADMIN) as never)).toThrow(ForbiddenException);
+    expect(guard.canActivate(context(Role.ADMIN) as never)).toBe(true);
     expect(() => guard.canActivate(context(Role.CUSTOMER) as never)).toThrow(ForbiddenException);
     expect(guard.canActivate(context(Role.SUPER_ADMIN) as never)).toBe(true);
   });
@@ -268,13 +268,13 @@ describe('WatchesService.createBulkDraft', () => {
     (unlink as jest.Mock).mockResolvedValue(undefined);
   });
 
-  it('rechaza a quien no es Super Admin', async () => {
+  it('rechaza a quien no es personal', async () => {
     const repo = { findByBulkDraftKey: jest.fn() };
     const { service } = serviceWith(repo);
     await expect(
       service.createBulkDraft(
         { image1: image('001.jpg'), image2: image('002.jpg'), idempotencyKey: key },
-        Role.ADMIN,
+        Role.CUSTOMER,
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(repo.findByBulkDraftKey).not.toHaveBeenCalled();

@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Role } from '@prisma/client';
+import { isOwnerRole } from '../utils/staff-role';
 import { FINANCIAL_KEY } from '../decorators/metadata.decorators';
 
 @Injectable()
@@ -23,7 +23,7 @@ export class FinancialGuard implements CanActivate {
     }
 
     const { user } = context.switchToHttp().getRequest();
-    if (!user || user.role !== Role.SUPER_ADMIN) {
+    if (!isOwnerRole(user?.role)) {
       throw new ForbiddenException(
         'Solo Super Admin puede acceder a información financiera',
       );

@@ -115,13 +115,14 @@ useAsyncData('admin-config', async () => {
     whatsappPhone.value = whatsappPhoneFromInput(whatsappRes.url) ?? '';
   }
 
+  const platformRes = await api.get<PlatformConfigDto>('/settings/platform').catch(() => null);
+  if (platformRes) Object.assign(platform, platformRes);
+
   if (auth.isSuperAdmin) {
-    const [platformRes, profitRes, commissionRes] = await Promise.all([
-      api.get<PlatformConfigDto>('/settings/platform').catch(() => null),
+    const [profitRes, commissionRes] = await Promise.all([
       api.get<ProfitConfigDto>('/settings/profit').catch(() => null),
       api.get<CommissionConfigDto>('/settings/commission').catch(() => null),
     ]);
-    if (platformRes) Object.assign(platform, platformRes);
     if (profitRes) {
       profit.reinvestmentPercent = profitRes.reinvestmentPercent ?? 35;
       profit.ownerProfitPercent = profitRes.ownerProfitPercent ?? (100 - profit.reinvestmentPercent);
@@ -224,25 +225,32 @@ async function savePassword() {
 }
 
 async function savePlatformSettings() {
-  if (profitSplitTotal.value !== 100) {
+  if (auth.isSuperAdmin && profitSplitTotal.value !== 100) {
     toast.warning('Reinversión y ganancia libre deben sumar 100%.');
     return;
   }
 
   savingPlatform.value = true;
   try {
-    const [savedWhatsapp] = await Promise.all([
-      api.patch<WhatsappSettingDto>('/settings/whatsapp', {
-        url: whatsappPhone.value,
-        messagePrefix: whatsapp.messagePrefix,
-      }),
+    const whatsappSave = api.patch<WhatsappSettingDto>('/settings/whatsapp', {
+      url: whatsappPhone.value,
+      messagePrefix: whatsapp.messagePrefix,
+    });
+    const requests: Array<Promise<unknown>> = [
+      whatsappSave,
       api.patch('/settings/platform', { ...platform }),
-      api.patch('/settings/profit', {
-        reinvestmentPercent: Number(profit.reinvestmentPercent),
-        ownerProfitPercent: Number(profit.ownerProfitPercent),
-      }),
-      api.patch('/settings/commission', { percent: Number(commission.percent) }),
-    ]);
+    ];
+    if (auth.isSuperAdmin) {
+      requests.push(
+        api.patch('/settings/profit', {
+          reinvestmentPercent: Number(profit.reinvestmentPercent),
+          ownerProfitPercent: Number(profit.ownerProfitPercent),
+        }),
+        api.patch('/settings/commission', { percent: Number(commission.percent) }),
+      );
+    }
+    await Promise.all(requests);
+    const savedWhatsapp = await whatsappSave;
     whatsapp.url = savedWhatsapp.url;
     whatsapp.messagePrefix = savedWhatsapp.messagePrefix;
     whatsappPhone.value = whatsappPhoneFromInput(savedWhatsapp.url) ?? whatsappPhone.value;
@@ -760,7 +768,6 @@ function onConfigImageClick(event: MouseEvent) {
         Mi cuenta
       </button>
       <button
-        v-if="auth.isSuperAdmin"
         type="button"
         class="admin-config-tab"
         :class="{ 'admin-config-tab--active': activeTab === 'plataforma' }"
@@ -835,7 +842,7 @@ function onConfigImageClick(event: MouseEvent) {
     </div>
 
     <!-- PLATAFORMA -->
-    <div v-else-if="activeTab === 'plataforma' && auth.isSuperAdmin" class="admin-config-panels">
+    <div v-else-if="activeTab === 'plataforma'" class="admin-config-panels">
       <section class="admin-config-card">
         <h2>WhatsApp comercial</h2>
         <div class="admin-config-fields">
@@ -877,7 +884,7 @@ function onConfigImageClick(event: MouseEvent) {
         </div>
       </section>
 
-      <section class="admin-config-card">
+      <section v-if="auth.isSuperAdmin" class="admin-config-card">
         <h2>Finanzas y dashboard de ganancia</h2>
         <p class="admin-config-hint">
           Estos porcentajes alimentan el dashboard de ganancia. Los cambios aplican de inmediato en los cálculos del periodo.

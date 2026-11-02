@@ -16,6 +16,7 @@ import {
   UpdateWatchDto,
 } from './dto';
 import { WatchQueryDto } from './dto/watch-query.dto';
+import { isStaffRole } from '../common/utils/staff-role';
 import { computeWatchFinancials } from './utils/margin.util';
 import { slugify } from '../common/utils/slug.util';
 import { SettingsService } from '../settings/settings.service';
@@ -195,9 +196,9 @@ export class WatchesService {
 
   async create(dto: CreateWatchDto, role: Role) {
     const imagesOnly = dto.imagesOnly === true;
-    if (imagesOnly && role !== Role.SUPER_ADMIN) {
+    if (imagesOnly && !isStaffRole(role)) {
       throw new ForbiddenException(
-        'Solo Super Admin puede crear borradores solo con imágenes',
+        'Solo el personal puede crear borradores solo con imágenes',
       );
     }
 
@@ -290,7 +291,7 @@ export class WatchesService {
 
     await this.applyGlobalCommission(data);
 
-    if (role === Role.SUPER_ADMIN) {
+    if (isStaffRole(role)) {
       this.applySuperAdminFinancials(data, {
         cost: dto.cost ?? null,
         retailPrice: retailPrice!,
@@ -427,7 +428,7 @@ export class WatchesService {
         : { disconnect: true };
     }
 
-    if (role === Role.SUPER_ADMIN) {
+    if (isStaffRole(role)) {
       const retailPrice = dto.retailPrice ?? existing.retailPrice;
       const wholesalePrice = dto.wholesalePrice ?? existing.wholesalePrice;
       const cost = dto.cost !== undefined ? dto.cost : existing.cost;
@@ -881,9 +882,9 @@ export class WatchesService {
     },
     role: Role,
   ) {
-    if (role !== Role.SUPER_ADMIN) {
+    if (!isStaffRole(role)) {
       throw new ForbiddenException(
-        'Solo Super Admin puede crear borradores por lote',
+        'Solo el personal puede crear borradores por lote',
       );
     }
 

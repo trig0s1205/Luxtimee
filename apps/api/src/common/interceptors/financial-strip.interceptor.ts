@@ -7,6 +7,7 @@ import {
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Role } from '@prisma/client';
+import { isStaffRole } from '../utils/staff-role';
 
 const FINANCIAL_FIELDS = [
   'cost',
@@ -17,7 +18,7 @@ const FINANCIAL_FIELDS = [
 ] as const;
 
 function stripFinancial<T>(data: T, role?: Role): T {
-  if (!data || role === Role.SUPER_ADMIN) {
+  if (!data || isStaffRole(role)) {
     return data;
   }
 

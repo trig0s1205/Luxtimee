@@ -224,7 +224,7 @@ async function handleSubmit(form: WatchFormPayload) {
   const hasNewSecondaryImage = !!form.secondaryImageFile;
   const hasVideo = !!form.videoFile;
   const hasNewMedia = hasNewPrimaryImage || hasNewSecondaryImage || hasVideo;
-  const imagesOnly = !!(auth.isSuperAdmin && form.imagesOnly && isCreate);
+  const imagesOnly = !!(form.imagesOnly && isCreate);
 
   if (isCreate && !hasNewImages) {
     submitError.value = imagesOnly
@@ -294,10 +294,8 @@ async function handleSubmit(form: WatchFormPayload) {
           : {}),
     };
 
-    if (auth.isSuperAdmin && form.cost !== undefined) {
+    if (form.cost !== undefined) {
       payload.cost = Number(form.cost);
-    } else if (!auth.isSuperAdmin && editingWatch.value && Number(form.cost) === 0) {
-      payload.cost = 0;
     }
 
     let brandName = brands.value?.find((b) => b.id === (draftMode ? fallbackBrandId : form.brandId))?.name ?? '';
@@ -513,7 +511,7 @@ async function finishBulkDelete() {
         </button>
         <div class="admin-inventory-create">
           <UiLuxButton @click="openCreate">+ Nuevo Reloj</UiLuxButton>
-          <AdminBulkDraft v-if="auth.isSuperAdmin" />
+          <AdminBulkDraft />
         </div>
       </div>
     </div>
