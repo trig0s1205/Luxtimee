@@ -20,5 +20,6 @@ export const CACHE_TAGS = {
   categories: 'categories',
   mechanisms: 'mechanisms',
   settings: 'settings',
+  packaging: 'packaging',
   shipping: 'shipping',
 } as const;

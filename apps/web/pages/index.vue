@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import type { HomepageConfigDto, WatchPublicDto } from '@luxtime/shared';
+import type { HomepageConfigDto, PackagingPhotoDto, WatchPublicDto } from '@luxtime/shared';
 
 import { HOME_CMS_ASYNC_KEY, STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 import { getActiveHeroSlides, shouldShowFounderSection } from '~/utils/homepage-config';
 import { faqPageJsonLd } from '~/utils/seo';
+import { visiblePackagingPhotos } from '~/utils/packaging-gallery';
+import { PACKAGING_PHOTOS_KEY } from '~/composables/usePackagingPhotos';
 
 definePageMeta({ mainClass: 'main--home-hero' });
 
 const { observe } = useRevealObserver();
 const { fetchConfig, DEFAULT_HOMEPAGE_CONFIG } = useHomepageConfig();
+const { fetchPhotos: fetchPackagingPhotos } = usePackagingPhotos();
 const catalog = useCatalogData();
 
 const featuredAsync = useCachedAsyncData<WatchPublicDto[]>(
@@ -39,10 +42,22 @@ const homeAsync = useCachedAsyncData<HomepageConfigDto>(
   },
 );
 
+const packagingAsync = useCachedAsyncData<PackagingPhotoDto[]>(
+  PACKAGING_PHOTOS_KEY,
+  () => fetchPackagingPhotos(),
+  {
+    lazy: import.meta.client,
+    default: () => [],
+    staleTime: STOREFRONT_CACHE_MS.homepage,
+  },
+);
+
 const { data: featuredData, pending: featuredPending, refresh: refreshFeatured } = featuredAsync;
 const { data: homeCms } = homeAsync;
+const { data: packagingData } = packagingAsync;
+const packagingPhotos = computed(() => visiblePackagingPhotos(packagingData.value));
 
-await Promise.all([homeAsync, featuredAsync]);
+await Promise.all([homeAsync, featuredAsync, packagingAsync]);
 
 const cms = computed<HomepageConfigDto>(() => homeCms.value ?? DEFAULT_HOMEPAGE_CONFIG);
 
@@ -87,6 +102,11 @@ onMounted(() => {
       :flush-top="showPromoHero"
       :watches="featuredData || []"
       :pending="featuredPending"
+    />
+
+    <LazyHomePackagingSection
+      v-if="packagingPhotos.length"
+      :photos="packagingPhotos"
     />
 
     <LazyHomeAboutFounderSection

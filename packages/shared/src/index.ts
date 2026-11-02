@@ -58,6 +58,7 @@ export * from './types/auth.js';
 export * from './types/orders.js';
 export * from './types/expenses.js';
 export * from './types/settings.js';
+export * from './types/packaging.js';
 export * from './types/dashboard.js';
 export * from './utils/order-status.js';
 export * from './utils/text.js';
