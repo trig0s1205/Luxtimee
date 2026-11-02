@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import { Controller, Get, Header, Param, Patch, UseGuards } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { NotificationsService } from './notifications.service';
 import { Roles } from '../common/decorators/metadata.decorators';
@@ -12,11 +12,15 @@ export class NotificationsController {
   constructor(private notificationsService: NotificationsService) {}
 
   @Get()
+  @Header('Cache-Control', 'private, no-store')
+  @Header('CDN-Cache-Control', 'no-store')
   list(@CurrentUser() user: { role: Role }) {
     return this.notificationsService.listForStaff(user.role);
   }
 
   @Get('unread-count')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('CDN-Cache-Control', 'no-store')
   unread(@CurrentUser() user: { role: Role }) {
     return this.notificationsService.unreadCount(user.role);
   }
