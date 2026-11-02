@@ -57,11 +57,21 @@ jobs:
 
       - name: Apply Prisma migrations
         run: |
-          DATABASE_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL --project "$PROJECT_ID" | tr -d '\r')"
-          DIRECT_URL="$(gcloud secrets versions access latest --secret=DIRECT_URL --project "$PROJECT_ID" | tr -d '\r')"
+          umask 077
+          trap 'rm -f /tmp/luxtime-dburl /tmp/luxtime-directurl /tmp/luxtime-prisma.env' EXIT
+          gcloud secrets versions access latest --secret=DATABASE_URL --project "$PROJECT_ID" | tr -d '\r\n' > /tmp/luxtime-dburl
+          gcloud secrets versions access latest --secret=DIRECT_URL --project "$PROJECT_ID" | tr -d '\r\n' > /tmp/luxtime-directurl
+          test -s /tmp/luxtime-dburl
+          test -s /tmp/luxtime-directurl
+          {
+            printf 'DATABASE_URL='
+            cat /tmp/luxtime-dburl
+            printf '\nDIRECT_URL='
+            cat /tmp/luxtime-directurl
+            printf '\n'
+          } > /tmp/luxtime-prisma.env
           docker run --rm \
-            -e DATABASE_URL \
-            -e DIRECT_URL \
+            --env-file /tmp/luxtime-prisma.env \
             -w /app/apps/api \
             --entrypoint sh \
             "$IMAGE_TAG" \
