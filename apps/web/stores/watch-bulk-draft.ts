@@ -565,10 +565,11 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
     },
 
     async discardOrphan() {
-      const orphan = this.preview?.orphan;
-      if (!orphan || this.confirming) return;
+      const preview = this.preview;
+      const orphan = preview?.orphan;
+      if (!preview || !orphan || this.confirming) return;
       revokeUrl(orphan.url);
-      this.preview.orphan = null;
+      preview.orphan = null;
       this._writePreviewMeta(this._previewMeta());
       await idbDelete(orphan.id).catch(() => undefined);
     },
