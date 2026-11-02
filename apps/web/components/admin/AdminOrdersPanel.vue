@@ -47,6 +47,7 @@ const warrantyItemId = ref<string | null>(null);
 const savingWarrantyId = ref<string | null>(null);
 const editingOrder = ref<OrderDto | null>(null);
 const deletingId = ref<string | null>(null);
+const previewSrc = ref<string | null>(null);
 
 const warrantyForm = reactive({
   damageDescription: '',
@@ -465,21 +466,20 @@ useSeoMeta({ title: props.seoTitle });
             >
               <ul class="admin-record-list">
                 <li v-for="item in order.items" :key="item.id" class="admin-record-item-row">
-                  <a
+                  <button
                     v-if="item.watchThumbnail"
-                    :href="item.watchThumbnail"
-                    target="_blank"
-                    rel="noopener"
-                    @click.stop
+                    type="button"
+                    class="admin-record-thumb"
+                    :aria-label="`Ver imagen de ${item.productSku}`"
+                    @click.stop="previewSrc = item.watchThumbnail"
                   >
                     <img
                       :src="item.watchThumbnail"
                       :alt="item.productName"
                       width="40"
                       height="40"
-                      style="object-fit:cover;border-radius:2px;display:block;"
                     />
-                  </a>
+                  </button>
                   <span>
                     {{ item.productSku }} — {{ item.productName }} ×{{ item.quantity }}
                     <span class="admin-record-muted"> · {{ formatCop(item.unitPrice * item.quantity) }}</span>
@@ -648,6 +648,7 @@ useSeoMeta({ title: props.seoTitle });
     @close="editingOrder = null"
     @saved="onEditSaved"
   />
+  <AdminImageLightbox :src="previewSrc" @close="previewSrc = null" />
 </template>
 
 <style scoped>

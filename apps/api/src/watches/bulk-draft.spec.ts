@@ -369,6 +369,29 @@ describe('WatchesService.createBulkDraft', () => {
     }
   });
 
+  it('crea el borrador solo con el frente', async () => {
+    const repo = {
+      findByBulkDraftKey: jest.fn().mockResolvedValue(null),
+      findFirstBrandId: jest.fn().mockResolvedValue('brand-1'),
+      brandExists: jest.fn().mockResolvedValue(true),
+      findBySlug: jest.fn().mockResolvedValue(null),
+      createBulkDraftOnce: jest.fn().mockResolvedValue({
+        created: true,
+        watch: { id: 'watch-3', sku: 'RM-005' },
+      }),
+    };
+    const { service } = serviceWith(repo);
+    await service.createBulkDraft(
+      { image1: image('sola.jpg'), idempotencyKey: 'batch-1:sola.jpg|' },
+      Role.SUPER_ADMIN,
+    );
+    const payload = repo.createBulkDraftOnce.mock.calls[0]?.[0] as {
+      data: { images: string[]; backImageUrl: string | null };
+    };
+    expect(payload.data.images).toHaveLength(1);
+    expect(payload.data.backImageUrl).toBeNull();
+  });
+
   it('reutiliza la clave si otro request ya creó el borrador', async () => {
     const repo = {
       findByBulkDraftKey: jest.fn().mockResolvedValue(null),

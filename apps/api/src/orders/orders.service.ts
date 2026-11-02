@@ -21,7 +21,7 @@ import { CertificatesService } from '../certificates/certificates.service';
 import { assertValidTransition } from './state-machine';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import type { OrdersPeriod } from './dto/orders-query.dto';
-import { buildOrderSearchWhere } from './order-search.util';
+import { findOrderIdsByTextSearch } from './order-search.util';
 import type { SpecialSalesQueryDto } from './dto/special-sale.dto';
 import { CreateSpecialSaleDto } from './dto/special-sale.dto';
 import { generateReadableId } from './order-pricing.util';
@@ -183,8 +183,8 @@ export class OrdersService {
     const filters: Prisma.OrderWhereInput[] = [];
     if (since) filters.push(this.buildPeriodFilter(since));
     if (options.status) filters.push({ status: options.status });
-    const searchWhere = buildOrderSearchWhere(options.search);
-    if (searchWhere) filters.push(searchWhere);
+    const matchedIds = await findOrderIdsByTextSearch(this.prisma, options.search);
+    if (matchedIds) filters.push({ id: { in: matchedIds } });
 
     const where: Prisma.OrderWhereInput = {
       stage: OrderStage.ORDER,
@@ -361,28 +361,14 @@ export class OrdersService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const search = query.search?.trim();
+    const matchedIds = search
+      ? await findOrderIdsByTextSearch(this.prisma, search)
+      : null;
     const where: Prisma.OrderWhereInput = {
       stage: OrderStage.ORDER,
       type: OrderType.ESPECIAL,
       canceledAt: null,
-      ...(search
-        ? {
-            OR: [
-              { specialNote: { contains: search, mode: 'insensitive' } },
-              {
-                specialSkuSnapshot: { contains: search, mode: 'insensitive' },
-              },
-              { readableId: { contains: search, mode: 'insensitive' } },
-              {
-                items: {
-                  some: {
-                    productName: { contains: search, mode: 'insensitive' },
-                  },
-                },
-              },
-            ],
-          }
-        : {}),
+      ...(matchedIds ? { id: { in: matchedIds } } : {}),
     };
 
     const [total, orders] = await Promise.all([

@@ -176,6 +176,8 @@ export interface WatchQueryDto {
   brand?: string;
   search?: string;
   status?: WatchStatus;
+  /** Publicado, ficha completa y stock mayor a cero. El inventario no lo envía. */
+  availability?: 'sellable';
   page?: number;
   limit?: number;
 }

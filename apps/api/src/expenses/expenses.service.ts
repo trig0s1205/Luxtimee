@@ -40,13 +40,11 @@ export function expenseDate(value?: string | null) {
 }
 
 function periodStart(period: ExpensePeriod) {
-  const now = new Date();
-  if (period === 'day') {
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  }
-  if (period === 'week') return new Date(now.getTime() - 7 * 86400000);
-  if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1);
-  return null;
+  if (period === 'all') return null;
+  const [year, month, day] = bogotaToday().split('-').map(Number);
+  if (period === 'day') return new Date(Date.UTC(year, month - 1, day));
+  if (period === 'week') return new Date(Date.UTC(year, month - 1, day - 6));
+  return new Date(Date.UTC(year, month - 1, 1));
 }
 
 @Injectable()

@@ -8,6 +8,11 @@ import {
 
 definePageMeta({ middleware: ['admin'], keepalive: true });
 
+useHead({
+  title: 'Notificaciones',
+  meta: [{ name: 'robots', key: 'robots', content: 'noindex, nofollow' }],
+});
+
 const api = useApi();
 const { refreshUnread } = useAdminNotifications();
 const now = ref(Date.now());
@@ -71,7 +76,7 @@ async function openNotification(item: StaffNotification) {
           <p class="admin-notification-date">{{ formatRelativeTime(n.createdAt, now) }}</p>
         </button>
         <NuxtLink class="admin-pagination-btn" :to="notificationHref(n.type, n.payload)" @click="!n.readAt && markRead(n.id)">
-          Ver pedido
+          Ver
         </NuxtLink>
       </article>
       <p v-if="!notifications?.length" class="text-lux-white-dim">Sin notificaciones.</p>

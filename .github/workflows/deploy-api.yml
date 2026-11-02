@@ -55,6 +55,18 @@ jobs:
           docker push "$IMAGE_LATEST"
           echo "IMAGE_TAG=$IMAGE_LATEST" >> $GITHUB_ENV
 
+      - name: Apply Prisma migrations
+        run: |
+          DATABASE_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL --project "$PROJECT_ID" | tr -d '\r')"
+          DIRECT_URL="$(gcloud secrets versions access latest --secret=DIRECT_URL --project "$PROJECT_ID" | tr -d '\r')"
+          docker run --rm \
+            -e DATABASE_URL \
+            -e DIRECT_URL \
+            -w /app/apps/api \
+            --entrypoint sh \
+            "$IMAGE_TAG" \
+            -c 'if [ -f ./node_modules/prisma/build/index.js ]; then PRISMA=./node_modules/prisma/build/index.js; else PRISMA=$(find /app/node_modules/.pnpm -path "*/prisma/build/index.js" | head -n 1); fi; test -n "$PRISMA"; node "$PRISMA" migrate deploy --schema prisma/schema.prisma'
+
       - name: Deploy to Cloud Run
         # min-instances queda en 0. En producción conviene 1: README, Rendimiento del storefront.
         run: |

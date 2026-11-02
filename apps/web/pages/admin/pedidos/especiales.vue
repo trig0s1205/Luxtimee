@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import type {
   CreateSpecialSaleDto,
-  PaginatedResponse,
   SpecialSaleDto,
   SpecialSalesListDto,
   WatchStaffDto,
 } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
-import { extractApiErrorMessage, isAbortError } from '~/utils/api-error';
+import { extractApiErrorMessage } from '~/utils/api-error';
 import { searchEmptyMessage } from '~/utils/search-empty';
 import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
 
@@ -28,19 +27,22 @@ const deletingId = ref<string | null>(null);
 const formError = ref('');
 
 const selected = ref<WatchStaffDto | null>(null);
-const watchSearch = ref('');
-const searchResults = ref<WatchStaffDto[]>([]);
-const searchPending = ref(false);
-const searchFinishedTerm = ref('');
 const priceError = ref('');
-let searchTimer: ReturnType<typeof setTimeout> | null = null;
-let watchSearchAbort: AbortController | null = null;
+const {
+  query: watchSearch,
+  results: searchResults,
+  total: searchTotal,
+  pending: searchPending,
+  finishedTerm: searchFinishedTerm,
+  schedule: scheduleWatchSearch,
+  clear: clearWatchSearch,
+} = useSellableWatchSearch();
 
 const watchSearchMiss = computed(() => searchEmptyMessage({
   term: searchFinishedTerm.value,
   pending: searchPending.value || searchFinishedTerm.value !== watchSearch.value.trim(),
   count: searchResults.value.length,
-  message: 'No se encontraron relojes con esa búsqueda',
+  message: 'No hay relojes en catálogo con stock para esa búsqueda',
   minLength: 2,
 }));
 
@@ -82,49 +84,13 @@ function formatDate(value: string) {
   });
 }
 
-function scheduleWatchSearch() {
-  if (searchTimer) clearTimeout(searchTimer);
-  searchTimer = setTimeout(runWatchSearch, 300);
-}
-
-async function runWatchSearch() {
-  const term = watchSearch.value.trim();
-  watchSearchAbort?.abort();
-  if (term.length < 2) {
-    searchResults.value = [];
-    searchFinishedTerm.value = '';
-    searchPending.value = false;
-    return;
-  }
-  const controller = new AbortController();
-  watchSearchAbort = controller;
-  searchPending.value = true;
-  try {
-    const res = await api.get<PaginatedResponse<WatchStaffDto>>('/watches', {
-      search: term,
-      page: 1,
-      limit: 8,
-    }, { signal: controller.signal });
-    if (controller.signal.aborted) return;
-    searchResults.value = res.data;
-    searchFinishedTerm.value = term;
-  } catch (err: unknown) {
-    if (isAbortError(err) || controller.signal.aborted) return;
-    searchResults.value = [];
-    searchFinishedTerm.value = term;
-  } finally {
-    if (watchSearchAbort === controller) searchPending.value = false;
-  }
-}
-
 function selectWatch(watch: WatchStaffDto) {
   if ((watch.stock ?? 0) <= 0) {
     toast.error('Sin stock para este reloj');
     return;
   }
   selected.value = watch;
-  watchSearch.value = '';
-  searchResults.value = [];
+  clearWatchSearch();
   formError.value = '';
 }
 
@@ -235,13 +201,11 @@ useSeoMeta({ title: 'Ventas especiales — LUXTIMEE Admin' });
       />
       <p v-if="searchPending" class="admin-record-muted">Buscando...</p>
       <p v-if="watchSearchMiss" class="admin-search-empty" role="status">{{ watchSearchMiss }}</p>
-      <ul v-if="searchResults.length" class="admin-record-list special-results">
-        <li v-for="watch in searchResults" :key="watch.id">
-          <button type="button" class="admin-record-btn admin-record-btn--ghost special-result" @click="selectWatch(watch)">
-            {{ watch.brand.name }} {{ watch.model }} · {{ watch.sku }} · {{ formatCop(watch.retailPrice) }} · Stock {{ watch.stock }}
-          </button>
-        </li>
-      </ul>
+      <AdminWatchPickList :watches="searchResults" :total="searchTotal" @select="selectWatch">
+        <template #meta="{ watch }">
+          {{ formatCop(watch.retailPrice) }} · Stock {{ watch.stock }}
+        </template>
+      </AdminWatchPickList>
 
       <div v-if="selected" class="special-selected">
         <div>
