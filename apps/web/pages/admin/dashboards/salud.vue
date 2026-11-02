@@ -119,6 +119,8 @@ useSeoMeta({ title: 'Panel de salud del negocio — LUXTIMEE Admin' });
       </article>
     </div>
 
+    <AdminExpensesSummary period="month" />
+
     <div class="health-main-grid">
       <AdminDashboardChartLazy />
 

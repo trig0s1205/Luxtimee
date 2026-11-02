@@ -36,6 +36,7 @@ const ADMIN_ROUTES = [
   '/admin/pedidos/detal',
   '/admin/pedidos/mayor',
   '/admin/pedidos/especiales',
+  '/admin/gastos',
   '/admin/ventas',
   '/admin/garantias',
   '/admin/envios',

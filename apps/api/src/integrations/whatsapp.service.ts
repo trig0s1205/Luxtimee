@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { whatsappPhoneFromInput } from '@luxtime/shared';
+import {
+  depositBreakdownLabel,
+  depositCharge,
+  formatCopAmount,
+  whatsappPhoneFromInput,
+} from '@luxtime/shared';
 
 @Injectable()
 export class WhatsappService {
@@ -49,6 +54,8 @@ export class WhatsappService {
       })
       .join('\n\n');
 
+    const unitCount = input.items.reduce((sum, item) => sum + item.qty, 0);
+    const deposit = depositCharge(unitCount, input.total);
     const contactBlock = [
       `👤 *Cliente:* ${input.customerName}`,
       input.customerPhone ? `📱 *Teléfono:* ${input.customerPhone}` : null,
@@ -74,6 +81,9 @@ export class WhatsappService {
       divider,
       '',
       `💰 *Total estimado:* $${input.total.toLocaleString('es-CO')} COP`,
+      deposit > 0
+        ? `*Abono para confirmar el pedido:* ${formatCopAmount(deposit)} COP (${depositBreakdownLabel(unitCount)}). El abono es de $10.000 por reloj.`
+        : null,
       '',
       '📦 *Tiempos de entrega*',
       '• Envíos nacionales: 2 a 5 días hábiles',

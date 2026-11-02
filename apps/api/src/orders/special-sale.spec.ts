@@ -272,6 +272,9 @@ describe('stock de venta especial', () => {
       salePrice: SALE,
       note: 'mamá de Álvaro',
     });
+    expect(stored?.payments).toMatchObject({
+      create: [{ type: 'SALDO', amount: SALE }],
+    });
     expect(stored).toMatchObject({
       type: OrderType.ESPECIAL,
       status: OrderStatus.ENTREGADO,

@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { OrderStage, OrderStatus } from '@prisma/client';
+import { OrderStage, OrderStatus, OrderType, Prisma } from '@prisma/client';
 import { profitBreakdownFromLine } from '../orders/special-sale.util';
+import {
+  allocateAmounts,
+  cashEventsForOrder,
+  recognizeCollected,
+} from '../orders/order-payments.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import { PreOrdersService } from '../pre-orders/pre-orders.service';
@@ -52,6 +57,7 @@ export class DashboardsService {
           ...(since
             ? {
                 OR: [
+                  { payments: { some: { paidAt: { gte: since } } } },
                   { paidAt: { gte: since } },
                   { createdAt: { gte: since } },
                   { updatedAt: { gte: since } },
@@ -62,6 +68,7 @@ export class DashboardsService {
         include: {
           items: { include: { watch: true } },
           shippingZone: { select: { name: true } },
+          payments: { select: { amount: true, paidAt: true } },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -77,10 +84,27 @@ export class DashboardsService {
     );
 
     const items = orders.flatMap((order) => {
-      const saleAt = order.paidAt ?? order.updatedAt ?? order.createdAt;
-      if (since && saleAt < since) return [];
+      const lineTotals = order.items.map(
+        (item) => item.unitPrice * item.quantity,
+      );
+      const lineSum = lineTotals.reduce((sum, value) => sum + value, 0);
+      const subtotal = order.subtotal || lineSum;
+      const recognized = recognizeCollected({
+        subtotal,
+        shippingCost: order.shippingCost,
+        events: cashEventsForOrder({
+          ...order,
+          total: order.total || subtotal + order.shippingCost,
+        }),
+        since,
+      });
+      if (recognized.product <= 0 || !recognized.paidAt) return [];
 
-      return order.items.map((item) => {
+      const allocations = allocateAmounts(lineTotals, recognized.product);
+      return order.items.flatMap((item, index) => {
+        const revenue = allocations[index] ?? 0;
+        if (revenue <= 0) return [];
+        const lineTotal = lineTotals[index] ?? 0;
         const priced = profitBreakdownFromLine({
           orderType: order.type,
           unitPrice: item.unitPrice,
@@ -89,21 +113,29 @@ export class DashboardsService {
           costSnapshot: order.specialCostSnapshot,
           commissionPercent,
         });
-        return {
-          orderId: order.id,
-          readableId: order.readableId,
-          orderType: order.type,
-          orderStatus: order.status ?? OrderStatus.PENDIENTE,
-          priceType: item.priceType,
-          productName: item.productName,
-          quantity: item.quantity,
-          revenue: priced.revenue,
-          cost: priced.cost,
-          profit: priced.profit,
-          commissionPercent,
-          commission: priced.commission,
-          paidAt: saleAt.toISOString(),
-        };
+        const ratio = lineTotal > 0 ? revenue / lineTotal : 0;
+        const cost = ratio >= 1 ? priced.cost : Math.round(priced.cost * ratio);
+        const grossProfit = revenue - cost;
+        const commission = Math.round(
+          grossProfit * (commissionPercent / 100),
+        );
+        return [
+          {
+            orderId: order.id,
+            readableId: order.readableId,
+            orderType: order.type,
+            orderStatus: order.status ?? OrderStatus.PENDIENTE,
+            priceType: item.priceType,
+            productName: item.productName,
+            quantity: item.quantity,
+            revenue,
+            cost,
+            profit: grossProfit - commission,
+            commissionPercent,
+            commission,
+            paidAt: recognized.paidAt.toISOString(),
+          },
+        ];
       });
     });
 
@@ -120,9 +152,20 @@ export class DashboardsService {
     );
 
     const shippingItems = orders.flatMap((order) => {
-      const saleAt = order.paidAt ?? order.updatedAt ?? order.createdAt;
-      if (since && saleAt < since) return [];
-      if (order.shippingCost <= 0) return [];
+      const lineSum = order.items.reduce(
+        (sum, item) => sum + item.unitPrice * item.quantity,
+        0,
+      );
+      const recognized = recognizeCollected({
+        subtotal: order.subtotal || lineSum,
+        shippingCost: order.shippingCost,
+        events: cashEventsForOrder({
+          ...order,
+          total: order.total || (order.subtotal || lineSum) + order.shippingCost,
+        }),
+        since,
+      });
+      if (recognized.shipping <= 0 || !recognized.paidAt) return [];
 
       return [
         {
@@ -130,9 +173,9 @@ export class DashboardsService {
           readableId: order.readableId,
           orderType: order.type,
           orderStatus: order.status ?? OrderStatus.PENDIENTE,
-          shippingCost: order.shippingCost,
+          shippingCost: recognized.shipping,
           shippingZoneName: order.shippingZone?.name ?? null,
-          paidAt: saleAt.toISOString(),
+          paidAt: recognized.paidAt.toISOString(),
         },
       ];
     });
@@ -222,7 +265,6 @@ export class DashboardsService {
       paidOrdersInPeriod,
       ordersToShip,
       previousPaidOrders,
-      previousPaidOrdersInPeriod,
     ] = await Promise.all([
       this.prisma.order.count({ where: activePreOrderWhere }),
       this.prisma.order.count({ where: suspendedPreOrderWhere }),
@@ -253,12 +295,6 @@ export class DashboardsService {
       previousPaidOrdersWhere
         ? this.prisma.order.count({ where: previousPaidOrdersWhere })
         : Promise.resolve(0),
-      previousPaidOrdersWhere
-        ? this.prisma.order.findMany({
-            where: previousPaidOrdersWhere,
-            select: { total: true },
-          })
-        : Promise.resolve([]),
     ]);
 
     const topSoldMap = new Map<string, number>();
@@ -289,17 +325,15 @@ export class DashboardsService {
     const totalInventoryUnits = inventoryAggregate._sum.stock ?? 0;
     const inventoryLowAlert =
       totalInventoryUnits <= GLOBAL_INVENTORY_LOW_THRESHOLD;
-    const periodRevenue = paidOrdersInPeriod.reduce(
-      (sum, order) => sum + order.total,
-      0,
-    );
+    const [periodRevenue, previousPeriodRevenue] = await Promise.all([
+      this.sumCashIncome(since, null),
+      previousRange
+        ? this.sumCashIncome(previousRange.since, previousRange.until)
+        : Promise.resolve(0),
+    ]);
     const unitsSold = paidOrdersInPeriod.reduce(
       (sum, order) =>
         sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0),
-      0,
-    );
-    const previousPeriodRevenue = previousPaidOrdersInPeriod.reduce(
-      (sum, order) => sum + order.total,
       0,
     );
     const chartTo = new Date();
@@ -401,40 +435,125 @@ export class DashboardsService {
     range: RevenueRange = '1_month',
   ): Promise<RevenueDashboardDto> {
     const since = this.revenueRangeStart(range);
-    const confirmed = [
-      OrderStatus.PAGADO,
-      OrderStatus.ENVIADO,
-      OrderStatus.ENTREGADO,
-    ];
-
-    const orders = await this.prisma.order.findMany({
-      where: {
-        status: { in: confirmed },
-        paidAt: {
-          not: null,
-          ...(since ? { gte: since } : {}),
-        },
-      },
-      include: { items: { select: { productName: true } } },
-      orderBy: { paidAt: 'asc' },
-    });
-
-    const points: RevenueOrderPointDto[] = orders
-      .filter((order) => order.paidAt)
-      .map((order) => ({
-        id: order.id,
-        readableId: order.readableId,
-        customerName: order.customerName,
-        productSummary: order.items.map((item) => item.productName).join(', '),
-        paidAt: order.paidAt!.toISOString(),
-        total: order.total,
-      }));
-
+    const points = await this.cashIncomePoints(since, null);
     return {
       range,
       orders: points,
       total: points.reduce((sum, point) => sum + point.total, 0),
     };
+  }
+
+  private paidAtRange(
+    since: Date | null,
+    until: Date | null,
+  ): Prisma.DateTimeFilter | undefined {
+    if (!since && !until) return undefined;
+    return {
+      ...(since ? { gte: since } : {}),
+      ...(until ? { lt: until } : {}),
+    };
+  }
+
+  private async sumCashIncome(since: Date | null, until: Date | null) {
+    const points = await this.cashIncomePoints(since, until);
+    return points.reduce((sum, point) => sum + point.total, 0);
+  }
+
+  private async cashIncomePoints(
+    since: Date | null,
+    until: Date | null,
+  ): Promise<RevenueOrderPointDto[]> {
+    const paidAt = this.paidAtRange(since, until);
+    const [payments, legacy] = await Promise.all([
+      this.prisma.orderPayment.findMany({
+        where: {
+          ...(paidAt ? { paidAt } : {}),
+          order: { canceledAt: null, stage: OrderStage.ORDER },
+        },
+        include: {
+          order: {
+            select: {
+              readableId: true,
+              customerName: true,
+              status: true,
+              items: { select: { productName: true } },
+            },
+          },
+        },
+        orderBy: { paidAt: 'asc' },
+      }),
+      this.prisma.order.findMany({
+        where: {
+          canceledAt: null,
+          stage: OrderStage.ORDER,
+          payments: { none: {} },
+          OR: [
+            {
+              status: {
+                in: [
+                  OrderStatus.PAGADO,
+                  OrderStatus.ENVIADO,
+                  OrderStatus.ENTREGADO,
+                ],
+              },
+              ...(paidAt ? { paidAt } : { paidAt: { not: null } }),
+            },
+            {
+              type: OrderType.ESPECIAL,
+              ...(paidAt
+                ? {
+                    OR: [
+                      { paidAt },
+                      { paidAt: null, createdAt: paidAt },
+                    ],
+                  }
+                : {}),
+            },
+            {
+              depositConfirmed: true,
+              status: OrderStatus.PENDIENTE,
+              ...(paidAt ? { updatedAt: paidAt } : {}),
+            },
+          ],
+        },
+        include: { items: { select: { productName: true } } },
+      }),
+    ]);
+
+    const paymentPoints: RevenueOrderPointDto[] = payments.map((payment) => ({
+      id: payment.id,
+      readableId: `${payment.order.readableId} · ${payment.type === 'ABONO' ? 'Abono' : 'Saldo'}`,
+      customerName: payment.order.customerName,
+      productSummary: payment.order.items
+        .map((item) => item.productName)
+        .join(', '),
+      paidAt: payment.paidAt.toISOString(),
+      total: payment.amount,
+    }));
+
+    const legacyPoints: RevenueOrderPointDto[] = legacy.flatMap((order) => {
+      const events = cashEventsForOrder(order);
+      return events
+        .filter((event) => {
+          if (since && event.paidAt < since) return false;
+          if (until && event.paidAt >= until) return false;
+          return true;
+        })
+        .map((event) => ({
+          id: order.id,
+          readableId: order.readableId,
+          customerName: order.customerName,
+          productSummary: order.items
+            .map((item) => item.productName)
+            .join(', '),
+          paidAt: event.paidAt.toISOString(),
+          total: event.amount,
+        }));
+    });
+
+    return [...paymentPoints, ...legacyPoints].sort((a, b) =>
+      a.paidAt.localeCompare(b.paidAt),
+    );
   }
 
   private revenueRangeStart(range: RevenueRange): Date | null {

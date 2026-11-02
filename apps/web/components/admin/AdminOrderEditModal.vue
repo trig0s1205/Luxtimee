@@ -9,6 +9,7 @@ const emit = defineEmits<{ close: []; saved: [] }>();
 
 const api = useApi();
 const toast = useToast();
+const { confirm } = useConfirm();
 
 const saving = ref(false);
 const error = ref('');
@@ -31,6 +32,21 @@ async function save() {
     if (form.customerAddress !== props.order.customerAddress) payload.customerAddress = form.customerAddress;
     if (form.shippingCost !== props.order.shippingCost) payload.shippingCost = form.shippingCost;
     if (form.status && form.status !== (props.order.status ?? '')) payload.status = form.status;
+
+    const projectedTotal = props.order.subtotal + Number(form.shippingCost || 0);
+    const projectedDue = Math.max(0, projectedTotal - (props.order.paidTotal ?? 0));
+    if (payload.status === 'ENTREGADO' && projectedDue > 0) {
+      const ok = await confirm({
+        title: 'Saldo pendiente',
+        message: `Falta por pagar ${formatCop(projectedDue)}. ¿Confirmas que el saldo ya fue pagado? Se registrará automáticamente al marcar el pedido como entregado.`,
+        confirmLabel: 'Confirmar saldo y entregar',
+      });
+      if (!ok) {
+        saving.value = false;
+        return;
+      }
+      payload.confirmBalancePaid = true;
+    }
 
     if (!Object.keys(payload).length) {
       emit('close');

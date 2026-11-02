@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  OrderPaymentType,
   OrderSource,
   OrderStage,
   OrderStatus,
@@ -13,6 +14,7 @@ import {
   Prisma,
   Role,
 } from '@prisma/client';
+import { depositForUnits, formatCopAmount } from '@luxtime/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CertificatesService } from '../certificates/certificates.service';
@@ -39,6 +41,7 @@ import {
   buildCustomerWhatsappUrl,
   customerStatusWhatsappMessage,
 } from '../integrations/customer-whatsapp';
+import { summarizeOrderPayments } from './order-payments.util';
 
 const orderInclude = {
   items: {
@@ -48,6 +51,10 @@ const orderInclude = {
     },
   },
   shippingZone: true,
+  payments: {
+    include: { registeredBy: { select: { name: true } } },
+    orderBy: { paidAt: 'asc' as const },
+  },
 } as const;
 
 const inventoryDeductedStatuses: OrderStatus[] = [
@@ -82,9 +89,16 @@ export class OrdersService {
   ) {}
 
   private mapOrder(order: OrderWithRelations) {
-    const { items, shippingZone, ...rest } = order;
+    const { items, shippingZone, payments, ...rest } = order;
+    const summary = summarizeOrderPayments({ ...order, payments, items });
+    const depositExpected =
+      order.type === OrderType.ESPECIAL
+        ? 0
+        : depositForUnits(summary.unitCount);
     return {
       ...rest,
+      ...summary,
+      depositExpected,
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
       paidAt: order.paidAt?.toISOString() ?? null,
@@ -117,7 +131,12 @@ export class OrdersService {
         : null,
       customerWhatsappUrl: buildCustomerWhatsappUrl(
         order.customerPhone,
-        customerStatusWhatsappMessage(order),
+        customerStatusWhatsappMessage({
+          ...order,
+          depositExpected,
+          unitCount: summary.unitCount,
+          depositPaid: summary.depositPaid,
+        }),
       ),
     };
   }
@@ -223,7 +242,11 @@ export class OrdersService {
     return 'Histórico';
   }
 
-  async transitionStatus(id: string, next: OrderStatus) {
+  async transitionStatus(
+    id: string,
+    next: OrderStatus,
+    options: { confirmBalancePaid?: boolean; registeredById?: string } = {},
+  ) {
     const order = await this.prisma.order.findUnique({
       where: { id },
       include: orderInclude,
@@ -281,6 +304,15 @@ export class OrdersService {
       }
       if (next === OrderStatus.PAGADO && !order.depositConfirmed) {
         await this.deductInventory(order.items, tx);
+      }
+      if (next === OrderStatus.ENTREGADO) {
+        await this.collectBalanceOnDelivery(
+          tx,
+          id,
+          order.total,
+          options.confirmBalancePaid,
+          options.registeredById,
+        );
       }
       return tx.order.findUniqueOrThrow({
         where: { id },
@@ -358,7 +390,7 @@ export class OrdersService {
     };
   }
 
-  async createSpecialSale(dto: CreateSpecialSaleDto) {
+  async createSpecialSale(dto: CreateSpecialSaleDto, registeredById?: string) {
     const { note, salePrice } = assertSpecialSaleInput({
       salePrice: dto.salePrice,
       note: dto.note,
@@ -410,6 +442,16 @@ export class OrdersService {
           specialListPriceSnapshot: watch.retailPrice,
           specialSkuSnapshot: watch.sku,
           specialProfit: profit,
+          payments: {
+            create: [
+              {
+                type: OrderPaymentType.SALDO,
+                amount: salePrice,
+                paidAt: now,
+                registeredById: registeredById ?? null,
+              },
+            ],
+          },
           items: {
             create: [
               {
@@ -467,7 +509,50 @@ export class OrdersService {
     };
   }
 
-  async updateOrder(id: string, dto: UpdateOrderDto) {
+  async registerBalancePayment(id: string, registeredById?: string) {
+    const existing = await this.prisma.order.findUnique({
+      where: { id },
+      include: orderInclude,
+    });
+    if (!existing || existing.stage !== OrderStage.ORDER) {
+      throw new NotFoundException('Pedido no encontrado');
+    }
+    if (existing.canceledAt || existing.status === OrderStatus.CANCELADO) {
+      throw new BadRequestException('El pedido está cancelado');
+    }
+    if (existing.type === OrderType.ESPECIAL) {
+      throw new BadRequestException('La venta especial ya está pagada');
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await this.lockOrder(tx, id);
+      const due = await this.balanceDue(tx, id, existing.total);
+      if (due <= 0) {
+        throw new BadRequestException('Este pedido no tiene saldo pendiente');
+      }
+      await tx.orderPayment.create({
+        data: {
+          orderId: id,
+          type: OrderPaymentType.SALDO,
+          amount: due,
+          paidAt: new Date(),
+          registeredById: registeredById ?? null,
+        },
+      });
+      return tx.order.findUniqueOrThrow({
+        where: { id },
+        include: orderInclude,
+      });
+    });
+
+    return this.mapOrder(updated);
+  }
+
+  async updateOrder(
+    id: string,
+    dto: UpdateOrderDto,
+    registeredById?: string,
+  ) {
     const order = await this.prisma.order.findUnique({
       where: { id },
       include: orderInclude,
@@ -532,6 +617,19 @@ export class OrdersService {
       if (shouldDeduct) {
         await this.deductInventory(order.items, tx);
       }
+      if (next === OrderStatus.ENTREGADO) {
+        const nextTotal =
+          dto.shippingCost !== undefined
+            ? order.subtotal + dto.shippingCost
+            : order.total;
+        await this.collectBalanceOnDelivery(
+          tx,
+          id,
+          nextTotal,
+          dto.confirmBalancePaid,
+          registeredById,
+        );
+      }
       return tx.order.findUniqueOrThrow({
         where: { id },
         include: orderInclude,
@@ -586,6 +684,51 @@ export class OrdersService {
     }, STOCK_TRANSACTION);
     this.cache.invalidateTag(CACHE_TAGS.catalog);
     return { id, deleted: true };
+  }
+
+  private async lockOrder(tx: Prisma.TransactionClient, id: string) {
+    const locked = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM "Order" WHERE id = ${id} FOR UPDATE
+    `;
+    if (!locked.length) throw new NotFoundException('Pedido no encontrado');
+  }
+
+  private async balanceDue(
+    tx: Prisma.TransactionClient,
+    id: string,
+    total: number,
+  ) {
+    const paid = await tx.orderPayment.aggregate({
+      where: { orderId: id },
+      _sum: { amount: true },
+    });
+    return Math.max(0, total - (paid._sum.amount ?? 0));
+  }
+
+  private async collectBalanceOnDelivery(
+    tx: Prisma.TransactionClient,
+    id: string,
+    total: number,
+    confirmBalancePaid: boolean | undefined,
+    registeredById?: string,
+  ) {
+    await this.lockOrder(tx, id);
+    const due = await this.balanceDue(tx, id, total);
+    if (due <= 0) return;
+    if (!confirmBalancePaid) {
+      throw new BadRequestException(
+        `Falta por pagar ${formatCopAmount(due)}. Confirma que el saldo fue pagado para entregar el pedido.`,
+      );
+    }
+    await tx.orderPayment.create({
+      data: {
+        orderId: id,
+        type: OrderPaymentType.SALDO,
+        amount: due,
+        paidAt: new Date(),
+        registeredById: registeredById ?? null,
+      },
+    });
   }
 
   private async restoreInventory(

@@ -102,6 +102,8 @@ model User {
   validatedContacts  MarketingContact[] @relation("ValidatedContacts")
   warrantyHistories  WarrantyHistory[]  @relation("RegisteredWarranties")
   wholesaleGrants    WholesaleAccess[]  @relation("WholesaleGrants")
+  orderPayments      OrderPayment[]     @relation("RegisteredPayments")
+  expenses           Expense[]          @relation("CreatedExpenses")
 }
 
 model RefreshSession {
@@ -322,6 +324,7 @@ model Order {
   assignedTo   User?         @relation("AssignedOrders", fields: [assignedToId], references: [id])
   items        OrderItem[]
   warrantyHistories WarrantyHistory[]
+  payments     OrderPayment[]
 
   @@index([stage, status])
   @@index([createdAt])
@@ -538,4 +541,42 @@ model Setting {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+enum OrderPaymentType {
+  ABONO
+  SALDO
+}
+
+model OrderPayment {
+  id             String           @id @default(cuid())
+  orderId        String
+  type           OrderPaymentType
+  amount         Int
+  paidAt         DateTime         @default(now())
+  registeredById String?
+  createdAt      DateTime         @default(now())
+
+  order        Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  registeredBy User? @relation("RegisteredPayments", fields: [registeredById], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([paidAt])
+  @@index([type])
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  name        String
+  description String?  @db.Text
+  amount      Int
+  spentAt     DateTime
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy User? @relation("CreatedExpenses", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([spentAt])
+  @@index([name])
 }

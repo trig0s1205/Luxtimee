@@ -24,6 +24,7 @@ export const ADMIN_TITLE_BY_PATH: Record<string, string> = {
   '/admin/pedidos/detal': 'Pedidos al detal — LUXTIMEE',
   '/admin/pedidos/mayor': 'Pedidos al por mayor — LUXTIMEE',
   '/admin/pedidos/especiales': 'Ventas especiales — LUXTIMEE',
+  '/admin/gastos': 'Gastos — LUXTIMEE',
   '/admin/pending-costs': 'Costos pendientes — LUXTIMEE',
   '/admin/pending-info': 'Pendientes de info — LUXTIMEE',
   '/admin/pre-pedidos': 'Pre-pedidos — LUXTIMEE',

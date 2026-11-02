@@ -60,7 +60,7 @@ const kpis = computed(() => {
       key: 'revenue',
       label: 'Ingresos por relojes',
       value: formatCop(data.totalRevenue),
-      subtitle: 'Sin domicilios · solo venta de piezas',
+      subtitle: 'Abonos y saldos de relojes · sin domicilios',
       highlight: 'gold' as const,
       badge: null,
     },
@@ -258,6 +258,8 @@ useSeoMeta({ title: 'Dashboard de Ganancia — LUXTIMEE Admin' });
         <p v-if="kpi.subtitle" class="health-kpi-subtitle">{{ kpi.subtitle }}</p>
       </article>
     </div>
+
+    <AdminExpensesSummary :period="chartPeriod" />
 
     <div class="health-main-grid health-main-grid--single">
       <AdminRevenueTrendChartLazy

@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { OrderDto, PreOrdersListDto } from '@luxtime/shared';
-import { PRE_ORDER_RESPONSE_HOURS } from '@luxtime/shared';
+import {
+  PRE_ORDER_RESPONSE_HOURS,
+  depositBreakdownLabel,
+  depositCharge,
+  depositConfirmLabel,
+} from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { extractApiErrorMessage } from '~/utils/api-error';
 import { orderDeliveryNotes, orderHasDeliveryNotes } from '~/utils/order-delivery-notes';
@@ -81,17 +86,32 @@ function goToPage(next: number) {
   expandedIds.value = new Set();
 }
 
-async function confirmDeposit(id: string) {
+function orderUnits(order: OrderDto) {
+  return order.unitCount || order.items.reduce((sum, item) => sum + item.quantity, 0);
+}
+
+function orderDeposit(order: OrderDto) {
+  return depositCharge(orderUnits(order), order.total);
+}
+
+function depositLabel(order: OrderDto) {
+  return depositConfirmLabel(orderUnits(order), orderDeposit(order));
+}
+
+async function confirmDeposit(order: OrderDto) {
+  const label = depositLabel(order);
   const ok = await confirmDialog({
-    title: 'Confirmar abono',
-    message: '¿Confirmas que el cliente realizó el abono y deseas convertir este pre-pedido en pedido?',
-    confirmLabel: 'Confirmar abono',
+    title: label,
+    message: `${label}. ¿Confirmas que el cliente realizó ese abono y deseas convertir este pre-pedido en pedido?`,
+    confirmLabel: label,
   });
   if (!ok) return;
-  await api.post(`/pre-orders/${id}/confirm-deposit`);
+  await api.post(`/pre-orders/${order.id}/confirm-deposit`);
   invalidateAdminCache(cacheKey.value);
   invalidateAdminCachePrefix('admin-orders-');
   invalidateAdminCachePrefix('profit-dashboard-');
+  invalidateAdminCache('health-dashboard');
+  invalidateAdminCache('admin-revenue-chart');
   await refresh();
 }
 
@@ -207,6 +227,7 @@ useSeoMeta({ title: props.seoTitle });
 
           <div class="admin-record-meta">
             <span class="admin-record-amount">{{ formatCop(order.total) }}</span>
+            <span class="admin-record-muted">Abono {{ formatCop(orderDeposit(order)) }}</span>
             <span class="admin-record-date">
               {{ bucket === 'active' ? `${hoursRemaining(order)}h restantes` : `Suspendido ${waitHoursSince(order.suspendedAt ?? order.preOrderActiveAt)}h` }}
             </span>
@@ -246,7 +267,9 @@ useSeoMeta({ title: props.seoTitle });
 
             <AdminAccordionSection title="Montos" :subtitle="formatCop(order.total)">
               <p>Total: {{ formatCop(order.total) }}</p>
-              <p class="admin-record-muted">Abono esperado: {{ formatCop(order.depositExpected) }}</p>
+              <p class="admin-record-muted">
+                Abono esperado: {{ formatCop(orderDeposit(order)) }} ({{ depositBreakdownLabel(orderUnits(order)) }})
+              </p>
             </AdminAccordionSection>
 
             <AdminAccordionSection
@@ -311,9 +334,9 @@ useSeoMeta({ title: props.seoTitle });
                 v-if="bucket === 'active'"
                 type="button"
                 class="admin-record-btn admin-record-btn--primary"
-                @click.stop="confirmDeposit(order.id)"
+                @click.stop="confirmDeposit(order)"
               >
-                Confirmar abono
+                {{ depositLabel(order) }}
               </button>
               <button
                 v-else
