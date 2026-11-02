@@ -72,20 +72,16 @@ export function useAdminNotifications() {
       const message = notificationMessage(item.type, item.payload);
       const tone = notificationTone(item.type);
       const href = notificationHref(item.type, item.payload);
-      if (item.type === 'NEW_PRE_ORDER') {
-        toast.show(message, 'success', {
-          sticky: true,
-          action: {
-            label: 'Ver',
-            onClick: () => { void navigateTo(href); },
-          },
-        });
-        if (soundEnabled.value && !played) {
-          playPreOrderChime();
-          played = true;
-        }
-      } else {
-        toast.show(message, tone);
+      toast.show(message, tone, {
+        sticky: item.type === 'NEW_PRE_ORDER',
+        action: {
+          label: 'Ver',
+          onClick: () => { void navigateTo(href); },
+        },
+      });
+      if (item.type === 'NEW_PRE_ORDER' && soundEnabled.value && !played) {
+        playPreOrderChime();
+        played = true;
       }
     }
   }

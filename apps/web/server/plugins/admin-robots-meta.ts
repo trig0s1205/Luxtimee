@@ -1,3 +1,5 @@
+import { adminDocumentTitle, adminTitleForPath } from '../../utils/admin-document-title';
+
 const GENERIC_TITLES = new Set([
   '',
   'LUXTIMEE — Relojes de lujo',
@@ -17,7 +19,9 @@ export default defineNitroPlugin((nitroApp) => {
     const isAcceso = path === '/acceso' || path.startsWith('/acceso/');
     if (!isAdmin && !isAcceso) return;
 
-    const fallback = isAdmin ? 'Administración — LUXTIMEE' : 'Acceso — LUXTIMEE';
+    const fallback = isAdmin
+      ? adminDocumentTitle(undefined, 0, adminTitleForPath(path))
+      : 'Acceso — LUXTIMEE';
     let hasRobots = false;
     let hasTitle = false;
 
@@ -28,7 +32,7 @@ export default defineNitroPlugin((nitroApp) => {
         hasTitle = true;
         next = next.replace(/<title\b[^>]*>[\s\S]*?<\/title>/gi, (full) => {
           const current = titleInner(full);
-          if (isAdmin || GENERIC_TITLES.has(current)) return `<title>${fallback}</title>`;
+          if (GENERIC_TITLES.has(current)) return `<title>${fallback}</title>`;
           return full;
         });
       }

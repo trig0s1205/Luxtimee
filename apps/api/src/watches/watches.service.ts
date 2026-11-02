@@ -889,7 +889,9 @@ export class WatchesService {
 
     const idempotencyKey = this.normalizeIdempotencyKey(input.idempotencyKey);
     const image1 = this.assertDraftImage(input.image1, 'image1');
-    const image2 = this.assertDraftImage(input.image2, 'image2');
+    const image2 = input.image2?.buffer?.length
+      ? this.assertDraftImage(input.image2, 'image2')
+      : null;
 
     const existing = await this.watchesRepository.findByBulkDraftKey(
       idempotencyKey,
@@ -919,13 +921,17 @@ export class WatchesService {
         writtenPaths,
       );
       storedUrls.push(front.url);
-      const back = await this.processAndStoreWatchImage(
-        image2,
-        isProd,
-        writtenPaths,
-      );
-      storedUrls.push(back.url);
-      imageNeedsReview = front.needsReview || back.needsReview;
+      if (image2) {
+        const back = await this.processAndStoreWatchImage(
+          image2,
+          isProd,
+          writtenPaths,
+        );
+        storedUrls.push(back.url);
+        imageNeedsReview = front.needsReview || back.needsReview;
+      } else {
+        imageNeedsReview = front.needsReview;
+      }
 
       const slug = await this.ensureUniqueSlug(
         slugify(`pendiente-${randomUUID()}`),
