@@ -148,6 +148,8 @@ function invalidateRelated() {
   invalidateAdminCachePrefix('admin-watches-');
   invalidateAdminCachePrefix('inventory-');
   invalidateAdminCachePrefix('profit-dashboard-');
+  invalidateAdminCache('health-dashboard');
+  invalidateAdminCache('admin-revenue-chart');
 }
 
 async function submit() {

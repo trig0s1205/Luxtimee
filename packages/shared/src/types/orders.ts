@@ -48,6 +48,17 @@ export interface CustomerOrderHintDto {
   shippingZoneId: string | null;
 }
 
+export type OrderPaymentType = 'ABONO' | 'SALDO';
+
+export interface OrderPaymentDto {
+  id: string;
+  type: OrderPaymentType;
+  amount: number;
+  paidAt: string;
+  registeredById: string | null;
+  registeredByName: string | null;
+}
+
 export interface OrderItemDto {
   id: string;
   watchId: string;
@@ -90,6 +101,11 @@ export interface OrderDto {
   shippingCost: number;
   depositExpected: number;
   depositConfirmed: boolean;
+  depositPaid: number;
+  paidTotal: number;
+  balanceDue: number;
+  unitCount: number;
+  payments: OrderPaymentDto[];
   subtotal: number;
   total: number;
   whatsappMessage: string | null;
@@ -118,6 +134,7 @@ export interface UpdateOrderDto {
   customerAddress?: string;
   shippingCost?: number;
   status?: string;
+  confirmBalancePaid?: boolean;
 }
 
 export interface TransitionOrderDto {

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { depositBreakdownLabel, formatCopAmount } from '@luxtime/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { CustomerMailer } from './customer-mailer.service';
 import { buildCustomerWhatsappUrl } from './customer-whatsapp';
@@ -18,15 +19,32 @@ const SUBJECTS: Record<CustomerOrderEvent, (id: string) => string> = {
   shipped: (id) => `LUXTIMEE — pedido ${id} enviado`,
 };
 
-function messageFor(event: CustomerOrderEvent, readableId: string, name: string) {
+export function customerOrderMessage(
+  event: CustomerOrderEvent,
+  readableId: string,
+  name: string,
+  deposit?: { amount?: number | null; unitCount?: number | null },
+) {
   const who = name?.trim() ? ` ${name.trim()}` : '';
+  const amount = deposit?.amount ?? 0;
+  const units = deposit?.unitCount ?? 0;
+  const detail =
+    amount > 0
+      ? `${formatCopAmount(amount)}${units > 0 ? ` (${depositBreakdownLabel(units)})` : ''}`
+      : '';
   switch (event) {
     case 'created':
-      return `Hola${who}. Recibimos tu pre-pedido ${readableId}. Tienes 24 horas para confirmar el abono.`;
+      return detail
+        ? `Hola${who}. Recibimos tu pre-pedido ${readableId}. Tienes 24 horas para confirmar el abono de ${detail}.`
+        : `Hola${who}. Recibimos tu pre-pedido ${readableId}. Tienes 24 horas para confirmar el abono.`;
     case 'deposit_confirmed':
-      return `Hola${who}. Confirmamos el abono de tu pedido ${readableId}.`;
+      return detail
+        ? `Hola${who}. Confirmamos el abono de ${detail} de tu pedido ${readableId}.`
+        : `Hola${who}. Confirmamos el abono de tu pedido ${readableId}.`;
     case 'suspended':
-      return `Hola${who}. Tu pre-pedido ${readableId} quedó suspendido porque no se confirmó el abono. Responde para reactivarlo.`;
+      return detail
+        ? `Hola${who}. Tu pre-pedido ${readableId} quedó suspendido porque no se confirmó el abono de ${detail}. Responde para reactivarlo.`
+        : `Hola${who}. Tu pre-pedido ${readableId} quedó suspendido porque no se confirmó el abono. Responde para reactivarlo.`;
     case 'canceled':
       return `Hola${who}. Tu pedido ${readableId} fue cancelado.`;
     case 'shipped':
@@ -50,6 +68,8 @@ export class CustomerNotifier {
     customerEmail?: string | null;
     customerPhone?: string | null;
     wholesaleAccessId?: string | null;
+    depositAmount?: number | null;
+    unitCount?: number | null;
   }): Promise<{ emailed: boolean; whatsappUrl: string | null }> {
     let email = input.customerEmail?.trim() ?? '';
     let phone = input.customerPhone?.trim() || null;
@@ -62,7 +82,12 @@ export class CustomerNotifier {
       if (!phone) phone = access?.phone?.trim() || null;
     }
 
-    const text = messageFor(input.event, input.readableId, input.customerName);
+    const text = customerOrderMessage(
+      input.event,
+      input.readableId,
+      input.customerName,
+      { amount: input.depositAmount, unitCount: input.unitCount },
+    );
     const whatsappUrl = buildCustomerWhatsappUrl(phone, text);
     if (!email.includes('@')) {
       return { emailed: false, whatsappUrl };

@@ -20,6 +20,8 @@ import {
 } from './dto/special-sale.dto';
 import { Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
 @Controller({ path: 'orders', version: '1' })
 @Roles(Role.ADMIN, Role.SUPER_ADMIN)
@@ -42,8 +44,11 @@ export class OrdersController {
 
   @Post('special-sales')
   @Audit('CREATE', 'Order')
-  createSpecialSale(@Body() dto: CreateSpecialSaleDto) {
-    return this.ordersService.createSpecialSale(dto);
+  createSpecialSale(
+    @Body() dto: CreateSpecialSaleDto,
+    @CurrentUser() user?: AuthenticatedUser,
+  ) {
+    return this.ordersService.createSpecialSale(dto, user?.id);
   }
 
   @Get()
@@ -58,16 +63,36 @@ export class OrdersController {
     });
   }
 
+  @Post(':id/balance-payment')
+  @Audit('REGISTER_BALANCE', 'Order')
+  registerBalance(
+    @Param('id') id: string,
+    @CurrentUser() user?: AuthenticatedUser,
+  ) {
+    return this.ordersService.registerBalancePayment(id, user?.id);
+  }
+
   @Patch(':id/status')
   @Audit('TRANSITION', 'Order')
-  transition(@Param('id') id: string, @Body() dto: TransitionOrderDto) {
-    return this.ordersService.transitionStatus(id, dto.status as OrderStatus);
+  transition(
+    @Param('id') id: string,
+    @Body() dto: TransitionOrderDto,
+    @CurrentUser() user?: AuthenticatedUser,
+  ) {
+    return this.ordersService.transitionStatus(id, dto.status as OrderStatus, {
+      confirmBalancePaid: dto.confirmBalancePaid,
+      registeredById: user?.id,
+    });
   }
 
   @Patch(':id')
   @Audit('UPDATE', 'Order')
-  update(@Param('id') id: string, @Body() dto: UpdateOrderDto) {
-    return this.ordersService.updateOrder(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateOrderDto,
+    @CurrentUser() user?: AuthenticatedUser,
+  ) {
+    return this.ordersService.updateOrder(id, dto, user?.id);
   }
 
   @Delete(':id')

@@ -11,6 +11,7 @@ const ROUTES = [
   '/admin/pedidos/detal',
   '/admin/pedidos/mayor',
   '/admin/pedidos/especiales',
+  '/admin/gastos',
   '/admin/ventas',
   '/admin/socios-mayoristas',
   '/admin/mayorista-ofertas',

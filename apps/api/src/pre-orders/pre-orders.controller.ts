@@ -106,8 +106,11 @@ export class PreOrdersController {
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @UseGuards(RolesGuard)
   @Audit('CONFIRM_DEPOSIT', 'PreOrder')
-  confirmDeposit(@Param('id') id: string) {
-    return this.preOrdersService.confirmDeposit(id);
+  confirmDeposit(
+    @Param('id') id: string,
+    @CurrentUser() user?: { id: string },
+  ) {
+    return this.preOrdersService.confirmDeposit(id, user?.id);
   }
 
   @Post(':id/reactivate')

@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { CustomerMailer } from './customer-mailer.service';
-import { CustomerNotifier } from './customer-notifier.service';
+import { CustomerNotifier, customerOrderMessage } from './customer-notifier.service';
 
 function config(values: Record<string, string | undefined>) {
   return {
@@ -82,5 +82,17 @@ describe('customer notifier', () => {
     expect(mailer.send).not.toHaveBeenCalled();
     expect(result.emailed).toBe(false);
     expect(result.whatsappUrl).toContain('wa.me/573001112233');
+  });
+});
+
+describe('mensaje de abono', () => {
+  it('incluye el valor por reloj', () => {
+    const text = customerOrderMessage('created', 'LX-1', 'ANA', {
+      amount: 100_000,
+      unitCount: 10,
+    });
+    expect(text).toContain('10 relojes');
+    expect(text).toMatch(/100[.,\s]000/);
+    expect(text).toMatch(/10[.,\s]000/);
   });
 });

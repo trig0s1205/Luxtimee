@@ -54,6 +54,23 @@ describe('order-pricing', () => {
     expect(priced.lines[0].priceType).toBe(PriceType.WHOLESALE);
     expect(priced.depositExpected).toBe(10000);
   });
+
+  it('el abono es 10.000 por reloj en detal y mayorista', () => {
+    const items = [
+      {
+        watchId: '1',
+        quantity: 10,
+        retailPrice: 50_000,
+        wholesalePrice: 40_000,
+        productName: 'A',
+        productRef: 'a',
+      },
+    ];
+    expect(priceOrderLines(items, 0, 'retail').depositExpected).toBe(100_000);
+    expect(priceOrderLines(items, 0, 'wholesale').depositExpected).toBe(100_000);
+    expect(priceOrderLines(items, 0, 'retail').type).toBe(OrderType.DETAL);
+    expect(priceOrderLines(items, 0, 'wholesale').type).toBe(OrderType.MAYORISTA);
+  });
 });
 
 describe('state-machine', () => {

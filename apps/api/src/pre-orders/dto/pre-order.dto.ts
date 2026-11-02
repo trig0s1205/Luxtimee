@@ -148,4 +148,8 @@ export class UpdatePreOrderDto {
 export class TransitionOrderDto {
   @IsString()
   status!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  confirmBalancePaid?: boolean;
 }

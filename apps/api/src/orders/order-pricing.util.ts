@@ -1,6 +1,5 @@
 import { OrderType, PriceType } from '@prisma/client';
-
-const DEPOSIT_PER_UNIT_COP = 10_000;
+import { depositForUnits } from '@luxtime/shared';
 
 export type PricingChannel = 'retail' | 'wholesale';
 
@@ -58,7 +57,7 @@ export function priceOrderLines(
     };
   });
   const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
-  const depositExpected = DEPOSIT_PER_UNIT_COP * unitCount;
+  const depositExpected = depositForUnits(unitCount);
   const total = subtotal + shippingCost;
   return {
     type,

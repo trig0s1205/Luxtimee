@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import {
+  OrderPaymentType,
   OrderStage,
   OrderSource,
   OrderType,
@@ -14,6 +15,7 @@ import {
   Role,
 } from '@prisma/client';
 import {
+  depositForUnits,
   isAlwaysFreeShippingZone,
   PRE_ORDER_RESPONSE_HOURS,
   WHOLESALE_MIN_UNITS,
@@ -56,6 +58,7 @@ import {
   parseExtrasSnapshot,
   repricePreservedWholesaleLine,
 } from './pre-order-lines';
+import { summarizeOrderPayments } from '../orders/order-payments.util';
 
 const activePreOrderWhere = {
   stage: OrderStage.PRE_ORDER,
@@ -78,6 +81,10 @@ const orderInclude = {
     },
   },
   shippingZone: true,
+  payments: {
+    include: { registeredBy: { select: { name: true } } },
+    orderBy: { paidAt: 'asc' as const },
+  },
 } as const;
 
 type OrderWithRelations = Prisma.OrderGetPayload<{
@@ -99,9 +106,16 @@ export class PreOrdersService {
   ) {}
 
   private mapOrder(order: OrderWithRelations) {
-    const { items, shippingZone, ...rest } = order;
+    const { items, shippingZone, payments, ...rest } = order;
+    const summary = summarizeOrderPayments({ ...order, payments, items });
+    const depositExpected =
+      order.type === OrderType.ESPECIAL
+        ? 0
+        : depositForUnits(summary.unitCount);
     return {
       ...rest,
+      ...summary,
+      depositExpected,
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
       preOrderActiveAt: order.preOrderActiveAt.toISOString(),
@@ -135,7 +149,12 @@ export class PreOrdersService {
         : null,
       customerWhatsappUrl: buildCustomerWhatsappUrl(
         order.customerPhone,
-        customerStatusWhatsappMessage(order),
+        customerStatusWhatsappMessage({
+          ...order,
+          depositExpected,
+          unitCount: summary.unitCount,
+          depositPaid: summary.depositPaid,
+        }),
       ),
     };
   }
@@ -147,9 +166,20 @@ export class PreOrdersService {
       customerEmail: string;
       customerPhone: string | null;
       wholesaleAccessId: string | null;
+      depositExpected?: number;
+      total?: number;
+      items?: Array<{ quantity: number }>;
     },
     event: CustomerOrderEvent,
   ) {
+    const unitCount = (order.items ?? []).reduce(
+      (sum, item) => sum + item.quantity,
+      0,
+    );
+    const depositAmount =
+      order.depositExpected && order.depositExpected > 0
+        ? Math.min(order.depositExpected, order.total ?? order.depositExpected)
+        : depositForUnits(unitCount);
     try {
       await this.customerNotifier.notifyOrder({
         event,
@@ -158,6 +188,8 @@ export class PreOrdersService {
         customerEmail: order.customerEmail,
         customerPhone: order.customerPhone,
         wholesaleAccessId: order.wholesaleAccessId,
+        depositAmount,
+        unitCount,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -261,7 +293,7 @@ export class PreOrdersService {
       subtotal,
       shippingCost,
       total: subtotal + shippingCost,
-      depositExpected: 10_000 * unitCount,
+      depositExpected: depositForUnits(unitCount),
       lines,
     };
   }
@@ -351,7 +383,7 @@ export class PreOrdersService {
       subtotal,
       shippingCost,
       total: subtotal + shippingCost,
-      depositExpected: 10_000 * unitCount,
+      depositExpected: depositForUnits(unitCount),
       lines,
     };
   }
@@ -853,7 +885,7 @@ export class PreOrdersService {
     return { id, deleted: true };
   }
 
-  async confirmDeposit(id: string) {
+  async confirmDeposit(id: string, registeredById?: string) {
     const existing = await this.prisma.order.findUnique({
       where: { id },
       include: orderInclude,
@@ -870,15 +902,51 @@ export class PreOrdersService {
       );
     }
 
-    const order = await this.prisma.order.update({
-      where: { id },
-      data: {
-        stage: OrderStage.ORDER,
-        status: nextStatusAfterDeposit(),
-        depositConfirmed: true,
-        suspendedAt: null,
-      },
-      include: orderInclude,
+    const unitCount = existing.items.reduce(
+      (sum, item) => sum + item.quantity,
+      0,
+    );
+    const depositExpected = depositForUnits(unitCount);
+    const amount = Math.min(depositExpected, existing.total);
+    if (amount <= 0) {
+      throw new BadRequestException('El abono debe ser mayor a 0');
+    }
+
+    const order = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.order.updateMany({
+        where: {
+          id,
+          stage: OrderStage.PRE_ORDER,
+          depositConfirmed: false,
+          canceledAt: null,
+          suspendedAt: null,
+        },
+        data: {
+          stage: OrderStage.ORDER,
+          status: nextStatusAfterDeposit(),
+          depositConfirmed: true,
+          depositExpected,
+          suspendedAt: null,
+        },
+      });
+      if (claimed.count !== 1) {
+        throw new BadRequestException(
+          'No se puede confirmar el abono de este pre-pedido',
+        );
+      }
+      await tx.orderPayment.create({
+        data: {
+          orderId: id,
+          type: OrderPaymentType.ABONO,
+          amount,
+          paidAt: new Date(),
+          registeredById: registeredById ?? null,
+        },
+      });
+      return tx.order.findUniqueOrThrow({
+        where: { id },
+        include: orderInclude,
+      });
     });
 
     await this.notificationsService.emit({
@@ -1011,6 +1079,9 @@ export class PreOrdersService {
         customerEmail: true,
         customerPhone: true,
         wholesaleAccessId: true,
+        depositExpected: true,
+        total: true,
+        items: { select: { quantity: true } },
       },
     });
 

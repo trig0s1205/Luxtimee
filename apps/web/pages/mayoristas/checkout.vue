@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CreatePreOrderDto, LegalDocumentsDto, ShippingZoneDto } from '@luxtime/shared';
+import { depositBreakdownLabel, depositCharge } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 import {
@@ -50,6 +51,7 @@ const shippingCost = computed(() => {
 });
 
 const total = computed(() => (quote.value?.subtotal ?? cart.subtotal) + shippingCost.value);
+const depositAmount = computed(() => depositCharge(cart.unitCount, total.value));
 
 const WHOLESALE_MIN = 4;
 const meetsMinimum = computed(() => cart.unitCount >= WHOLESALE_MIN);
@@ -183,6 +185,8 @@ async function submit() {
         <p>Subtotal mayorista: {{ formatCop(quote?.subtotal ?? cart.subtotal) }}</p>
         <p>Envío: {{ formatCop(shippingCost) }}</p>
         <p class="font-display text-xl text-lux-gold">Total: {{ formatCop(total) }}</p>
+        <p>Abono para confirmar: {{ formatCop(depositAmount) }} ({{ depositBreakdownLabel(cart.unitCount) }})</p>
+        <p class="text-xs text-lux-white-dim">El abono es de $10.000 por reloj, igual que al detal. El saldo se paga antes de la entrega.</p>
         <p class="text-xs text-lux-white-dim">{{ SHIPPING_FULL_TEXT }}</p>
       </div>
 

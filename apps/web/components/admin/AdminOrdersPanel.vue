@@ -17,10 +17,10 @@ import {
   statusBadgeTone,
 } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
+import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
 import { extractApiErrorMessage } from '~/utils/api-error';
 import { orderDeliveryNotes, orderHasDeliveryNotes } from '~/utils/order-delivery-notes';
 import { formatOrderExtras } from '~/utils/wholesale-extras';
-import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
 import { searchEmptyMessage } from '~/utils/search-empty';
 
 const props = defineProps<{
@@ -192,6 +192,18 @@ function isNationalOrder(order: OrderDto) {
   return order.shippingZone?.isNational ?? false;
 }
 
+function canRegisterBalance(order: OrderDto) {
+  return order.balanceDue > 0
+    && order.status !== 'ENTREGADO'
+    && order.status !== 'CANCELADO';
+}
+
+function invalidateMoneyCaches() {
+  invalidateAdminCachePrefix('profit-dashboard-');
+  invalidateAdminCache('health-dashboard');
+  invalidateAdminCache('admin-revenue-chart');
+}
+
 function nextTransitions(order: OrderDto) {
   return getOrderAllowedTransitions(order.status, isNationalOrder(order));
 }
@@ -234,6 +246,7 @@ async function transition(order: OrderDto, status: OrderStatusValue) {
 
   const label = ORDER_TRANSITION_LABELS[status];
   const sku = orderSku(order);
+  const payload: { status: OrderStatusValue; confirmBalancePaid?: boolean } = { status };
   if (status === 'CANCELADO') {
     const ok = await confirm({
       title: `¿Cancelar el pedido ${sku}?`,
@@ -242,14 +255,23 @@ async function transition(order: OrderDto, status: OrderStatusValue) {
     });
     if (!ok) return;
   }
+  if (status === 'ENTREGADO' && order.balanceDue > 0) {
+    const ok = await confirm({
+      title: 'Saldo pendiente',
+      message: `Falta por pagar ${formatCop(order.balanceDue)}. ¿Confirmas que el saldo ya fue pagado? Se registrará automáticamente.`,
+      confirmLabel: 'Confirmar saldo y entregar',
+    });
+    if (!ok) return;
+    payload.confirmBalancePaid = true;
+  }
 
   updatingId.value = order.id;
   try {
-    await api.patch(`/orders/${order.id}/status`, { status });
+    await api.patch(`/orders/${order.id}/status`, payload);
     toast.success(status === 'CANCELADO' ? `Pedido eliminado — ${sku}` : `${label} — ${sku}`);
     invalidateAdminCache(dataKey.value);
     invalidateAdminCachePrefix('admin-orders-');
-    invalidateAdminCachePrefix('profit-dashboard-');
+    invalidateMoneyCaches();
     await refresh();
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'No se pudo actualizar el pedido.'));
@@ -272,12 +294,35 @@ async function deleteOrder(order: OrderDto) {
     toast.success(`Pedido eliminado — ${orderSku(order)}`);
     invalidateAdminCache(dataKey.value);
     invalidateAdminCachePrefix('admin-orders-');
-    invalidateAdminCachePrefix('profit-dashboard-');
+    invalidateMoneyCaches();
     await refresh();
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'No se pudo eliminar el pedido.'));
   } finally {
     deletingId.value = null;
+  }
+}
+
+async function registerBalance(order: OrderDto) {
+  if (!canRegisterBalance(order) || updatingId.value) return;
+  const ok = await confirm({
+    title: 'Registrar pago del saldo',
+    message: `¿Registrar el pago del saldo de ${formatCop(order.balanceDue)}? El total es ${formatCop(order.total)} y el abono pagado es ${formatCop(order.depositPaid)}.`,
+    confirmLabel: 'Registrar pago del saldo',
+  });
+  if (!ok) return;
+  updatingId.value = order.id;
+  try {
+    await api.post(`/orders/${order.id}/balance-payment`);
+    toast.success(`Saldo registrado — ${orderSku(order)}`);
+    invalidateAdminCache(dataKey.value);
+    invalidateAdminCachePrefix('admin-orders-');
+    invalidateMoneyCaches();
+    await refresh();
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo registrar el saldo.'));
+  } finally {
+    updatingId.value = null;
   }
 }
 
@@ -352,7 +397,11 @@ useSeoMeta({ title: props.seoTitle });
           </div>
 
           <div class="admin-record-meta">
-            <span class="admin-record-amount">{{ formatCop(order.total) }}</span>
+            <span class="admin-order-money">
+              <span class="admin-record-amount">Total: {{ formatCop(order.total) }}</span>
+              <span class="admin-record-muted">Abono pagado: {{ formatCop(order.depositPaid ?? 0) }}</span>
+              <span class="admin-record-muted">Falta por pagar: {{ formatCop(order.balanceDue ?? 0) }}</span>
+            </span>
             <span class="admin-record-date">{{ formatDate(order.createdAt) }}</span>
             <span v-if="orderHasDeliveryNotes(order)" class="admin-delivery-note-badge">Nota entrega</span>
           </div>
@@ -388,6 +437,19 @@ useSeoMeta({ title: props.seoTitle });
               >
                 Avisar por WhatsApp
               </a>
+            </AdminAccordionSection>
+
+            <AdminAccordionSection title="Pagos" :subtitle="`Falta por pagar: ${formatCop(order.balanceDue ?? 0)}`">
+              <p>Total: {{ formatCop(order.total) }}</p>
+              <p class="admin-record-muted">Abono pagado: {{ formatCop(order.depositPaid ?? 0) }}</p>
+              <p class="admin-record-muted">Falta por pagar: {{ formatCop(order.balanceDue ?? 0) }}</p>
+              <ul v-if="order.payments?.length" class="admin-record-list">
+                <li v-for="payment in order.payments" :key="payment.id">
+                  {{ payment.type === 'ABONO' ? 'Abono' : 'Saldo' }}: {{ formatCop(payment.amount) }}
+                  · {{ formatDate(payment.paidAt) }}
+                  <span v-if="payment.registeredByName"> · {{ payment.registeredByName }}</span>
+                </li>
+              </ul>
             </AdminAccordionSection>
 
             <AdminAccordionSection title="Envío" :subtitle="shippingLabel(order)">
@@ -511,6 +573,15 @@ useSeoMeta({ title: props.seoTitle });
             </AdminAccordionSection>
 
             <div class="admin-record-actions">
+              <button
+                v-if="canRegisterBalance(order)"
+                type="button"
+                class="admin-record-btn admin-record-btn--primary"
+                :disabled="updatingId === order.id"
+                @click.stop="registerBalance(order)"
+              >
+                Registrar pago del saldo
+              </button>
               <template v-if="nextTransitions(order).length || hasPendingWarranty(order)">
                 <button
                   v-for="status in nextTransitions(order)"
@@ -578,4 +649,14 @@ useSeoMeta({ title: props.seoTitle });
     @saved="onEditSaved"
   />
 </template>
+
+<style scoped>
+.admin-order-money {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right;
+}
+</style>
 

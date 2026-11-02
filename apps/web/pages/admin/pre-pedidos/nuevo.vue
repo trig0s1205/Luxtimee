@@ -6,6 +6,7 @@ import type {
   ShippingZoneDto,
   WatchStaffDto,
 } from '@luxtime/shared';
+import { depositBreakdownLabel, depositForUnits } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { extractApiErrorMessage } from '~/utils/api-error';
 import { searchEmptyMessage } from '~/utils/search-empty';
@@ -62,7 +63,8 @@ const subtotal = computed(() =>
   lines.value.reduce((sum, line) => sum + line.retailPrice * line.quantity, 0),
 );
 const total = computed(() => subtotal.value + shippingCost.value);
-const depositExpected = computed(() => lines.value.reduce((sum, line) => sum + line.quantity, 0) * 10_000);
+const depositUnits = computed(() => lines.value.reduce((sum, line) => sum + line.quantity, 0));
+const depositExpected = computed(() => depositForUnits(depositUnits.value));
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 const searchResults = ref<WatchStaffDto[]>([]);
@@ -294,7 +296,9 @@ async function submit() {
         <p>Subtotal: {{ formatCop(subtotal) }}</p>
         <p>Envío: {{ formatCop(shippingCost) }}</p>
         <p class="admin-record-title">Total: {{ formatCop(total) }}</p>
-        <p class="admin-record-muted">Abono esperado: {{ formatCop(depositExpected) }}</p>
+        <p class="admin-record-muted">
+          Abono esperado: {{ formatCop(depositExpected) }} ({{ depositBreakdownLabel(depositUnits) }})
+        </p>
       </div>
 
       <p v-if="error" class="text-red-400 text-sm">{{ error }}</p>
