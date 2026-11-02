@@ -59,6 +59,7 @@ export function useSellableWatchSearch() {
       results.value = [];
       total.value = 0;
       finishedTerm.value = term;
+      useToast().error('No se pudo buscar los relojes.');
     } finally {
       if (abort === controller) pending.value = false;
     }
