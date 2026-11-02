@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import type { PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
 import { extractApiErrorMessage } from '~/utils/api-error';
+import { watchPrimaryImage } from '~/utils/media-url';
+
+/** La oferta por paquete queda en el código, sin mostrarse. */
+const SHOW_WHOLESALE_OFFERS = false;
 
 definePageMeta({ middleware: ['admin'], keepalive: true });
 
@@ -37,7 +41,8 @@ const packageForm = reactive({
   watchIds: [] as string[],
 });
 const watchQuery = ref('');
-const watchHits = ref<Array<Pick<WatchStaffDto, 'id' | 'sku' | 'model' | 'brand'>>>([]);
+const watchHits = ref<WatchStaffDto[]>([]);
+const watchPreview = ref<string | null>(null);
 
 function dateInput(value: string | null) {
   if (!value) return '';
@@ -97,8 +102,9 @@ async function removeExtra(id: string) {
 async function searchWatches() {
   const res = await api.get<PaginatedResponse<WatchStaffDto>>('/watches', {
     search: watchQuery.value || undefined,
+    availability: 'sellable',
     page: 1,
-    limit: 8,
+    limit: 100,
   });
   watchHits.value = res.data;
 }
@@ -161,44 +167,72 @@ async function removePackage(id: string) {
   }
 }
 
-useSeoMeta({ title: 'Ofertas mayorista — LUXTIMEE Admin' });
+useSeoMeta({ title: 'Opciones de empaque y extras — LUXTIMEE Admin' });
 </script>
 
 <template>
   <div class="admin-records-page">
     <UiSectionHeader
       label="Ventas"
-      title="Ofertas mayorista"
+      title="Opciones de empaque y extras"
       :refreshable="true"
       :refreshing="pending"
       @refresh="refresh()"
     />
     <p class="admin-records-hint">
-      El precio del reloj es el mínimo. Estas opciones solo suman si el cliente pide más. Un paquete es el único precio menor.
+      Aquí solo se registran extras que el cliente puede pedir además del reloj: caja, paño, pila, estuche u otro.
+      El nombre es lo que verá en la venta. El precio es un cobro extra por cada reloj, en pesos. No cambia el precio del reloj.
     </p>
 
     <section class="admin-record-export">
-      <h3>Nueva opción</h3>
+      <h3>Registrar nueva opción</h3>
+      <p class="pack-help">
+        Ejemplo: si vendes una pila aparte, el nombre es «Pila» y el precio es lo que se suma por cada reloj, por ejemplo 5000.
+        Si el extra no se cobra, deja el precio en 0.
+      </p>
       <div class="grid gap-3 md:grid-cols-2">
-        <UiLuxInput v-model="extraForm.name" placeholder="Nombre, ej. Caja" />
-        <UiLuxInput v-model.number="extraForm.price" type="number" min="0" placeholder="Precio extra por unidad" />
+        <label class="pack-field">
+          <span>Nombre de la opción</span>
+          <UiLuxInput v-model="extraForm.name" placeholder="Ej. Caja" />
+          <small>Cómo debe aparecer en la venta. Ejemplos: Caja, Paño, Pila, Estuche.</small>
+        </label>
+        <label class="pack-field">
+          <span>Precio extra por reloj (COP)</span>
+          <UiLuxInput v-model.number="extraForm.price" type="number" min="0" placeholder="Ej. 5000" />
+          <small>Pesos que se suman por cada reloj. Ejemplo: una pila a 5000. Cero si es gratis.</small>
+        </label>
       </div>
       <div class="admin-record-actions">
         <button type="button" class="admin-record-btn admin-record-btn--primary" :disabled="creatingExtra" @click="createExtra">
-          {{ creatingExtra ? 'Creando...' : 'Crear opción' }}
+          {{ creatingExtra ? 'Guardando...' : 'Registrar opción' }}
         </button>
       </div>
     </section>
 
     <section v-for="extra in data?.extras ?? []" :key="extra.id" class="admin-record-export">
+      <h3 class="pack-existing">{{ extra.name || 'Opción sin nombre' }}</h3>
       <div class="grid gap-3 md:grid-cols-4">
-        <UiLuxInput v-model="extra.name" placeholder="Nombre" />
-        <UiLuxInput v-model.number="extra.price" type="number" min="0" placeholder="Precio extra" />
-        <UiLuxInput v-model.number="extra.sortOrder" type="number" min="0" placeholder="Orden" />
-        <label class="admin-record-field">
-          <input v-model="extra.isActive" type="checkbox" />
-          Activa
+        <label class="pack-field">
+          <span>Nombre de la opción</span>
+          <UiLuxInput v-model="extra.name" placeholder="Ej. Paño" />
         </label>
+        <label class="pack-field">
+          <span>Precio extra por reloj (COP)</span>
+          <UiLuxInput v-model.number="extra.price" type="number" min="0" placeholder="Ej. 0" />
+        </label>
+        <label class="pack-field">
+          <span>Orden en la lista</span>
+          <UiLuxInput v-model.number="extra.sortOrder" type="number" min="0" placeholder="0" />
+          <small>0 sale primero. Ejemplo: caja = 0, paño = 1, pila = 2.</small>
+        </label>
+        <div class="pack-field">
+          <span>Visible para el mayorista</span>
+          <label class="admin-record-field">
+            <input v-model="extra.isActive" type="checkbox" />
+            Mostrar esta opción
+          </label>
+          <small>Si lo desmarcas, se oculta y no se borra.</small>
+        </div>
       </div>
       <div class="admin-record-actions">
         <button type="button" class="admin-record-btn admin-record-btn--primary" @click="saveExtra(extra)">Guardar</button>
@@ -206,6 +240,7 @@ useSeoMeta({ title: 'Ofertas mayorista — LUXTIMEE Admin' });
       </div>
     </section>
 
+    <template v-if="SHOW_WHOLESALE_OFFERS">
     <section class="admin-record-export">
       <h3>Nuevo paquete</h3>
       <div class="grid gap-3 md:grid-cols-2">
@@ -229,11 +264,23 @@ useSeoMeta({ title: 'Ofertas mayorista — LUXTIMEE Admin' });
         <UiLuxInput v-model="watchQuery" placeholder="Buscar reloj por SKU o modelo. Vacío = todos." @keyup.enter="searchWatches" />
         <button type="button" class="admin-record-btn" @click="searchWatches">Buscar</button>
       </div>
-      <div v-if="watchHits.length" class="mt-3 space-y-1">
-        <label v-for="watch in watchHits" :key="watch.id" class="admin-record-field">
-          <input :checked="packageForm.watchIds.includes(watch.id)" type="checkbox" @change="toggleWatch(watch.id)" />
-          {{ watch.sku }} — {{ watch.brand?.name }} {{ watch.model }}
-        </label>
+      <div v-if="watchHits.length" class="mt-3 space-y-2">
+        <div v-for="watch in watchHits" :key="watch.id" class="pack-watch">
+          <button
+            type="button"
+            class="admin-record-thumb"
+            :disabled="!watchPrimaryImage(watch)"
+            :aria-label="`Ver imagen de ${watch.sku}`"
+            @click="watchPrimaryImage(watch) && (watchPreview = watchPrimaryImage(watch)!)"
+          >
+            <img v-if="watchPrimaryImage(watch)" :src="watchPrimaryImage(watch)" :alt="watch.model" width="40" height="40">
+            <span v-else>Sin foto</span>
+          </button>
+          <label class="admin-record-field">
+            <input :checked="packageForm.watchIds.includes(watch.id)" type="checkbox" @change="toggleWatch(watch.id)" />
+            {{ watch.sku }} — {{ watch.brand?.name }} {{ watch.model }}
+          </label>
+        </div>
       </div>
       <p v-if="packageForm.watchIds.length" class="admin-record-muted mt-2">{{ packageForm.watchIds.length }} reloj(es) en el paquete. Si no eliges ninguno, aplica a todos.</p>
       <div class="admin-record-actions">
@@ -272,5 +319,42 @@ useSeoMeta({ title: 'Ofertas mayorista — LUXTIMEE Admin' });
         <button type="button" class="admin-record-btn" @click="removePackage(pkg.id)">Quitar</button>
       </div>
     </section>
+    </template>
+    <AdminImageLightbox :src="watchPreview" @close="watchPreview = null" />
   </div>
 </template>
+
+<style scoped>
+.pack-help,
+.pack-field small {
+  display: block;
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--lux-white-dim);
+}
+
+.pack-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pack-field > span,
+.pack-existing {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lux-white-dim);
+}
+
+.pack-existing {
+  margin: 0 0 10px;
+}
+
+.pack-watch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+</style>

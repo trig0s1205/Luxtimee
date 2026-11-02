@@ -83,6 +83,21 @@
   margin: 0 0 14px;
 }
 
+.admin-record-thumb {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  line-height: 0;
+  flex: 0 0 auto;
+}
+
+.admin-record-thumb img {
+  object-fit: cover;
+  border-radius: 2px;
+  display: block;
+}
+
 .admin-search-empty {
   margin: 8px 0 0;
   font-family: var(--lux-font-body, var(--font-body));

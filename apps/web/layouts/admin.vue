@@ -38,7 +38,7 @@ const ADMIN_TITLE_BY_PATH: Record<string, string> = {
   '/admin/socios-mayoristas': 'Socios mayoristas — LUXTIMEE',
   '/admin/ventas': 'Ventas — LUXTIMEE',
   '/admin/whatsapp': 'WhatsApp — LUXTIMEE',
-  '/admin/mayorista-ofertas': 'Ofertas mayorista — LUXTIMEE',
+  '/admin/mayorista-ofertas': 'Opciones de empaque y extras — LUXTIMEE',
   '/admin/dashboards/analytics': 'Tráfico web — LUXTIMEE',
   '/admin/dashboards/ganancia': 'Ganancia — LUXTIMEE',
   '/admin/dashboards/salud': 'Salud del negocio — LUXTIMEE',

@@ -2,6 +2,7 @@
 import type { WatchStaffDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { watchPrimaryImage } from '~/utils/media-url';
+import { isWatchIncomplete } from '~/utils/watch-readiness';
 
 const props = defineProps<{
   watches: WatchStaffDto[];
@@ -37,14 +38,6 @@ const statusLabels: Record<string, string> = {
   DISPONIBLE: 'Disponible',
   AGOTADO: 'Agotado',
 };
-
-function statusClass(status: string) {
-  switch (status) {
-    case 'DISPONIBLE': return 'admin-status--available';
-    case 'AGOTADO': return 'admin-status--out';
-    default: return '';
-  }
-}
 
 const lightboxSrc = ref<string | null>(null);
 
@@ -127,13 +120,16 @@ function closeLightbox() {
           <td>{{ formatCop(watch.retailPrice) }}</td>
           <td>{{ watch.stock }}</td>
           <td class="admin-table-status">
-            <span
-              class="admin-status"
-              :class="[statusClass(watch.status), watch.stock > 0 ? 'admin-status--units' : 'admin-status--empty']"
-              :aria-label="watch.stock > 0 ? 'Hay unidades' : 'Agotado'"
-            >
-              {{ statusLabels[watch.status] ?? watch.status }}
-            </span>
+            <div class="admin-status-stack">
+              <span
+                class="admin-status"
+                :class="[watch.stock > 0 ? 'admin-status--available admin-status--units' : 'admin-status--out admin-status--empty']"
+                :aria-label="watch.stock > 0 ? 'Hay unidades' : 'Agotado'"
+              >
+                {{ watch.stock > 0 ? (statusLabels[watch.status] ?? 'Disponible') : 'Agotado' }}
+              </span>
+              <span v-if="isWatchIncomplete(watch)" class="admin-status admin-status--incomplete">Incompleto</span>
+            </div>
           </td>
           <td class="admin-table-actions">
             <button type="button" class="admin-action-btn" title="Editar" @click="emit('edit', watch)">
@@ -353,6 +349,23 @@ function closeLightbox() {
 
 .admin-status--out::before {
   background: #ff5555;
+}
+
+.admin-status--incomplete {
+  color: #e0b15a;
+  background: rgba(224, 177, 90, 0.12);
+  border: 1px solid rgba(224, 177, 90, 0.35);
+}
+
+.admin-status--incomplete::before {
+  background: #e0b15a;
+}
+
+.admin-status-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .admin-table-actions {

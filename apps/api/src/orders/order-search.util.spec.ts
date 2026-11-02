@@ -1,17 +1,14 @@
-import { buildOrderSearchWhere } from './order-search.util';
+import { foldedOrderSearchTerms } from './order-search.util';
 
-describe('buildOrderSearchWhere', () => {
-  it('busca el snapshot histórico y el SKU vivo con guion o sin él', () => {
-    const where = buildOrderSearchWhere('rm-489');
-    expect(where).not.toBeNull();
-    const serialized = JSON.stringify(where);
-    expect(serialized).toContain('productSku');
-    expect(serialized).toContain('RM-489');
-    expect(serialized).toContain('RM489');
-    expect(serialized).toContain('customerName');
+describe('foldedOrderSearchTerms', () => {
+  it('busca el SKU con y sin guion, sin distinguir tildes', () => {
+    const terms = foldedOrderSearchTerms('RM-489');
+    expect(terms?.skus).toEqual(expect.arrayContaining(['rm-489', 'rm489']));
+    expect(foldedOrderSearchTerms('CÁRTIER')?.folded).toBe('cartier');
+    expect(foldedOrderSearchTerms('Cartier')?.folded).toBe(foldedOrderSearchTerms('cártier')?.folded);
   });
 
   it('ignora un término vacío', () => {
-    expect(buildOrderSearchWhere('   ')).toBeNull();
+    expect(foldedOrderSearchTerms('   ')).toBeNull();
   });
 });

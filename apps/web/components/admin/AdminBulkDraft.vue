@@ -12,6 +12,7 @@ const store = useWatchBulkDraftStore();
 const open = ref(false);
 const input = ref<HTMLInputElement | null>(null);
 const showAll = ref(false);
+const imagePreview = ref<string | null>(null);
 
 onMounted(() => {
   store.hydrate();
@@ -128,7 +129,7 @@ function formatSortMs(ms?: number) {
             <li v-for="(pair, index) in visiblePairs" :key="pair.id">
               <span class="admin-bulk-draft-index">{{ index + 1 }}</span>
               <figure class="admin-bulk-draft-shot">
-                <img :src="pair.frontUrl" :alt="`Frente ${pair.frontName}`" />
+                <img :src="pair.frontUrl" :alt="`Frente ${pair.frontName}`" class="admin-bulk-draft-zoom" @click="imagePreview = pair.frontUrl" />
                 <figcaption>
                   <strong>Frente</strong>
                   <span>{{ pair.frontName }}</span>
@@ -148,7 +149,7 @@ function formatSortMs(ms?: number) {
                 </svg>
               </button>
               <figure class="admin-bulk-draft-shot">
-                <img :src="pair.backUrl" :alt="`Dorso ${pair.backName}`" />
+                <img :src="pair.backUrl" :alt="`Dorso ${pair.backName}`" class="admin-bulk-draft-zoom" @click="imagePreview = pair.backUrl" />
                 <figcaption>
                   <strong>Dorso</strong>
                   <span>{{ pair.backName }}</span>
@@ -218,6 +219,7 @@ function formatSortMs(ms?: number) {
       </div>
     </div>
   </Teleport>
+  <AdminImageLightbox :src="imagePreview" @close="imagePreview = null" />
 </template>
 
 <style scoped>
@@ -373,6 +375,10 @@ function formatSortMs(ms?: number) {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--lux-white-dim);
+}
+
+.admin-bulk-draft-zoom {
+  cursor: zoom-in;
 }
 
 .admin-bulk-draft-shot span,

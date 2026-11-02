@@ -11,6 +11,7 @@ definePageMeta({ middleware: ['admin'], keepalive: true });
 const auth = useAuthStore();
 const api = useApi();
 const { waitHoursSince } = useLiveWaitHours();
+const previewSrc = ref<string | null>(null);
 
 const { data: health, pending, refresh } = useAdminCachedData(
   'health-dashboard',
@@ -233,7 +234,15 @@ useSeoMeta({ title: 'Panel de salud del negocio — LUXTIMEE Admin' });
           <tr v-for="row in health?.topWatches" :key="row.id">
             <td>
               <div class="health-table-watch">
-                <img v-if="row.image" :src="row.image" :alt="row.model" loading="lazy">
+                <button
+                  v-if="row.image"
+                  type="button"
+                  class="health-watch-zoom"
+                  :aria-label="`Ver imagen de ${row.brand} ${row.model}`"
+                  @click="previewSrc = row.image"
+                >
+                  <img :src="row.image" :alt="row.model" loading="lazy">
+                </button>
               </div>
             </td>
             <td>
@@ -252,8 +261,19 @@ useSeoMeta({ title: 'Panel de salud del negocio — LUXTIMEE Admin' });
         </tbody>
       </table>
     </section>
+    <AdminImageLightbox :src="previewSrc" @close="previewSrc = null" />
   </div>
 </template>
+
+<style scoped>
+.health-watch-zoom {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  line-height: 0;
+}
+</style>
 
 
 

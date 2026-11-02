@@ -41,14 +41,16 @@ export class WatchesRepository {
 
   async findMany(query: WatchQueryDto) {
     const page = Math.max(1, query.page ?? 1);
-    const limit = Math.max(1, Math.min(100, query.limit ?? 20));
+    const limit = Math.max(1, Math.min(200, query.limit ?? 20));
     const search = query.search?.trim();
+    const sellable = query.availability === 'sellable';
 
-    if (search) {
+    if (search || sellable) {
       const { ids, total } = await findWatchIdsByTextSearch(this.prisma, {
         search,
         brand: query.brand,
         status: query.status,
+        sellable,
         skip: (page - 1) * limit,
         take: limit,
       });
