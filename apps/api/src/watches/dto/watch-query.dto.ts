@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 const WATCH_STATUS_VALUES = ['DISPONIBLE', 'AGOTADO'] as const;
@@ -11,6 +11,11 @@ export class WatchQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  /** `sellable`: catálogo publicado, ficha completa y stock > 0. Vacío = todos (inventario). */
+  @IsOptional()
+  @IsIn(['sellable'])
+  availability?: 'sellable';
 
   @IsOptional()
   @IsEnum(WATCH_STATUS_VALUES)

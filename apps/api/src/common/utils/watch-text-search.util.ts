@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { skuSearchVariants } from '@luxtime/shared';
 import type { PrismaService } from '../../prisma/prisma.service';
+import { DRAFT_WATCH_MODEL } from '../../watches/utils/watch-pending.util';
 
 const ACCENTS = 'áàäâãåéèëêíìïîóòöôõúùüûñçýÿ';
 const FOLDED = 'aaaaaaeeeeiiiiooooouuuuncyy';
@@ -32,18 +33,52 @@ export function escapeLikeTerm(value: string) {
   return foldSearchText(value).replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
+/** Reloj publicado, con ficha completa y unidades. El inventario no usa este filtro. */
+export function sellableWatchSql() {
+  return Prisma.sql`
+    AND w."isActive" = true
+    AND w."isPublished" = true
+    AND w.stock > 0
+    AND btrim(w.model) <> ''
+    AND w.model <> ${DRAFT_WATCH_MODEL}
+    AND w."categoryId" IS NOT NULL
+    AND btrim(coalesce(w.gender, '')) <> ''
+    AND btrim(coalesce(w.description, '')) <> ''
+    AND w."retailPrice" > 0
+    AND w."wholesalePrice" > 0
+    AND (
+      btrim(coalesce(w."primaryImageUrl", '')) <> ''
+      OR btrim(coalesce(w."frontImageUrl", '')) <> ''
+      OR coalesce(cardinality(w.images), 0) >= 1
+    )
+    AND (
+      btrim(coalesce(w."secondaryImageUrl", '')) <> ''
+      OR btrim(coalesce(w."backImageUrl", '')) <> ''
+      OR coalesce(cardinality(w.images), 0) >= 2
+    )
+    AND btrim(coalesce(w."videoUrl", '')) <> ''
+    AND (
+      btrim(coalesce(w."movementType", '')) <> ''
+      OR w."mechanismId" IS NOT NULL
+    )
+  `;
+}
+
 export async function findWatchIdsByTextSearch(
   prisma: PrismaService,
   input: {
-    search: string;
+    search?: string;
     brand?: string;
     status?: string;
+    sellable?: boolean;
     skip: number;
     take: number;
   },
 ) {
-  const term = escapeLikeTerm(input.search.trim());
-  const compact = escapeLikeTerm(input.search.replace(/[^0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, ''));
+  const rawSearch = input.search?.trim() ?? '';
+  const hasSearch = rawSearch.length > 0;
+  const term = escapeLikeTerm(rawSearch);
+  const compact = escapeLikeTerm(rawSearch.replace(/[^0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, ''));
   const pattern = `%${term}%`;
   const compactPattern = `%${compact}%`;
   const brand = input.brand?.trim() || null;
@@ -53,25 +88,34 @@ export async function findWatchIdsByTextSearch(
     w."deletedAt" IS NULL
     AND (${brand}::text IS NULL OR lower(b.slug) = lower(${brand}))
     AND (${status}::text IS NULL OR w.status::text = ${status})
-    AND (
-      luxtime_fold(w.model) LIKE ${pattern} ESCAPE '\\'
-      OR luxtime_fold(b.name) LIKE ${pattern} ESCAPE '\\'
-      OR luxtime_fold(w.sku) LIKE ${pattern} ESCAPE '\\'
-      OR luxtime_fold(coalesce(w.reference, '')) LIKE ${pattern} ESCAPE '\\'
-      OR (
-        ${compact} <> ''
-        AND luxtime_fold(regexp_replace(w.sku, '[^[:alnum:]]', '', 'g')) LIKE ${compactPattern} ESCAPE '\\'
+  `;
+  const textFilter = hasSearch
+    ? Prisma.sql`
+      AND (
+        luxtime_fold(w.model) LIKE ${pattern} ESCAPE '\\'
+        OR luxtime_fold(b.name) LIKE ${pattern} ESCAPE '\\'
+        OR luxtime_fold(w.sku) LIKE ${pattern} ESCAPE '\\'
+        OR luxtime_fold(coalesce(w.reference, '')) LIKE ${pattern} ESCAPE '\\'
+        OR (
+          ${compact} <> ''
+          AND luxtime_fold(regexp_replace(w.sku, '[^[:alnum:]]', '', 'g')) LIKE ${compactPattern} ESCAPE '\\'
+        )
       )
-    )
-  `;
-  const rank = Prisma.sql`
-    CASE
-      WHEN ${compact} <> '' AND luxtime_fold(regexp_replace(w.sku, '[^[:alnum:]]', '', 'g')) = ${compact} THEN 0
-      WHEN luxtime_fold(w.model) = ${term} THEN 1
-      WHEN luxtime_fold(b.name) = ${term} THEN 2
-      ELSE 3
-    END
-  `;
+    `
+    : Prisma.empty;
+  const sellableFilter = input.sellable ? sellableWatchSql() : Prisma.empty;
+  const orderBy = hasSearch
+    ? Prisma.sql`
+      ORDER BY
+        CASE
+          WHEN ${compact} <> '' AND luxtime_fold(regexp_replace(w.sku, '[^[:alnum:]]', '', 'g')) = ${compact} THEN 0
+          WHEN luxtime_fold(w.model) = ${term} THEN 1
+          WHEN luxtime_fold(b.name) = ${term} THEN 2
+          ELSE 3
+        END,
+        w."createdAt" DESC
+    `
+    : Prisma.sql`ORDER BY w."createdAt" DESC`;
 
   const [rows, totals] = await Promise.all([
     prisma.$queryRaw<{ id: string }[]>`
@@ -79,7 +123,9 @@ export async function findWatchIdsByTextSearch(
       FROM "Watch" w
       INNER JOIN "Brand" b ON b.id = w."brandId"
       WHERE ${filters}
-      ORDER BY ${rank}, w."createdAt" DESC
+      ${textFilter}
+      ${sellableFilter}
+      ${orderBy}
       LIMIT ${input.take} OFFSET ${input.skip}
     `,
     prisma.$queryRaw<{ count: bigint }[]>`
@@ -87,6 +133,8 @@ export async function findWatchIdsByTextSearch(
       FROM "Watch" w
       INNER JOIN "Brand" b ON b.id = w."brandId"
       WHERE ${filters}
+      ${textFilter}
+      ${sellableFilter}
     `,
   ]);
 

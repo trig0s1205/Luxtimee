@@ -732,10 +732,22 @@ async function clearSignatureImage() {
 }
 
 useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
+
+const previewSrc = ref<string | null>(null);
+
+function onConfigImageClick(event: MouseEvent) {
+  const target = event.target;
+  if (!(target instanceof HTMLImageElement)) return;
+  const src = target.currentSrc || target.src;
+  if (!src) return;
+  event.preventDefault();
+  event.stopPropagation();
+  previewSrc.value = src;
+}
 </script>
 
 <template>
-  <div class="admin-config" :class="{ 'admin-config--wide': activeTab === 'index' }">
+  <div class="admin-config" :class="{ 'admin-config--wide': activeTab === 'index' }" @click="onConfigImageClick">
     <UiSectionHeader label="Sistema" title="Configuración" />
 
     <div class="admin-config-tabs">
@@ -1481,12 +1493,17 @@ useSeoMeta({ title: 'Configuración — LUXTIMEE Admin' });
         </div>
       </section>
     </div>
+    <AdminImageLightbox :src="previewSrc" @close="previewSrc = null" />
   </div>
 </template>
 
 <style scoped>
 .admin-config {
   max-width: 760px;
+}
+
+.admin-config :deep(img) {
+  cursor: zoom-in;
 }
 
 .admin-config--wide {

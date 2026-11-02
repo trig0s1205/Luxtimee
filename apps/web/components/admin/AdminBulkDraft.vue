@@ -9,7 +9,7 @@ const store = useWatchBulkDraftStore();
 const open = ref(false);
 const narrow = ref(false);
 const input = ref<HTMLInputElement | null>(null);
-const zoomUrl = ref('');
+const zoomUrl = ref<string | null>(null);
 const dragging = ref(false);
 
 function syncNarrow() {
@@ -63,7 +63,7 @@ function badge(id: string) {
 
 function close() {
   open.value = false;
-  zoomUrl.value = '';
+  zoomUrl.value = null;
 }
 </script>
 
@@ -252,10 +252,7 @@ function close() {
         </ul>
       </div>
     </div>
-    <div v-if="zoomUrl" class="admin-modal-backdrop admin-bulk-draft-zoom" @click.self="zoomUrl = ''">
-      <button type="button" class="admin-pagination-btn" @click="zoomUrl = ''">Cerrar</button>
-      <img :src="zoomUrl" alt="" />
-    </div>
+    <AdminImageLightbox :src="zoomUrl" @close="zoomUrl = null" />
   </Teleport>
 </template>
 
@@ -510,20 +507,6 @@ function close() {
 
 .admin-bulk-draft-row--error {
   color: #ff5555;
-}
-
-.admin-bulk-draft-zoom {
-  z-index: 80;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.admin-bulk-draft-zoom img {
-  max-width: min(960px, 92vw);
-  max-height: 82vh;
-  object-fit: contain;
 }
 
 @media (max-width: 768px) {

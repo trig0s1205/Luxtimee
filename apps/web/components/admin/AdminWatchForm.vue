@@ -131,6 +131,7 @@ const primaryInput = ref<HTMLInputElement | null>(null);
 const secondaryInput = ref<HTMLInputElement | null>(null);
 const videoInput = ref<HTMLInputElement | null>(null);
 const primaryPreview = ref<string | null>(null);
+const previewSrc = ref<string | null>(null);
 const secondaryPreview = ref<string | null>(null);
 const videoPreview = ref<string | null>(null);
 
@@ -546,6 +547,7 @@ const selectedCareTemplate = computed(() =>
               <span v-else>Arrastra aquí o haz clic<br>JPG / PNG / WEBP</span>
             </div>
             <input ref="primaryInput" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="onImageSelect('primary', $event)">
+            <button v-if="primaryPreview || form.primaryImageUrl" type="button" class="admin-media-clear" @click="previewSrc = primaryPreview || form.primaryImageUrl || null">Ver foto</button>
             <button v-if="primaryPreview || form.primaryImageUrl" type="button" class="admin-media-clear" @click="clearImageSlot('primary')">Quitar</button>
           </div>
 
@@ -567,6 +569,7 @@ const selectedCareTemplate = computed(() =>
               <span v-else>Arrastra aquí o haz clic<br>JPG / PNG / WEBP</span>
             </div>
             <input ref="secondaryInput" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="onImageSelect('secondary', $event)">
+            <button v-if="secondaryPreview || form.secondaryImageUrl" type="button" class="admin-media-clear" @click="previewSrc = secondaryPreview || form.secondaryImageUrl || null">Ver foto</button>
             <button v-if="secondaryPreview || form.secondaryImageUrl" type="button" class="admin-media-clear" @click="clearImageSlot('secondary')">Quitar</button>
           </div>
 
@@ -608,6 +611,7 @@ const selectedCareTemplate = computed(() =>
       </UiLuxButton>
     </div>
   </form>
+  <AdminImageLightbox :src="previewSrc" @close="previewSrc = null" />
 </template>
 
 <style scoped>

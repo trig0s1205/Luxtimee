@@ -22,6 +22,7 @@ const page = ref(1);
 const expandedIds = ref<Set<string>>(new Set());
 const editingOrder = ref<OrderDto | null>(null);
 const deletingId = ref<string | null>(null);
+const previewSrc = ref<string | null>(null);
 
 const endpoint = computed(() =>
   props.bucket === 'active' ? '/pre-orders' : '/pre-orders/suspended',
@@ -254,21 +255,20 @@ useSeoMeta({ title: props.seoTitle });
             >
               <ul class="admin-record-list">
                 <li v-for="item in order.items" :key="item.id" class="admin-record-item-row">
-                  <a
+                  <button
                     v-if="item.watchThumbnail"
-                    :href="item.watchThumbnail"
-                    target="_blank"
-                    rel="noopener"
-                    @click.stop
+                    type="button"
+                    class="admin-record-thumb"
+                    :aria-label="`Ver imagen de ${item.productName}`"
+                    @click.stop="previewSrc = item.watchThumbnail"
                   >
                     <img
                       :src="item.watchThumbnail"
                       :alt="item.productName"
                       width="40"
                       height="40"
-                      style="object-fit:cover;border-radius:2px;display:block;"
                     />
-                  </a>
+                  </button>
                   <span>
                     {{ item.productName }} ×{{ item.quantity }}
                     <p v-if="item.deliveryNote?.trim()" class="admin-delivery-note">
@@ -364,4 +364,5 @@ useSeoMeta({ title: props.seoTitle });
     @close="editingOrder = null"
     @saved="onEditSaved"
   />
+  <AdminImageLightbox :src="previewSrc" @close="previewSrc = null" />
 </template>

@@ -11,26 +11,11 @@ const selectedBrandSlug = ref('');
 const modelSearch = ref('');
 const loadingWatches = ref(false);
 const watches = ref<WatchStaffDto[]>([]);
+const listTotal = ref(0);
 const lightboxSrc = ref<string | null>(null);
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
 const brands = computed(() => catalogStore.brands);
-
-const filteredWatches = computed(() => {
-  const q = modelSearch.value.trim().toLowerCase();
-  if (!q) return watches.value;
-  return watches.value.filter((watch) => {
-    const haystack = [
-      watch.model,
-      watch.sku,
-      watch.reference,
-      watch.brand?.name,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
-    return haystack.includes(q);
-  });
-});
 
 const selectedWatch = computed(() =>
   watches.value.find((watch) => watch.sku === modelValue.value) ?? null,
@@ -40,25 +25,43 @@ onMounted(() => {
   catalogStore.ensureBrands(() => api.get<BrandDto[]>('/brands'));
 });
 
-watch(selectedBrandSlug, async (slug) => {
-  modelValue.value = '';
-  modelSearch.value = '';
-  watches.value = [];
-  if (!slug) return;
-
+async function loadWatches(slug: string, term: string) {
+  if (!slug) {
+    watches.value = [];
+    listTotal.value = 0;
+    return;
+  }
+  if (term.length === 1) return;
   loadingWatches.value = true;
   try {
     const res = await api.get<PaginatedResponse<WatchStaffDto>>('/watches', {
       brand: slug,
-      status: 'DISPONIBLE',
+      availability: 'sellable',
+      search: term.length >= 2 ? term : undefined,
+      page: 1,
       limit: 100,
     });
-    watches.value = res.data.filter((watch) => watch.stock > 0);
+    watches.value = res.data;
+    listTotal.value = res.total;
   } catch {
     watches.value = [];
+    listTotal.value = 0;
   } finally {
     loadingWatches.value = false;
   }
+}
+
+function scheduleSearch() {
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    void loadWatches(selectedBrandSlug.value, modelSearch.value.trim());
+  }, 300);
+}
+
+watch(selectedBrandSlug, (slug) => {
+  modelValue.value = '';
+  modelSearch.value = '';
+  void loadWatches(slug, '');
 });
 
 function selectWatch(sku: string) {
@@ -93,7 +96,8 @@ function closeLightbox() {
           v-model="modelSearch"
           type="search"
           class="admin-warranty-picker__control"
-          placeholder="Buscar por nombre, modelo o SKU..."
+          placeholder="Buscar por marca, modelo o SKU..."
+          @input="scheduleSearch"
         >
       </label>
     </div>
@@ -107,14 +111,14 @@ function closeLightbox() {
         Cargando relojes...
       </p>
       <p v-else-if="!watches.length" class="admin-warranty-picker__empty">
-        No hay relojes disponibles de esta marca.
+        {{ modelSearch.trim().length >= 2 ? 'Ningún reloj en catálogo con stock coincide con la búsqueda.' : 'No hay relojes en catálogo con stock de esta marca.' }}
       </p>
-      <p v-else-if="!filteredWatches.length" class="admin-warranty-picker__empty">
-        Ningún reloj coincide con la búsqueda.
+      <p v-else-if="listTotal > watches.length" class="admin-warranty-picker__empty">
+        Hay {{ listTotal }} relojes. Se muestran {{ watches.length }}. Escribe más para acotar.
       </p>
-      <div v-else class="admin-warranty-picker__grid">
+      <div v-if="watches.length" class="admin-warranty-picker__grid">
         <article
-          v-for="watch in filteredWatches"
+          v-for="watch in watches"
           :key="watch.id"
           class="admin-warranty-picker__card"
           :class="{ 'admin-warranty-picker__card--selected': modelValue === watch.sku }"
@@ -136,7 +140,7 @@ function closeLightbox() {
           </button>
 
           <div class="admin-warranty-picker__meta">
-            <strong>{{ watch.model }}</strong>
+            <strong>{{ watch.brand.name }} {{ watch.model }}</strong>
             <span>{{ watch.sku }}</span>
             <span>{{ watch.stock }} uds.</span>
           </div>

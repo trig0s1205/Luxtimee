@@ -7,6 +7,8 @@ defineProps<{
   loading?: boolean;
 }>();
 
+const previewSrc = ref<string | null>(null);
+
 type InsightCard = {
   key: string;
   label: string;
@@ -95,7 +97,15 @@ function cards(data: InventoryInsightsDto): InsightCard[] {
         <p class="inventory-insight-label">{{ card.label }}</p>
         <p class="inventory-insight-metric">{{ card.metric }}</p>
         <div v-if="card.watch" class="inventory-insight-watch">
-          <img v-if="card.watch.image" :src="card.watch.image" :alt="card.watch.model" loading="lazy">
+          <button
+            v-if="card.watch.image"
+            type="button"
+            class="inventory-insight-thumb"
+            :aria-label="`Ver imagen de ${card.watch.model}`"
+            @click="previewSrc = card.watch.image"
+          >
+            <img :src="card.watch.image" :alt="card.watch.model" loading="lazy">
+          </button>
           <div>
             <strong>{{ card.watch.brand }} {{ card.watch.model }}</strong>
             <span v-if="card.watch.reference">Ref. {{ card.watch.reference }}</span>
@@ -105,6 +115,7 @@ function cards(data: InventoryInsightsDto): InsightCard[] {
         <p v-else class="inventory-insight-empty">Sin datos</p>
       </article>
     </div>
+    <AdminImageLightbox :src="previewSrc" @close="previewSrc = null" />
   </section>
 </template>
 
@@ -217,7 +228,16 @@ function cards(data: InventoryInsightsDto): InsightCard[] {
   align-items: flex-start;
 }
 
-.inventory-insight-watch img {
+.inventory-insight-thumb {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  line-height: 0;
+}
+
+.inventory-insight-watch img,
+.inventory-insight-thumb img {
   width: 42px;
   height: 42px;
   object-fit: cover;

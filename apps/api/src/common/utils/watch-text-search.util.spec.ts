@@ -1,5 +1,5 @@
 import type { Prisma } from '@prisma/client';
-import { buildWatchTextSearchOr, escapeLikeTerm, foldSearchText } from './watch-text-search.util';
+import { buildWatchTextSearchOr, escapeLikeTerm, foldSearchText, sellableWatchSql } from './watch-text-search.util';
 
 function containedSkus(or: Prisma.WatchWhereInput[]) {
   return or.flatMap((clause) => {
@@ -30,5 +30,18 @@ describe('buildWatchTextSearchOr', () => {
 
   it('escapa comodines del LIKE', () => {
     expect(escapeLikeTerm('100%_á')).toBe('100\\%\\_a');
+  });
+});
+
+describe('sellableWatchSql', () => {
+  it('exige catálogo publicado, ficha completa y stock', () => {
+    const sql = sellableWatchSql();
+    const text = sql.strings.join(' ');
+    expect(text).toContain('w."isPublished" = true');
+    expect(text).toContain('w."isActive" = true');
+    expect(text).toContain('w.stock > 0');
+    expect(text).toContain('w."videoUrl"');
+    expect(text).toContain('w."categoryId" IS NOT NULL');
+    expect(sql.values).toContain('Pendiente de completar');
   });
 });

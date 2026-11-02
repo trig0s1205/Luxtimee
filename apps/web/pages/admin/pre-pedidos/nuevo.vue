@@ -2,7 +2,6 @@
 import type {
   CreateManualPreOrderDto,
   CustomerOrderHintDto,
-  PaginatedResponse,
   ShippingZoneDto,
   WatchStaffDto,
 } from '@luxtime/shared';
@@ -34,7 +33,6 @@ const form = reactive({
 });
 
 const lines = ref<ManualLine[]>([]);
-const watchSearch = ref('');
 const loading = ref(false);
 const hintLoading = ref(false);
 const error = ref('');
@@ -64,46 +62,22 @@ const subtotal = computed(() =>
 const total = computed(() => subtotal.value + shippingCost.value);
 const depositExpected = computed(() => lines.value.reduce((sum, line) => sum + line.quantity, 0) * 10_000);
 
-let searchTimer: ReturnType<typeof setTimeout> | null = null;
-const searchResults = ref<WatchStaffDto[]>([]);
-const searchPending = ref(false);
-const searchFinishedTerm = ref('');
+const {
+  query: watchSearch,
+  results: searchResults,
+  total: searchTotal,
+  pending: searchPending,
+  finishedTerm: searchFinishedTerm,
+  schedule: scheduleWatchSearch,
+  clear: clearWatchSearch,
+} = useSellableWatchSearch();
 const watchSearchMiss = computed(() => searchEmptyMessage({
   term: searchFinishedTerm.value,
   pending: searchPending.value || searchFinishedTerm.value !== watchSearch.value.trim(),
   count: searchResults.value.length,
-  message: 'No se encontraron pedidos',
+  message: 'No hay relojes en catálogo con stock para esa búsqueda',
   minLength: 2,
 }));
-
-function scheduleWatchSearch() {
-  if (searchTimer) clearTimeout(searchTimer);
-  searchTimer = setTimeout(runWatchSearch, 300);
-}
-
-async function runWatchSearch() {
-  const term = watchSearch.value.trim();
-  if (term.length < 2) {
-    searchResults.value = [];
-    searchFinishedTerm.value = '';
-    return;
-  }
-  searchPending.value = true;
-  try {
-    const res = await api.get<PaginatedResponse<WatchStaffDto>>('/watches', {
-      search: term,
-      page: 1,
-      limit: 8,
-    });
-    searchResults.value = res.data;
-    searchFinishedTerm.value = term;
-  } catch {
-    searchResults.value = [];
-    searchFinishedTerm.value = term;
-  } finally {
-    searchPending.value = false;
-  }
-}
 
 function addWatch(watch: WatchStaffDto) {
   const existing = lines.value.find((line) => line.watchId === watch.id);
@@ -124,9 +98,7 @@ function addWatch(watch: WatchStaffDto) {
     quantity: 1,
     deliveryNote: '',
   });
-  watchSearch.value = '';
-  searchResults.value = [];
-  searchFinishedTerm.value = '';
+  clearWatchSearch();
 }
 
 function removeLine(watchId: string) {
@@ -246,13 +218,11 @@ async function submit() {
         />
         <p v-if="watchSearchMiss" class="admin-search-empty" role="status">{{ watchSearchMiss }}</p>
         <div v-if="searchPending" class="admin-record-muted text-sm">Buscando...</div>
-        <ul v-if="searchResults.length" class="admin-record-list border border-lux-gold/15">
-          <li v-for="watch in searchResults" :key="watch.id">
-            <button type="button" class="admin-record-btn admin-record-btn--ghost w-full justify-start" @click="addWatch(watch)">
-              {{ watch.brand.name }} {{ watch.model }} · {{ formatCop(watch.retailPrice) }} · Stock {{ watch.stock }}
-            </button>
-          </li>
-        </ul>
+        <AdminWatchPickList :watches="searchResults" :total="searchTotal" @select="addWatch">
+          <template #meta="{ watch }">
+            {{ formatCop(watch.retailPrice) }} · Stock {{ watch.stock }}
+          </template>
+        </AdminWatchPickList>
 
         <div v-if="!lines.length" class="admin-record-empty">Agrega relojes desde el buscador.</div>
         <div v-for="line in lines" :key="line.watchId" class="border border-lux-gold/15 p-4 space-y-3">
