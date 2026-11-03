@@ -61,7 +61,7 @@ const commission = reactive<CommissionConfigDto>({ percent: 5 });
 const home = reactive<HomepageConfigDto>(structuredClone(DEFAULT_HOMEPAGE_CONFIG));
 home.hero.slides = normalizeHeroSlides(home.hero);
 home.customerProof.images = Array.from({ length: 12 }, () => ({ url: '', caption: '' }));
-const indexSubTab = ref<'logo' | 'hero' | 'featured' | 'founder' | 'proof' | 'faq' | 'contact' | 'ads'>('hero');
+const indexSubTab = ref<'logo' | 'hero' | 'featured' | 'packaging' | 'founder' | 'proof' | 'faq' | 'contact' | 'ads'>('hero');
 
 const profitSplitTotal = computed(() =>
   Number(profit.reinvestmentPercent || 0) + Number(profit.ownerProfitPercent || 0),
@@ -943,6 +943,7 @@ function onConfigImageClick(event: MouseEvent) {
             { id: 'hero', label: 'Banner inicio' },
             { id: 'founder', label: 'Fundador' },
             { id: 'featured', label: 'Catálogo' },
+            { id: 'packaging', label: 'Fotos de empaque' },
             { id: 'proof', label: 'Reseñas visuales' },
             { id: 'faq', label: 'Preguntas frecuentes' },
             { id: 'contact', label: 'Contacto' },
@@ -1277,6 +1278,18 @@ function onConfigImageClick(event: MouseEvent) {
             {{ savingIndexSection === 'featured' ? 'Guardando...' : 'Guardar Catálogo' }}
           </UiLuxButton>
         </div>
+      </section>
+
+      <section v-else-if="indexSubTab === 'packaging'" class="admin-config-card">
+        <h2>Fotos de empaque</h2>
+        <p class="admin-config-hint">
+          Sube fotos de la caja, el paño, las pilas y de cómo llega el reloj empacado.
+          Puedes elegir varias a la vez. El texto de cada foto es opcional y corto: se guarda al salir del recuadro.
+          Las flechas cambian el orden que ve el cliente. Eliminar pide confirmación.
+          Si no dejas ninguna foto, la sección del inicio y el botón «Ver empaque» de cada reloj no aparecen.
+          No pegues enlaces: elige los archivos desde el computador o el celular.
+        </p>
+        <AdminPackagingPhotos />
       </section>
 
       <!-- Reseñas visuales -->

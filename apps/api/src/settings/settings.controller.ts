@@ -18,6 +18,7 @@ import { memoryStorage } from 'multer';
 import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { SettingsService } from './settings.service';
+import { PackagingPhotosService } from './packaging-photos.service';
 import { CACHE_TAGS, Cacheable } from '../common/cache/cache.decorator';
 import {
   Public,
@@ -40,10 +41,17 @@ import {
   SetProfitBodyDto,
   SetWhatsappBodyDto,
 } from './dto/settings-body.dto';
+import {
+  ReorderPackagingPhotosDto,
+  UpdatePackagingCaptionDto,
+} from './dto/packaging-photo.dto';
 
 @Controller({ path: 'settings', version: '1' })
 export class SettingsController {
-  constructor(private settingsService: SettingsService) {}
+  constructor(
+    private settingsService: SettingsService,
+    private packagingPhotos: PackagingPhotosService,
+  ) {}
 
   @Public()
   @Get('legal/public')
@@ -276,5 +284,69 @@ export class SettingsController {
   async deleteFounderImage(@Query() query: DeleteFounderImageBodyDto) {
     await this.settingsService.deleteFounderImage(query.url);
     return { ok: true };
+  }
+
+  @Public()
+  @Get('packaging/public')
+  @Cacheable({ ttlMs: 600_000, tag: CACHE_TAGS.packaging, maxAge: 300 })
+  listPackagingPublic() {
+    return this.packagingPhotos.list();
+  }
+
+  @Get('packaging')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  listPackaging() {
+    return this.packagingPhotos.list();
+  }
+
+  @Post('packaging')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  @Audit('CREATE', 'PackagingPhoto')
+  @UseInterceptors(
+    FilesInterceptor('images', 12, {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_IMAGE_BYTES },
+    }),
+  )
+  async uploadPackaging(
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    if (!files?.length) {
+      throw new BadRequestException('No se recibieron imágenes');
+    }
+    for (const file of files) {
+      assertImageBuffer(file.buffer, file.mimetype);
+    }
+    return this.packagingPhotos.addImages(files);
+  }
+
+  @Patch('packaging/order')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  @Audit('UPDATE', 'PackagingPhoto')
+  reorderPackaging(@Body() body: ReorderPackagingPhotosDto) {
+    return this.packagingPhotos.reorder(body.ids);
+  }
+
+  @Patch('packaging/:id')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  @Audit('UPDATE', 'PackagingPhoto')
+  updatePackagingCaption(
+    @Param('id') id: string,
+    @Body() body: UpdatePackagingCaptionDto,
+  ) {
+    return this.packagingPhotos.updateCaption(id, body.caption);
+  }
+
+  @Delete('packaging/:id')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  @Audit('DELETE', 'PackagingPhoto')
+  deletePackaging(@Param('id') id: string) {
+    return this.packagingPhotos.remove(id);
   }
 }

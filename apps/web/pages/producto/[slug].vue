@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import type { WatchPublicDto } from '@luxtime/shared';
+import type { PackagingPhotoDto, WatchPublicDto } from '@luxtime/shared';
 import { watch as watchRef } from 'vue';
 import { formatCop } from '~/utils/format';
 import { absoluteAssetUrl, productJsonLd } from '~/utils/seo';
 import { buildRelatedWatches } from '~/utils/similar-watches';
 import { buildProductWhatsappMessage } from '~/utils/product-whatsapp';
 import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
+import { visiblePackagingPhotos } from '~/utils/packaging-gallery';
+import { PACKAGING_PHOTOS_KEY } from '~/composables/usePackagingPhotos';
 
 const RELATED_WATCHES_TOTAL = 18;
 
 const route = useRoute();
 const slug = computed(() => String(route.params.slug));
 const catalog = useCatalogData();
+const { fetchPhotos: fetchPackagingPhotos } = usePackagingPhotos();
 const cart = useCartStore();
 const analytics = useAnalytics();
 const { t } = useLocale();
@@ -35,6 +38,22 @@ const { data: catalogPool, pending: relatedPending, refresh: refreshCatalogPool 
   },
   { lazy: true, server: false, default: (): WatchPublicDto[] => [], staleTime: STOREFRONT_CACHE_MS.catalog },
 );
+
+const { data: packagingData } = useCachedAsyncData<PackagingPhotoDto[]>(
+  PACKAGING_PHOTOS_KEY,
+  () => fetchPackagingPhotos(),
+  {
+    lazy: true,
+    default: () => [],
+    staleTime: STOREFRONT_CACHE_MS.homepage,
+  },
+);
+const packagingPhotos = computed(() => visiblePackagingPhotos(packagingData.value));
+const packagingOpen = ref(false);
+
+watchRef(slug, () => {
+  packagingOpen.value = false;
+});
 
 const relatedWatches = computed(() => (
   watch.value ? buildRelatedWatches(watch.value, catalogPool.value ?? [], RELATED_WATCHES_TOTAL) : []
@@ -149,11 +168,25 @@ function buyOnWhatsApp() {
               {{ t('product.whatsapp') }}
             </button>
           </div>
+          <button
+            v-if="packagingPhotos.length"
+            type="button"
+            class="product-packaging-link"
+            @click="packagingOpen = true"
+          >
+            Ver empaque
+          </button>
         </div>
 
         <CatalogWatchTechSheet :watch="watch" inline compact />
       </div>
     </div>
+
+    <HomePackagingLightbox
+      v-if="packagingOpen && packagingPhotos.length"
+      :photos="packagingPhotos"
+      @close="packagingOpen = false"
+    />
 
     <ClientOnly>
       <div>
@@ -227,6 +260,22 @@ function buyOnWhatsApp() {
 
 .product-skeleton--card {
   aspect-ratio: 3 / 4;
+}
+
+.product-packaging-link {
+  display: inline-flex;
+  margin-top: 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gold-dark);
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 
 @keyframes product-shimmer {
