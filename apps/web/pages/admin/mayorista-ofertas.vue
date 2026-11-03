@@ -211,7 +211,7 @@ useSeoMeta({ title: 'Opciones de empaque y extras — LUXTIMEE Admin' });
 
     <section v-for="extra in data?.extras ?? []" :key="extra.id" class="admin-record-export">
       <h3 class="pack-existing">{{ extra.name || 'Opción sin nombre' }}</h3>
-      <div class="grid gap-3 md:grid-cols-4">
+      <div class="grid gap-3" :class="SHOW_WHOLESALE_OFFERS ? 'md:grid-cols-4' : 'md:grid-cols-3'">
         <label class="pack-field">
           <span>Nombre de la opción</span>
           <UiLuxInput v-model="extra.name" placeholder="Ej. Paño" />
@@ -225,7 +225,7 @@ useSeoMeta({ title: 'Opciones de empaque y extras — LUXTIMEE Admin' });
           <UiLuxInput v-model.number="extra.sortOrder" type="number" min="0" placeholder="0" />
           <small>0 sale primero. Ejemplo: caja = 0, paño = 1, pila = 2.</small>
         </label>
-        <div class="pack-field">
+        <div v-if="SHOW_WHOLESALE_OFFERS" class="pack-field">
           <span>Visible para el mayorista</span>
           <label class="admin-record-field">
             <input v-model="extra.isActive" type="checkbox" />

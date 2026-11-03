@@ -2,6 +2,17 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
+const STAFF_ROLES: Role[] = [Role.ADMIN, Role.SUPER_ADMIN];
+
+export function notificationAudience(role: Role): Prisma.NotificationWhereInput {
+  if (STAFF_ROLES.includes(role)) {
+    return {
+      OR: [{ targetRole: null }, { targetRole: { in: STAFF_ROLES } }],
+    };
+  }
+  return { OR: [{ targetRole: role }, { targetRole: null }] };
+}
+
 @Injectable()
 export class NotificationsService {
   constructor(private prisma: PrismaService) {}
@@ -22,9 +33,7 @@ export class NotificationsService {
 
   async listForStaff(role: Role) {
     return this.prisma.notification.findMany({
-      where: {
-        OR: [{ targetRole: role }, { targetRole: null }],
-      },
+      where: notificationAudience(role),
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
@@ -41,7 +50,7 @@ export class NotificationsService {
     const result = await this.prisma.notification.updateMany({
       where: {
         readAt: null,
-        OR: [{ targetRole: role }, { targetRole: null }],
+        ...notificationAudience(role),
       },
       data: { readAt: new Date() },
     });
@@ -52,7 +61,7 @@ export class NotificationsService {
     return this.prisma.notification.count({
       where: {
         readAt: null,
-        OR: [{ targetRole: role }, { targetRole: null }],
+        ...notificationAudience(role),
       },
     });
   }

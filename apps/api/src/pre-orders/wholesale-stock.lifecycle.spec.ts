@@ -362,7 +362,10 @@ describe('ciclo de stock mayorista', () => {
       confirmed.id,
       OrderStatus.CANCELADO,
     );
-    expect(removed).toEqual({ id: confirmed.id, deleted: true });
+    expect(removed).toMatchObject({
+      id: confirmed.id,
+      status: OrderStatus.CANCELADO,
+    });
     expect((await stockOf(byTransition.id)).stock).toBe(18);
 
     const byUpdate = await makeWatch(13);

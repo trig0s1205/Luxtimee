@@ -258,7 +258,7 @@ export class OrdersService {
     assertValidTransition(order.status, next, isNational);
 
     if (next === OrderStatus.CANCELADO) {
-      await this.prisma.$transaction(async (tx) => {
+      const updated = await this.prisma.$transaction(async (tx) => {
         const claimed = await tx.order.updateMany({
           where: {
             id,
@@ -273,7 +273,10 @@ export class OrdersService {
         if (isInventoryDeducted(order)) {
           await this.restoreInventory(order.items, tx);
         }
-        await tx.order.delete({ where: { id } });
+        return tx.order.findUniqueOrThrow({
+          where: { id },
+          include: orderInclude,
+        });
       }, STOCK_TRANSACTION);
       this.cache.invalidateTag(CACHE_TAGS.catalog);
       await this.notificationsService.emit({
@@ -282,7 +285,7 @@ export class OrdersService {
         payload: { orderId: id, status: next, readableId: order.readableId },
       });
       await this.notifyCustomer(order, 'canceled');
-      return { id, deleted: true };
+      return this.mapOrder(updated);
     }
 
     const data: Prisma.OrderUpdateManyMutationInput = { status: next };

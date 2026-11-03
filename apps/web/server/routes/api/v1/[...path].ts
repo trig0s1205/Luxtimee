@@ -60,6 +60,10 @@ export default defineEventHandler(async (event) => {
     if (key === 'set-cookie') return;
     setResponseHeader(event, key, value);
   });
+  if (url.pathname.includes('/notifications')) {
+    setResponseHeader(event, 'cache-control', 'private, no-store');
+    setResponseHeader(event, 'cdn-cache-control', 'no-store');
+  }
   for (const cookie of readSetCookies(response.headers)) {
     appendResponseHeader(event, 'set-cookie', cookie);
   }
