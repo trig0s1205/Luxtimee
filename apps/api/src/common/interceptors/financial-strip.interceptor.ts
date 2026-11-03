@@ -16,8 +16,12 @@ const FINANCIAL_FIELDS = [
   'secretaryCommissionPercentage',
 ] as const;
 
+function canSeeFinancialFields(role?: Role) {
+  return role === Role.SUPER_ADMIN || role === Role.ADMIN;
+}
+
 function stripFinancial<T>(data: T, role?: Role): T {
-  if (!data || role === Role.SUPER_ADMIN) {
+  if (!data || canSeeFinancialFields(role)) {
     return data;
   }
 

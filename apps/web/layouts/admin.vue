@@ -88,7 +88,7 @@ onMounted(() => {
 
 const bulkDraft = useWatchBulkDraftStore();
 const bulkNotice = computed(() => {
-  if (!auth.isSuperAdmin) return '';
+  if (!auth.isStaff) return '';
   const pending = bulkDraft.pendingCount;
   if (pending > 0) {
     return pending === 1

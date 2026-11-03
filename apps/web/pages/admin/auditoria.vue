@@ -9,9 +9,6 @@ interface AuditLogDto {
   user?: { name?: string; role?: string };
 }
 
-const auth = useAuthStore();
-if (!auth.isSuperAdmin) throw createError({ statusCode: 403 });
-
 const api = useApi();
 const { data: logs, refresh, pending } = useAdminCachedData('audit-logs', () =>
   api.get<AuditLogDto[]>('/audit/logs'),
