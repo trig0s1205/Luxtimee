@@ -1,5 +1,5 @@
 import type { WhatsappSettingDto } from '@luxtime/shared';
-import { whatsappUrlFromInput } from '@luxtime/shared';
+import { composeWhatsappText, whatsappUrlFromInput } from '@luxtime/shared';
 import { openWhatsAppChat } from '~/utils/whatsapp-open';
 
 function canonicalWaUrl(url?: string | null) {
@@ -28,8 +28,10 @@ export function useWhatsApp() {
     const base = canonicalWaUrl(settings.value?.url);
     if (!base) return null;
     if (!message?.trim()) return base;
-    const prefix = options?.prefix === false ? '' : settings.value?.messagePrefix?.trim();
-    const text = prefix ? `${prefix} ${message}`.trim() : message.trim();
+    const usePrefix = options?.prefix !== false;
+    const prefix = usePrefix ? settings.value?.messagePrefix : '';
+    const text = composeWhatsappText(prefix, message);
+    if (!text) return base;
     return `${base}?text=${encodeURIComponent(text)}`;
   }
 
