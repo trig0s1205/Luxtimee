@@ -165,3 +165,7 @@ __pycache__
 
 docs/
 
+# Respaldos locales de mantenimiento (pg_dump)
+/backups/
+**/backups/
+
