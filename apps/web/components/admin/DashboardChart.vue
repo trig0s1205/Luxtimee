@@ -5,8 +5,15 @@ import { ADMIN_CACHE_MS } from '~/utils/admin-cache';
 
 export type ChartRange = 'today' | '1_week' | '1_month' | 'historical';
 
+const emptyRevenue = (range: ChartRange): RevenueDashboardDto => ({
+  range,
+  orders: [],
+  total: 0,
+});
+
 const api = useApi();
 const range = ref<ChartRange>('1_month');
+const loadFailed = ref(false);
 
 const ranges: { key: ChartRange; label: string }[] = [
   { key: 'today', label: 'Hoy' },
@@ -21,10 +28,25 @@ const granularity = computed<ChartGranularity>(() => {
   return 'day';
 });
 
+const cacheKey = computed(() => `admin-revenue-chart-${range.value}`);
+
 const { data: revenue, pending, error, refresh } = useAdminCachedData(
-  'admin-revenue-chart',
-  () => api.get<RevenueDashboardDto>('/dashboards/revenue', { range: range.value }),
-  { staleTime: ADMIN_CACHE_MS.dashboards, watch: [range], default: () => ({ range: '1_month' as ChartRange, orders: [], total: 0 }) },
+  cacheKey,
+  async () => {
+    try {
+      const data = await api.get<RevenueDashboardDto>('/dashboards/revenue', { range: range.value });
+      loadFailed.value = false;
+      return data;
+    } catch {
+      loadFailed.value = true;
+      return emptyRevenue(range.value);
+    }
+  },
+  {
+    staleTime: ADMIN_CACHE_MS.dashboards,
+    watch: [cacheKey],
+    default: () => emptyRevenue(range.value),
+  },
 );
 
 const orders = computed<ChartOrderInput[]>(() =>
@@ -46,6 +68,13 @@ const rangeStart = computed<number | null>(() => {
   if (range.value === '1_month') return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
   return null;
 });
+
+const chartError = computed(() => loadFailed.value || !!error.value);
+
+async function retry() {
+  loadFailed.value = false;
+  await refresh();
+}
 </script>
 
 <template>
@@ -57,11 +86,11 @@ const rangeStart = computed<number | null>(() => {
     :orders="orders"
     :from="rangeStart"
     :loading="pending"
-    :error="!!error"
+    :error="chartError"
     color="#D4AF37"
     empty-title="Sin ventas en este periodo"
     empty-subtitle="Los pedidos confirmados aparecerán aquí"
     @update:range="range = $event as ChartRange"
-    @retry="refresh()"
+    @retry="retry"
   />
 </template>

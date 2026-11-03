@@ -19,6 +19,24 @@ export function saveStoredUser(user: { id: string; email: string; name: string; 
   else localStorage.removeItem(USER_KEY);
 }
 
+export function loadStoredUser(): { id: string; email: string; name: string; role: string } | null {
+  if (!import.meta.client) return null;
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { id?: string; email?: string; name?: string; role?: string };
+    if (!parsed?.id || !parsed.email || !parsed.name || !parsed.role) return null;
+    return {
+      id: parsed.id,
+      email: parsed.email,
+      name: parsed.name,
+      role: parsed.role,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function authFetchHeaders(accessToken: string | null): Record<string, string> {
   if (!accessToken) return {};
   return { Authorization: `Bearer ${accessToken}` };

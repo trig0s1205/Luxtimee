@@ -4,14 +4,25 @@ import { GLOBAL_INVENTORY_LOW_THRESHOLD } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { ADMIN_CACHE_MS } from '~/utils/admin-cache';
 
-const AdminDashboardChartLazy = defineAsyncComponent(() => import('~/components/admin/DashboardChart.vue'));
-
 definePageMeta({ middleware: ['admin'], keepalive: true });
 
-const auth = useAuthStore();
 const api = useApi();
 const { waitHoursSince } = useLiveWaitHours();
 const previewSrc = ref<string | null>(null);
+const chartMountKey = ref(0);
+const chartBroken = ref(false);
+
+onErrorCaptured((err) => {
+  // Una tarjeta rota no debe tumbar el layout del panel.
+  console.warn('[salud]', err);
+  chartBroken.value = true;
+  return false;
+});
+
+function retryChart() {
+  chartBroken.value = false;
+  chartMountKey.value += 1;
+}
 
 const { data: health, pending, refresh } = useAdminCachedData(
   'health-dashboard',
@@ -122,7 +133,15 @@ useSeoMeta({ title: 'Panel de salud del negocio — LUXTIMEE Admin' });
     <AdminExpensesSummary period="month" />
 
     <div class="health-main-grid">
-      <AdminDashboardChartLazy />
+      <section class="health-chart-slot" aria-label="Ingresos">
+        <AdminDashboardChart v-if="!chartBroken" :key="chartMountKey" />
+        <div v-else class="health-chart-fallback">
+          <p>No se pudo cargar la gráfica de ingresos.</p>
+          <button type="button" class="health-period-btn" @click="retryChart">
+            Reintentar
+          </button>
+        </div>
+      </section>
 
       <aside class="health-alerts-card">
         <h3 class="health-alerts-title">

@@ -4,6 +4,7 @@ import { Role } from '@luxtime/shared';
 import {
   clearLegacyStoredTokens,
   clearStoredTokens,
+  loadStoredUser,
   readJwtExpMs,
   saveStoredUser,
 } from '~/utils/auth-token';
@@ -17,16 +18,15 @@ import {
 import { invalidateStaffAdminCaches } from '~/utils/admin-cache';
 import { AUTH_REDIRECT_KEY } from '~/utils/auth-redirect';
 import { AUTH_TIMEOUT_MS } from '~/utils/api-timeout';
+import {
+  isAuthRejectedError,
+  isTransientRequestError,
+  isUnauthorizedError,
+} from '~/utils/api-error-kind';
 
-function isUnauthorized(err: unknown) {
-  if (!err || typeof err !== 'object') return false;
-  const status = (err as { statusCode?: number; status?: number }).statusCode
-    ?? (err as { status?: number }).status;
-  return status === 401;
-}
-
-function isStaffUser(user: AuthUserDto | null) {
-  return user?.role === Role.ADMIN || user?.role === Role.SUPER_ADMIN;
+function isStaffUser(user: AuthUserDto | null | { role: string }) {
+  return user?.role === Role.ADMIN || user?.role === Role.SUPER_ADMIN
+    || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
 }
 
 export const useAuthStore = defineStore('auth', {
@@ -60,8 +60,21 @@ export const useAuthStore = defineStore('auth', {
         this.setUser(local, true);
       }
     },
+    /** Restaura el usuario staff guardado si Pinia aún no tiene sesión (p. ej. tras F5). */
+    hydrateStoredStaff() {
+      if (this.user) return;
+      const stored = loadStoredUser();
+      if (stored && isStaffUser(stored)) {
+        this.setUser(stored as AuthUserDto, false);
+      }
+    },
     hydrateTokens() {
       clearLegacyStoredTokens();
+    },
+    clearStaffSession() {
+      this.setUser(null, false);
+      this.clearUploadToken();
+      if (import.meta.client) saveStoredUser(null);
     },
     clearUploadToken() {
       this.uploadToken = null;
@@ -101,7 +114,7 @@ export const useAuthStore = defineStore('auth', {
       try {
         data = await requestToken();
       } catch (err) {
-        if (!isUnauthorized(err)) throw err;
+        if (!isUnauthorizedError(err)) throw err;
         await this.refreshSession();
         data = await requestToken();
       }
@@ -115,6 +128,7 @@ export const useAuthStore = defineStore('auth', {
     async fetchMe(options: { allowRefresh?: boolean } = {}) {
       const { allowRefresh = true } = options;
       this.hydrateTokens();
+      this.hydrateStoredStaff();
       const baseUrl = useApiBaseUrl();
       const fetchOptions = {
         credentials: 'include' as const,
@@ -122,29 +136,47 @@ export const useAuthStore = defineStore('auth', {
         retry: 0 as const,
       };
 
+      const applyStaffUser = (user: AuthUserDto) => {
+        clearLocalSession();
+        this.setUser(user, false);
+        if (import.meta.client) saveStoredUser(user);
+      };
+
       try {
         const data = await apiFetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, fetchOptions);
         if (isStaffUser(data.user)) {
-          clearLocalSession();
-          this.setUser(data.user, false);
-          if (import.meta.client) saveStoredUser(data.user);
+          applyStaffUser(data.user);
         } else {
-          this.setUser(null, false);
-          if (import.meta.client) saveStoredUser(null);
+          this.clearStaffSession();
         }
         return;
-      } catch {
-        if (allowRefresh) {
+      } catch (err) {
+        // Red / 5xx: conservar la sesión en memoria o en localStorage.
+        if (isTransientRequestError(err)) {
+          if (isStaffUser(this.user)) return;
+          this.hydrateStoredStaff();
+          if (LOCAL_AUTH_ENABLED) {
+            const local = loadLocalSession();
+            if (local && isStaffUser(local)) this.setUser(local, true);
+          }
+          return;
+        }
+
+        if (allowRefresh && isAuthRejectedError(err)) {
           try {
             await this.refreshSession();
             const data = await apiFetch<{ user: AuthUserDto }>(`${baseUrl}/auth/me`, fetchOptions);
             if (isStaffUser(data.user)) {
-              clearLocalSession();
-              this.setUser(data.user, false);
-              if (import.meta.client) saveStoredUser(data.user);
+              applyStaffUser(data.user);
               return;
             }
-          } catch { /* refresh falló */ }
+          } catch (refreshErr) {
+            if (isTransientRequestError(refreshErr)) {
+              if (isStaffUser(this.user)) return;
+              this.hydrateStoredStaff();
+              return;
+            }
+          }
         }
 
         if (LOCAL_AUTH_ENABLED) {
@@ -159,10 +191,10 @@ export const useAuthStore = defineStore('auth', {
           return;
         }
 
-        const hadStaffSession = isStaffUser(this.user);
-        this.setUser(null, false);
-        this.clearUploadToken();
-        if (hadStaffSession && import.meta.client) saveStoredUser(null);
+        // Solo cerrar si el servidor rechazó de verdad la sesión (401/403).
+        if (isAuthRejectedError(err)) {
+          this.clearStaffSession();
+        }
       }
     },
     localLogin(email: string, password: string) {

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -55,6 +55,30 @@ export class NotificationsService {
       data: { readAt: new Date() },
     });
     return { updated: result.count };
+  }
+
+  async deleteOne(id: string, role: Role) {
+    const existing = await this.prisma.notification.findFirst({
+      where: {
+        id,
+        ...notificationAudience(role),
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException('Notificación no encontrada');
+    }
+    await this.prisma.notification.delete({ where: { id } });
+    return { deleted: 1 };
+  }
+
+  async deleteRead(role: Role) {
+    const result = await this.prisma.notification.deleteMany({
+      where: {
+        readAt: { not: null },
+        ...notificationAudience(role),
+      },
+    });
+    return { deleted: result.count };
   }
 
   async unreadCount(role: Role) {

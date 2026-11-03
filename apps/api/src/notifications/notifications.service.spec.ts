@@ -46,4 +46,31 @@ describe('NotificationsService', () => {
       },
     });
   });
+
+  it('elimina una notificación de la bandeja compartida', async () => {
+    const findFirst = jest.fn().mockResolvedValue({ id: 'n1' });
+    const del = jest.fn().mockResolvedValue({ id: 'n1' });
+    const prisma = { notification: { findFirst, delete: del } };
+    const service = new NotificationsService(prisma as never);
+
+    await expect(service.deleteOne('n1', Role.ADMIN)).resolves.toEqual({ deleted: 1 });
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { id: 'n1', ...staffAudience },
+    });
+    expect(del).toHaveBeenCalledWith({ where: { id: 'n1' } });
+  });
+
+  it('elimina todas las leídas de la bandeja compartida', async () => {
+    const deleteMany = jest.fn().mockResolvedValue({ count: 4 });
+    const prisma = { notification: { deleteMany } };
+    const service = new NotificationsService(prisma as never);
+
+    await expect(service.deleteRead(Role.SUPER_ADMIN)).resolves.toEqual({ deleted: 4 });
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        readAt: { not: null },
+        ...staffAudience,
+      },
+    });
+  });
 });
