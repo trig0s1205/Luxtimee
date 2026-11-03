@@ -1,4 +1,8 @@
 import { API_TIMEOUT_MS } from '~/utils/api-timeout';
+import {
+  isTransientRequestError,
+  isUnauthorizedError,
+} from '~/utils/api-error-kind';
 
 type QueryValue = string | number | boolean | undefined;
 
@@ -9,13 +13,6 @@ type RequestOptions = {
   signal?: AbortSignal;
   _retried?: boolean;
 };
-
-function isUnauthorized(err: unknown) {
-  if (!err || typeof err !== 'object') return false;
-  const status = (err as { statusCode?: number; status?: number }).statusCode
-    ?? (err as { status?: number }).status;
-  return status === 401;
-}
 
 let refreshPromise: Promise<void> | null = null;
 
@@ -53,12 +50,14 @@ export function useApi() {
       });
       return response as T;
     } catch (err: unknown) {
-      if (isUnauthorized(err) && !options._retried) {
+      if (isUnauthorizedError(err) && !options._retried) {
         try {
           await refreshSession();
           return request<T>(path, { ...options, _retried: true });
-        } catch {
-          /* refresh falló */
+        } catch (refreshErr) {
+          // Red/5xx en el refresh: no borrar sesión; solo falla la petición.
+          if (isTransientRequestError(refreshErr)) throw refreshErr;
+          throw err;
         }
       }
       throw err;

@@ -15,8 +15,6 @@ const PAGE_SIZE = 20;
 const page = ref(1);
 const searchInput = ref('');
 const search = ref('');
-const from = ref('');
-const to = ref('');
 const saving = ref(false);
 const deletingId = ref<string | null>(null);
 const editingId = ref<string | null>(null);
@@ -40,7 +38,7 @@ const form = reactive({
 
 const emptyList: ExpensesListDto = { items: [], total: 0, page: 1, limit: PAGE_SIZE };
 const dataKey = computed(
-  () => `admin-expenses-${page.value}-${search.value}-${from.value}-${to.value}`,
+  () => `admin-expenses-${page.value}-${search.value}`,
 );
 
 const { data, refresh, pending } = useAdminCachedData(
@@ -50,8 +48,6 @@ const { data, refresh, pending } = useAdminCachedData(
       page: page.value,
       limit: PAGE_SIZE,
       search: search.value || undefined,
-      from: from.value || undefined,
-      to: to.value || undefined,
     }).catch(() => emptyList),
   { watch: [dataKey] },
 );
@@ -93,10 +89,6 @@ function onSearchInput() {
     search.value = searchInput.value.trim();
     page.value = 1;
   }, 300);
-}
-
-function applyDates() {
-  page.value = 1;
 }
 
 function editExpense(expense: ExpenseDto) {
@@ -222,25 +214,6 @@ useSeoMeta({ title: 'Gastos — LUXTIMEE Admin' });
       <p v-if="searchMiss" class="admin-search-empty" role="status">{{ searchMiss }}</p>
     </div>
 
-    <div class="admin-records-toolbar">
-      <label class="text-xs uppercase tracking-widest text-lux-white-dim">
-        Desde
-        <input v-model="from" type="date" class="admin-record-textarea" @change="applyDates">
-      </label>
-      <label class="text-xs uppercase tracking-widest text-lux-white-dim">
-        Hasta
-        <input v-model="to" type="date" class="admin-record-textarea" @change="applyDates">
-      </label>
-      <button
-        v-if="from || to"
-        type="button"
-        class="admin-record-btn admin-record-btn--ghost"
-        @click="from = ''; to = ''; applyDates()"
-      >
-        Limpiar fechas
-      </button>
-    </div>
-
     <div v-if="pending && !expenses.length" class="admin-record-empty">Cargando gastos...</div>
 
     <div v-else class="admin-records-list">
@@ -272,7 +245,7 @@ useSeoMeta({ title: 'Gastos — LUXTIMEE Admin' });
           </div>
         </div>
       </article>
-      <p v-if="!expenses.length && !search" class="admin-record-empty">No hay gastos en este filtro.</p>
+      <p v-if="!expenses.length && !search" class="admin-record-empty">No hay gastos registrados.</p>
     </div>
 
     <nav v-if="totalPages > 1" class="admin-records-pagination" aria-label="Paginación de gastos">

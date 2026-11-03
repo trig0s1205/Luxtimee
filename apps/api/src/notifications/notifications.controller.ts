@@ -1,4 +1,12 @@
-import { Controller, Get, Header, Param, Patch, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  Header,
+  Param,
+  Patch,
+  UseGuards,
+} from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { NotificationsService } from './notifications.service';
 import { Roles } from '../common/decorators/metadata.decorators';
@@ -30,8 +38,18 @@ export class NotificationsController {
     return this.notificationsService.markAllRead(user.role);
   }
 
+  @Delete('read')
+  deleteRead(@CurrentUser() user: { role: Role }) {
+    return this.notificationsService.deleteRead(user.role);
+  }
+
   @Patch(':id/read')
   markRead(@Param('id') id: string) {
     return this.notificationsService.markRead(id);
+  }
+
+  @Delete(':id')
+  deleteOne(@Param('id') id: string, @CurrentUser() user: { role: Role }) {
+    return this.notificationsService.deleteOne(id, user.role);
   }
 }

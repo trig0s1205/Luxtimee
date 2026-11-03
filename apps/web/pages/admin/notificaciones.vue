@@ -14,6 +14,7 @@ useHead({
 });
 
 const api = useApi();
+const toast = useToast();
 const { refreshUnread, unreadCount } = useAdminNotifications();
 const now = ref(Date.now());
 let clock = 0;
@@ -33,6 +34,8 @@ const { data: notifications, refresh, pending, error } = useAdminCachedData(
   () => api.get<StaffNotification[]>('/notifications'),
   { staleTime: 0 },
 );
+
+const hasRead = computed(() => (notifications.value ?? []).some((n) => !!n.readAt));
 
 watch(unreadCount, (count, previous) => {
   if (previous !== undefined && count !== previous) void refresh();
@@ -54,6 +57,23 @@ async function markAllRead() {
   await refreshUnread();
 }
 
+async function deleteOne(id: string) {
+  await api.del(`/notifications/${id}`);
+  await refresh();
+  await refreshUnread();
+  toast.success('Notificación eliminada');
+}
+
+async function deleteRead() {
+  if (!hasRead.value) return;
+  const ok = window.confirm('¿Eliminar todas las notificaciones leídas? Esta acción no se puede deshacer.');
+  if (!ok) return;
+  await api.del('/notifications/read');
+  await refresh();
+  await refreshUnread();
+  toast.success('Notificaciones leídas eliminadas');
+}
+
 async function openNotification(item: StaffNotification) {
   if (!item.readAt) await markRead(item.id);
   await navigateTo(notificationHref(item.type, item.payload));
@@ -73,6 +93,14 @@ async function openNotification(item: StaffNotification) {
       <button type="button" class="admin-pagination-btn" @click="markAllRead">
         Marcar todas como leídas
       </button>
+      <button
+        type="button"
+        class="admin-pagination-btn"
+        :disabled="!hasRead"
+        @click="deleteRead"
+      >
+        Eliminar leídas
+      </button>
     </div>
     <div class="space-y-3">
       <article
@@ -85,9 +113,22 @@ async function openNotification(item: StaffNotification) {
           <p class="admin-notification-type">{{ notificationMessage(n.type, n.payload) }}</p>
           <p class="admin-notification-date">{{ formatRelativeTime(n.createdAt, now) }}</p>
         </button>
-        <NuxtLink class="admin-pagination-btn" :to="notificationHref(n.type, n.payload)" @click="!n.readAt && markRead(n.id)">
-          Ver
-        </NuxtLink>
+        <div class="admin-notification-actions">
+          <NuxtLink class="admin-pagination-btn" :to="notificationHref(n.type, n.payload)" @click="!n.readAt && markRead(n.id)">
+            Ver
+          </NuxtLink>
+          <button
+            type="button"
+            class="admin-notification-delete"
+            aria-label="Eliminar notificación"
+            title="Eliminar"
+            @click="deleteOne(n.id)"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
+            </svg>
+          </button>
+        </div>
       </article>
       <p v-if="error && !notifications?.length" class="text-lux-white-dim">No se pudieron cargar las notificaciones.</p>
       <p v-else-if="!pending && !notifications?.length" class="text-lux-white-dim">Sin notificaciones.</p>
@@ -97,6 +138,9 @@ async function openNotification(item: StaffNotification) {
 
 <style>
 .admin-notification-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin: 0 0 16px;
 }
 
@@ -124,6 +168,30 @@ async function openNotification(item: StaffNotification) {
   text-align: left;
   cursor: pointer;
   color: inherit;
+}
+
+.admin-notification-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.admin-notification-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(200, 169, 110, 0.25);
+  background: transparent;
+  color: var(--lux-white-dim);
+  cursor: pointer;
+}
+
+.admin-notification-delete:hover {
+  color: #ffb4b4;
+  border-color: rgba(255, 120, 120, 0.45);
 }
 
 .admin-notification-type {
