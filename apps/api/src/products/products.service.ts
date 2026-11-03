@@ -21,7 +21,7 @@ export class ProductsService {
   ) {}
 
   private mapWatch<T extends Record<string, unknown>>(watch: T, role?: Role) {
-    if (role === Role.SUPER_ADMIN) return watch;
+    if (role === Role.SUPER_ADMIN || role === Role.ADMIN) return watch;
     const { cost: _cost, profitPercent: _profitPercent, ...rest } = watch;
     return rest;
   }
@@ -63,8 +63,14 @@ export class ProductsService {
       retailPrice: dto.retailPrice,
       wholesalePrice: dto.wholesalePrice,
       stock: dto.stock,
-      cost: role === Role.SUPER_ADMIN ? dto.cost : undefined,
-      profitPercent: role === Role.SUPER_ADMIN ? dto.profitPercent : undefined,
+      cost:
+        role === Role.SUPER_ADMIN || role === Role.ADMIN
+          ? dto.cost
+          : undefined,
+      profitPercent:
+        role === Role.SUPER_ADMIN || role === Role.ADMIN
+          ? dto.profitPercent
+          : undefined,
     };
 
     if (dto.warrantyTemplateId) {
@@ -108,7 +114,7 @@ export class ProductsService {
     if (dto.careTemplateId)
       data.careTemplate = { connect: { id: dto.careTemplateId } };
 
-    if (role === Role.SUPER_ADMIN) {
+    if (role === Role.SUPER_ADMIN || role === Role.ADMIN) {
       if (dto.cost !== undefined) data.cost = dto.cost;
       if (dto.profitPercent !== undefined)
         data.profitPercent = dto.profitPercent;

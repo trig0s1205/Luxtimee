@@ -4,7 +4,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   async function boot() {
     auth.hydrateTokens();
-    if (!auth.isSuperAdmin || started) return;
+    if (!auth.isStaff || started) return;
     started = true;
     const { bindWatchBulkDraftRuntime, useWatchBulkDraftStore } = await import('~/stores/watch-bulk-draft');
     bindWatchBulkDraftRuntime({
@@ -15,7 +15,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   void boot();
-  watch(() => auth.isSuperAdmin, () => {
+  watch(() => auth.isStaff, () => {
     void boot();
   });
 });

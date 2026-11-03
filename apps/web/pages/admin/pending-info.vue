@@ -81,7 +81,6 @@ const total = computed(() => paginated.value?.total ?? 0);
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)));
 
 function switchTab(tab: 'general' | 'cost') {
-  if (tab === 'cost' && !auth.isSuperAdmin) return;
   activeTab.value = tab;
   page.value = 1;
 }
@@ -179,7 +178,6 @@ useSeoMeta({ title: 'Pendientes de info — LUXTIMEE Admin' });
         Información general
       </button>
       <button
-        v-if="auth.isSuperAdmin"
         type="button"
         role="tab"
         class="pending-info-tab"

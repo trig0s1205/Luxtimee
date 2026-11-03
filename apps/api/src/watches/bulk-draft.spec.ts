@@ -228,16 +228,16 @@ describe('readNtfsExtraTimes', () => {
 });
 
 describe('bulk-draft guard y límites', () => {
-  it('solo Super Admin pasa el guard', () => {
+  it('admin y super admin pasan el guard del lote', () => {
     const guard = new RolesGuard(new Reflector());
     const context = (role: Role) => ({
       getClass: () => WatchesController,
       getHandler: () => WatchesController.prototype.bulkDraft,
       switchToHttp: () => ({ getRequest: () => ({ user: { role } }) }),
     });
-    expect(() => guard.canActivate(context(Role.ADMIN) as never)).toThrow(ForbiddenException);
-    expect(() => guard.canActivate(context(Role.CUSTOMER) as never)).toThrow(ForbiddenException);
+    expect(guard.canActivate(context(Role.ADMIN) as never)).toBe(true);
     expect(guard.canActivate(context(Role.SUPER_ADMIN) as never)).toBe(true);
+    expect(() => guard.canActivate(context(Role.CUSTOMER) as never)).toThrow(ForbiddenException);
   });
 
   it('tiene throttle propio y límite de multer', () => {
@@ -268,30 +268,15 @@ describe('WatchesService.createBulkDraft', () => {
     (unlink as jest.Mock).mockResolvedValue(undefined);
   });
 
-  it('rechaza a quien no es Super Admin', async () => {
-    const repo = { findByBulkDraftKey: jest.fn() };
-    const { service } = serviceWith(repo);
-    await expect(
-      service.createBulkDraft(
-        { image1: image('001.jpg'), image2: image('002.jpg'), idempotencyKey: key },
-        Role.ADMIN,
-      ),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-    expect(repo.findByBulkDraftKey).not.toHaveBeenCalled();
-  });
-
   it('nombra el archivo cuando la imagen no es válida', async () => {
     const repo = { findByBulkDraftKey: jest.fn() };
     const { service } = serviceWith(repo);
     await expect(
-      service.createBulkDraft(
-        {
-          image1: image('001.jpg'),
-          image2: image('malo.png', Buffer.from('no-es-imagen'), 'image/png'),
-          idempotencyKey: key,
-        },
-        Role.SUPER_ADMIN,
-      ),
+      service.createBulkDraft({
+        image1: image('001.jpg'),
+        image2: image('malo.png', Buffer.from('no-es-imagen'), 'image/png'),
+        idempotencyKey: key,
+      }),
     ).rejects.toThrow(/malo\.png/);
   });
 
@@ -302,10 +287,11 @@ describe('WatchesService.createBulkDraft', () => {
       createBulkDraftOnce: jest.fn(),
     };
     const { service, imageProcessing } = serviceWith(repo);
-    const result = await service.createBulkDraft(
-      { image1: image('001.jpg'), image2: image('002.jpg'), idempotencyKey: key },
-      Role.SUPER_ADMIN,
-    );
+    const result = await service.createBulkDraft({
+      image1: image('001.jpg'),
+      image2: image('002.jpg'),
+      idempotencyKey: key,
+    });
     expect(result).toMatchObject({ id: 'watch-1', reused: true });
     expect(imageProcessing.processWithMicroservice).not.toHaveBeenCalled();
     expect(repo.createBulkDraftOnce).not.toHaveBeenCalled();
@@ -326,10 +312,11 @@ describe('WatchesService.createBulkDraft', () => {
     };
     const { service } = serviceWith(repo);
     await expect(
-      service.createBulkDraft(
-        { image1: image('001.jpg'), image2: image('002.jpg'), idempotencyKey: key },
-        Role.SUPER_ADMIN,
-      ),
+      service.createBulkDraft({
+        image1: image('001.jpg'),
+        image2: image('002.jpg'),
+        idempotencyKey: key,
+      }),
     ).rejects.toThrow('disco lleno');
     expect(repo.createBulkDraftOnce).not.toHaveBeenCalled();
     expect(unlink).toHaveBeenCalled();
@@ -355,10 +342,11 @@ describe('WatchesService.createBulkDraft', () => {
           .mockRejectedValue(new Error('cloudinary caído')),
       });
       await expect(
-        service.createBulkDraft(
-          { image1: image('001.jpg'), image2: image('002.jpg'), idempotencyKey: key },
-          Role.SUPER_ADMIN,
-        ),
+        service.createBulkDraft({
+          image1: image('001.jpg'),
+          image2: image('002.jpg'),
+          idempotencyKey: key,
+        }),
       ).rejects.toThrow('cloudinary caído');
       expect(repo.createBulkDraftOnce).not.toHaveBeenCalled();
       expect(imageProcessing.deleteCloudinaryAsset).toHaveBeenCalledWith(
@@ -381,10 +369,10 @@ describe('WatchesService.createBulkDraft', () => {
       }),
     };
     const { service } = serviceWith(repo);
-    await service.createBulkDraft(
-      { image1: image('sola.jpg'), idempotencyKey: 'batch-1:sola.jpg|' },
-      Role.SUPER_ADMIN,
-    );
+    await service.createBulkDraft({
+      image1: image('sola.jpg'),
+      idempotencyKey: 'batch-1:sola.jpg|',
+    });
     const payload = repo.createBulkDraftOnce.mock.calls[0]?.[0] as {
       data: { images: string[]; backImageUrl: string | null };
     };
@@ -404,10 +392,11 @@ describe('WatchesService.createBulkDraft', () => {
       }),
     };
     const { service } = serviceWith(repo);
-    const result = await service.createBulkDraft(
-      { image1: image('001.jpg'), image2: image('002.jpg'), idempotencyKey: key },
-      Role.SUPER_ADMIN,
-    );
+    const result = await service.createBulkDraft({
+      image1: image('001.jpg'),
+      image2: image('002.jpg'),
+      idempotencyKey: key,
+    });
     expect(result).toMatchObject({ id: 'watch-2', reused: true });
     expect(unlink).toHaveBeenCalled();
   });

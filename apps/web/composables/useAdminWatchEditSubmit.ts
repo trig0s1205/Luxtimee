@@ -33,7 +33,6 @@ export type AdminWatchFormPayload = {
 export function useAdminWatchEditSubmit() {
   const api = useApi();
   const toast = useToast();
-  const auth = useAuthStore();
   const mediaQueue = useMediaUploadStore();
 
   async function saveWatchEdit(
@@ -76,7 +75,7 @@ export function useAdminWatchEditSubmit() {
       careTemplateId: form.careTemplateId || '',
     };
 
-    if (auth.isSuperAdmin && form.cost !== undefined) {
+    if (form.cost !== undefined) {
       payload.cost = Number(form.cost);
     }
 

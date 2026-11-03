@@ -42,7 +42,7 @@ const linksAfterPedidos: AdminNavLink[] = [
   { to: '/admin/socios-mayoristas', label: 'Mayoristas' },
   { to: '/admin/mayorista-ofertas', label: 'Opciones de empaque y extras' },
   { to: '/admin/garantias', label: 'Garantías' },
-  { to: '/admin/envios', label: 'Envíos', superOnly: true },
+  { to: '/admin/envios', label: 'Envíos' },
 ];
 
 const pedidosLinks = [
