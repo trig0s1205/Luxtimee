@@ -136,10 +136,33 @@ async function refreshWatches() {
   }
 }
 
-const { data: insights, pending: insightsPending, refresh: refreshInsights, error: insightsError } = useAdminCachedData(
-  'inventory-insights',
-  () => api.get<InventoryInsightsDto>('/watches/inventory-insights'),
-);
+const insights = ref<InventoryInsightsDto | null>(null);
+const insightsPending = ref(false);
+let insightsAbort: AbortController | null = null;
+let insightsRequest = 0;
+
+async function refreshInsights() {
+  if (!staffReady.value) return;
+  const requestId = ++insightsRequest;
+  insightsAbort?.abort();
+  const controller = new AbortController();
+  insightsAbort = controller;
+  insightsPending.value = true;
+  try {
+    const res = await api.get<InventoryInsightsDto>(
+      '/watches/inventory-insights',
+      undefined,
+      { signal: controller.signal },
+    );
+    if (requestId !== insightsRequest) return;
+    insights.value = res;
+  } catch (err: unknown) {
+    if (requestId !== insightsRequest || isAbortError(err)) return;
+    toast.error(extractApiErrorMessage(err, 'No se pudo cargar el inventario'));
+  } finally {
+    if (requestId === insightsRequest) insightsPending.value = false;
+  }
+}
 
 const { data: careTemplates, refresh: refreshCare } = useAdminCachedData('care', () =>
   api.get<CareTemplateDto[]>('/care'),
@@ -168,10 +191,6 @@ watch(fetchQuery, () => {
 }, { deep: true, immediate: true });
 
 useAdminRefetchWhenAuthed([refreshWatches, refreshInsights, refreshCare, loadCatalogMeta]);
-
-watch(insightsError, (err) => {
-  if (err) toast.error(extractApiErrorMessage(err, 'No se pudo cargar el inventario'));
-});
 
 const watches = computed(() => paginated.value?.data ?? []);
 const inventorySearchMiss = computed(() => searchEmptyMessage({
@@ -224,7 +243,7 @@ async function handleSubmit(form: WatchFormPayload) {
   const hasNewSecondaryImage = !!form.secondaryImageFile;
   const hasVideo = !!form.videoFile;
   const hasNewMedia = hasNewPrimaryImage || hasNewSecondaryImage || hasVideo;
-  const imagesOnly = !!(auth.isSuperAdmin && form.imagesOnly && isCreate);
+  const imagesOnly = !!(form.imagesOnly && isCreate);
 
   if (isCreate && !hasNewImages) {
     submitError.value = imagesOnly
@@ -294,10 +313,8 @@ async function handleSubmit(form: WatchFormPayload) {
           : {}),
     };
 
-    if (auth.isSuperAdmin && form.cost !== undefined) {
+    if (form.cost !== undefined) {
       payload.cost = Number(form.cost);
-    } else if (!auth.isSuperAdmin && editingWatch.value && Number(form.cost) === 0) {
-      payload.cost = 0;
     }
 
     let brandName = brands.value?.find((b) => b.id === (draftMode ? fallbackBrandId : form.brandId))?.name ?? '';
@@ -513,7 +530,7 @@ async function finishBulkDelete() {
         </button>
         <div class="admin-inventory-create">
           <UiLuxButton @click="openCreate">+ Nuevo Reloj</UiLuxButton>
-          <AdminBulkDraft v-if="auth.isSuperAdmin" />
+          <AdminBulkDraft />
         </div>
       </div>
     </div>

@@ -69,6 +69,7 @@ const statusFilters: Array<{ key: OrderStatus | 'ALL'; label: string }> = [
   { key: OrderStatus.PAGADO, label: 'Pagados' },
   { key: OrderStatus.ENVIADO, label: 'Enviados' },
   { key: OrderStatus.ENTREGADO, label: 'Entregados' },
+  { key: OrderStatus.CANCELADO, label: 'Cancelados' },
 ];
 
 function buildOrdersUrl() {
@@ -269,7 +270,7 @@ async function transition(order: OrderDto, status: OrderStatusValue) {
   updatingId.value = order.id;
   try {
     await api.patch(`/orders/${order.id}/status`, payload);
-    toast.success(status === 'CANCELADO' ? `Pedido eliminado — ${sku}` : `${label} — ${sku}`);
+    toast.success(status === 'CANCELADO' ? `Pedido cancelado — ${sku}` : `${label} — ${sku}`);
     invalidateAdminCache(dataKey.value);
     invalidateAdminCachePrefix('admin-orders-');
     invalidateMoneyCaches();

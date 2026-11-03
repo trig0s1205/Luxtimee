@@ -4,6 +4,7 @@ import {
   notificationTone,
   type StaffNotification,
 } from '~/utils/admin-notification';
+import { invalidateAdminCache } from '~/utils/admin-cache';
 
 const POLL_MS = 30_000;
 const HIDDEN_PAUSE_MS = 5 * 60 * 1000;
@@ -109,7 +110,10 @@ export function useAdminNotifications() {
         saveSeen(seen);
         bootstrapped = true;
         lastCount = count;
-        if (fresh.length) showIncoming(fresh);
+        if (fresh.length) {
+          invalidateAdminCache('notifications');
+          showIncoming(fresh);
+        }
       } catch {
         /* el siguiente ciclo reintenta */
       }

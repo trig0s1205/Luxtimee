@@ -88,7 +88,7 @@ export class SettingsController {
   }
 
   @Patch('whatsapp')
-  @Roles(Role.SUPER_ADMIN)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @UseGuards(RolesGuard)
   @Audit('UPDATE', 'Setting')
   setWhatsapp(@Body() body: SetWhatsappBodyDto) {
@@ -96,14 +96,14 @@ export class SettingsController {
   }
 
   @Get('platform')
-  @Roles(Role.SUPER_ADMIN)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @UseGuards(RolesGuard)
   getPlatform() {
     return this.settingsService.getPlatformConfig();
   }
 
   @Patch('platform')
-  @Roles(Role.SUPER_ADMIN)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @UseGuards(RolesGuard)
   @Audit('UPDATE', 'Setting')
   setPlatform(@Body() body: SetPlatformBodyDto) {

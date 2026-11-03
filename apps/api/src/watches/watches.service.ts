@@ -1,7 +1,6 @@
 import {
   BadGatewayException,
   BadRequestException,
-  ForbiddenException,
   HttpException,
   Injectable,
   Logger,
@@ -193,13 +192,8 @@ export class WatchesService {
     data.isActive = true;
   }
 
-  async create(dto: CreateWatchDto, role: Role) {
+  async create(dto: CreateWatchDto, _role: Role) {
     const imagesOnly = dto.imagesOnly === true;
-    if (imagesOnly && role !== Role.SUPER_ADMIN) {
-      throw new ForbiddenException(
-        'Solo Super Admin puede crear borradores solo con imágenes',
-      );
-    }
 
     let brandId = dto.brandId;
     let model = dto.model?.trim();
@@ -290,13 +284,11 @@ export class WatchesService {
 
     await this.applyGlobalCommission(data);
 
-    if (role === Role.SUPER_ADMIN) {
-      this.applySuperAdminFinancials(data, {
-        cost: dto.cost ?? null,
-        retailPrice: retailPrice!,
-        wholesalePrice: wholesalePrice!,
-      });
-    }
+    this.applySuperAdminFinancials(data, {
+      cost: dto.cost ?? null,
+      retailPrice: retailPrice!,
+      wholesalePrice: wholesalePrice!,
+    });
 
     if (dto.warrantyTemplateId) {
       data.warrantyTemplate = { connect: { id: dto.warrantyTemplateId } };
@@ -321,7 +313,7 @@ export class WatchesService {
     return watch;
   }
 
-  async update(id: string, dto: UpdateWatchDto, role: Role) {
+  async update(id: string, dto: UpdateWatchDto, _role: Role) {
     const existing = await this.watchesRepository.findById(id);
 
     if (
@@ -427,7 +419,7 @@ export class WatchesService {
         : { disconnect: true };
     }
 
-    if (role === Role.SUPER_ADMIN) {
+    {
       const retailPrice = dto.retailPrice ?? existing.retailPrice;
       const wholesalePrice = dto.wholesalePrice ?? existing.wholesalePrice;
       const cost = dto.cost !== undefined ? dto.cost : existing.cost;
@@ -437,21 +429,6 @@ export class WatchesService {
         retailPrice,
         wholesalePrice,
       });
-    } else {
-      if (dto.cost === 0) {
-        Object.assign(data, {
-          cost: null,
-          retailMarginPercentage: null,
-          wholesaleMarginPercentage: null,
-          profitPercent: null,
-        });
-      } else {
-        delete (data as Record<string, unknown>).cost;
-        delete (data as Record<string, unknown>).profitPercent;
-        delete (data as Record<string, unknown>).retailMarginPercentage;
-        delete (data as Record<string, unknown>).wholesaleMarginPercentage;
-      }
-      delete (data as Record<string, unknown>).secretaryCommissionPercentage;
     }
 
     this.maybeAutoPublishDraft(existing, data, dto);
@@ -873,20 +850,11 @@ export class WatchesService {
     }
   }
 
-  async createBulkDraft(
-    input: {
-      image1?: Express.Multer.File;
-      image2?: Express.Multer.File;
-      idempotencyKey?: string;
-    },
-    role: Role,
-  ) {
-    if (role !== Role.SUPER_ADMIN) {
-      throw new ForbiddenException(
-        'Solo Super Admin puede crear borradores por lote',
-      );
-    }
-
+  async createBulkDraft(input: {
+    image1?: Express.Multer.File;
+    image2?: Express.Multer.File;
+    idempotencyKey?: string;
+  }) {
     const idempotencyKey = this.normalizeIdempotencyKey(input.idempotencyKey);
     const image1 = this.assertDraftImage(input.image1, 'image1');
     const image2 = input.image2?.buffer?.length

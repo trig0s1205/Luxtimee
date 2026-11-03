@@ -13,8 +13,10 @@ import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-
 definePageMeta({ middleware: ['admin'], keepalive: true });
 
 const api = useApi();
+const auth = useAuthStore();
 const toast = useToast();
 const { confirm } = useConfirm();
+const canSeeProfit = computed(() => auth.isSuperAdmin);
 
 const PAGE_SIZE = 20;
 const page = ref(1);
@@ -247,10 +249,10 @@ useSeoMeta({ title: 'Ventas especiales — LUXTIMEE Admin' });
         class="admin-record-textarea"
       />
 
-      <p v-if="previewProfit != null" class="admin-record-muted">
+      <p v-if="canSeeProfit && previewProfit != null" class="admin-record-muted">
         Ganancia: {{ formatCop(previewProfit) }}
       </p>
-      <p v-else-if="selected && selected.cost == null" class="admin-record-muted">
+      <p v-else-if="canSeeProfit && selected && selected.cost == null" class="admin-record-muted">
         La ganancia se calcula con el costo del inventario al guardar.
       </p>
       <p v-if="formError" class="special-error">{{ formError }}</p>
@@ -280,14 +282,14 @@ useSeoMeta({ title: 'Ventas especiales — LUXTIMEE Admin' });
             <th>Precio lista</th>
             <th>Precio venta</th>
             <th>Costo</th>
-            <th>Ganancia</th>
+            <th v-if="canSeeProfit">Ganancia</th>
             <th>Nota</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="!sales.length">
-            <td colspan="9" class="admin-record-empty">
+            <td :colspan="canSeeProfit ? 9 : 8" class="admin-record-empty">
               {{ search ? 'Ninguna venta especial coincide con la búsqueda.' : 'Aún no hay ventas especiales.' }}
             </td>
           </tr>
@@ -298,7 +300,7 @@ useSeoMeta({ title: 'Ventas especiales — LUXTIMEE Admin' });
             <td>{{ formatCop(sale.listPrice) }}</td>
             <td>{{ formatCop(sale.salePrice) }}</td>
             <td>{{ formatCop(sale.cost) }}</td>
-            <td>{{ formatCop(sale.profit) }}</td>
+            <td v-if="canSeeProfit">{{ formatCop(sale.profit) }}</td>
             <td>{{ sale.note }}</td>
             <td>
               <button

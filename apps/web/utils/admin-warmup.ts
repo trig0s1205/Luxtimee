@@ -37,10 +37,6 @@ const WARMUP_ENTRIES: Array<{
     fetch: (api) => api.get('/shipping-zones'),
   },
   {
-    key: 'notifications',
-    fetch: (api) => api.get('/notifications'),
-  },
-  {
     key: 'health-dashboard',
     fetch: (api) => api.get('/dashboards/health?period=month'),
   },

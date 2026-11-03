@@ -368,94 +368,177 @@ export class WatchesRepository {
   }
 
   async getInventoryInsights(): Promise<InventoryInsightsDto> {
-    const watchWhere = { isActive: true, deletedAt: null };
+    const active = { isActive: true, deletedAt: null };
     const now = Date.now();
-
-    const [watches, salesAgg, stockSum, outOfStock] = await Promise.all([
-      this.prisma.watch.findMany({
-        where: watchWhere,
-        include: { brand: true },
-      }),
-      this.prisma.orderItem.groupBy({
-        by: ['watchId'],
-        _sum: { quantity: true },
-        where: {
-          order: {
-            stage: OrderStage.ORDER,
-            status: {
-              in: [
-                OrderStatus.PAGADO,
-                OrderStatus.ENVIADO,
-                OrderStatus.ENTREGADO,
-              ],
-            },
-            canceledAt: null,
-          },
+    const soldWhere = {
+      watch: active,
+      order: {
+        stage: OrderStage.ORDER,
+        status: {
+          in: [
+            OrderStatus.PAGADO,
+            OrderStatus.ENVIADO,
+            OrderStatus.ENTREGADO,
+          ],
         },
-      }),
-      this.prisma.watch.aggregate({
-        where: watchWhere,
-        _sum: { stock: true },
-        _count: true,
-      }),
-      this.prisma.watch.count({ where: { ...watchWhere, stock: 0 } }),
-    ]);
+        canceledAt: null,
+      },
+    };
 
-    const salesMap = new Map(
+    const [totals, outOfStockCount, lowest, highest, oldest, salesAgg] =
+      await Promise.all([
+        this.prisma.watch.aggregate({
+          where: active,
+          _sum: { stock: true },
+          _count: { _all: true },
+        }),
+        this.prisma.watch.count({ where: { ...active, stock: 0 } }),
+        this.prisma.watch.findFirst({
+          where: active,
+          orderBy: [{ stock: 'asc' }, { id: 'asc' }],
+          select: insightWatchSelect,
+        }),
+        this.prisma.watch.findFirst({
+          where: active,
+          orderBy: [{ stock: 'desc' }, { id: 'asc' }],
+          select: insightWatchSelect,
+        }),
+        this.prisma.watch.findFirst({
+          where: { ...active, stock: { gt: 0 } },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          select: insightWatchSelect,
+        }),
+        this.prisma.orderItem.groupBy({
+          by: ['watchId'],
+          _sum: { quantity: true },
+          where: soldWhere,
+        }),
+      ]);
+
+    const unitsByWatch = new Map(
       salesAgg.map((row) => [row.watchId, row._sum.quantity ?? 0]),
     );
+    const soldIds = [...unitsByWatch.keys()];
+    let mostId: string | null = null;
+    let mostUnits = -1;
+    let leastSoldId: string | null = null;
+    let leastUnits = Number.POSITIVE_INFINITY;
+    for (const [id, units] of unitsByWatch) {
+      if (units > mostUnits) {
+        mostUnits = units;
+        mostId = id;
+      }
+      if (units < leastUnits) {
+        leastUnits = units;
+        leastSoldId = id;
+      }
+    }
+
+    const unsold = await this.prisma.watch.findFirst({
+      where: {
+        ...active,
+        ...(soldIds.length ? { id: { notIn: soldIds } } : {}),
+      },
+      orderBy: [{ id: 'asc' }],
+      select: insightWatchSelect,
+    });
+    const [least, most] = await Promise.all([
+      unsold
+        ? Promise.resolve(unsold)
+        : leastSoldId
+          ? this.prisma.watch.findFirst({
+              where: { id: leastSoldId, ...active },
+              select: insightWatchSelect,
+            })
+          : Promise.resolve(null),
+      mostId
+        ? this.prisma.watch.findFirst({
+            where: { id: mostId, ...active },
+            select: insightWatchSelect,
+          })
+        : Promise.resolve(unsold),
+    ]);
+
+    const picked = [lowest, highest, oldest, least, most].filter(
+      (row): row is InsightWatchRow => !!row,
+    );
+    const brandIds = [...new Set(picked.map((row) => row.brandId))];
+    const brands = brandIds.length
+      ? await this.prisma.brand.findMany({
+          where: { id: { in: brandIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const brandNames = new Map(brands.map((brand) => [brand.id, brand.name]));
 
     const toInsight = (
-      watch: (typeof watches)[number],
-    ): InventoryInsightWatchDto => ({
-      id: watch.id,
-      model: watch.model,
-      brand: watch.brand.name,
-      reference: watch.reference,
-      image:
-        watch.frontImageUrl ?? watch.primaryImageUrl ?? watch.images[0] ?? null,
-      stock: watch.stock,
-      unitsSold: salesMap.get(watch.id) ?? 0,
-      createdAt: watch.createdAt.toISOString(),
-      daysInInventory: Math.max(
-        0,
-        Math.floor((now - watch.createdAt.getTime()) / 86400000),
-      ),
-    });
-
-    const pickExtreme = <T>(
-      items: T[],
-      compare: (a: T, b: T) => boolean,
-    ): T | null => {
-      if (!items.length) return null;
-      return items.reduce((best, current) =>
-        compare(current, best) ? current : best,
-      );
+      watch: InsightWatchRow | null,
+    ): InventoryInsightWatchDto | null => {
+      if (!watch) return null;
+      const created = new Date(watch.createdAt);
+      const createdMs = created.getTime();
+      return {
+        id: watch.id,
+        model: watch.model,
+        brand: brandNames.get(watch.brandId) ?? '',
+        reference: watch.reference,
+        image: insightImage(watch),
+        stock: watch.stock,
+        unitsSold: unitsByWatch.get(watch.id) ?? 0,
+        createdAt: Number.isNaN(createdMs)
+          ? new Date(0).toISOString()
+          : created.toISOString(),
+        daysInInventory: Number.isNaN(createdMs)
+          ? 0
+          : Math.max(0, Math.floor((now - createdMs) / 86400000)),
+      };
     };
-
-    const withStock = watches.filter((watch) => watch.stock > 0);
-
-    const lowest = pickExtreme(watches, (a, b) => a.stock <= b.stock);
-    const highest = pickExtreme(watches, (a, b) => a.stock >= b.stock);
-    const oldest = pickExtreme(withStock, (a, b) => a.createdAt <= b.createdAt);
-    const least = pickExtreme(
-      watches,
-      (a, b) => (salesMap.get(a.id) ?? 0) <= (salesMap.get(b.id) ?? 0),
-    );
-    const most = pickExtreme(
-      watches,
-      (a, b) => (salesMap.get(a.id) ?? 0) >= (salesMap.get(b.id) ?? 0),
-    );
 
     return {
-      totalUnits: stockSum._sum.stock ?? 0,
-      totalSkus: stockSum._count,
-      outOfStockCount: outOfStock,
-      lowestStock: lowest ? toInsight(lowest) : null,
-      highestStock: highest ? toInsight(highest) : null,
-      oldestInStock: oldest ? toInsight(oldest) : null,
-      leastSold: least ? toInsight(least) : null,
-      mostSold: most ? toInsight(most) : null,
+      totalUnits: totals._sum.stock ?? 0,
+      totalSkus: countAll(totals._count),
+      outOfStockCount,
+      lowestStock: toInsight(lowest),
+      highestStock: toInsight(highest),
+      oldestInStock: toInsight(oldest),
+      leastSold: toInsight(least),
+      mostSold: toInsight(most),
     };
   }
+}
+
+const insightWatchSelect = {
+  id: true,
+  model: true,
+  reference: true,
+  stock: true,
+  createdAt: true,
+  frontImageUrl: true,
+  primaryImageUrl: true,
+  images: true,
+  brandId: true,
+} as const;
+
+type InsightWatchRow = {
+  id: string;
+  model: string;
+  reference: string | null;
+  stock: number;
+  createdAt: Date;
+  frontImageUrl: string | null;
+  primaryImageUrl: string | null;
+  images: string[] | null;
+  brandId: string;
+};
+
+function insightImage(
+  watch: Pick<InsightWatchRow, 'frontImageUrl' | 'primaryImageUrl' | 'images'>,
+) {
+  const images = Array.isArray(watch.images) ? watch.images : [];
+  return watch.frontImageUrl ?? watch.primaryImageUrl ?? images[0] ?? null;
+}
+
+function countAll(count: number | { _all?: number } | null | undefined) {
+  if (typeof count === 'number') return count;
+  return count?._all ?? 0;
 }

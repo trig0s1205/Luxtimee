@@ -14,7 +14,7 @@ useHead({
 });
 
 const api = useApi();
-const { refreshUnread } = useAdminNotifications();
+const { refreshUnread, unreadCount } = useAdminNotifications();
 const now = ref(Date.now());
 let clock = 0;
 
@@ -28,9 +28,19 @@ onBeforeUnmount(() => {
   window.clearInterval(clock);
 });
 
-const { data: notifications, refresh, pending } = useAdminCachedData('notifications', () =>
-  api.get<StaffNotification[]>('/notifications').catch(() => []),
+const { data: notifications, refresh, pending, error } = useAdminCachedData(
+  'notifications',
+  () => api.get<StaffNotification[]>('/notifications'),
+  { staleTime: 0 },
 );
+
+watch(unreadCount, (count, previous) => {
+  if (previous !== undefined && count !== previous) void refresh();
+});
+
+onActivated(() => {
+  void refresh();
+});
 
 async function markRead(id: string) {
   await api.patch(`/notifications/${id}/read`);
@@ -79,7 +89,8 @@ async function openNotification(item: StaffNotification) {
           Ver
         </NuxtLink>
       </article>
-      <p v-if="!notifications?.length" class="text-lux-white-dim">Sin notificaciones.</p>
+      <p v-if="error && !notifications?.length" class="text-lux-white-dim">No se pudieron cargar las notificaciones.</p>
+      <p v-else-if="!pending && !notifications?.length" class="text-lux-white-dim">Sin notificaciones.</p>
     </div>
   </div>
 </template>
