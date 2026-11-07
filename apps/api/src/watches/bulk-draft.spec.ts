@@ -42,8 +42,8 @@ function image(name: string, buffer = jpeg, mimetype = 'image/jpeg') {
 
 function serviceWith(repo: Record<string, jest.Mock>, images?: Record<string, jest.Mock>) {
   const imageProcessing = {
-    processWithMicroservice: jest.fn(async (file: Express.Multer.File) => file.buffer),
     uploadToCloudinary: jest.fn(),
+    uploadVideoToCloudinary: jest.fn(),
     deleteCloudinaryAsset: jest.fn().mockResolvedValue(undefined),
     ...images,
   };
@@ -293,7 +293,7 @@ describe('WatchesService.createBulkDraft', () => {
       idempotencyKey: key,
     });
     expect(result).toMatchObject({ id: 'watch-1', reused: true });
-    expect(imageProcessing.processWithMicroservice).not.toHaveBeenCalled();
+    expect(imageProcessing.uploadToCloudinary).not.toHaveBeenCalled();
     expect(repo.createBulkDraftOnce).not.toHaveBeenCalled();
   });
 
