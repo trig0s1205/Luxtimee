@@ -1,0 +1,103 @@
+# Backup semanal de Postgres (Supabase) → Google Drive + artifact GitHub.
+# Secrets: SUPABASE_DB_URL (directa o session pooler; NUNCA transaction pooler),
+# RCLONE_CONFIG (rclone.conf completo), GDRIVE_FOLDER (ej. gdrive:LuxtimeeBackups).
+# No imprime URLs ni secretos.
+name: Weekly DB backup
+
+on:
+  schedule:
+    # Domingo 08:00 UTC = 03:00 Colombia (UTC-5)
+    - cron: '0 8 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL 17 client
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends curl ca-certificates gnupg lsb-release
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+          pg_dump --version
+
+      - name: Install rclone
+        run: |
+          set -euo pipefail
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+          rclone version
+
+      - name: Dump, compress, upload
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          RCLONE_CONFIG_DATA: ${{ secrets.RCLONE_CONFIG }}
+          GDRIVE_FOLDER: ${{ secrets.GDRIVE_FOLDER }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_DB_URL:-}" ]; then
+            echo "Falta el secret SUPABASE_DB_URL" >&2
+            exit 1
+          fi
+          if [ -z "${RCLONE_CONFIG_DATA:-}" ]; then
+            echo "Falta el secret RCLONE_CONFIG" >&2
+            exit 1
+          fi
+          if [ -z "${GDRIVE_FOLDER:-}" ]; then
+            echo "Falta el secret GDRIVE_FOLDER" >&2
+            exit 1
+          fi
+
+          DATE=$(date -u +%F)
+          DUMP="luxtimee-${DATE}.dump"
+          ARCHIVE="${DUMP}.gz"
+          umask 077
+          mkdir -p "$HOME/.config/rclone"
+          printf '%s\n' "$RCLONE_CONFIG_DATA" > "$HOME/.config/rclone/rclone.conf"
+          chmod 600 "$HOME/.config/rclone/rclone.conf"
+
+          echo "Iniciando pg_dump (formato custom)…"
+          # No echo de la URL. pg_dump recibe PGPASSWORD vía URI.
+          pg_dump \
+            --dbname="$SUPABASE_DB_URL" \
+            --format=custom \
+            --no-owner \
+            --no-privileges \
+            --file="$DUMP"
+
+          if [ ! -s "$DUMP" ]; then
+            echo "El dump está vacío (0 bytes)" >&2
+            exit 1
+          fi
+
+          SIZE=$(wc -c < "$DUMP" | tr -d ' ')
+          echo "Dump OK, bytes=${SIZE}"
+          gzip -9 "$DUMP"
+          if [ ! -s "$ARCHIVE" ]; then
+            echo "El archivo comprimido está vacío" >&2
+            exit 1
+          fi
+
+          echo "Subiendo a Google Drive…"
+          rclone copy "$ARCHIVE" "$GDRIVE_FOLDER" --retries 3 --low-level-retries 5
+          echo "Borrando backups con más de 56 días…"
+          rclone delete "$GDRIVE_FOLDER" --min-age 56d --include 'luxtimee-*.dump.gz' || true
+          rclone rmdirs "$GDRIVE_FOLDER" --leave-root || true
+
+          echo "BACKUP_FILE=$ARCHIVE" >> "$GITHUB_ENV"
+
+      - name: Upload GitHub artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: luxtimee-*.dump.gz
+          retention-days: 7
+          if-no-files-found: error
