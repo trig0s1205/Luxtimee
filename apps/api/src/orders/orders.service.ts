@@ -406,7 +406,7 @@ export class OrdersService {
       throw new BadRequestException('El reloj no existe');
     }
     if (watch.stock <= 0) {
-      throw new BadRequestException('Sin stock para este reloj');
+      throw new BadRequestException('Este reloj ya no está disponible');
     }
     if (watch.cost == null || watch.cost <= 0) {
       throw new BadRequestException('El reloj no tiene costo registrado');
@@ -419,7 +419,7 @@ export class OrdersService {
 
     const order = await this.prisma.$transaction(async (tx) => {
       await reserveWatchStock(tx, [{ watchId: watch.id, quantity: 1 }], {
-        message: 'Sin stock para este reloj',
+        message: 'Este reloj ya no está disponible',
       });
       return tx.order.create({
         data: {
@@ -747,7 +747,7 @@ export class OrdersService {
     tx: Prisma.TransactionClient,
   ) {
     await reserveWatchStock(tx, items, {
-      message: 'Stock insuficiente para este reloj',
+      message: 'Este reloj ya no está disponible',
     });
     this.cache.invalidateTag(CACHE_TAGS.catalog);
   }

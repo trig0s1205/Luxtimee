@@ -75,6 +75,7 @@ describe('ciclo de stock mayorista', () => {
       access,
       offers,
       notifier,
+      new MemoryCacheService(),
     );
     orders = new OrdersService(
       db,
