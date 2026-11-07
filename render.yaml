@@ -1,0 +1,96 @@
+# Blueprint de Render (opción B). No contiene secretos.
+# Crear el servicio desde el dashboard importando este archivo.
+# Comentario: Render hace autoDeploy desde main; no hace falta el job deploy-vps.
+
+services:
+  - type: web
+    name: luxtimee-api
+    runtime: docker
+    plan: free
+    region: ohio
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    autoDeploy: true
+    branch: main
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: USE_MOCKS
+        value: "false"
+      - key: HOST
+        value: 0.0.0.0
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=384
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: JWT_ACCESS_EXPIRES
+        sync: false
+      - key: JWT_REFRESH_EXPIRES
+        sync: false
+      - key: COOKIE_SAME_SITE
+        sync: false
+      - key: CLIENT_IP_SECRET
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: STAFF_LOGIN_SLUG
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_OAUTH_CALLBACK_URL
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        sync: false
+      - key: IMAGE_SERVICE_URL
+        sync: false
+      - key: IMAGE_SERVICE_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_SECURE
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: GA4_PROPERTY_ID
+        sync: false
+      - key: GA4_CLIENT_EMAIL
+        sync: false
+      - key: GA4_PRIVATE_KEY
+        sync: false
+      - key: REMBG_MODEL
+        sync: false
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
