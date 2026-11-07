@@ -69,6 +69,19 @@ export function useCatalogData() {
     }
   }
 
+  async function getRelated(slug: string) {
+    try {
+      return await api.get<WatchPublicDto[]>(`/catalog/${slug}/related`);
+    } catch (error) {
+      if (!mockOk) throw error;
+      const current = findMockWatchBySlug(slug);
+      if (!current) return [];
+      return filterMockCatalog({ limit: 8, available: 'true' }).data
+        .filter((item) => item.id !== current.id && item.slug !== current.slug)
+        .slice(0, 8);
+    }
+  }
+
   async function listWholesaleCatalog(query: CatalogListQuery = {}) {
     const params = sanitizeCatalogQuery(query);
     const baseUrl = useApiBaseUrl();
@@ -93,6 +106,7 @@ export function useCatalogData() {
     getNewArrivals,
     listBrands,
     getBestSellers,
+    getRelated,
     listWholesaleCatalog,
     getWholesaleBySlug,
   };
