@@ -58,10 +58,6 @@ services:
         sync: false
       - key: CLOUDINARY_FOLDER
         sync: false
-      - key: IMAGE_SERVICE_URL
-        sync: false
-      - key: IMAGE_SERVICE_API_KEY
-        sync: false
       - key: EMAIL_FROM
         sync: false
       - key: SMTP_HOST
@@ -89,8 +85,6 @@ services:
       - key: GA4_CLIENT_EMAIL
         sync: false
       - key: GA4_PRIVATE_KEY
-        sync: false
-      - key: REMBG_MODEL
         sync: false
       - key: SEED_ADMIN_PASSWORD
         sync: false

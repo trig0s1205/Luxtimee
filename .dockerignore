@@ -22,7 +22,6 @@
 !.env.defaults
 
 apps/web
-apps/image-service
 **/*.spec.ts
 **/*.test.ts
 **/__tests__

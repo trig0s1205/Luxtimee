@@ -31,7 +31,6 @@ Lista completa (ver comentarios en `apps/api/.env.example`):
 - `COOKIE_SAME_SITE`, `CLIENT_IP_SECRET`, `CRON_SECRET`
 - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_CALLBACK_URL`
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_FOLDER`
-- `IMAGE_SERVICE_URL`, `IMAGE_SERVICE_API_KEY`, `REMBG_MODEL`
 - `SEED_ADMIN_PASSWORD` (solo seeds locales)
 - `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_SECURE`, `RESEND_API_KEY`
 - `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_VERIFY_TOKEN`
@@ -74,6 +73,6 @@ Tras migrar, confirma que `FRONTEND_URL` en la API coincida con el sitio en Verc
 3. Login admin (slug staff).
 4. Inventario lista relojes.
 5. Crear y cancelar un pedido de prueba.
-6. Subir una imagen de reloj (Cloudinary + image-service).
+6. Subir una imagen de reloj (directo a Cloudinary).
 
 Backup: tras configurar secrets, lanza **Actions → Weekly DB backup → Run workflow** una vez y verifica el archivo en Drive.

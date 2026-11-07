@@ -6,14 +6,13 @@ Plataforma e-commerce de relojes de lujo — monorepo pnpm.
 
 - `apps/web` — Nuxt 3 (storefront + admin)
 - `apps/api` — NestJS + Prisma + PostgreSQL
-- `apps/image-service` — FastAPI (rembg + Pillow)
 - `packages/shared` — tipos y enums compartidos
 
 ## Requisitos
 
 - Node.js 20+
 - pnpm 9+
-- Docker (PostgreSQL + image-service)
+- Docker (PostgreSQL local opcional)
 
 ## Arranque en local
 
