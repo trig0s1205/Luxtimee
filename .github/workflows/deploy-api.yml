@@ -1,12 +1,10 @@
-name: Deploy API to Cloud Run
+# OBSOLETO: despliegue a Google Cloud Run abandonado.
+# Se deja solo workflow_dispatch por si hace falta un redeploy de emergencia
+# mientras se migra a VPS (deploy/vps) o Render (render.yaml).
+# Preferir: .github/workflows/api-image.yml + deploy-vps, o Blueprint de Render.
+name: Deploy API to Cloud Run (obsolete)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/api/**'
-      - 'packages/shared/**'
-      - '.github/workflows/deploy-api.yml'
   workflow_dispatch:
 
 permissions:
@@ -104,4 +102,4 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ vars.GCP_DEPLOY_ENABLED != 'true' }}
     steps:
-      - run: echo "::notice::Deploy omitido. Configura secrets/variables GCP y GCP_DEPLOY_ENABLED=true"
+      - run: echo "::notice::Workflow obsoleto (Cloud Run). Usa api-image.yml / Render. GCP_DEPLOY_ENABLED!=true"
