@@ -148,7 +148,7 @@ export default {
     wholesaleTitle: 'Precio al por mayor',
     wholesaleMessage: 'Al llevar 4 o más relojes, los precios cambiaron automáticamente a tarifa mayorista.',
     wholesaleOk: 'Entendido',
-    stockLimit: 'La pieza seleccionada no tiene más cantidades disponibles.',
+    stockLimit: 'Este reloj ya no está disponible',
     wholesaleDrawerTitle: 'Carrito mayorista',
     wholesaleDrawerSubtitle: 'Precios exclusivos para socios',
     wholesaleDrawerEmpty: 'Tu carrito mayorista está vacío.',

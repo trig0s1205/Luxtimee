@@ -463,30 +463,35 @@ export class WatchesService {
   async findPendingInfo(section: 'general' | 'cost', page = 1, limit = 10) {
     const safePage = Math.max(1, page);
     const safeLimit = Math.min(50, Math.max(1, limit));
-    const watches = await this.watchesRepository.findAllForPendingReview();
 
-    const items = watches
-      .map((watch) => {
-        const missing =
-          section === 'cost'
-            ? getMissingCostFields(watch)
-            : getMissingGeneralFields(watch);
-        return missing.length ? { watch, missing } : null;
-      })
-      .filter(
-        (
-          item,
-        ): item is {
-          watch: (typeof watches)[number];
-          missing: ReturnType<typeof getMissingGeneralFields>;
-        } => item != null,
+    if (section === 'cost') {
+      const result = await this.watchesRepository.findPendingCost(
+        safePage,
+        safeLimit,
       );
+      return {
+        data: result.data.map((watch) => ({
+          watch,
+          missing: getMissingCostFields(watch),
+        })),
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+      };
+    }
 
-    const total = items.length;
-    const start = (safePage - 1) * safeLimit;
-    const data = items.slice(start, start + safeLimit);
-
-    return { data, total, page: safePage, limit: safeLimit };
+    const { ids, total, page: p, limit: l } =
+      await this.watchesRepository.findPendingGeneralIds(safePage, safeLimit);
+    const watches = await this.watchesRepository.findByIdsPreservingOrder(ids);
+    return {
+      data: watches.map((watch) => ({
+        watch,
+        missing: getMissingGeneralFields(watch),
+      })),
+      total,
+      page: p,
+      limit: l,
+    };
   }
 
   getInventoryInsights() {

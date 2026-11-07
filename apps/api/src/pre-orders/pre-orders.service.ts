@@ -47,6 +47,8 @@ import {
   restoreWatchStock,
   STOCK_TRANSACTION,
 } from '../common/utils/watch-stock.tx';
+import { MemoryCacheService } from '../common/cache/memory-cache.service';
+import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { CustomerNotifier } from '../integrations/customer-notifier.service';
 import type { CustomerOrderEvent } from '../integrations/customer-notifier.service';
 import {
@@ -103,7 +105,13 @@ export class PreOrdersService {
     private wholesaleAccessService: WholesaleAccessService,
     private wholesaleOffers: WholesaleOffersService,
     private customerNotifier: CustomerNotifier,
+    private cache: MemoryCacheService,
   ) {}
+
+  /** Invalida listados/fichas públicas tras cualquier cambio de stock. */
+  private invalidateCatalogCache() {
+    this.cache.invalidateTag(CACHE_TAGS.catalog);
+  }
 
   private mapOrder(order: OrderWithRelations) {
     const { items, shippingZone, payments, ...rest } = order;
@@ -218,10 +226,8 @@ export class PreOrdersService {
     const byId = new Map(watches.map((watch) => [watch.id, watch]));
     return merged.map((item) => {
       const watch = byId.get(item.watchId);
-      if (!watch)
-        throw new BadRequestException(`Reloj no disponible: ${item.watchId}`);
-      if (watch.stock < item.quantity) {
-        throw new BadRequestException(`Stock insuficiente para ${watch.model}`);
+      if (!watch || watch.stock <= 0 || watch.stock < item.quantity) {
+        throw new BadRequestException('Este reloj ya no está disponible');
       }
       const whatsappLabel = formatWatchWhatsappLabel(watch);
       return {
@@ -551,7 +557,11 @@ export class PreOrdersService {
     const now = new Date();
     const readableId = await this.nextReadableId();
     const order = await this.prisma.$transaction(async (tx) => {
-      await reserveWatchStock(tx, lineInputs);
+      await reserveWatchStock(tx, lineInputs, {
+        requireActive: true,
+        message: 'Este reloj ya no está disponible',
+        inactiveMessage: 'Este reloj ya no está disponible',
+      });
 
       return tx.order.create({
         data: {
@@ -592,6 +602,7 @@ export class PreOrdersService {
         include: orderInclude,
       });
     }, STOCK_TRANSACTION);
+    this.invalidateCatalogCache();
 
     await this.notificationsService.emit({
       type: 'NEW_PRE_ORDER',
@@ -831,6 +842,7 @@ export class PreOrdersService {
         include: orderInclude,
       });
     }, STOCK_TRANSACTION);
+    this.invalidateCatalogCache();
     return this.mapOrder(order);
   }
 
@@ -882,6 +894,7 @@ export class PreOrdersService {
       }
       await tx.order.delete({ where: { id } });
     }, STOCK_TRANSACTION);
+    this.invalidateCatalogCache();
     return { id, deleted: true };
   }
 
@@ -996,6 +1009,7 @@ export class PreOrdersService {
         include: orderInclude,
       });
     }, STOCK_TRANSACTION);
+    this.invalidateCatalogCache();
 
     await this.notificationsService.emit({
       type: 'PRE_ORDER_REACTIVATED',
@@ -1048,6 +1062,7 @@ export class PreOrdersService {
         include: orderInclude,
       });
     }, STOCK_TRANSACTION);
+    this.invalidateCatalogCache();
     await this.notifyCustomer(order, 'canceled');
     return this.mapOrder(order);
   }
@@ -1110,6 +1125,7 @@ export class PreOrdersService {
         return true;
       }, STOCK_TRANSACTION);
       if (!didSuspend) continue;
+      this.invalidateCatalogCache();
       suspended += 1;
       await this.notificationsService.emit({
         type: 'PRE_ORDER_SUSPENDED',

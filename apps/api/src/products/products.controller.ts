@@ -20,7 +20,6 @@ import { CreateWatchDto, UpdateWatchDto } from './dto/watch.dto';
 import {
   Roles,
   Audit,
-  Financial,
 } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { FinancialGuard } from '../common/guards/financial.guard';
@@ -63,17 +62,6 @@ export class ProductsController {
     private productsService: ProductsService,
     private imageProcessing: ImageProcessingService,
   ) {}
-
-  @Get()
-  findAll(@CurrentUser() user: { role: Role }) {
-    return this.productsService.findAllStaff(user.role);
-  }
-
-  @Get('financial/summary')
-  @Financial()
-  financialSummary(@CurrentUser() user: { role: Role }) {
-    return this.productsService.findAllStaff(user.role);
-  }
 
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() user: { role: Role }) {
