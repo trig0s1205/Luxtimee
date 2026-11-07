@@ -26,14 +26,6 @@ export class ProductsService {
     return rest;
   }
 
-  async findAllStaff(role: Role) {
-    const watches = await this.prisma.watch.findMany({
-      include: watchInclude,
-      orderBy: { createdAt: 'desc' },
-    });
-    return watches.map((w) => this.mapWatch(w, role));
-  }
-
   async findOneStaff(id: string, role: Role) {
     const watch = await this.prisma.watch.findUnique({
       where: { id },
