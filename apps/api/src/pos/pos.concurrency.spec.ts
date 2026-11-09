@@ -1,19 +1,51 @@
-import { BadRequestException } from '@nestjs/common';
-import { PrismaClient, Role, WatchStatus } from '@prisma/client';
+import { BadRequestException, HttpException } from '@nestjs/common';
+import {
+  Prisma,
+  PrismaClient,
+  Role,
+  WatchStatus,
+} from '@prisma/client';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
 import { reserveWatchStock } from '../common/utils/watch-stock.tx';
 import { PrismaService } from '../prisma/prisma.service';
+import { todayBogotaYmd } from '../receipts/bogota-time.util';
 import { nextReceiptSequence } from '../receipts/receipt-number.util';
 import { PosService } from './pos.service';
 
 jest.setTimeout(90_000);
 
-const dbUrl = process.env.DATABASE_URL ?? '';
-const isLocalhost = /localhost|127\.0\.0\.1/.test(dbUrl);
+const rawDbUrl = process.env.DATABASE_URL ?? '';
+const isLocalhost = /localhost|127\.0\.0\.1/.test(rawDbUrl);
 const describeLocal = isLocalhost ? describe : describe.skip;
 
+/**
+ * connection_limit holgado: 15 $transaction interactivas en paralelo no deben
+ * chocar con el pool por defecto (cpus*2+1) en máquinas pequeñas.
+ * Solo se toca si el host ya es localhost.
+ */
+function localPrismaUrl(url: string): string {
+  if (!/localhost|127\.0\.0\.1/.test(url)) return url;
+  const u = new URL(url);
+  u.searchParams.set('connection_limit', '25');
+  u.searchParams.set('pool_timeout', '30');
+  return u.toString();
+}
+
+function formatRejection(reason: unknown): string {
+  if (reason instanceof Prisma.PrismaClientKnownRequestError) {
+    return `Prisma ${reason.code} meta=${JSON.stringify(reason.meta)} msg=${reason.message}`;
+  }
+  if (reason instanceof HttpException) {
+    return `Http ${reason.getStatus()} ${JSON.stringify(reason.getResponse())}`;
+  }
+  if (reason instanceof Error) return `${reason.name}: ${reason.message}`;
+  return String(reason);
+}
+
 describeLocal('POS concurrency (localhost DB)', () => {
-  const prisma = new PrismaClient();
+  const prisma = new PrismaClient({
+    datasources: { db: { url: localPrismaUrl(rawDbUrl) } },
+  });
   const db = prisma as unknown as PrismaService;
   const prefix = `posc${Date.now().toString(36)}`;
 
@@ -218,19 +250,46 @@ describeLocal('POS concurrency (localhost DB)', () => {
         ),
       ),
     );
-    const ok = settled.filter((r) => r.status === 'fulfilled');
+
+    const rejected = settled.filter(
+      (r): r is PromiseRejectedResult => r.status === 'rejected',
+    );
+    if (rejected.length) {
+      const details = rejected
+        .map((r, i) => `#${i}: ${formatRejection(r.reason)}`)
+        .join('\n');
+      // eslint-disable-next-line no-console
+      console.error('Rechazos createSale paralelos:\n' + details);
+      throw new Error(`Hubo ${rejected.length} rechazos:\n${details}`);
+    }
+
+    const ok = settled.flatMap((r) =>
+      r.status === 'fulfilled' ? [r.value] : [],
+    );
     expect(ok).toHaveLength(15);
-    const sequences = ok
-      .map((item) =>
-        Number(
-          (item as PromiseFulfilledResult<{ receiptNumber: string }>).value
-            .receiptNumber.replace(/^LXT-/, ''),
-        ),
-      )
+
+    const receiptSeqs = ok
+      .map((item) => Number(item.receiptNumber.replace(/^LXT-/, '')))
       .sort((a, b) => a - b);
-    expect(new Set(sequences).size).toBe(15);
-    for (let i = 1; i < sequences.length; i += 1) {
-      expect(sequences[i]).toBe(sequences[i - 1] + 1);
+    expect(new Set(receiptSeqs).size).toBe(15);
+    for (let i = 1; i < receiptSeqs.length; i += 1) {
+      expect(receiptSeqs[i]).toBe(receiptSeqs[i - 1] + 1);
+    }
+
+    const ymd = todayBogotaYmd().replace(/-/g, '');
+    const prefixRe = new RegExp(`^LX-${ymd}-(\\d+)$`);
+    const readableIds = ok.map((item) => item.readableId);
+    expect(new Set(readableIds).size).toBe(15);
+    const orderSeqs = readableIds
+      .map((id) => {
+        const m = prefixRe.exec(id);
+        if (!m) throw new Error(`readableId inesperado: ${id}`);
+        return Number(m[1]);
+      })
+      .sort((a, b) => a - b);
+    expect(new Set(orderSeqs).size).toBe(15);
+    for (let i = 1; i < orderSeqs.length; i += 1) {
+      expect(orderSeqs[i]).toBe(orderSeqs[i - 1] + 1);
     }
   });
 
