@@ -209,6 +209,10 @@ describe('OrdersService + comprobantes', () => {
       $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
         const tx = {
           $queryRawUnsafe: jest.fn(async () => [{ id: 'w1' }]),
+          $queryRaw: jest
+            .fn()
+            .mockResolvedValueOnce([{ max_seq: 0 }])
+            .mockResolvedValueOnce([{ lastValue: 1 }]),
           order: {
             create: jest.fn(async () => createdOrder),
             findUniqueOrThrow: jest.fn(async () => createdOrder),

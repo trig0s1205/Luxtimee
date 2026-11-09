@@ -194,6 +194,10 @@ describe('stock de venta especial', () => {
         watch.stock -= 1;
         return [{ id: watch.id }];
       },
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValueOnce([{ max_seq: 0 }])
+        .mockResolvedValueOnce([{ lastValue: 1 }]),
       order: {
         create: async ({ data }: { data: Record<string, unknown> }) => ({
           id: 'order-1',
@@ -276,6 +280,10 @@ describe('stock de venta especial', () => {
     };
     const tx = {
       $queryRawUnsafe: async () => [{ id: watch.id }],
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValueOnce([{ max_seq: 0 }])
+        .mockResolvedValueOnce([{ lastValue: 1 }]),
       order: {
         create: async ({ data }: { data: Record<string, unknown> }) => {
           stored = data;
