@@ -5,6 +5,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { CertificatesModule } from '../certificates/certificates.module';
 import { CacheModule } from '../common/cache/cache.module';
 import { IntegrationsModule } from '../integrations/integrations.module';
+import { ReceiptsModule } from '../receipts/receipts.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { IntegrationsModule } from '../integrations/integrations.module';
     CertificatesModule,
     CacheModule,
     IntegrationsModule,
+    ReceiptsModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

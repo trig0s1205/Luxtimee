@@ -67,6 +67,52 @@ export class SetCommissionBodyDto {
   percent!: number;
 }
 
+export class SetReceiptBodyDto {
+  @IsString()
+  @Transform(({ value }) => sanitizePlainTextOptional(value, 120) ?? '')
+  businessName!: string;
+
+  @IsString()
+  @Transform(({ value }) => sanitizePlainTextOptional(value, 120) ?? '')
+  ownerName!: string;
+
+  @IsString()
+  @Transform(({ value }) => sanitizePlainTextOptional(value, 120) ?? '')
+  ownerDocument!: string;
+
+  @IsString()
+  @Transform(({ value }) => sanitizePlainTextOptional(value, 120) ?? '')
+  phone!: string;
+
+  @IsString()
+  @Transform(({ value }) => sanitizePlainTextOptional(value, 120) ?? '')
+  whatsapp!: string;
+
+  @IsString()
+  @Transform(({ value }) => sanitizePlainTextOptional(value, 120) ?? '')
+  email!: string;
+
+  @IsString()
+  @Transform(({ value }) => sanitizePlainTextOptional(value, 120) ?? '')
+  city!: string;
+
+  @IsString()
+  @Transform(({ value }) => sanitizePlainTextOptional(value, 120) ?? '')
+  address!: string;
+
+  @IsString()
+  @Transform(({ value }) => sanitizePlainTextOptional(value, 500) ?? '')
+  logoUrl!: string;
+
+  @IsString()
+  @Transform(({ value }) => sanitizePlainTextOptional(value, 6000) ?? '')
+  warrantyTerms!: string;
+
+  @IsString()
+  @Transform(({ value }) => sanitizePlainTextOptional(value, 300) ?? '')
+  footerNote!: string;
+}
+
 export class SetHomepageConfigBodyDto {
   @IsOptional()
   @IsObject()

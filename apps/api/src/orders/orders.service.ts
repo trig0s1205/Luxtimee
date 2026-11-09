@@ -55,6 +55,8 @@ const orderInclude = {
     include: { registeredBy: { select: { name: true } } },
     orderBy: { paidAt: 'asc' as const },
   },
+  seller: { select: { name: true } },
+  receipt: { select: { number: true, voidedAt: true } },
 } as const;
 
 const inventoryDeductedStatuses: OrderStatus[] = [
@@ -89,19 +91,20 @@ export class OrdersService {
   ) {}
 
   private mapOrder(order: OrderWithRelations) {
-    const { items, shippingZone, payments, ...rest } = order;
+    const { items, shippingZone, payments, seller, receipt, ...rest } = order;
     const summary = summarizeOrderPayments({ ...order, payments, items });
     const depositExpected =
-      order.type === OrderType.ESPECIAL
+      order.type === OrderType.ESPECIAL || order.source === 'LOCAL'
         ? 0
         : depositForUnits(summary.unitCount);
     return {
       ...rest,
       ...summary,
       depositExpected,
-      sellerName: null,
-      receiptNumber: null,
-      receiptVoided: false,
+      customerDocument: order.customerDocument ?? null,
+      sellerName: seller?.name ?? null,
+      receiptNumber: receipt?.number ?? null,
+      receiptVoided: Boolean(receipt?.voidedAt),
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
       paidAt: order.paidAt?.toISOString() ?? null,
@@ -497,6 +500,7 @@ export class OrdersService {
     specialSkuSnapshot: string | null;
     specialProfit: number | null;
     items: Array<{ productName: string; watch: { sku: string } }>;
+    receipt?: { number: string; voidedAt: Date | null } | null;
   }) {
     const item = order.items[0];
     const salePrice = order.specialSalePrice ?? order.total;
@@ -512,6 +516,8 @@ export class OrdersService {
       cost,
       profit: order.specialProfit ?? salePrice - cost,
       note: order.specialNote ?? '',
+      receiptNumber: order.receipt?.number ?? null,
+      receiptVoided: Boolean(order.receipt?.voidedAt),
     };
   }
 

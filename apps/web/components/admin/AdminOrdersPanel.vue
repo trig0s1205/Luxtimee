@@ -32,6 +32,19 @@ const props = defineProps<{
 const api = useApi();
 const toast = useToast();
 const { confirm } = useConfirm();
+const config = useRuntimeConfig();
+
+function canDownloadReceipt(order: OrderDto) {
+  return (
+    order.status === OrderStatus.PAGADO ||
+    order.status === OrderStatus.ENVIADO ||
+    order.status === OrderStatus.ENTREGADO
+  );
+}
+
+function downloadReceipt(order: OrderDto) {
+  window.open(`${config.public.apiBaseUrl}/receipts/order/${order.id}/pdf`, '_blank');
+}
 
 const PAGE_SIZE = 15;
 
@@ -574,6 +587,20 @@ useSeoMeta({ title: props.seoTitle });
             </AdminAccordionSection>
 
             <div class="admin-record-actions">
+              <template v-if="canDownloadReceipt(order)">
+                <button
+                  type="button"
+                  class="admin-record-btn"
+                  @click.stop="downloadReceipt(order)"
+                >
+                  Descargar comprobante
+                </button>
+                <span v-if="order.receiptNumber" class="admin-record-muted">
+                  N.º {{ order.receiptNumber }}
+                </span>
+                <span v-if="order.receiptVoided" class="admin-record-chip">Anulado</span>
+                <p class="admin-record-muted">Descárgalo y envíalo al cliente por WhatsApp.</p>
+              </template>
               <button
                 v-if="canRegisterBalance(order)"
                 type="button"

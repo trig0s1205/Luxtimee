@@ -193,6 +193,8 @@ export interface SpecialSaleDto {
   cost: number;
   profit: number;
   note: string;
+  receiptNumber: string | null;
+  receiptVoided: boolean;
 }
 
 export interface SpecialSalesListDto {
