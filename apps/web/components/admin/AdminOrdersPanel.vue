@@ -14,7 +14,7 @@ import {
   type OrderSource,
   type OrderStatusValue,
   type OrderType,
-  type PaymentMethod,
+  PaymentMethod,
   type WarrantyReplacementType,
 } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
@@ -66,10 +66,10 @@ const previewSrc = ref<string | null>(null);
 const paymentMethodByOrder = ref<Record<string, PaymentMethod>>({});
 
 const paymentMethodOptions: Array<{ value: PaymentMethod; label: string }> = [
-  { value: 'NO_ESPECIFICADO', label: PAYMENT_METHOD_LABELS.NO_ESPECIFICADO },
-  { value: 'EFECTIVO', label: PAYMENT_METHOD_LABELS.EFECTIVO },
-  { value: 'TRANSFERENCIA', label: PAYMENT_METHOD_LABELS.TRANSFERENCIA },
-  { value: 'DATAFONO_BOLD', label: PAYMENT_METHOD_LABELS.DATAFONO_BOLD },
+  { value: PaymentMethod.NO_ESPECIFICADO, label: PAYMENT_METHOD_LABELS.NO_ESPECIFICADO },
+  { value: PaymentMethod.EFECTIVO, label: PAYMENT_METHOD_LABELS.EFECTIVO },
+  { value: PaymentMethod.TRANSFERENCIA, label: PAYMENT_METHOD_LABELS.TRANSFERENCIA },
+  { value: PaymentMethod.DATAFONO_BOLD, label: PAYMENT_METHOD_LABELS.DATAFONO_BOLD },
 ];
 
 const warrantyForm = reactive({

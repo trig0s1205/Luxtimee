@@ -218,13 +218,15 @@ describeLocal('POS concurrency (localhost DB)', () => {
         ),
       ),
     );
-    const ok = settled.filter(
-      (r): r is PromiseFulfilledResult<{ receiptNumber: string }> =>
-        r.status === 'fulfilled',
-    );
+    const ok = settled.filter((r) => r.status === 'fulfilled');
     expect(ok).toHaveLength(15);
     const sequences = ok
-      .map((item) => Number(item.value.receiptNumber.replace(/^LXT-/, '')))
+      .map((item) =>
+        Number(
+          (item as PromiseFulfilledResult<{ receiptNumber: string }>).value
+            .receiptNumber.replace(/^LXT-/, ''),
+        ),
+      )
       .sort((a, b) => a - b);
     expect(new Set(sequences).size).toBe(15);
     for (let i = 1; i < sequences.length; i += 1) {

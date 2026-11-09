@@ -569,11 +569,12 @@ export class ReportsService {
       ];
       this.drawTableHeaderRow(doc, cy, channelCols);
       cy += ROW_H;
-      for (const [idx, [label, totals]] of [
+      const channelRows: Array<[string, typeof data.byChannel.web]> = [
         ['Web', data.byChannel.web],
         ['Local', data.byChannel.local],
         ['Total', data.byChannel.total],
-      ].entries()) {
+      ];
+      for (const [idx, [label, totals]] of channelRows.entries()) {
         const cells: PdfCell[] = [
           {
             value: label,
