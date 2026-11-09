@@ -5,6 +5,10 @@ import type {
   PosCatalogWatchDto,
 } from '@luxtime/shared';
 import { extractApiErrorMessage } from '~/utils/api-error';
+import {
+  hasActiveCatalogFilters,
+  safeCatalogItems,
+} from '~/utils/pos-catalog';
 
 const props = defineProps<{
   cartQtyById: Record<string, number>;
@@ -12,6 +16,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   add: [watch: PosCatalogWatchDto];
+  previewClosed: [];
 }>();
 
 const api = useApi();
@@ -19,9 +24,11 @@ const toast = useToast();
 const route = useRoute();
 const router = useRouter();
 
-const filtersOpen = ref(false);
+const filtersOpen = ref(true);
 const loading = ref(false);
 const loadingMore = ref(false);
+const loadError = ref<string | null>(null);
+const facetsError = ref<string | null>(null);
 const items = ref<PosCatalogWatchDto[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -48,9 +55,30 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null;
 let abort: AbortController | null = null;
 let observer: IntersectionObserver | null = null;
 
+const filtersActive = computed(() =>
+  hasActiveCatalogFilters([
+    search.value,
+    brand.value,
+    category.value,
+    gender.value,
+    dialColor.value,
+    strapMaterial.value,
+    minPrice.value,
+    maxPrice.value,
+  ]),
+);
+
 const activeFilterCount = computed(() =>
-  [brand.value, category.value, gender.value, dialColor.value, strapMaterial.value, minPrice.value, maxPrice.value, search.value]
-    .filter(Boolean).length,
+  [
+    brand.value,
+    category.value,
+    gender.value,
+    dialColor.value,
+    strapMaterial.value,
+    minPrice.value,
+    maxPrice.value,
+    search.value,
+  ].filter(Boolean).length,
 );
 
 const chips = computed(() => {
@@ -75,16 +103,29 @@ const chips = computed(() => {
 });
 
 function syncQuery() {
-  const query: Record<string, string> = { tab: 'catalogo' };
+  const query: Record<string, string> = {};
+  for (const [key, value] of Object.entries(route.query)) {
+    if (key === 'tab') continue;
+    if (typeof value === 'string' && value) query[key] = value;
+  }
   if (search.value) query.search = search.value;
+  else delete query.search;
   if (brand.value) query.brand = brand.value;
+  else delete query.brand;
   if (category.value) query.category = category.value;
+  else delete query.category;
   if (gender.value) query.gender = gender.value;
+  else delete query.gender;
   if (dialColor.value) query.dialColor = dialColor.value;
+  else delete query.dialColor;
   if (strapMaterial.value) query.strapMaterial = strapMaterial.value;
+  else delete query.strapMaterial;
   if (minPrice.value) query.minPrice = minPrice.value;
+  else delete query.minPrice;
   if (maxPrice.value) query.maxPrice = maxPrice.value;
+  else delete query.maxPrice;
   if (sort.value && sort.value !== 'newest') query.sort = sort.value;
+  else delete query.sort;
   void router.replace({ query });
 }
 
@@ -133,20 +174,30 @@ async function loadPage(nextPage: number, append: boolean) {
   abort?.abort();
   abort = new AbortController();
   if (append) loadingMore.value = true;
-  else loading.value = true;
+  else {
+    loading.value = true;
+    loadError.value = null;
+  }
   try {
     const data = await api.get<PosCatalogPageDto>(
       '/pos/catalog',
       buildQuery(nextPage),
       { signal: abort.signal },
     );
-    page.value = data.page;
-    total.value = data.total;
-    hasMore.value = data.hasMore;
-    items.value = append ? [...items.value, ...data.items] : data.items;
+    const list = safeCatalogItems<PosCatalogWatchDto>(data);
+    if (!Array.isArray((data as { items?: unknown })?.items)) {
+      console.warn('[POS catalog] respuesta sin items[]', data);
+    }
+    page.value = Number(data?.page) || nextPage;
+    total.value = Number(data?.total) || list.length;
+    hasMore.value = Boolean(data?.hasMore);
+    items.value = append ? [...items.value, ...list] : list;
   } catch (err: unknown) {
     if ((err as { name?: string })?.name === 'AbortError') return;
-    toast.error(extractApiErrorMessage(err, 'No se pudo cargar el catálogo.'));
+    const message = extractApiErrorMessage(err, 'No se pudo cargar el catálogo.');
+    loadError.value = message;
+    if (!append) items.value = [];
+    toast.error(message);
   } finally {
     loading.value = false;
     loadingMore.value = false;
@@ -165,10 +216,14 @@ async function loadMore() {
 }
 
 async function loadFacets() {
+  facetsError.value = null;
   try {
     facets.value = await api.get<PosCatalogFacetsDto>('/pos/catalog/facets');
-  } catch {
-    /* ignore */
+  } catch (err: unknown) {
+    facetsError.value = extractApiErrorMessage(
+      err,
+      'No se pudieron cargar los filtros.',
+    );
   }
 }
 
@@ -181,6 +236,11 @@ function onSearchInput() {
 
 function cartQty(id: string) {
   return props.cartQtyById[id] ?? 0;
+}
+
+function closeGallery() {
+  galleryWatch.value = null;
+  emit('previewClosed');
 }
 
 defineExpose({
@@ -224,20 +284,26 @@ watch([brand, category, gender, dialColor, strapMaterial, minPrice, maxPrice, so
     <div class="pos-catalog__toolbar">
       <button
         type="button"
-        class="admin-btn"
+        class="admin-record-btn admin-record-btn--ghost"
+        :aria-expanded="filtersOpen"
         @click="filtersOpen = !filtersOpen"
       >
-        Filtros{{ activeFilterCount ? ` (${activeFilterCount})` : '' }}
+        {{ filtersOpen ? 'Ocultar filtros' : 'Mostrar filtros' }}{{
+          activeFilterCount ? ` (${activeFilterCount})` : ''
+        }}
       </button>
-      <select v-model="sort" class="admin-input">
+      <select v-model="sort" class="admin-input" aria-label="Ordenar catálogo">
         <option value="newest">Más recientes</option>
         <option value="price_asc">Precio: menor a mayor</option>
         <option value="price_desc">Precio: mayor a menor</option>
         <option value="brand_asc">Marca (A–Z)</option>
       </select>
+      <p v-if="!loading && !loadError" class="admin-record-muted">
+        {{ total }} reloj{{ total === 1 ? '' : 'es' }}
+      </p>
     </div>
 
-    <div v-show="filtersOpen || activeFilterCount" class="pos-catalog__filters">
+    <div v-show="filtersOpen" class="pos-catalog__filters">
       <input
         v-model="search"
         class="admin-input"
@@ -300,16 +366,20 @@ watch([brand, category, gender, dialColor, strapMaterial, minPrice, maxPrice, so
         class="admin-input"
         type="number"
         min="0"
-        :placeholder="`Desde ${facets?.priceRange.min ?? 0}`"
+        :placeholder="`Desde ${facets?.priceRange?.min ?? 0}`"
       >
       <input
         v-model="maxPrice"
         class="admin-input"
         type="number"
         min="0"
-        :placeholder="`Hasta ${facets?.priceRange.max ?? 0}`"
+        :placeholder="`Hasta ${facets?.priceRange?.max ?? 0}`"
       >
     </div>
+
+    <p v-if="facetsError" class="pos-catalog__facets-warn">
+      {{ facetsError }} Los filtros pueden estar incompletos.
+    </p>
 
     <div v-if="chips.length" class="pos-catalog__chips">
       <button
@@ -326,13 +396,39 @@ watch([brand, category, gender, dialColor, strapMaterial, minPrice, maxPrice, so
       </button>
     </div>
 
-    <div v-if="loading && !items.length" class="pos-catalog__grid">
-      <div v-for="n in 8" :key="n" class="pos-catalog__skeleton" />
+    <div v-if="loading && !items.length" class="pos-catalog__state">
+      <p class="admin-record-muted">Cargando catálogo…</p>
+      <div class="pos-catalog__grid">
+        <div v-for="n in 8" :key="n" class="pos-catalog__skeleton" />
+      </div>
     </div>
 
-    <p v-else-if="!items.length" class="admin-empty">
-      No hay relojes disponibles con estos filtros
-    </p>
+    <div v-else-if="loadError" class="pos-catalog__state admin-record-empty">
+      <p>{{ loadError }}</p>
+      <button
+        type="button"
+        class="admin-record-btn admin-record-btn--primary"
+        @click="reload"
+      >
+        Reintentar
+      </button>
+    </div>
+
+    <div v-else-if="!items.length" class="pos-catalog__state admin-record-empty">
+      <p>
+        No hay relojes disponibles{{
+          filtersActive ? ' con estos filtros' : ''
+        }}.
+      </p>
+      <button
+        v-if="filtersActive"
+        type="button"
+        class="admin-record-btn admin-record-btn--ghost"
+        @click="clearFilters"
+      >
+        Limpiar filtros
+      </button>
+    </div>
 
     <div v-else class="pos-catalog__grid">
       <PosWatchCard
@@ -347,9 +443,9 @@ watch([brand, category, gender, dialColor, strapMaterial, minPrice, maxPrice, so
 
     <div ref="sentinel" class="pos-catalog__sentinel" />
     <button
-      v-if="hasMore"
+      v-if="hasMore && !loadError"
       type="button"
-      class="admin-btn"
+      class="admin-record-btn admin-record-btn--ghost"
       :disabled="loadingMore"
       @click="loadMore"
     >
@@ -360,8 +456,8 @@ watch([brand, category, gender, dialColor, strapMaterial, minPrice, maxPrice, so
       v-if="galleryWatch"
       :watch="galleryWatch"
       :cart-qty="cartQty(galleryWatch.id)"
-      @close="galleryWatch = null"
-      @add="emit('add', galleryWatch); galleryWatch = null"
+      @close="closeGallery"
+      @add="emit('add', galleryWatch); closeGallery()"
     />
   </div>
 </template>
@@ -389,22 +485,36 @@ watch([brand, category, gender, dialColor, strapMaterial, minPrice, maxPrice, so
 
 .pos-catalog__chip {
   min-height: 36px;
-  border: 1px solid var(--admin-border, #e5e7eb);
+  border: 1px solid rgba(200, 169, 110, 0.28);
   background: #fff;
   border-radius: 999px;
   padding: 0 0.75rem;
   cursor: pointer;
+  color: inherit;
+}
+
+.pos-catalog__facets-warn {
+  margin: 0;
+  color: #b45309;
+  font-size: 0.85rem;
+}
+
+.pos-catalog__state {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
 }
 
 .pos-catalog__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 0.85rem;
 }
 
 .pos-catalog__skeleton {
   aspect-ratio: 3 / 4;
-  background: linear-gradient(90deg, #f3f4f6, #e5e7eb, #f3f4f6);
+  border-radius: 2px;
+  background: linear-gradient(90deg, #f3eee3, #e8e0d0, #f3eee3);
   background-size: 200% 100%;
   animation: shimmer 1.2s infinite;
 }
@@ -416,17 +526,5 @@ watch([brand, category, gender, dialColor, strapMaterial, minPrice, maxPrice, so
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
-}
-
-@media (min-width: 768px) {
-  .pos-catalog__grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1200px) {
-  .pos-catalog__grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
 }
 </style>
