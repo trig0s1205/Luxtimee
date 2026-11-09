@@ -18,6 +18,7 @@
     "prisma:seed": "prisma db seed",
     "prisma:studio": "prisma studio",
     "backfill:warranties": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/scripts/backfill-warranty-histories.ts",
+    "backfill:receipts": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/scripts/backfill-sale-receipts.ts",
     "sku:recompute": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/scripts/recompute-watch-sku-prefixes.ts",
     "wipe:transactional": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/scripts/wipe-transactional-data.ts",
     "user:create-local-seller": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/scripts/create-local-seller.ts",
