@@ -1,6 +1,7 @@
 import {
   IsArray,
   IsBoolean,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -9,6 +10,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import type { PaymentMethod } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   Uppercase,
@@ -152,4 +154,8 @@ export class TransitionOrderDto {
   @IsOptional()
   @IsBoolean()
   confirmBalancePaid?: boolean;
+
+  @IsOptional()
+  @IsIn(['EFECTIVO', 'TRANSFERENCIA', 'DATAFONO_BOLD', 'NO_ESPECIFICADO'])
+  paymentMethod?: PaymentMethod;
 }

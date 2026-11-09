@@ -41,6 +41,11 @@ function buildOrdersService(prisma: unknown, notifier = { notifyOrder: jest.fn()
       { generateForOrder: jest.fn(async () => []) } as never,
       { invalidateTag: () => undefined } as never,
       notifier as never,
+      {
+        ensureForOrder: jest.fn(async () => null),
+        voidForOrder: jest.fn(async () => undefined),
+        issueInTx: jest.fn(async () => ({ id: 'receipt-1' })),
+      } as never,
     ),
     notifier,
   };
@@ -207,7 +212,22 @@ describe('stock de venta especial', () => {
               watch: { sku: watch.sku },
             },
           ],
+          receipt: null,
           data,
+        }),
+        findUniqueOrThrow: async () => ({
+          id: 'order-1',
+          readableId: 'LX-1',
+          createdAt: new Date('2026-10-30T12:00:00.000Z'),
+          total: SALE,
+          specialNote: 'mamá de Álvaro',
+          specialSalePrice: SALE,
+          specialCostSnapshot: COST,
+          specialListPriceSnapshot: LIST,
+          specialSkuSnapshot: 'SKU-1',
+          specialProfit: 10_000,
+          items: [{ productName: 'Rolex Datejust', watch: { sku: watch.sku } }],
+          receipt: { number: 'LXT-000001', voidedAt: null },
         }),
       },
     };
@@ -240,25 +260,28 @@ describe('stock de venta especial', () => {
   it('persiste el tipo especial sin datos de cliente', async () => {
     const watch = watchFixture();
     let stored: Record<string, unknown> | null = null;
+    const created = {
+      id: 'order-1',
+      readableId: 'LX-1',
+      createdAt: new Date(),
+      total: SALE,
+      specialNote: 'mamá de Álvaro',
+      specialSalePrice: SALE,
+      specialCostSnapshot: COST,
+      specialListPriceSnapshot: LIST,
+      specialSkuSnapshot: 'SKU-1',
+      specialProfit: 10_000,
+      items: [{ productName: 'Rolex Datejust', watch: { sku: 'SKU-1' } }],
+      receipt: null,
+    };
     const tx = {
       $queryRawUnsafe: async () => [{ id: watch.id }],
       order: {
         create: async ({ data }: { data: Record<string, unknown> }) => {
           stored = data;
-          return {
-            id: 'order-1',
-            readableId: data.readableId,
-            createdAt: new Date(),
-            total: SALE,
-            specialNote: data.specialNote,
-            specialSalePrice: SALE,
-            specialCostSnapshot: COST,
-            specialListPriceSnapshot: LIST,
-            specialSkuSnapshot: 'SKU-1',
-            specialProfit: 10_000,
-            items: [{ productName: 'Rolex Datejust', watch: { sku: 'SKU-1' } }],
-          };
+          return created;
         },
+        findUniqueOrThrow: async () => created,
       },
     };
     const prisma = {
@@ -311,6 +334,9 @@ describe('stock de venta especial', () => {
     const create = jest.fn();
     const tx = {
       $queryRawUnsafe: async () => [],
+      watch: {
+        findMany: async () => [{ isActive: true, deletedAt: null }],
+      },
       order: { create },
     };
     const prisma = {

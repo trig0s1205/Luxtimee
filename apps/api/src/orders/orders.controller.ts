@@ -82,6 +82,7 @@ export class OrdersController {
     return this.ordersService.transitionStatus(id, dto.status as OrderStatus, {
       confirmBalancePaid: dto.confirmBalancePaid,
       registeredById: user?.id,
+      paymentMethod: dto.paymentMethod,
     });
   }
 

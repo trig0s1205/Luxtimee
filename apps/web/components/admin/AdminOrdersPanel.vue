@@ -1,20 +1,20 @@
 <script setup lang="ts">
-import type {
-  CreateWarrantyHistoryDto,
-  OrderDto,
-  OrderItemDto,
-  OrderListPeriod,
-  OrdersListDto,
-  OrderStatusValue,
-  OrderType,
-  WarrantyReplacementType,
-} from '@luxtime/shared';
 import {
   OrderStatus,
   ORDER_STATUS_LABELS,
   ORDER_TRANSITION_LABELS,
+  PAYMENT_METHOD_LABELS,
   getOrderAllowedTransitions,
   statusBadgeTone,
+  type CreateWarrantyHistoryDto,
+  type OrderDto,
+  type OrderItemDto,
+  type OrderListPeriod,
+  type OrdersListDto,
+  type OrderStatusValue,
+  type OrderType,
+  type PaymentMethod,
+  type WarrantyReplacementType,
 } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
@@ -61,6 +61,14 @@ const savingWarrantyId = ref<string | null>(null);
 const editingOrder = ref<OrderDto | null>(null);
 const deletingId = ref<string | null>(null);
 const previewSrc = ref<string | null>(null);
+const paymentMethodByOrder = ref<Record<string, PaymentMethod>>({});
+
+const paymentMethodOptions: Array<{ value: PaymentMethod; label: string }> = [
+  { value: 'NO_ESPECIFICADO', label: PAYMENT_METHOD_LABELS.NO_ESPECIFICADO },
+  { value: 'EFECTIVO', label: PAYMENT_METHOD_LABELS.EFECTIVO },
+  { value: 'TRANSFERENCIA', label: PAYMENT_METHOD_LABELS.TRANSFERENCIA },
+  { value: 'DATAFONO_BOLD', label: PAYMENT_METHOD_LABELS.DATAFONO_BOLD },
+];
 
 const warrantyForm = reactive({
   damageDescription: '',
@@ -261,7 +269,11 @@ async function transition(order: OrderDto, status: OrderStatusValue) {
 
   const label = ORDER_TRANSITION_LABELS[status];
   const sku = orderSku(order);
-  const payload: { status: OrderStatusValue; confirmBalancePaid?: boolean } = { status };
+  const payload: {
+    status: OrderStatusValue;
+    confirmBalancePaid?: boolean;
+    paymentMethod?: PaymentMethod;
+  } = { status };
   if (status === 'CANCELADO') {
     const ok = await confirm({
       title: `¿Cancelar el pedido ${sku}?`,
@@ -269,6 +281,10 @@ async function transition(order: OrderDto, status: OrderStatusValue) {
       confirmLabel: 'Cancelar pedido',
     });
     if (!ok) return;
+  }
+  if (status === 'PAGADO') {
+    payload.paymentMethod =
+      paymentMethodByOrder.value[order.id] ?? 'NO_ESPECIFICADO';
   }
   if (status === 'ENTREGADO' && order.balanceDue > 0) {
     const ok = await confirm({
@@ -611,6 +627,28 @@ useSeoMeta({ title: props.seoTitle });
                 Registrar pago del saldo
               </button>
               <template v-if="nextTransitions(order).length || hasPendingWarranty(order)">
+                <label
+                  v-if="nextTransitions(order).includes(OrderStatus.PAGADO)"
+                  class="admin-record-muted"
+                >
+                  Método de pago
+                  <select
+                    class="admin-record-textarea"
+                    :value="paymentMethodByOrder[order.id] ?? 'NO_ESPECIFICADO'"
+                    @change.stop="
+                      paymentMethodByOrder[order.id] = ($event.target as HTMLSelectElement)
+                        .value as PaymentMethod
+                    "
+                  >
+                    <option
+                      v-for="option in paymentMethodOptions"
+                      :key="option.value"
+                      :value="option.value"
+                    >
+                      {{ option.label }}
+                    </option>
+                  </select>
+                </label>
                 <button
                   v-for="status in nextTransitions(order)"
                   :key="status"
