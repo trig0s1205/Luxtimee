@@ -84,7 +84,7 @@ const kpis = computed(() => {
       key: 'commission',
       label: 'Comisión secretaría',
       value: formatCop(data.totalCommission),
-      subtitle: `${data.commissionPercent}% sobre el margen bruto vendido`,
+      subtitle: `${data.commissionPercent}% solo en ventas web · local sin comisión`,
       highlight: 'white' as const,
       badge: null,
     },
@@ -128,11 +128,35 @@ const orderStatusLabels: Record<string, string> = {
   ENTREGADO: 'Entregado',
 };
 
+const channelLabels: Record<string, string> = {
+  WEB: 'Web',
+  LOCAL: 'Local',
+};
+
+const channelRows = computed(() => {
+  const byChannel = dashboard.value?.byChannel;
+  if (!byChannel) return [];
+  return [
+    { key: 'web', label: 'Web', totals: byChannel.web },
+    { key: 'local', label: 'Local', totals: byChannel.local },
+    { key: 'total', label: 'Total', totals: byChannel.total },
+  ].map((row) => ({
+    ...row,
+    revenue: formatCop(row.totals.revenue),
+    cost: formatCop(row.totals.cost),
+    grossProfit: formatCop(row.totals.grossProfit),
+    commission: formatCop(row.totals.commission),
+    profit: formatCop(row.totals.profit),
+    shipping: formatCop(row.totals.shippingRevenue),
+  }));
+});
+
 const activityRows = computed(() =>
   (dashboard.value?.items ?? []).map((item) => ({
     id: `${item.orderId}-${item.productName}`,
     orderId: item.readableId,
     date: new Date(item.paidAt).toLocaleDateString('es-CO'),
+    channel: channelLabels[item.channel] ?? item.channel,
     type: orderTypeLabels[item.orderType] ?? item.orderType,
     watch: item.productName,
     status: orderStatusLabels[item.orderStatus] ?? item.orderStatus,
@@ -261,6 +285,42 @@ useSeoMeta({ title: 'Dashboard de Ganancia — LUXTIMEE Admin' });
 
     <AdminExpensesSummary :period="chartPeriod" />
 
+    <section class="health-table-card">
+      <div class="health-table-header">
+        <h3>Ganancia por canal</h3>
+      </div>
+      <table class="health-table">
+        <thead>
+          <tr>
+            <th>Canal</th>
+            <th>Ingreso</th>
+            <th>Costo</th>
+            <th>Ganancia bruta</th>
+            <th>Comisión</th>
+            <th>Ganancia neta</th>
+            <th>Domicilios</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="pending && !channelRows.length">
+            <td colspan="7">Cargando...</td>
+          </tr>
+          <tr v-else-if="!channelRows.length">
+            <td colspan="7">Sin datos por canal.</td>
+          </tr>
+          <tr v-for="row in channelRows" :key="row.key">
+            <td>{{ row.label }}</td>
+            <td>{{ row.revenue }}</td>
+            <td>{{ row.cost }}</td>
+            <td>{{ row.grossProfit }}</td>
+            <td>{{ row.commission }}</td>
+            <td class="profit-cell">{{ row.profit }}</td>
+            <td>{{ row.shipping }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
     <div class="health-main-grid health-main-grid--single">
       <AdminRevenueTrendChartLazy
         :title="chartTitle"
@@ -291,6 +351,7 @@ useSeoMeta({ title: 'Dashboard de Ganancia — LUXTIMEE Admin' });
           <tr>
             <th>Pedido</th>
             <th>Fecha</th>
+            <th>Canal</th>
             <th>Tipo</th>
             <th>Reloj</th>
             <th>Estado</th>
@@ -302,11 +363,12 @@ useSeoMeta({ title: 'Dashboard de Ganancia — LUXTIMEE Admin' });
         </thead>
         <tbody>
           <tr v-if="!activityRows.length">
-            <td colspan="9">Sin ventas en el periodo seleccionado.</td>
+            <td colspan="10">Sin ventas en el periodo seleccionado.</td>
           </tr>
           <tr v-for="row in activityRows" :key="row.id">
             <td>{{ row.orderId }}</td>
             <td>{{ row.date }}</td>
+            <td>{{ row.channel }}</td>
             <td>{{ row.type }}</td>
             <td>{{ row.watch }}</td>
             <td>{{ row.status }}</td>

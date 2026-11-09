@@ -152,6 +152,12 @@ export function summarizeOrderPayments(order: {
     paidAt: Date;
     registeredById: string | null;
     registeredBy?: { name: string } | null;
+    method?: string | null;
+    reference?: string | null;
+    proofUrl?: string | null;
+    cardLast4?: string | null;
+    cashReceived?: number | null;
+    changeGiven?: number | null;
   }> | null;
 }) {
   const payments = (order.payments ?? []).map((payment) => ({
@@ -161,6 +167,12 @@ export function summarizeOrderPayments(order: {
     paidAt: payment.paidAt.toISOString(),
     registeredById: payment.registeredById,
     registeredByName: payment.registeredBy?.name ?? null,
+    method: payment.method ?? null,
+    reference: payment.reference ?? null,
+    proofUrl: payment.proofUrl ?? null,
+    cardLast4: payment.cardLast4 ?? null,
+    cashReceived: payment.cashReceived ?? null,
+    changeGiven: payment.changeGiven ?? null,
   }));
   const depositPaid = payments
     .filter((payment) => payment.type === 'ABONO')

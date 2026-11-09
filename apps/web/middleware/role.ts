@@ -4,7 +4,7 @@ export default defineNuxtRouteMiddleware(async () => {
   auth.hydrateStoredStaff();
   auth.hydrateTokens();
   await auth.fetchMe({ allowRefresh: false });
-  if (!auth.isStaff) {
+  if (!auth.canUsePanel) {
     return navigateTo('/vigilancia', { replace: true });
   }
 });

@@ -1,20 +1,21 @@
 <script setup lang="ts">
-import type {
-  CreateWarrantyHistoryDto,
-  OrderDto,
-  OrderItemDto,
-  OrderListPeriod,
-  OrdersListDto,
-  OrderStatusValue,
-  OrderType,
-  WarrantyReplacementType,
-} from '@luxtime/shared';
 import {
   OrderStatus,
   ORDER_STATUS_LABELS,
   ORDER_TRANSITION_LABELS,
+  PAYMENT_METHOD_LABELS,
   getOrderAllowedTransitions,
   statusBadgeTone,
+  type CreateWarrantyHistoryDto,
+  type OrderDto,
+  type OrderItemDto,
+  type OrderListPeriod,
+  type OrdersListDto,
+  type OrderSource,
+  type OrderStatusValue,
+  type OrderType,
+  PaymentMethod,
+  type WarrantyReplacementType,
 } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
@@ -27,11 +28,25 @@ const props = defineProps<{
   orderType: OrderType;
   title: string;
   seoTitle: string;
+  source?: OrderSource;
 }>();
 
 const api = useApi();
 const toast = useToast();
 const { confirm } = useConfirm();
+const config = useRuntimeConfig();
+
+function canDownloadReceipt(order: OrderDto) {
+  return (
+    order.status === OrderStatus.PAGADO ||
+    order.status === OrderStatus.ENVIADO ||
+    order.status === OrderStatus.ENTREGADO
+  );
+}
+
+function downloadReceipt(order: OrderDto) {
+  window.open(`${config.public.apiBaseUrl}/receipts/order/${order.id}/pdf`, '_blank');
+}
 
 const PAGE_SIZE = 15;
 
@@ -48,6 +63,14 @@ const savingWarrantyId = ref<string | null>(null);
 const editingOrder = ref<OrderDto | null>(null);
 const deletingId = ref<string | null>(null);
 const previewSrc = ref<string | null>(null);
+const paymentMethodByOrder = ref<Record<string, PaymentMethod>>({});
+
+const paymentMethodOptions: Array<{ value: PaymentMethod; label: string }> = [
+  { value: PaymentMethod.NO_ESPECIFICADO, label: PAYMENT_METHOD_LABELS.NO_ESPECIFICADO },
+  { value: PaymentMethod.EFECTIVO, label: PAYMENT_METHOD_LABELS.EFECTIVO },
+  { value: PaymentMethod.TRANSFERENCIA, label: PAYMENT_METHOD_LABELS.TRANSFERENCIA },
+  { value: PaymentMethod.DATAFONO_BOLD, label: PAYMENT_METHOD_LABELS.DATAFONO_BOLD },
+];
 
 const warrantyForm = reactive({
   damageDescription: '',
@@ -79,6 +102,7 @@ function buildOrdersUrl() {
     limit: String(PAGE_SIZE),
     type: props.orderType,
   });
+  if (props.source) params.set('source', props.source);
   if (filter.value !== 'ALL') params.set('status', filter.value);
   if (searchTerm.value) params.set('search', searchTerm.value);
   return `/orders?${params}`;
@@ -103,7 +127,7 @@ const emptyList: OrdersListDto = {
 };
 
 const dataKey = computed(() =>
-  `admin-orders-${props.orderType.toLowerCase()}-${period.value}-${filter.value}-${searchTerm.value}-${page.value}`,
+  `admin-orders-${props.orderType.toLowerCase()}-${props.source ?? 'any'}-${period.value}-${filter.value}-${searchTerm.value}-${page.value}`,
 );
 
 const { data: ordersData, refresh, pending } = useAdminCachedData(
@@ -248,7 +272,11 @@ async function transition(order: OrderDto, status: OrderStatusValue) {
 
   const label = ORDER_TRANSITION_LABELS[status];
   const sku = orderSku(order);
-  const payload: { status: OrderStatusValue; confirmBalancePaid?: boolean } = { status };
+  const payload: {
+    status: OrderStatusValue;
+    confirmBalancePaid?: boolean;
+    paymentMethod?: PaymentMethod;
+  } = { status };
   if (status === 'CANCELADO') {
     const ok = await confirm({
       title: `¿Cancelar el pedido ${sku}?`,
@@ -256,6 +284,10 @@ async function transition(order: OrderDto, status: OrderStatusValue) {
       confirmLabel: 'Cancelar pedido',
     });
     if (!ok) return;
+  }
+  if (status === 'PAGADO') {
+    payload.paymentMethod =
+      paymentMethodByOrder.value[order.id] ?? 'NO_ESPECIFICADO';
   }
   if (status === 'ENTREGADO' && order.balanceDue > 0) {
     const ok = await confirm({
@@ -448,6 +480,9 @@ useSeoMeta({ title: props.seoTitle });
               <ul v-if="order.payments?.length" class="admin-record-list">
                 <li v-for="payment in order.payments" :key="payment.id">
                   {{ payment.type === 'ABONO' ? 'Abono' : 'Saldo' }}: {{ formatCop(payment.amount) }}
+                  <span v-if="payment.method">
+                    · {{ PAYMENT_METHOD_LABELS[payment.method] ?? payment.method }}
+                  </span>
                   · {{ formatDate(payment.paidAt) }}
                   <span v-if="payment.registeredByName"> · {{ payment.registeredByName }}</span>
                 </li>
@@ -574,6 +609,20 @@ useSeoMeta({ title: props.seoTitle });
             </AdminAccordionSection>
 
             <div class="admin-record-actions">
+              <template v-if="canDownloadReceipt(order)">
+                <button
+                  type="button"
+                  class="admin-record-btn"
+                  @click.stop="downloadReceipt(order)"
+                >
+                  Descargar comprobante
+                </button>
+                <span v-if="order.receiptNumber" class="admin-record-muted">
+                  N.º {{ order.receiptNumber }}
+                </span>
+                <span v-if="order.receiptVoided" class="admin-record-chip">Anulado</span>
+                <p class="admin-record-muted">Descárgalo y envíalo al cliente por WhatsApp.</p>
+              </template>
               <button
                 v-if="canRegisterBalance(order)"
                 type="button"
@@ -584,6 +633,28 @@ useSeoMeta({ title: props.seoTitle });
                 Registrar pago del saldo
               </button>
               <template v-if="nextTransitions(order).length || hasPendingWarranty(order)">
+                <label
+                  v-if="nextTransitions(order).includes(OrderStatus.PAGADO)"
+                  class="admin-record-muted"
+                >
+                  Método de pago
+                  <select
+                    class="admin-record-textarea"
+                    :value="paymentMethodByOrder[order.id] ?? 'NO_ESPECIFICADO'"
+                    @change.stop="
+                      paymentMethodByOrder[order.id] = ($event.target as HTMLSelectElement)
+                        .value as PaymentMethod
+                    "
+                  >
+                    <option
+                      v-for="option in paymentMethodOptions"
+                      :key="option.value"
+                      :value="option.value"
+                    >
+                      {{ option.label }}
+                    </option>
+                  </select>
+                </label>
                 <button
                   v-for="status in nextTransitions(order)"
                   :key="status"

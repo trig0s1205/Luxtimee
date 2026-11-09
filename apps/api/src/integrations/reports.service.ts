@@ -232,7 +232,7 @@ export class ReportsService {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Ganancia');
 
-    sheet.mergeCells('A1:I1');
+    sheet.mergeCells('A1:J1');
     const title = sheet.getCell('A1');
     title.value = 'LUXTIMEE — Reporte de Ganancia';
     title.font = { bold: true, size: 14 };
@@ -258,8 +258,47 @@ export class ReportsService {
     ]);
     sheet.addRow([]);
 
+    const channelLabel = (channel: string) =>
+      channel === 'LOCAL' ? 'Local' : 'Web';
+
+    sheet.addRow(['Por canal']).font = { bold: true };
+    const channelHeader = sheet.addRow([
+      'Canal',
+      'Ingreso',
+      'Costo',
+      'Ganancia bruta',
+      'Comisión',
+      'Ganancia neta',
+      'Domicilios',
+    ]);
+    channelHeader.font = { bold: true };
+    channelHeader.eachCell((cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFEDE3C7' },
+      };
+    });
+    for (const [label, totals] of [
+      ['Web', data.byChannel.web],
+      ['Local', data.byChannel.local],
+      ['Total', data.byChannel.total],
+    ] as const) {
+      sheet.addRow([
+        label,
+        totals.revenue,
+        totals.cost,
+        totals.grossProfit,
+        totals.commission,
+        totals.profit,
+        totals.shippingRevenue,
+      ]);
+    }
+    sheet.addRow([]);
+
     const headerRow = sheet.addRow([
       'Pedido',
+      'Canal',
       'Tipo',
       'Estado',
       'Producto',
@@ -293,6 +332,7 @@ export class ReportsService {
     data.items.forEach((item) => {
       sheet.addRow([
         item.readableId,
+        channelLabel(item.channel),
         orderTypeLabels[item.orderType] ?? item.orderType,
         orderStatusLabels[item.orderStatus] ?? item.orderStatus,
         item.productName,
@@ -306,6 +346,7 @@ export class ReportsService {
 
     sheet.addRow([]);
     const totalRow = sheet.addRow([
+      '',
       '',
       '',
       '',
@@ -482,15 +523,115 @@ export class ReportsService {
         );
       cy += 44;
 
+      const channelLabel = (channel: string) =>
+        channel === 'LOCAL' ? 'Local' : 'Web';
+
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(9)
+        .fillColor(BRAND.dark)
+        .text('Por canal', PG_MARGIN, cy, {
+          width: CONTENT_W,
+          lineBreak: false,
+        });
+      cy += 14;
+
+      const channelCols: PdfHeaderCell[] = [
+        { label: 'Canal', value: '', x: PG_MARGIN, w: 70, align: 'left' },
+        {
+          label: 'Ingreso',
+          value: '',
+          x: PG_MARGIN + 70,
+          w: 90,
+          align: 'right',
+        },
+        {
+          label: 'Comisión',
+          value: '',
+          x: PG_MARGIN + 160,
+          w: 90,
+          align: 'right',
+        },
+        {
+          label: 'Ganancia',
+          value: '',
+          x: PG_MARGIN + 250,
+          w: 90,
+          align: 'right',
+        },
+        {
+          label: 'Domicilios',
+          value: '',
+          x: PG_MARGIN + 340,
+          w: 175.28,
+          align: 'right',
+        },
+      ];
+      this.drawTableHeaderRow(doc, cy, channelCols);
+      cy += ROW_H;
+      const channelRows: Array<[string, typeof data.byChannel.web]> = [
+        ['Web', data.byChannel.web],
+        ['Local', data.byChannel.local],
+        ['Total', data.byChannel.total],
+      ];
+      for (const [idx, [label, totals]] of channelRows.entries()) {
+        const cells: PdfCell[] = [
+          {
+            value: label,
+            x: channelCols[0].x,
+            w: channelCols[0].w,
+            align: 'left',
+          },
+          {
+            value: this.fmt(totals.revenue),
+            x: channelCols[1].x,
+            w: channelCols[1].w,
+            align: 'right',
+          },
+          {
+            value: this.fmt(totals.commission),
+            x: channelCols[2].x,
+            w: channelCols[2].w,
+            align: 'right',
+          },
+          {
+            value: this.fmt(totals.profit),
+            x: channelCols[3].x,
+            w: channelCols[3].w,
+            align: 'right',
+          },
+          {
+            value: this.fmt(totals.shippingRevenue),
+            x: channelCols[4].x,
+            w: channelCols[4].w,
+            align: 'right',
+          },
+        ];
+        if (idx === 2) {
+          this.drawTotalRow(doc, cy, cells);
+        } else {
+          this.drawTableRow(doc, cy, cells, idx % 2 === 1);
+        }
+        cy += ROW_H;
+      }
+      cy += 10;
+
       // Column definitions
       const cols: PdfHeaderCell[] = [
-        { label: 'Fecha', value: '', x: PG_MARGIN, w: 65, align: 'left' },
-        { label: 'Pedido', value: '', x: PG_MARGIN + 65, w: 55, align: 'left' },
+        { label: 'Fecha', value: '', x: PG_MARGIN, w: 55, align: 'left' },
+        { label: 'Pedido', value: '', x: PG_MARGIN + 55, w: 50, align: 'left' },
+        {
+          label: 'Canal',
+          value: '',
+          x: PG_MARGIN + 105,
+          w: 40,
+          align: 'left',
+        },
         {
           label: 'Producto',
           value: '',
-          x: PG_MARGIN + 120,
-          w: 150,
+          x: PG_MARGIN + 145,
+          w: 125,
           align: 'left',
         },
         { label: 'Tipo', value: '', x: PG_MARGIN + 270, w: 50, align: 'left' },
@@ -566,33 +707,39 @@ export class ReportsService {
               align: 'left',
             },
             {
-              value: item.productName,
+              value: channelLabel(item.channel),
               x: cols[2].x,
               w: cols[2].w,
               align: 'left',
             },
             {
-              value: orderTypeLabels[item.orderType] ?? item.orderType,
+              value: item.productName,
               x: cols[3].x,
               w: cols[3].w,
               align: 'left',
             },
             {
-              value: String(item.quantity),
+              value: orderTypeLabels[item.orderType] ?? item.orderType,
               x: cols[4].x,
               w: cols[4].w,
+              align: 'left',
+            },
+            {
+              value: String(item.quantity),
+              x: cols[5].x,
+              w: cols[5].w,
               align: 'center',
             },
             {
               value: this.fmt(item.revenue),
-              x: cols[5].x,
-              w: cols[5].w,
+              x: cols[6].x,
+              w: cols[6].w,
               align: 'right',
             },
             {
               value: this.fmt(item.profit),
-              x: cols[6].x,
-              w: cols[6].w,
+              x: cols[7].x,
+              w: cols[7].w,
               align: 'right',
             },
           ];
@@ -609,23 +756,24 @@ export class ReportsService {
           { value: '', x: cols[0].x, w: cols[0].w, align: 'left' },
           { value: '', x: cols[1].x, w: cols[1].w, align: 'left' },
           { value: '', x: cols[2].x, w: cols[2].w, align: 'left' },
+          { value: '', x: cols[3].x, w: cols[3].w, align: 'left' },
           {
             value: 'TOTAL',
-            x: cols[3].x,
-            w: cols[3].w + cols[4].w,
+            x: cols[4].x,
+            w: cols[4].w + cols[5].w,
             align: 'right',
           },
-          { value: '', x: cols[4].x, w: 0, align: 'left' },
+          { value: '', x: cols[5].x, w: 0, align: 'left' },
           {
             value: this.fmt(data.totalRevenue),
-            x: cols[5].x,
-            w: cols[5].w,
+            x: cols[6].x,
+            w: cols[6].w,
             align: 'right',
           },
           {
             value: this.fmt(data.totalProfit),
-            x: cols[6].x,
-            w: cols[6].w,
+            x: cols[7].x,
+            w: cols[7].w,
             align: 'right',
           },
         ];

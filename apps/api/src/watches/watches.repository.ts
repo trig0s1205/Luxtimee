@@ -6,11 +6,7 @@ import type {
   InventoryInsightsDto,
 } from '@luxtime/shared';
 import { findWatchIdsByTextSearch } from '../common/utils/watch-text-search.util';
-import {
-  formatWatchSku,
-  recomputeSkuKeepingSequence,
-  resolveSkuPrefix,
-} from './utils/sku.util';
+import { formatWatchSku, resolveSkuPrefix } from './utils/sku.util';
 import { BULK_DRAFT_IDEMPOTENCY_FIELD } from './utils/bulk-draft.util';
 import { WatchQueryDto } from './dto/watch-query.dto';
 import { DRAFT_WATCH_MODEL } from './utils/watch-pending.util';
@@ -120,36 +116,6 @@ export class WatchesRepository {
     return this.prisma.watch.create({
       data,
       include: watchInclude,
-    });
-  }
-
-  async allocateReplacementSku(input: {
-    watchId: string;
-    currentSku: string;
-    retailPrice: number;
-    gender?: string | null;
-  }) {
-    const desired = recomputeSkuKeepingSequence(
-      input.currentSku,
-      input.retailPrice,
-      input.gender,
-    );
-    if (!desired || desired.toUpperCase() === input.currentSku.trim().toUpperCase()) {
-      return input.currentSku;
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      const prefix = resolveSkuPrefix(input.retailPrice, input.gender);
-      await this.lockKey(tx, 'luxtime-sku', prefix);
-      const taken = await tx.watch.findFirst({
-        where: { sku: desired, NOT: { id: input.watchId } },
-        select: { id: true },
-      });
-      const sku = taken
-        ? await this.allocateSkuLocked(tx, input.retailPrice, input.gender)
-        : desired;
-      await tx.watch.update({ where: { id: input.watchId }, data: { sku } });
-      return sku;
     });
   }
 

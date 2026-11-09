@@ -165,3 +165,17 @@ export interface PlatformConfigDto {
   tiktokUrl: string;
   facebookUrl: string;
 }
+
+export interface ReceiptConfigDto {
+  businessName: string;
+  ownerName: string;
+  ownerDocument: string;
+  phone: string;
+  whatsapp: string;
+  email: string;
+  city: string;
+  address: string;
+  logoUrl: string;
+  warrantyTerms: string;
+  footerNote: string;
+}

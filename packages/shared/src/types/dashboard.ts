@@ -1,3 +1,5 @@
+export type ProfitChannel = 'WEB' | 'LOCAL';
+
 export interface ProfitBreakdownItem {
   orderId: string;
   readableId: string;
@@ -11,6 +13,7 @@ export interface ProfitBreakdownItem {
   profit: number;
   commissionPercent: number;
   commission: number;
+  channel: ProfitChannel;
   paidAt: string;
 }
 
@@ -21,7 +24,23 @@ export interface ShippingBreakdownItem {
   orderStatus: string;
   shippingCost: number;
   shippingZoneName: string | null;
+  channel: ProfitChannel;
   paidAt: string;
+}
+
+export interface ProfitChannelTotalsDto {
+  revenue: number;
+  cost: number;
+  grossProfit: number;
+  commission: number;
+  profit: number;
+  shippingRevenue: number;
+}
+
+export interface ProfitByChannelDto {
+  web: ProfitChannelTotalsDto;
+  local: ProfitChannelTotalsDto;
+  total: ProfitChannelTotalsDto;
 }
 
 export interface ProfitDashboardDto {
@@ -38,6 +57,7 @@ export interface ProfitDashboardDto {
   commissionPercent: number;
   totalInventoryInvestment: number;
   totalShippingRevenue: number;
+  byChannel: ProfitByChannelDto;
   items: ProfitBreakdownItem[];
   shippingItems: ShippingBreakdownItem[];
 }

@@ -83,6 +83,11 @@ describe('ciclo de stock mayorista', () => {
       { generateForOrder: async () => [] } as unknown as CertificatesService,
       new MemoryCacheService(),
       notifier,
+      {
+        ensureForOrder: async () => null,
+        voidForOrder: async () => undefined,
+        issueInTx: async () => ({ id: 'receipt-1' }),
+      } as never,
     );
     const brand = await prisma.brand.create({
       data: { name: `Marca ${prefix}`, slug: prefix },
