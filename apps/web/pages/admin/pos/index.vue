@@ -13,6 +13,11 @@ import {
 } from '~/utils/barcode-scan';
 import { playBeep } from '~/utils/pos-feedback';
 import { formatCop } from '~/utils/format';
+import { optimizeCloudinaryImageUrl } from '~/utils/media-url';
+import {
+  photoInitials,
+  stockBadge,
+} from '~/utils/pos-catalog';
 
 definePageMeta({ middleware: ['admin'] });
 useSeoMeta({ title: 'POS — LUXTIMEE Admin' });
@@ -59,6 +64,10 @@ const windowDetector = createScanDetector();
 const manualSearch = ref('');
 const manualBusy = ref(false);
 const manualHits = ref<PosWatchDto[]>([]);
+const manualOpen = ref(false);
+const manualHighlight = ref(-1);
+const manualBroken = reactive<Record<string, boolean>>({});
+const { resolve: resolveMedia } = useMediaUrl();
 let manualTimer: ReturnType<typeof setTimeout> | null = null;
 
 const cart = ref<CartLine[]>([]);
@@ -170,18 +179,74 @@ async function runManualSearch(forced?: string) {
   if (forced !== undefined) manualSearch.value = q;
   if (q.length < 2) {
     manualHits.value = [];
+    manualOpen.value = false;
+    manualHighlight.value = -1;
     return;
   }
   manualBusy.value = true;
+  manualOpen.value = true;
   try {
-    manualHits.value = await api.get<PosWatchDto[]>('/pos/watches', {
+    const data = await api.get<PosWatchDto[]>('/pos/watches', {
       search: q,
     });
+    manualHits.value = Array.isArray(data) ? data : [];
+    manualHighlight.value = manualHits.value.length ? 0 : -1;
+    for (const key of Object.keys(manualBroken)) {
+      manualBroken[key] = false;
+    }
   } catch (err: unknown) {
     manualHits.value = [];
+    manualHighlight.value = -1;
     toast.error(extractApiErrorMessage(err, 'No se pudo buscar.'));
   } finally {
     manualBusy.value = false;
+  }
+}
+
+function manualThumb(watch: PosWatchDto) {
+  if (manualBroken[watch.id] || !watch.imageUrl) return null;
+  return optimizeCloudinaryImageUrl(
+    resolveMedia(watch.imageUrl) ?? watch.imageUrl,
+    96,
+  );
+}
+
+function closeManualHits() {
+  manualOpen.value = false;
+  manualHighlight.value = -1;
+}
+
+function onManualKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    if (manualOpen.value || manualHits.value.length) {
+      event.preventDefault();
+      closeManualHits();
+      manualHits.value = [];
+    }
+    return;
+  }
+  if (!manualHits.value.length) return;
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    manualOpen.value = true;
+    manualHighlight.value =
+      (manualHighlight.value + 1) % manualHits.value.length;
+    return;
+  }
+  if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    manualOpen.value = true;
+    manualHighlight.value =
+      (manualHighlight.value - 1 + manualHits.value.length) %
+      manualHits.value.length;
+    return;
+  }
+  if (event.key === 'Enter') {
+    const hit =
+      manualHits.value[manualHighlight.value] ?? manualHits.value[0];
+    if (!hit) return;
+    event.preventDefault();
+    addManualHit(hit);
   }
 }
 
@@ -189,6 +254,7 @@ function addManualHit(watch: PosWatchDto) {
   upsertWatch(watch, 1);
   manualSearch.value = '';
   manualHits.value = [];
+  closeManualHits();
   focusScanner();
 }
 
@@ -582,23 +648,73 @@ onBeforeUnmount(() => {
           </div>
         </label>
 
-        <label class="pos-field">
+        <div class="pos-field pos-manual" @keydown="onManualKeydown">
           <span>Búsqueda manual</span>
           <UiLuxInput
             v-model="manualSearch"
             placeholder="SKU, marca o modelo"
+            autocomplete="off"
             @input="onManualSearchInput"
+            @focus="manualOpen = manualHits.length > 0 || manualBusy"
           />
-        </label>
-        <ul v-if="manualHits.length" class="pos-hints">
-          <li v-for="hit in manualHits" :key="hit.id">
-            <button type="button" @click="addManualHit(hit)">
-              {{ hit.brandName }} {{ hit.model }} · {{ hit.sku }} ·
-              {{ formatCop(hit.retailPrice) }} · stock {{ hit.stock }}
-            </button>
-          </li>
-        </ul>
-        <p v-else-if="manualBusy" class="admin-record-muted">Buscando…</p>
+          <p v-if="manualBusy" class="admin-record-muted pos-manual__status">
+            Buscando…
+          </p>
+          <p
+            v-else-if="manualOpen && manualSearch.trim().length >= 2 && !manualHits.length"
+            class="admin-record-muted pos-manual__status"
+          >
+            Sin resultados para “{{ manualSearch.trim() }}”
+          </p>
+          <ul
+            v-if="manualOpen && manualHits.length"
+            class="pos-manual__list"
+            role="listbox"
+            aria-label="Resultados de búsqueda"
+          >
+            <li
+              v-for="(hit, idx) in manualHits"
+              :key="hit.id"
+              role="option"
+              :aria-selected="idx === manualHighlight"
+            >
+              <button
+                type="button"
+                class="pos-manual__hit"
+                :class="{ 'is-active': idx === manualHighlight }"
+                @mouseenter="manualHighlight = idx"
+                @click="addManualHit(hit)"
+              >
+                <img
+                  v-if="manualThumb(hit)"
+                  :src="manualThumb(hit)!"
+                  :alt="`${hit.brandName} ${hit.model}`"
+                  class="pos-manual__thumb"
+                  loading="lazy"
+                  @error="manualBroken[hit.id] = true"
+                >
+                <span
+                  v-else
+                  class="pos-manual__thumb pos-manual__thumb--empty"
+                  aria-hidden="true"
+                >
+                  {{ photoInitials(hit.brandName, hit.model) }}
+                </span>
+                <span class="pos-manual__meta">
+                  <strong>{{ hit.brandName }} {{ hit.model }}</strong>
+                  <span class="pos-manual__sku">{{ hit.sku }}</span>
+                  <span>{{ formatCop(hit.retailPrice) }}</span>
+                </span>
+                <span
+                  class="pos-manual__badge"
+                  :class="{ 'is-last': hit.stock === 1 }"
+                >
+                  {{ stockBadge(hit.stock) }}
+                </span>
+              </button>
+            </li>
+          </ul>
+        </div>
 
         <div v-if="!cart.length" class="admin-record-empty">
           Carrito vacío. Escanea un reloj o agrégalo desde el catálogo.
@@ -691,6 +807,7 @@ onBeforeUnmount(() => {
           ref="catalogRef"
           :cart-qty-by-id="cartQtyById"
           @add="upsertWatch($event, 1)"
+          @preview-closed="focusScanner"
         />
       </section>
 
@@ -898,6 +1015,10 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.pos-page.admin-records-page {
+  max-width: min(1600px, 100%);
+}
+
 .pos-layout {
   display: grid;
   gap: 1rem;
@@ -1050,6 +1171,95 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 
+.pos-manual {
+  position: relative;
+}
+
+.pos-manual__status {
+  margin: 0.35rem 0 0;
+}
+
+.pos-manual__list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  border: 1px solid rgba(200, 169, 110, 0.28);
+  background: rgba(20, 20, 20, 0.96);
+  max-height: 320px;
+  overflow: auto;
+  z-index: 5;
+}
+
+.pos-manual__hit {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  gap: 0.65rem;
+  align-items: center;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  padding: 0.65rem 0.75rem;
+  cursor: pointer;
+}
+
+.pos-manual__hit:hover,
+.pos-manual__hit.is-active {
+  background: rgba(200, 169, 110, 0.14);
+}
+
+.pos-manual__thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 2px;
+  background: #f3eee3;
+}
+
+.pos-manual__thumb--empty {
+  display: grid;
+  place-items: center;
+  color: var(--lux-gold, #b8962e);
+  font-family: var(--lux-font-display, Cormorant, Georgia, serif);
+  font-size: 0.95rem;
+}
+
+.pos-manual__meta {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.pos-manual__meta strong {
+  font-size: 0.92rem;
+  line-height: 1.25;
+}
+
+.pos-manual__sku {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  color: #9ca3af;
+}
+
+.pos-manual__badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(200, 169, 110, 0.16);
+  color: #e8d7a8;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pos-manual__badge.is-last {
+  background: rgba(180, 83, 9, 0.22);
+  color: #fdba74;
+}
+
 .pos-hints {
   list-style: none;
   margin: 0;
@@ -1099,7 +1309,7 @@ onBeforeUnmount(() => {
 
 @media (min-width: 1100px) {
   .pos-layout {
-    grid-template-columns: minmax(280px, 0.9fr) minmax(420px, 1.4fr) minmax(300px, 1fr);
+    grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.8fr) minmax(280px, 1fr);
     align-items: start;
   }
 }
