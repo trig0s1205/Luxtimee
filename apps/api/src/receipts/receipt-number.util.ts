@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import { nextDocumentSequence } from '../common/utils/document-counter.util';
 
 export const RECEIPT_PREFIX = 'LXT-';
 export const RECEIPT_COUNTER_KEY = 'SALE_RECEIPT';
@@ -17,16 +18,5 @@ export function formatReceiptNumber(seq: number): string {
 export async function nextReceiptSequence(
   tx: Prisma.TransactionClient,
 ): Promise<number> {
-  const rows = await tx.$queryRaw<Array<{ lastValue: number }>>`
-    INSERT INTO "DocumentCounter" ("key", "lastValue", "updatedAt")
-    VALUES (${RECEIPT_COUNTER_KEY}, 1, NOW())
-    ON CONFLICT ("key") DO UPDATE
-      SET "lastValue" = "DocumentCounter"."lastValue" + 1, "updatedAt" = NOW()
-    RETURNING "lastValue"
-  `;
-  const value = rows[0]?.lastValue;
-  if (!Number.isInteger(value) || value < 1) {
-    throw new Error('No se pudo obtener el consecutivo del comprobante');
-  }
-  return value;
+  return nextDocumentSequence(tx, RECEIPT_COUNTER_KEY, 1);
 }

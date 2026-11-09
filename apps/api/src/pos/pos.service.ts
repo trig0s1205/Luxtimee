@@ -33,7 +33,8 @@ import {
 import { sanitizePlainText } from '../common/utils/sanitize-text.util';
 import { ImageProcessingService } from '../integrations/image-processing.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { generateReadableId } from '../orders/order-pricing.util';
+import { nextOrderReadableId } from '../common/utils/document-counter.util';
+import { withTxnRetries } from '../common/utils/txn-retries.util';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   bogotaDayRange,
@@ -47,16 +48,6 @@ import {
   PosMySalesQueryDto,
 } from './dto/pos.dto';
 import { PosCatalogService } from './pos-catalog.service';
-
-function isReadableIdUniqueViolation(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === 'P2002' &&
-    (Array.isArray(error.meta?.target)
-      ? (error.meta?.target as string[]).includes('readableId')
-      : String(error.meta?.target ?? '').includes('readableId'))
-  );
-}
 
 function toClosingDto(
   row: {
@@ -240,103 +231,93 @@ export class PosService {
       ? sanitizePlainText(dto.note, 300) || null
       : null;
 
-    let lastError: unknown;
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    const result = await withTxnRetries(async () => {
       const now = new Date();
-      const readableId = generateReadableId(
-        (await this.prisma.order.count()) + 1 + attempt,
-      );
-      try {
-        const result = await this.prisma.$transaction(async (tx) => {
-          await reserveWatchStock(
-            tx,
-            lines.map((line) => ({
-              watchId: line.watchId,
-              quantity: line.quantity,
-            })),
-            {
-              requireActive: true,
-              message:
-                'Stock insuficiente: otra venta se llevó este reloj. Actualiza el carrito.',
-              inactiveMessage: 'Este reloj ya no está disponible',
-            },
-          );
-
-          const created = await tx.order.create({
-            data: {
-              readableId,
-              stage: OrderStage.ORDER,
-              status: OrderStatus.ENTREGADO,
-              type: OrderType.DETAL,
-              source: OrderSource.LOCAL,
-              customerName,
-              customerDocument,
-              customerPhone,
-              customerEmail,
-              customerAddress: 'Venta en local',
-              shippingCost: 0,
-              depositExpected: 0,
-              depositConfirmed: false,
-              subtotal,
-              total,
-              paidAt: now,
-              deliveredAt: now,
-              sellerId: user.id,
-              specialNote: note,
-              items: { create: itemCreates },
-              payments: {
-                create: normalized.map((payment) => ({
-                  type: OrderPaymentType.SALDO,
-                  amount: payment.amount,
-                  paidAt: now,
-                  registeredById: user.id,
-                  method: payment.method as PaymentMethod,
-                  reference: payment.reference,
-                  proofUrl: payment.proofUrl,
-                  cardLast4: payment.cardLast4,
-                  cashReceived: payment.cashReceived,
-                  changeGiven: payment.changeGiven,
-                })),
-              },
-            },
-            select: { id: true, readableId: true },
-          });
-
-          const receipt = await this.receiptsService.issueInTx(tx, created.id, {
-            channel: 'LOCAL',
-            saleDate: now,
-            sellerId: user.id,
-          });
-
-          return {
-            orderId: created.id,
-            readableId: created.readableId,
-            receiptId: receipt.id,
-            receiptNumber: receipt.number,
-            total,
-            changeTotal,
-          };
-        }, STOCK_TRANSACTION);
-
-        this.cache.invalidateTag(CACHE_TAGS.catalog);
-        await this.notificationsService.emit({
-          type: 'POS_SALE',
-          targetRole: Role.ADMIN,
-          payload: {
-            orderId: result.orderId,
-            readableId: result.readableId,
-            receiptNumber: result.receiptNumber,
-            total: result.total,
+      return this.prisma.$transaction(async (tx) => {
+        await reserveWatchStock(
+          tx,
+          lines.map((line) => ({
+            watchId: line.watchId,
+            quantity: line.quantity,
+          })),
+          {
+            requireActive: true,
+            message:
+              'Stock insuficiente: otra venta se llevó este reloj. Actualiza el carrito.',
+            inactiveMessage: 'Este reloj ya no está disponible',
           },
+        );
+
+        const readableId = await nextOrderReadableId(tx, now);
+        const created = await tx.order.create({
+          data: {
+            readableId,
+            stage: OrderStage.ORDER,
+            status: OrderStatus.ENTREGADO,
+            type: OrderType.DETAL,
+            source: OrderSource.LOCAL,
+            customerName,
+            customerDocument,
+            customerPhone,
+            customerEmail,
+            customerAddress: 'Venta en local',
+            shippingCost: 0,
+            depositExpected: 0,
+            depositConfirmed: false,
+            subtotal,
+            total,
+            paidAt: now,
+            deliveredAt: now,
+            sellerId: user.id,
+            specialNote: note,
+            items: { create: itemCreates },
+            payments: {
+              create: normalized.map((payment) => ({
+                type: OrderPaymentType.SALDO,
+                amount: payment.amount,
+                paidAt: now,
+                registeredById: user.id,
+                method: payment.method as PaymentMethod,
+                reference: payment.reference,
+                proofUrl: payment.proofUrl,
+                cardLast4: payment.cardLast4,
+                cashReceived: payment.cashReceived,
+                changeGiven: payment.changeGiven,
+              })),
+            },
+          },
+          select: { id: true, readableId: true },
         });
-        return result;
-      } catch (error) {
-        lastError = error;
-        if (isReadableIdUniqueViolation(error)) continue;
-        throw error;
-      }
-    }
-    throw lastError;
+
+        const receipt = await this.receiptsService.issueInTx(tx, created.id, {
+          channel: 'LOCAL',
+          saleDate: now,
+          sellerId: user.id,
+        });
+
+        return {
+          orderId: created.id,
+          readableId: created.readableId,
+          receiptId: receipt.id,
+          receiptNumber: receipt.number,
+          total,
+          changeTotal,
+        };
+      }, STOCK_TRANSACTION);
+    });
+
+    this.cache.invalidateTag(CACHE_TAGS.catalog);
+    await this.notificationsService.emit({
+      type: 'POS_SALE',
+      targetRole: Role.ADMIN,
+      payload: {
+        orderId: result.orderId,
+        readableId: result.readableId,
+        receiptNumber: result.receiptNumber,
+        total: result.total,
+      },
+    });
+    return result;
   }
 
   async mySales(

@@ -97,13 +97,16 @@ describe('PosService.createSale', () => {
             },
           ]),
         },
-        order: { count: jest.fn(async () => 0) },
         $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
           fn({
+            $queryRaw: jest
+              .fn()
+              .mockResolvedValueOnce([{ max_seq: 0 }])
+              .mockResolvedValueOnce([{ lastValue: 1 }]),
             order: {
               create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
                 createdData = data;
-                return { id: 'o1', readableId: 'LX-1' };
+                return { id: 'o1', readableId: data.readableId };
               }),
             },
           }),

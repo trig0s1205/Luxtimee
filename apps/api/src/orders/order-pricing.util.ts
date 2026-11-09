@@ -1,5 +1,9 @@
 import { OrderType, PriceType } from '@prisma/client';
 import { depositForUnits } from '@luxtime/shared';
+import {
+  bogotaYmdCompact,
+  formatOrderReadableId,
+} from '../common/utils/document-counter.util';
 
 export type PricingChannel = 'retail' | 'wholesale';
 
@@ -70,11 +74,10 @@ export function priceOrderLines(
   };
 }
 
-export function generateReadableId(sequence: number): string {
-  const date = new Date();
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  const seq = String(sequence).padStart(4, '0');
-  return `LX-${y}${m}${d}-${seq}`;
+/** Formatea LX-YYYYMMDD-NNNN con el día civil de Bogotá. */
+export function generateReadableId(
+  sequence: number,
+  now: Date = new Date(),
+): string {
+  return formatOrderReadableId(bogotaYmdCompact(now), sequence);
 }
