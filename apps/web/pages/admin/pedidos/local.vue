@@ -1,11 +1,14 @@
 <script setup lang="ts">
-definePageMeta({ middleware: ['admin'] });
-useHead({ title: 'Ventas en el local' });
+import { OrderSource, OrderType } from '@luxtime/shared';
+
+definePageMeta({ middleware: ['admin'], keepalive: true });
 </script>
 
 <template>
-  <div class="admin-page">
-    <h1>Ventas en el local</h1>
-    <p>En construcción</p>
-  </div>
+  <AdminOrdersPanel
+    :order-type="OrderType.DETAL"
+    :source="OrderSource.LOCAL"
+    title="Ventas en el local"
+    seo-title="Ventas en el local — LUXTIMEE Admin"
+  />
 </template>

@@ -11,6 +11,7 @@ import {
   type OrderItemDto,
   type OrderListPeriod,
   type OrdersListDto,
+  type OrderSource,
   type OrderStatusValue,
   type OrderType,
   type PaymentMethod,
@@ -27,6 +28,7 @@ const props = defineProps<{
   orderType: OrderType;
   title: string;
   seoTitle: string;
+  source?: OrderSource;
 }>();
 
 const api = useApi();
@@ -100,6 +102,7 @@ function buildOrdersUrl() {
     limit: String(PAGE_SIZE),
     type: props.orderType,
   });
+  if (props.source) params.set('source', props.source);
   if (filter.value !== 'ALL') params.set('status', filter.value);
   if (searchTerm.value) params.set('search', searchTerm.value);
   return `/orders?${params}`;
@@ -124,7 +127,7 @@ const emptyList: OrdersListDto = {
 };
 
 const dataKey = computed(() =>
-  `admin-orders-${props.orderType.toLowerCase()}-${period.value}-${filter.value}-${searchTerm.value}-${page.value}`,
+  `admin-orders-${props.orderType.toLowerCase()}-${props.source ?? 'any'}-${period.value}-${filter.value}-${searchTerm.value}-${page.value}`,
 );
 
 const { data: ordersData, refresh, pending } = useAdminCachedData(
@@ -477,6 +480,9 @@ useSeoMeta({ title: props.seoTitle });
               <ul v-if="order.payments?.length" class="admin-record-list">
                 <li v-for="payment in order.payments" :key="payment.id">
                   {{ payment.type === 'ABONO' ? 'Abono' : 'Saldo' }}: {{ formatCop(payment.amount) }}
+                  <span v-if="payment.method">
+                    · {{ PAYMENT_METHOD_LABELS[payment.method] ?? payment.method }}
+                  </span>
                   · {{ formatDate(payment.paidAt) }}
                   <span v-if="payment.registeredByName"> · {{ payment.registeredByName }}</span>
                 </li>

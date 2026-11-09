@@ -191,6 +191,7 @@ export class OrdersService {
       period?: OrdersPeriod;
       status?: OrderStatus;
       type?: OrderType;
+      source?: OrderSource;
       search?: string;
       page?: number;
       limit?: number;
@@ -205,6 +206,12 @@ export class OrdersService {
     if (options.status) filters.push({ status: options.status });
     const matchedIds = await findOrderIdsByTextSearch(this.prisma, options.search);
     if (matchedIds) filters.push({ id: { in: matchedIds } });
+
+    if (options.source) {
+      filters.push({ source: options.source });
+    } else if (options.type === OrderType.DETAL) {
+      filters.push({ source: { not: OrderSource.LOCAL } });
+    }
 
     const where: Prisma.OrderWhereInput = {
       stage: OrderStage.ORDER,

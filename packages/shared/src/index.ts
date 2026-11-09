@@ -130,3 +130,4 @@ export * from './utils/product-watch-name.js';
 export * from './types/warranty-history.js';
 export * from './types/inventory.js';
 export * from './types/wholesale-access.js';
+export * from './types/pos.js';
