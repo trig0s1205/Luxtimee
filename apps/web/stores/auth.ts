@@ -26,7 +26,9 @@ import {
 
 function isStaffUser(user: AuthUserDto | null | { role: string }) {
   return user?.role === Role.ADMIN || user?.role === Role.SUPER_ADMIN
-    || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+    || user?.role === Role.VENDEDOR_LOCAL
+    || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN'
+    || user?.role === 'VENDEDOR_LOCAL';
 }
 
 export const useAuthStore = defineStore('auth', {
@@ -41,10 +43,17 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isAuthenticated: (state) => !!state.user,
     isStaff: (state) => state.user?.role === 'ADMIN' || state.user?.role === 'SUPER_ADMIN',
+    isLocalSeller: (state) => state.user?.role === 'VENDEDOR_LOCAL',
+    canUsePanel: (state) =>
+      state.user?.role === 'ADMIN'
+      || state.user?.role === 'SUPER_ADMIN'
+      || state.user?.role === 'VENDEDOR_LOCAL',
     isSuperAdmin: (state) => state.user?.role === 'SUPER_ADMIN',
     hasApiSession: (state) =>
       !state.isLocalSession
-      && (state.user?.role === 'ADMIN' || state.user?.role === 'SUPER_ADMIN'),
+      && (state.user?.role === 'ADMIN'
+        || state.user?.role === 'SUPER_ADMIN'
+        || state.user?.role === 'VENDEDOR_LOCAL'),
   },
   actions: {
     setUser(user: AuthUserDto | null, isLocalSession = false) {

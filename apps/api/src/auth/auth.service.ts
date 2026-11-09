@@ -29,7 +29,19 @@ export interface JwtPayload {
   jti?: string;
 }
 
-const STAFF_ROLES = new Set<Role>([Role.ADMIN, Role.SUPER_ADMIN]);
+export const STAFF_ROLES = new Set<Role>([
+  Role.ADMIN,
+  Role.SUPER_ADMIN,
+  Role.VENDEDOR_LOCAL,
+]);
+
+export function assertStaffRole(role: Role) {
+  if (!STAFF_ROLES.has(role)) {
+    throw new UnauthorizedException(
+      'No tienes acceso al panel de administración',
+    );
+  }
+}
 
 type SessionUser = {
   id: string;
@@ -50,14 +62,6 @@ export class AuthService {
     private jwtService: JwtService,
     private config: ConfigService,
   ) {}
-
-  private assertStaffRole(role: Role) {
-    if (!STAFF_ROLES.has(role)) {
-      throw new UnauthorizedException(
-        'No tienes acceso al panel de administración',
-      );
-    }
-  }
 
   private accessSecret() {
     return readJwtSecret(this.config.get<string>('JWT_SECRET'));
@@ -103,7 +107,7 @@ export class AuthService {
       );
     }
 
-    this.assertStaffRole(existing.role);
+    assertStaffRole(existing.role);
 
     return this.prisma.user.update({
       where: { id: existing.id },
@@ -147,7 +151,7 @@ export class AuthService {
       });
     }
 
-    this.assertStaffRole(user.role);
+    assertStaffRole(user.role);
     return user;
   }
 
@@ -301,7 +305,7 @@ export class AuthService {
       );
     }
 
-    this.assertStaffRole(existing.role);
+    assertStaffRole(existing.role);
 
     return this.prisma.user.update({
       where: { email },

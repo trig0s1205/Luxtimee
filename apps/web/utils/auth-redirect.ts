@@ -2,7 +2,7 @@ import type { AuthUserDto } from '@luxtime/shared';
 import { Role } from '@luxtime/shared';
 import { isStaffLoginRoute, staffLoginPath } from '~/utils/staff-login';
 
-const STAFF_ROLES = new Set<Role>([Role.ADMIN, Role.SUPER_ADMIN]);
+const STAFF_ROLES = new Set<Role>([Role.ADMIN, Role.SUPER_ADMIN, Role.VENDEDOR_LOCAL]);
 
 export const AUTH_REDIRECT_KEY = 'LUXTIMEE_auth_redirect';
 
@@ -21,6 +21,10 @@ export function resolvePostLoginRedirect(user: AuthUserDto, requested?: string |
   const path = requested?.trim();
   if (isSafeRedirect(path) && path.startsWith('/admin') && !isStaffLoginRoute(path, slug)) {
     return path;
+  }
+
+  if (user.role === Role.VENDEDOR_LOCAL) {
+    return '/admin/pos';
   }
 
   return '/admin/inventario';

@@ -16,6 +16,13 @@ const pedidosOpen = ref(false);
 
 type AdminNavLink = { to: string; label: string; superOnly?: boolean };
 
+const localLinks: AdminNavLink[] = [
+  { to: '/admin/pos', label: 'POS' },
+  { to: '/admin/pos/mis-ventas', label: 'Mis ventas' },
+  { to: '/admin/pos/caja', label: 'Cierre de caja' },
+  { to: '/admin/comprobantes', label: 'Comprobantes' },
+];
+
 const dashboardLinks: AdminNavLink[] = [
   { to: '/admin/dashboards/ganancia', label: 'Ganancia', superOnly: true },
   { to: '/admin/dashboards/salud', label: 'Panel de salud' },
@@ -49,6 +56,7 @@ const pedidosLinks = [
   { to: '/admin/pedidos/detal', label: 'Al detal' },
   { to: '/admin/pedidos/mayor', label: 'Al mayor' },
   { to: '/admin/pedidos/especiales', label: 'Ventas especiales' },
+  { to: '/admin/pedidos/local', label: 'En el local' },
 ];
 
 function isActive(path: string) {
@@ -77,10 +85,10 @@ function onNavigate() {
 
 <template>
   <nav class="admin-sidebar-nav">
-    <div class="admin-nav-section">
-      <p class="admin-nav-section-label">Panel</p>
+    <div v-if="auth.isLocalSeller" class="admin-nav-section">
+      <p class="admin-nav-section-label">Local</p>
       <NuxtLink
-        v-for="link in visibleDashboardLinks"
+        v-for="link in localLinks"
         :key="link.to"
         :to="link.to"
         prefetch
@@ -89,179 +97,217 @@ function onNavigate() {
         @click="onNavigate"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-          <path d="M3 12h4l2-7 4 14 2-7h6" />
+          <rect x="3" y="3" width="18" height="18" rx="1" />
         </svg>
         {{ link.label }}
       </NuxtLink>
     </div>
 
-    <div class="admin-nav-section">
-      <NuxtLink
-        v-for="link in visibleLinks(linksBeforePedidos)"
-        :key="`${link.to}-${link.label}`"
-        :to="link.to"
-        prefetch
-        class="admin-nav-link"
-        :class="{ active: isActive(link.to) }"
-        @click="onNavigate"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-          <rect x="3" y="3" width="18" height="18" rx="1" />
-        </svg>
-        {{ link.label }}
-      </NuxtLink>
+    <template v-else>
+      <div class="admin-nav-section">
+        <p class="admin-nav-section-label">Panel</p>
+        <NuxtLink
+          v-for="link in visibleDashboardLinks"
+          :key="link.to"
+          :to="link.to"
+          prefetch
+          class="admin-nav-link"
+          :class="{ active: isActive(link.to) }"
+          @click="onNavigate"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M3 12h4l2-7 4 14 2-7h6" />
+          </svg>
+          {{ link.label }}
+        </NuxtLink>
+      </div>
 
-      <div class="admin-nav-dropdown" :class="{ 'is-open': prePedidosOpen }">
-        <button
-          type="button"
-          class="admin-nav-link admin-nav-link--toggle"
-          :class="{ active: isPrePedidosActive }"
-          :aria-expanded="prePedidosOpen"
-          @click="prePedidosOpen = !prePedidosOpen"
+      <div class="admin-nav-section">
+        <p class="admin-nav-section-label">Local</p>
+        <NuxtLink
+          v-for="link in localLinks"
+          :key="`staff-${link.to}`"
+          :to="link.to"
+          prefetch
+          class="admin-nav-link"
+          :class="{ active: isActive(link.to) }"
+          @click="onNavigate"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="1" />
           </svg>
-          Pre-pedidos
-          <svg class="admin-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-            <path d="M6 9l6 6 6-6" />
-          </svg>
-        </button>
-
-        <div v-show="prePedidosOpen" class="admin-nav-dropdown-menu">
-          <NuxtLink
-            v-for="link in prePedidosLinks"
-            :key="link.to"
-            :to="link.to"
-            prefetch
-            class="admin-nav-link admin-nav-link--sub"
-            :class="{ active: isActive(link.to) }"
-            @click="onNavigate"
-          >
-            {{ link.label }}
-          </NuxtLink>
-        </div>
+          {{ link.label }}
+        </NuxtLink>
       </div>
 
-      <div class="admin-nav-dropdown" :class="{ 'is-open': pedidosOpen }">
-        <button
-          type="button"
-          class="admin-nav-link admin-nav-link--toggle"
-          :class="{ active: isPedidosActive }"
-          :aria-expanded="pedidosOpen"
-          @click="pedidosOpen = !pedidosOpen"
+      <div class="admin-nav-section">
+        <NuxtLink
+          v-for="link in visibleLinks(linksBeforePedidos)"
+          :key="`${link.to}-${link.label}`"
+          :to="link.to"
+          prefetch
+          class="admin-nav-link"
+          :class="{ active: isActive(link.to) }"
+          @click="onNavigate"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="1" />
           </svg>
-          Pedidos
-          <svg class="admin-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-            <path d="M6 9l6 6 6-6" />
+          {{ link.label }}
+        </NuxtLink>
+
+        <div class="admin-nav-dropdown" :class="{ 'is-open': prePedidosOpen }">
+          <button
+            type="button"
+            class="admin-nav-link admin-nav-link--toggle"
+            :class="{ active: isPrePedidosActive }"
+            :aria-expanded="prePedidosOpen"
+            @click="prePedidosOpen = !prePedidosOpen"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="1" />
+            </svg>
+            Pre-pedidos
+            <svg class="admin-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+
+          <div v-show="prePedidosOpen" class="admin-nav-dropdown-menu">
+            <NuxtLink
+              v-for="link in prePedidosLinks"
+              :key="link.to"
+              :to="link.to"
+              prefetch
+              class="admin-nav-link admin-nav-link--sub"
+              :class="{ active: isActive(link.to) }"
+              @click="onNavigate"
+            >
+              {{ link.label }}
+            </NuxtLink>
+          </div>
+        </div>
+
+        <div class="admin-nav-dropdown" :class="{ 'is-open': pedidosOpen }">
+          <button
+            type="button"
+            class="admin-nav-link admin-nav-link--toggle"
+            :class="{ active: isPedidosActive }"
+            :aria-expanded="pedidosOpen"
+            @click="pedidosOpen = !pedidosOpen"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="1" />
+            </svg>
+            Pedidos
+            <svg class="admin-nav-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+
+          <div v-show="pedidosOpen" class="admin-nav-dropdown-menu">
+            <NuxtLink
+              v-for="link in pedidosLinks"
+              :key="link.to"
+              :to="link.to"
+              prefetch
+              class="admin-nav-link admin-nav-link--sub"
+              :class="{ active: isActive(link.to) }"
+              @click="onNavigate"
+            >
+              {{ link.label }}
+            </NuxtLink>
+          </div>
+        </div>
+
+        <NuxtLink
+          to="/admin/gastos"
+          prefetch
+          class="admin-nav-link"
+          :class="{ active: isActive('/admin/gastos') }"
+          @click="onNavigate"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21V3z" />
+            <path d="M9 8h6M9 12h6M9 16h4" />
           </svg>
+          Gastos
+        </NuxtLink>
+
+        <NuxtLink
+          to="/admin/ventas"
+          prefetch
+          class="admin-nav-link"
+          :class="{ active: isActive('/admin/ventas') }"
+          @click="onNavigate"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M4 4h16v2H4zM4 8h16l-2 10H6L4 8z" />
+            <path d="M9 12h6M9 15h4" />
+          </svg>
+          Ventas
+        </NuxtLink>
+
+        <NuxtLink
+          v-for="link in visibleLinks(linksAfterPedidos)"
+          :key="`${link.to}-${link.label}`"
+          :to="link.to"
+          prefetch
+          class="admin-nav-link"
+          :class="{ active: isActive(link.to) }"
+          @click="onNavigate"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="1" />
+          </svg>
+          {{ link.label }}
+        </NuxtLink>
+
+        <NuxtLink
+          to="/admin/notificaciones"
+          prefetch
+          class="admin-nav-link"
+          :class="{ active: isActive('/admin/notificaciones') }"
+          @click="onNavigate"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" />
+            <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+          </svg>
+          Notificaciones
+          <span
+            v-if="unreadBadge"
+            class="admin-nav-badge"
+            :aria-label="`${unreadCount} sin leer`"
+          >{{ unreadBadge }}</span>
+        </NuxtLink>
+        <button
+          type="button"
+          class="admin-nav-sound"
+          @click="setSoundEnabled(!soundEnabled)"
+        >
+          {{ soundEnabled ? 'Silenciar avisos' : 'Activar sonido' }}
         </button>
 
-        <div v-show="pedidosOpen" class="admin-nav-dropdown-menu">
-          <NuxtLink
-            v-for="link in pedidosLinks"
-            :key="link.to"
-            :to="link.to"
-            prefetch
-            class="admin-nav-link admin-nav-link--sub"
-            :class="{ active: isActive(link.to) }"
-            @click="onNavigate"
-          >
-            {{ link.label }}
-          </NuxtLink>
-        </div>
+        <NuxtLink
+          to="/admin/multimedia"
+          prefetch
+          class="admin-nav-link"
+          :class="{ active: isActive('/admin/multimedia') }"
+          @click="onNavigate"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+            <circle cx="12" cy="13" r="3" />
+          </svg>
+          Multimedia
+          <span
+            v-if="mediaQueue.pendingCount > 0"
+            class="admin-nav-badge"
+            :aria-label="`${mediaQueue.pendingCount} procesos activos`"
+          >{{ mediaQueue.pendingCount }}</span>
+        </NuxtLink>
       </div>
-
-      <NuxtLink
-        to="/admin/gastos"
-        prefetch
-        class="admin-nav-link"
-        :class="{ active: isActive('/admin/gastos') }"
-        @click="onNavigate"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-          <path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21V3z" />
-          <path d="M9 8h6M9 12h6M9 16h4" />
-        </svg>
-        Gastos
-      </NuxtLink>
-
-      <NuxtLink
-        to="/admin/ventas"
-        prefetch
-        class="admin-nav-link"
-        :class="{ active: isActive('/admin/ventas') }"
-        @click="onNavigate"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-          <path d="M4 4h16v2H4zM4 8h16l-2 10H6L4 8z" />
-          <path d="M9 12h6M9 15h4" />
-        </svg>
-        Ventas
-      </NuxtLink>
-
-      <NuxtLink
-        v-for="link in visibleLinks(linksAfterPedidos)"
-        :key="`${link.to}-${link.label}`"
-        :to="link.to"
-        prefetch
-        class="admin-nav-link"
-        :class="{ active: isActive(link.to) }"
-        @click="onNavigate"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-          <rect x="3" y="3" width="18" height="18" rx="1" />
-        </svg>
-        {{ link.label }}
-      </NuxtLink>
-
-      <NuxtLink
-        to="/admin/notificaciones"
-        prefetch
-        class="admin-nav-link"
-        :class="{ active: isActive('/admin/notificaciones') }"
-        @click="onNavigate"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-          <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" />
-          <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-        </svg>
-        Notificaciones
-        <span
-          v-if="unreadBadge"
-          class="admin-nav-badge"
-          :aria-label="`${unreadCount} sin leer`"
-        >{{ unreadBadge }}</span>
-      </NuxtLink>
-      <button
-        type="button"
-        class="admin-nav-sound"
-        @click="setSoundEnabled(!soundEnabled)"
-      >
-        {{ soundEnabled ? 'Silenciar avisos' : 'Activar sonido' }}
-      </button>
-
-      <NuxtLink
-        to="/admin/multimedia"
-        prefetch
-        class="admin-nav-link"
-        :class="{ active: isActive('/admin/multimedia') }"
-        @click="onNavigate"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-          <circle cx="12" cy="13" r="3" />
-        </svg>
-        Multimedia
-        <span
-          v-if="mediaQueue.pendingCount > 0"
-          class="admin-nav-badge"
-          :aria-label="`${mediaQueue.pendingCount} procesos activos`"
-        >{{ mediaQueue.pendingCount }}</span>
-      </NuxtLink>
-    </div>
+    </template>
   </nav>
 </template>
