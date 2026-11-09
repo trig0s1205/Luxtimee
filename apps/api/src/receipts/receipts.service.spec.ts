@@ -99,6 +99,78 @@ describe('ReceiptsService', () => {
     expect(receipt).toBe(created);
   });
 
+  it('businessSnapshot incluye footerNote y no incluye warrantyTerms', async () => {
+    const created: Record<string, unknown> = {};
+    const queryRaw = jest.fn();
+    queryRaw
+      .mockResolvedValueOnce([{ id: 'o2' }])
+      .mockResolvedValueOnce([{ lastValue: 2 }]);
+    const cfg = {
+      ...config,
+      footerNote: 'Nota de pie de prueba',
+      warrantyTerms: 'Términos solo en columna warrantyTerms',
+    };
+    const tx = {
+      $queryRaw: queryRaw,
+      saleReceipt: {
+        findUnique: jest.fn(async () => null),
+        create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
+          Object.assign(created, data, { id: 'r2', number: data.number });
+          return created;
+        }),
+      },
+      order: {
+        findUniqueOrThrow: jest.fn(async () => ({
+          id: 'o2',
+          readableId: 'LX-2',
+          customerName: 'Ana',
+          customerDocument: null,
+          customerPhone: null,
+          customerEmail: '',
+          sellerId: null,
+          seller: null,
+          subtotal: 50_000,
+          shippingCost: 0,
+          total: 50_000,
+          paidAt: new Date('2026-01-15T15:00:00.000Z'),
+          items: [
+            {
+              id: 'i2',
+              productName: 'Casio B',
+              productSku: 'RM-002',
+              productRef: 'REF',
+              unitPrice: 50_000,
+              quantity: 1,
+              watch: {
+                sku: 'RM-002',
+                model: 'B',
+                reference: 'REF',
+                limitedEditionNumber: null,
+                warrantyMonths: 6,
+                brand: { name: 'Casio' },
+                warrantyTemplate: null,
+              },
+            },
+          ],
+          payments: [],
+        })),
+      },
+    };
+
+    await buildService({}).issueInTx(tx as never, 'o2', {
+      channel: 'WEB',
+      saleDate: new Date('2026-01-15T15:00:00.000Z'),
+      config: cfg,
+    });
+
+    expect(created.warrantyTerms).toBe('Términos solo en columna warrantyTerms');
+    expect(created.businessSnapshot).toMatchObject({
+      footerNote: 'Nota de pie de prueba',
+      businessName: 'LUXTIMEE',
+    });
+    expect(created.businessSnapshot).not.toHaveProperty('warrantyTerms');
+  });
+
   it('segunda llamada es idempotente', async () => {
     const existing = { id: 'r1', number: 'LXT-000001', orderId: 'o1' };
     const tx = {

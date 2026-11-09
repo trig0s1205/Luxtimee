@@ -57,12 +57,9 @@ describe('ReceiptPdfRenderer', () => {
     compress: false,
   };
 
-  it('genera un PDF con título, SKU y edición limitada, sin factura ni serial', async () => {
-    const buffer = await renderer.render(baseInput);
-    expect(buffer.subarray(0, 4).toString('utf8')).toBe('%PDF');
-    // pdfkit (compress:false) escribe TJ con kerning numérico entre glifos
+  function extractTjText(buffer: Buffer) {
     const raw = buffer.toString('latin1');
-    const tjText = [...raw.matchAll(/\[([^\]]*)\]\s*TJ/g)]
+    return [...raw.matchAll(/\[([^\]]*)\]\s*TJ/g)]
       .map((match) =>
         match[1]
           .replace(/<([0-9a-fA-F]+)>/g, (_, hex: string) => {
@@ -76,6 +73,13 @@ describe('ReceiptPdfRenderer', () => {
           .replace(/\s+/g, ''),
       )
       .join(' ');
+  }
+
+  it('genera un PDF con título, SKU y edición limitada, sin factura ni serial', async () => {
+    const buffer = await renderer.render(baseInput);
+    expect(buffer.subarray(0, 4).toString('utf8')).toBe('%PDF');
+    // pdfkit (compress:false) escribe TJ con kerning numérico entre glifos
+    const tjText = extractTjText(buffer);
     expect(tjText).toContain('COMPROBANTEDEVENTAYGARANT');
     expect(tjText.toLowerCase()).toContain('noesfacturaelectr');
     expect(tjText).not.toMatch(/CUFE|resoluci.nDIAN/i);
@@ -83,6 +87,17 @@ describe('ReceiptPdfRenderer', () => {
     expect(tjText).toContain('Edici');
     expect(tjText).toContain('7/50');
     expect(tjText.toLowerCase()).not.toContain('serial');
+  });
+
+  it('incluye footerNote en el PDF', async () => {
+    const buffer = await renderer.render({
+      ...baseInput,
+      footerNote: 'Nota de pie de prueba',
+    });
+    const tjText = extractTjText(buffer);
+    expect(tjText.replace(/\s+/g, '')).toContain(
+      'Notadepiedeprueba'.replace(/\s+/g, ''),
+    );
   });
 });
 

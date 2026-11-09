@@ -102,7 +102,7 @@ export class ReceiptsService {
     const customerEmail = order.customerEmail?.trim() || null;
     const sellerName = this.resolveSellerName(order);
 
-    const { warrantyTerms, footerNote: _footerNote, ...businessFields } = config;
+    const { warrantyTerms, ...businessFields } = config;
     const businessSnapshot = { ...businessFields };
 
     const paymentsSnapshot = this.buildPaymentsSnapshot(order);
