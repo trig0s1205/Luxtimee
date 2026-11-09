@@ -15,6 +15,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   edit: [watch: WatchStaffDto];
   delete: [watch: WatchStaffDto];
+  labels: [watch: WatchStaffDto];
   'toggle-select': [watch: WatchStaffDto];
   'toggle-visible': [on: boolean];
 }>();
@@ -134,6 +135,9 @@ function closeLightbox() {
           <td class="admin-table-actions">
             <button type="button" class="admin-action-btn" title="Editar" @click="emit('edit', watch)">
               ✎
+            </button>
+            <button type="button" class="admin-action-btn" title="Imprimir etiquetas" @click="emit('labels', watch)">
+              ▣
             </button>
             <button type="button" class="admin-action-btn admin-action-btn--danger" title="Eliminar" :disabled="isBusy(watch.id)" @click="emit('delete', watch)">
               ×

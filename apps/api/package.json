@@ -20,6 +20,7 @@
     "backfill:warranties": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/scripts/backfill-warranty-histories.ts",
     "sku:recompute": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/scripts/recompute-watch-sku-prefixes.ts",
     "wipe:transactional": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/scripts/wipe-transactional-data.ts",
+    "user:create-local-seller": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/scripts/create-local-seller.ts",
     "migrate:videos": "node scripts/migrate-watch-videos.mjs"
   },
   "dependencies": {
@@ -33,6 +34,7 @@
     "@nestjs/schedule": "^4.1.2",
     "@nestjs/throttler": "6.7.1",
     "@prisma/client": "^6.3.1",
+    "bwip-js": "^4.11",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "cloudinary": "^2.5.1",

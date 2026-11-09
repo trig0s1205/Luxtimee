@@ -453,6 +453,7 @@ const selectedCareTemplate = computed(() =>
           <div class="admin-form-field">
             <label>SKU</label>
             <input type="text" :value="skuPreview" disabled class="admin-form-readonly">
+            <p class="admin-form-hint">El SKU es fijo: es el código de barras de la etiqueta del reloj.</p>
           </div>
 
           <div class="admin-form-field">

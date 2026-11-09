@@ -434,21 +434,7 @@ export class WatchesService {
     this.maybeAutoPublishDraft(existing, data, dto);
     this.applyCatalogVisibility(existing, data, dto);
 
-    const nextRetailPrice = dto.retailPrice ?? existing.retailPrice;
-    const nextGender = dto.gender !== undefined ? dto.gender : existing.gender;
-    const priceChanged =
-      dto.retailPrice !== undefined && dto.retailPrice !== existing.retailPrice;
-    const genderChanged =
-      dto.gender !== undefined &&
-      (dto.gender ?? null) !== (existing.gender ?? null);
-    if (priceChanged || genderChanged) {
-      data.sku = await this.watchesRepository.allocateReplacementSku({
-        watchId: existing.id,
-        currentSku: existing.sku,
-        retailPrice: nextRetailPrice,
-        gender: nextGender,
-      });
-    }
+    // El SKU es inmutable desde su creación: está impreso en las etiquetas con código de barras (POS).
 
     const watch = await this.watchesRepository.update(id, data);
     this.logger.log(`[watches:update] ${watch.id} sku=${watch.sku}`);
