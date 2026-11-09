@@ -25,6 +25,8 @@ type CartLine = {
   retailPrice: number;
   stock: number;
   imageUrl: string | null;
+  limitedEditionNumber: string | null;
+  warrantyMonths: number;
   quantity: number;
 };
 
@@ -44,13 +46,15 @@ const api = useApi();
 const auth = useAuthStore();
 const toast = useToast();
 const config = useRuntimeConfig();
+const { confirm } = useConfirm();
 const catalogRef = ref<{ reload: () => Promise<void> } | null>(null);
 
 const scanInput = ref('');
 const scanBusy = ref(false);
 const scanEl = ref<HTMLInputElement | null>(null);
+const scanFocused = ref(false);
 const detector = createScanDetector();
-const holdScannerFocus = ref(true);
+const windowDetector = createScanDetector();
 
 const manualSearch = ref('');
 const manualBusy = ref(false);
@@ -59,27 +63,16 @@ let manualTimer: ReturnType<typeof setTimeout> | null = null;
 
 const cart = ref<CartLine[]>([]);
 const customer = reactive({
-  name: 'Cliente de mostrador',
+  name: '',
   document: '',
   phone: '',
   email: '',
 });
 const customerHints = ref<PosCustomerHintDto[]>([]);
 const note = ref('');
-const payments = ref<PaymentDraft[]>([
-  {
-    id: 'p1',
-    method: 'EFECTIVO',
-    amount: null,
-    cashReceived: null,
-    reference: '',
-    proofUrl: '',
-    approvalCode: '',
-    cardLast4: '',
-  },
-]);
+const payments = ref<PaymentDraft[]>([emptyPayment('EFECTIVO')]);
 const selling = ref(false);
-const lastSale = ref<PosSaleResultDto | null>(null);
+const successSale = ref<PosSaleResultDto | null>(null);
 let hintTimer: ReturnType<typeof setTimeout> | null = null;
 
 const cartQtyById = computed(() => {
@@ -96,6 +89,8 @@ const paymentsSum = computed(() =>
   payments.value.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
 );
 
+const paymentDiff = computed(() => paymentsSum.value - subtotal.value);
+
 const changePreview = computed(() => {
   let change = 0;
   for (const p of payments.value) {
@@ -107,34 +102,72 @@ const changePreview = computed(() => {
   return change;
 });
 
+const canSubmit = computed(() => {
+  if (selling.value || !cart.value.length) return false;
+  if (customer.name.trim().length < 2) return false;
+  if (paymentsSum.value !== subtotal.value) return false;
+  for (const p of payments.value) {
+    const amount = Number(p.amount) || 0;
+    if (amount <= 0) return false;
+    if (p.method === 'EFECTIVO') {
+      const received = Number(p.cashReceived) || 0;
+      if (received < amount) return false;
+    }
+    if (p.method === 'DATAFONO_BOLD' && !/^\d{4,12}$/.test(p.approvalCode.trim())) {
+      return false;
+    }
+  }
+  return true;
+});
+
+function emptyPayment(
+  method: PaymentDraft['method'] = 'EFECTIVO',
+): PaymentDraft {
+  return {
+    id: `p${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    method,
+    amount: null,
+    cashReceived: null,
+    reference: '',
+    proofUrl: '',
+    approvalCode: '',
+    cardLast4: '',
+  };
+}
+
+function isFormField(el: Element | null) {
+  if (!el || !(el instanceof HTMLElement)) return false;
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return true;
+  if (el.isContentEditable) return true;
+  return Boolean(el.closest('[role="dialog"]'));
+}
+
 function focusScanner() {
-  if (!holdScannerFocus.value) return;
   nextTick(() => scanEl.value?.focus());
 }
 
 function onScanBlur() {
+  scanFocused.value = false;
   window.setTimeout(() => {
-    const active = document.activeElement as HTMLElement | null;
-    if (
-      active &&
-      active !== scanEl.value &&
-      ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(active.tagName)
-    ) {
-      return;
-    }
+    if (isFormField(document.activeElement)) return;
     focusScanner();
-  }, 0);
+  }, 150);
+}
+
+function onScanFocus() {
+  scanFocused.value = true;
 }
 
 function onManualSearchInput() {
   if (manualTimer) clearTimeout(manualTimer);
   manualTimer = setTimeout(() => {
     void runManualSearch();
-  }, 250);
+  }, 300);
 }
 
-async function runManualSearch() {
-  const q = manualSearch.value.trim();
+async function runManualSearch(forced?: string) {
+  const q = (forced ?? manualSearch.value).trim();
+  if (forced !== undefined) manualSearch.value = q;
   if (q.length < 2) {
     manualHits.value = [];
     return;
@@ -160,19 +193,32 @@ function addManualHit(watch: PosWatchDto) {
 }
 
 function upsertWatch(watch: PosWatchDto, qty = 1) {
+  const label = `${watch.brandName} ${watch.model}`.trim();
   const existing = cart.value.find((line) => line.watchId === watch.id);
+  if (watch.stock <= 0) {
+    playBeep('error');
+    toast.error(`${label} está agotado`);
+    return;
+  }
   if (existing) {
     if (existing.quantity + qty > watch.stock) {
       playBeep('error');
-      toast.warning('No hay más unidades disponibles.');
+      toast.warning(
+        `No hay más unidades de ${label} (disponibles: ${watch.stock})`,
+      );
       return;
     }
     existing.quantity += qty;
     existing.stock = watch.stock;
+    existing.imageUrl = watch.imageUrl;
+    existing.limitedEditionNumber = watch.limitedEditionNumber;
+    existing.warrantyMonths = watch.warrantyMonths;
   } else {
     if (watch.stock < qty) {
       playBeep('error');
-      toast.warning('Sin stock suficiente.');
+      toast.warning(
+        `No hay más unidades de ${label} (disponibles: ${watch.stock})`,
+      );
       return;
     }
     cart.value.push({
@@ -183,13 +229,17 @@ function upsertWatch(watch: PosWatchDto, qty = 1) {
       retailPrice: watch.retailPrice,
       stock: watch.stock,
       imageUrl: watch.imageUrl,
+      limitedEditionNumber: watch.limitedEditionNumber,
+      warrantyMonths: watch.warrantyMonths,
       quantity: qty,
     });
   }
   playBeep('ok');
+  toast.success(`Agregado: ${label}`);
+  focusScanner();
 }
 
-async function resolveCode(raw: string) {
+async function resolveCode(raw: string, opts?: { alsoManualSearch?: boolean }) {
   const code = normalizeScannedCode(raw);
   if (!code) return;
   scanBusy.value = true;
@@ -200,7 +250,10 @@ async function resolveCode(raw: string) {
     upsertWatch(watch, 1);
   } catch (err: unknown) {
     playBeep('error');
-    toast.error(extractApiErrorMessage(err, 'Código no encontrado.'));
+    toast.error(extractApiErrorMessage(err, `Código no encontrado: ${code}`));
+    if (opts?.alsoManualSearch) {
+      await runManualSearch(raw.trim());
+    }
   } finally {
     scanBusy.value = false;
     scanInput.value = '';
@@ -208,22 +261,47 @@ async function resolveCode(raw: string) {
   }
 }
 
-async function onScanEnter() {
-  const text = scanInput.value.trim();
-  if (!text) return;
-  if (looksLikeSku(text) || text.length >= 3) {
-    await resolveCode(text);
+async function handleScanEnter(text: string, fromScan: boolean) {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  if (fromScan || looksLikeSku(trimmed)) {
+    await resolveCode(trimmed, { alsoManualSearch: !fromScan });
     return;
   }
-  toast.warning('Ingresa un SKU válido.');
+  await runManualSearch(trimmed);
+  scanInput.value = '';
 }
 
 function onScanKeydown(event: KeyboardEvent) {
   const result = detector.push(event.key, performance.now());
-  if (!result) return;
-  if (result.type === 'scan') {
+  if (event.key === 'Enter') {
     event.preventDefault();
-    void resolveCode(result.code);
+    if (result?.type === 'scan') {
+      void handleScanEnter(result.code, true);
+      return;
+    }
+    void handleScanEnter(scanInput.value, false);
+    return;
+  }
+  if (result?.type === 'scan') {
+    event.preventDefault();
+    void handleScanEnter(result.code, true);
+  }
+}
+
+function onWindowKeydown(event: KeyboardEvent) {
+  if (isFormField(document.activeElement)) return;
+  if (document.activeElement === scanEl.value) return;
+  const result = windowDetector.push(event.key, performance.now());
+  if (result?.type === 'scan') {
+    event.preventDefault();
+    void handleScanEnter(result.code, true);
+  }
+}
+
+function onVisibilityChange() {
+  if (document.visibilityState === 'visible' && !successSale.value) {
+    focusScanner();
   }
 }
 
@@ -233,46 +311,35 @@ function setQty(line: CartLine, next: number) {
     return;
   }
   if (next > line.stock) {
-    toast.warning('Supera el stock disponible.');
+    toast.warning(
+      `No hay más unidades de ${line.brandName} ${line.model} (disponibles: ${line.stock})`,
+    );
     return;
   }
   line.quantity = next;
 }
 
-function clearCart() {
+function clearCart(opts?: { keepSuccess?: boolean }) {
   cart.value = [];
-  payments.value = [
-    {
-      id: `p${Date.now()}`,
-      method: 'EFECTIVO',
-      amount: null,
-      cashReceived: null,
-      reference: '',
-      proofUrl: '',
-      approvalCode: '',
-      cardLast4: '',
-    },
-  ];
+  payments.value = [emptyPayment('EFECTIVO')];
   note.value = '';
-  customer.name = 'Cliente de mostrador';
+  customer.name = '';
   customer.document = '';
   customer.phone = '';
   customer.email = '';
   customerHints.value = [];
+  if (!opts?.keepSuccess) successSale.value = null;
+}
+
+function startNewSale() {
+  clearCart();
+  successSale.value = null;
+  focusScanner();
 }
 
 function addPayment() {
   if (payments.value.length >= 4) return;
-  payments.value.push({
-    id: `p${Date.now()}`,
-    method: 'TRANSFERENCIA',
-    amount: null,
-    cashReceived: null,
-    reference: '',
-    proofUrl: '',
-    approvalCode: '',
-    cardLast4: '',
-  });
+  payments.value.push(emptyPayment('TRANSFERENCIA'));
 }
 
 function removePayment(id: string) {
@@ -371,47 +438,18 @@ function openReceipt(receiptId: string) {
 }
 
 async function submitSale() {
-  if (!cart.value.length) {
-    toast.warning('Agrega al menos un reloj.');
+  if (!canSubmit.value) return;
+  const ok = await confirm({
+    title: 'Confirmar venta',
+    message: `¿Registrar venta por ${formatCop(subtotal.value)}?`,
+    confirmLabel: 'Registrar venta',
+  });
+  if (!ok) {
+    focusScanner();
     return;
-  }
-  if (cart.value.some((line) => line.quantity > line.stock)) {
-    toast.warning('Hay líneas sin stock suficiente.');
-    return;
-  }
-  if (!customer.name.trim()) {
-    toast.warning('El nombre del cliente es obligatorio.');
-    return;
-  }
-  if (paymentsSum.value !== subtotal.value) {
-    toast.warning('La suma de pagos debe coincidir con el total.');
-    return;
-  }
-  for (const p of payments.value) {
-    const amount = Number(p.amount) || 0;
-    if (amount <= 0) {
-      toast.warning('Cada pago debe tener un monto mayor a 0.');
-      return;
-    }
-    if (p.method === 'EFECTIVO') {
-      const received = Number(p.cashReceived) || 0;
-      if (received < amount) {
-        toast.warning('El efectivo recibido debe cubrir el monto.');
-        return;
-      }
-    }
-    if (p.method === 'TRANSFERENCIA' && !p.reference.trim() && !p.proofUrl) {
-      toast.warning('Transferencia: referencia o comprobante requerido.');
-      return;
-    }
-    if (p.method === 'DATAFONO_BOLD' && !/^\d{4,12}$/.test(p.approvalCode.trim())) {
-      toast.warning('Ingresa el número de aprobación del datáfono.');
-      return;
-    }
   }
 
   selling.value = true;
-  lastSale.value = null;
   try {
     const result = await api.post<PosSaleResultDto>('/pos/sales', {
       customer: {
@@ -429,7 +467,8 @@ async function submitSale() {
         amount: Number(p.amount),
         cashReceived:
           p.method === 'EFECTIVO' ? Number(p.cashReceived) : undefined,
-        reference: p.method === 'TRANSFERENCIA' ? p.reference || undefined : undefined,
+        reference:
+          p.method === 'TRANSFERENCIA' ? p.reference || undefined : undefined,
         proofUrl: p.proofUrl || undefined,
         approvalCode:
           p.method === 'DATAFONO_BOLD' ? p.approvalCode || undefined : undefined,
@@ -438,24 +477,30 @@ async function submitSale() {
       })),
       note: note.value.trim() || undefined,
     });
-    lastSale.value = result;
     playBeep('ok');
-    toast.success(`Venta ${result.readableId} registrada.`);
-    clearCart();
+    clearCart({ keepSuccess: true });
+    successSale.value = result;
     await catalogRef.value?.reload();
-    focusScanner();
   } catch (err: unknown) {
     playBeep('error');
     toast.error(extractApiErrorMessage(err, 'No se pudo registrar la venta.'));
+    await catalogRef.value?.reload();
   } finally {
     selling.value = false;
   }
 }
 
-onMounted(() => focusScanner());
+onMounted(() => {
+  focusScanner();
+  window.addEventListener('keydown', onWindowKeydown);
+  document.addEventListener('visibilitychange', onVisibilityChange);
+});
+
 onBeforeUnmount(() => {
   if (hintTimer) clearTimeout(hintTimer);
   if (manualTimer) clearTimeout(manualTimer);
+  window.removeEventListener('keydown', onWindowKeydown);
+  document.removeEventListener('visibilitychange', onVisibilityChange);
 });
 </script>
 
@@ -463,23 +508,49 @@ onBeforeUnmount(() => {
   <div class="admin-records-page pos-page">
     <UiSectionHeader label="Punto de venta" title="POS" />
 
-    <div v-if="lastSale" class="pos-success admin-record-card p-4">
-      <div>
-        <p class="admin-record-title">Venta {{ lastSale.readableId }}</p>
+    <div
+      v-if="successSale"
+      class="pos-success-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pos-success-title"
+    >
+      <div class="pos-success-modal__card admin-record-card p-5">
+        <h2 id="pos-success-title" class="admin-record-title">
+          Venta registrada
+        </h2>
+        <p>N.º de pedido: <strong>{{ successSale.readableId }}</strong></p>
+        <p>
+          N.º de comprobante:
+          <strong>{{ successSale.receiptNumber }}</strong>
+        </p>
+        <p
+          v-if="successSale.changeTotal > 0"
+          class="pos-success-modal__change"
+        >
+          Cambio a entregar
+          <strong>{{ formatCop(successSale.changeTotal) }}</strong>
+        </p>
+        <div class="pos-success-modal__actions">
+          <button
+            type="button"
+            class="admin-record-btn admin-record-btn--primary"
+            @click="openReceipt(successSale.receiptId)"
+          >
+            Descargar comprobante
+          </button>
+          <button
+            type="button"
+            class="admin-record-btn admin-record-btn--ghost"
+            @click="startNewSale"
+          >
+            Nueva venta
+          </button>
+        </div>
         <p class="admin-record-muted">
-          Comprobante {{ lastSale.receiptNumber }} · Total {{ formatCop(lastSale.total) }}
-          <span v-if="lastSale.changeTotal">
-            · Cambio {{ formatCop(lastSale.changeTotal) }}
-          </span>
+          Envíaselo al cliente por WhatsApp
         </p>
       </div>
-      <button
-        type="button"
-        class="admin-record-btn admin-record-btn--primary"
-        @click="openReceipt(lastSale.receiptId)"
-      >
-        Descargar comprobante
-      </button>
     </div>
 
     <div class="pos-layout">
@@ -487,19 +558,28 @@ onBeforeUnmount(() => {
         <h2 class="admin-record-title">Escáner y carrito</h2>
         <label class="pos-field">
           <span>SKU / código de barras</span>
-          <input
-            ref="scanEl"
-            v-model="scanInput"
-            class="admin-input"
-            type="text"
-            autocomplete="off"
-            :disabled="scanBusy"
-            placeholder="Escanea o escribe y Enter"
-            @keydown="onScanKeydown"
-            @keydown.enter.prevent="onScanEnter"
-            @blur="onScanBlur"
-            @focus="holdScannerFocus = true"
-          >
+          <div class="pos-scan-row">
+            <input
+              ref="scanEl"
+              v-model="scanInput"
+              class="admin-input"
+              type="text"
+              autocomplete="off"
+              inputmode="search"
+              enterkeyhint="search"
+              :disabled="scanBusy || !!successSale"
+              placeholder="Escanea el código o busca por SKU, marca o modelo"
+              @keydown="onScanKeydown"
+              @blur="onScanBlur"
+              @focus="onScanFocus"
+            >
+            <span
+              class="pos-scan-status"
+              :class="scanFocused ? 'pos-scan-status--ready' : 'pos-scan-status--idle'"
+            >
+              {{ scanFocused ? 'Lector listo' : 'Toca aquí para escanear' }}
+            </span>
+          </div>
         </label>
 
         <label class="pos-field">
@@ -508,8 +588,6 @@ onBeforeUnmount(() => {
             v-model="manualSearch"
             placeholder="SKU, marca o modelo"
             @input="onManualSearchInput"
-            @focus="holdScannerFocus = false"
-            @blur="holdScannerFocus = true; focusScanner()"
           />
         </label>
         <ul v-if="manualHits.length" class="pos-hints">
@@ -528,9 +606,30 @@ onBeforeUnmount(() => {
 
         <ul v-else class="pos-cart">
           <li v-for="line in cart" :key="line.watchId" class="pos-cart__line">
+            <img
+              v-if="line.imageUrl"
+              :src="line.imageUrl"
+              :alt="`${line.brandName} ${line.model}`"
+              class="pos-cart__thumb"
+              loading="lazy"
+            >
+            <div v-else class="pos-cart__thumb pos-cart__thumb--empty" />
             <div class="pos-cart__main">
               <p class="pos-cart__name">{{ line.brandName }} {{ line.model }}</p>
               <p class="pos-cart__sku">{{ line.sku }}</p>
+              <p
+                v-if="line.limitedEditionNumber"
+                class="pos-cart__meta"
+              >
+                Edición limitada N.º {{ line.limitedEditionNumber }}
+              </p>
+              <p class="pos-cart__meta">
+                {{
+                  line.warrantyMonths > 0
+                    ? `${line.warrantyMonths} meses`
+                    : 'Sin garantía'
+                }}
+              </p>
               <p class="pos-cart__price">
                 {{ formatCop(line.retailPrice) }} · stock {{ line.stock }}
               </p>
@@ -542,13 +641,34 @@ onBeforeUnmount(() => {
               </span>
             </div>
             <div class="pos-cart__qty">
-              <button type="button" class="admin-btn" @click="setQty(line, line.quantity - 1)">−</button>
+              <button
+                type="button"
+                class="admin-btn"
+                @click="setQty(line, line.quantity - 1)"
+              >
+                −
+              </button>
               <span>{{ line.quantity }}</span>
-              <button type="button" class="admin-btn" @click="setQty(line, line.quantity + 1)">+</button>
+              <button
+                type="button"
+                class="admin-btn"
+                @click="setQty(line, line.quantity + 1)"
+              >
+                +
+              </button>
             </div>
-            <p class="pos-cart__line-total">
-              {{ formatCop(line.retailPrice * line.quantity) }}
-            </p>
+            <div class="pos-cart__side">
+              <p class="pos-cart__line-total">
+                {{ formatCop(line.retailPrice * line.quantity) }}
+              </p>
+              <button
+                type="button"
+                class="admin-link-btn"
+                @click="setQty(line, 0)"
+              >
+                Quitar
+              </button>
+            </div>
           </li>
         </ul>
 
@@ -558,7 +678,7 @@ onBeforeUnmount(() => {
             v-if="cart.length"
             type="button"
             class="admin-record-btn admin-record-btn--ghost"
-            @click="clearCart"
+            @click="clearCart()"
           >
             Vaciar
           </button>
@@ -577,14 +697,23 @@ onBeforeUnmount(() => {
       <section class="pos-zone admin-record-card p-4">
         <h2 class="admin-record-title">Cliente y pagos</h2>
 
-        <div class="pos-customer" @focusin="holdScannerFocus = false" @focusout="holdScannerFocus = true; focusScanner()">
+        <div class="pos-customer">
           <label class="pos-field">
             <span>Nombre</span>
-            <UiLuxInput v-model="customer.name" placeholder="Nombre del cliente" required @input="onCustomerInput" />
+            <UiLuxInput
+              v-model="customer.name"
+              placeholder="Nombre del cliente"
+              required
+              @input="onCustomerInput"
+            />
           </label>
           <label class="pos-field">
             <span>Teléfono</span>
-            <UiLuxInput v-model="customer.phone" placeholder="Teléfono" @input="onCustomerInput" />
+            <UiLuxInput
+              v-model="customer.phone"
+              placeholder="Teléfono"
+              @input="onCustomerInput"
+            />
           </label>
           <label class="pos-field">
             <span>Documento</span>
@@ -592,10 +721,17 @@ onBeforeUnmount(() => {
           </label>
           <label class="pos-field">
             <span>Email</span>
-            <UiLuxInput v-model="customer.email" type="email" placeholder="Email" />
+            <UiLuxInput
+              v-model="customer.email"
+              type="email"
+              placeholder="Email"
+            />
           </label>
           <ul v-if="customerHints.length" class="pos-hints">
-            <li v-for="hint in customerHints" :key="`${hint.customerPhone}-${hint.customerName}`">
+            <li
+              v-for="hint in customerHints"
+              :key="`${hint.customerPhone}-${hint.customerName}`"
+            >
               <button type="button" @click="applyHint(hint)">
                 {{ hint.customerName }} · {{ hint.customerPhone }}
               </button>
@@ -603,11 +739,7 @@ onBeforeUnmount(() => {
           </ul>
         </div>
 
-        <div
-          class="pos-payments"
-          @focusin="holdScannerFocus = false"
-          @focusout="holdScannerFocus = true; focusScanner()"
-        >
+        <div class="pos-payments">
           <div
             v-for="payment in payments"
             :key="payment.id"
@@ -627,8 +759,12 @@ onBeforeUnmount(() => {
                 step="1"
                 placeholder="Monto"
               >
-              <button type="button" class="admin-link-btn" @click="fillRemaining(payment)">
-                Completar
+              <button
+                type="button"
+                class="admin-link-btn"
+                @click="fillRemaining(payment)"
+              >
+                Usar el saldo restante
               </button>
               <button
                 v-if="payments.length > 1"
@@ -655,22 +791,32 @@ onBeforeUnmount(() => {
                   formatCop(
                     Math.max(
                       0,
-                      (Number(payment.cashReceived) || 0) - (Number(payment.amount) || 0),
+                      (Number(payment.cashReceived) || 0) -
+                        (Number(payment.amount) || 0),
                     ),
                   )
                 }}
               </span>
             </div>
 
-            <div v-else-if="payment.method === 'TRANSFERENCIA'" class="pos-payment__row">
+            <div
+              v-else-if="payment.method === 'TRANSFERENCIA'"
+              class="pos-payment__row"
+            >
               <input
                 v-model="payment.reference"
                 class="admin-input"
-                placeholder="Referencia"
+                placeholder="Referencia (opcional)"
                 maxlength="80"
               >
               <label class="admin-record-btn admin-record-btn--ghost">
-                {{ payment.uploading ? 'Subiendo…' : payment.proofUrl ? 'Comprobante OK' : 'Subir comprobante' }}
+                {{
+                  payment.uploading
+                    ? 'Subiendo…'
+                    : payment.proofUrl
+                      ? 'Comprobante OK'
+                      : 'Adjuntar soporte'
+                }}
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
@@ -709,21 +855,41 @@ onBeforeUnmount(() => {
 
         <label class="pos-field">
           <span>Nota (opcional)</span>
-          <textarea v-model="note" class="admin-record-textarea" rows="2" maxlength="300" />
+          <textarea
+            v-model="note"
+            class="admin-record-textarea"
+            rows="2"
+            maxlength="300"
+          />
         </label>
 
         <div class="pos-checkout">
-          <p>
-            Pagos {{ formatCop(paymentsSum) }} / {{ formatCop(subtotal) }}
-            <span v-if="changePreview"> · Cambio {{ formatCop(changePreview) }}</span>
-          </p>
+          <div>
+            <p>
+              Pagos {{ formatCop(paymentsSum) }} / {{ formatCop(subtotal) }}
+              <span v-if="changePreview">
+                · Cambio {{ formatCop(changePreview) }}
+              </span>
+            </p>
+            <p
+              v-if="paymentDiff !== 0 && subtotal > 0"
+              class="pos-checkout__diff"
+              :class="paymentDiff < 0 ? 'is-short' : 'is-over'"
+            >
+              {{
+                paymentDiff < 0
+                  ? `Falta ${formatCop(-paymentDiff)}`
+                  : `Sobra ${formatCop(paymentDiff)}`
+              }}
+            </p>
+          </div>
           <button
             type="button"
             class="admin-record-btn admin-record-btn--primary"
-            :disabled="selling || !cart.length"
+            :disabled="!canSubmit"
             @click="submitSale"
           >
-            {{ selling ? 'Registrando…' : 'Cobrar' }}
+            {{ selling ? 'Registrando…' : 'Registrar venta' }}
           </button>
         </div>
       </section>
@@ -755,6 +921,35 @@ onBeforeUnmount(() => {
   color: var(--lux-white-dim, #9ca3af);
 }
 
+.pos-scan-row {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.pos-scan-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: #9ca3af;
+}
+
+.pos-scan-status::before {
+  content: '';
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: #6b7280;
+}
+
+.pos-scan-status--ready {
+  color: #86efac;
+}
+
+.pos-scan-status--ready::before {
+  background: #22c55e;
+}
+
 .pos-cart {
   list-style: none;
   margin: 0;
@@ -766,10 +961,22 @@ onBeforeUnmount(() => {
 .pos-cart__line {
   display: grid;
   gap: 0.5rem;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 48px 1fr auto auto;
   align-items: center;
   border-bottom: 1px solid rgba(200, 169, 110, 0.15);
   padding-bottom: 0.65rem;
+}
+
+.pos-cart__thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 4px;
+}
+
+.pos-cart__thumb--empty {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .pos-cart__name {
@@ -778,7 +985,8 @@ onBeforeUnmount(() => {
 }
 
 .pos-cart__sku,
-.pos-cart__price {
+.pos-cart__price,
+.pos-cart__meta {
   margin: 0;
   font-size: 0.85rem;
   color: #9ca3af;
@@ -800,14 +1008,32 @@ onBeforeUnmount(() => {
   gap: 0.35rem;
 }
 
+.pos-cart__side {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: end;
+}
+
+.pos-cart__line-total {
+  margin: 0;
+  font-weight: 600;
+}
+
 .pos-cart__footer,
-.pos-checkout,
-.pos-success {
+.pos-checkout {
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.pos-checkout__diff.is-short {
+  color: #fca5a5;
+}
+
+.pos-checkout__diff.is-over {
+  color: #fcd34d;
 }
 
 .pos-customer,
@@ -845,10 +1071,47 @@ onBeforeUnmount(() => {
   background: rgba(200, 169, 110, 0.12);
 }
 
+.pos-success-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.pos-success-modal__card {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.pos-success-modal__change {
+  font-size: 1.35rem;
+}
+
+.pos-success-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
 @media (min-width: 1100px) {
   .pos-layout {
     grid-template-columns: minmax(280px, 0.9fr) minmax(420px, 1.4fr) minmax(300px, 1fr);
     align-items: start;
+  }
+}
+
+@media (max-width: 700px) {
+  .pos-cart__line {
+    grid-template-columns: 48px 1fr;
+  }
+
+  .pos-cart__qty,
+  .pos-cart__side {
+    grid-column: 1 / -1;
   }
 }
 </style>
