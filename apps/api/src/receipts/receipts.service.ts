@@ -6,6 +6,7 @@ import {
   PaymentMethod,
   Prisma,
   ReceiptChannel,
+  WarrantyClaimStatus,
   type SaleReceipt,
 } from '@prisma/client';
 import { createHash } from 'crypto';
@@ -19,6 +20,7 @@ import {
   formatReceiptNumber,
   nextReceiptSequence,
 } from './receipt-number.util';
+import { buildReceiptSearchWhere } from './receipt-search.util';
 import { computeWarrantyEnd, warrantyStatus } from './warranty.util';
 import {
   ReceiptPdfRenderer,
@@ -314,6 +316,80 @@ export class ReceiptsService {
     });
     if (!receipt) return null;
     return this.toDto(receipt);
+  }
+
+  async search(query: { q?: string; page?: number; limit?: number }) {
+    const page = query.page ?? 1;
+    const limit = Math.min(100, query.limit ?? 20);
+    const q = query.q?.trim() ?? '';
+    if (!q) {
+      return { items: [], total: 0, page, limit };
+    }
+
+    const where = buildReceiptSearchWhere(q);
+    const [total, rows] = await Promise.all([
+      this.prisma.saleReceipt.count({ where }),
+      this.prisma.saleReceipt.findMany({
+        where,
+        include: {
+          items: {
+            orderBy: { position: 'asc' },
+            include: {
+              claims: {
+                where: { status: { not: WarrantyClaimStatus.ENTREGADO } },
+                select: { id: true },
+              },
+            },
+          },
+        },
+        orderBy: { saleDate: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      items: rows.map((receipt) => {
+        const items = receipt.items.map((item) => {
+          const status = warrantyStatus(item.warrantyEndsAt);
+          return {
+            id: item.id,
+            position: item.position,
+            productName: item.productName,
+            brandName: item.brandName,
+            model: item.model,
+            reference: item.reference,
+            sku: item.sku,
+            limitedEditionNumber: item.limitedEditionNumber,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            lineTotal: item.lineTotal,
+            warrantyMonths: item.warrantyMonths,
+            warrantyStartsAt: item.warrantyStartsAt.toISOString(),
+            warrantyEndsAt: item.warrantyEndsAt?.toISOString() ?? null,
+            warrantyStatus: status.state,
+            daysLeft: status.daysLeft,
+            openClaimsCount: item.claims.length,
+          };
+        });
+        return {
+          id: receipt.id,
+          number: receipt.number,
+          orderReadableId: receipt.orderReadableId,
+          channel: receipt.channel,
+          saleDate: receipt.saleDate.toISOString(),
+          voidedAt: receipt.voidedAt?.toISOString() ?? null,
+          customerName: receipt.customerName,
+          customerDocument: receipt.customerDocument,
+          customerPhone: receipt.customerPhone,
+          total: receipt.total,
+          items,
+        };
+      }),
+      total,
+      page,
+      limit,
+    };
   }
 
   private resolveSellerName(order: IssueOrder): string {

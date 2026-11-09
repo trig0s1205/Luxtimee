@@ -5,6 +5,7 @@ import {
   Get,
   NotFoundException,
   Param,
+  Query,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -17,6 +18,7 @@ import {
 import { Roles } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReceiptSearchQueryDto } from './dto/receipt-search.dto';
 import { ReceiptsService } from './receipts.service';
 
 @Controller({ path: 'receipts', version: '1' })
@@ -26,6 +28,12 @@ export class ReceiptsController {
     private readonly receiptsService: ReceiptsService,
     private readonly prisma: PrismaService,
   ) {}
+
+  @Get('search')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.VENDEDOR_LOCAL)
+  search(@Query() query: ReceiptSearchQueryDto) {
+    return this.receiptsService.search(query);
+  }
 
   @Get('order/:orderId/pdf')
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.VENDEDOR_LOCAL)

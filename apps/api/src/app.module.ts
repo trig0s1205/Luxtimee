@@ -35,6 +35,7 @@ import { WholesaleAccessModule } from './wholesale-access/wholesale-access.modul
 import { WholesaleOffersModule } from './wholesale-offers/wholesale-offers.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { ReceiptsModule } from './receipts/receipts.module';
+import { WarrantyClaimsModule } from './warranty-claims/warranty-claims.module';
 import { LabelsModule } from './labels/labels.module';
 import { PosModule } from './pos/pos.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -87,6 +88,7 @@ const isProd = process.env.NODE_ENV === 'production';
     WholesaleOffersModule,
     ExpensesModule,
     ReceiptsModule,
+    WarrantyClaimsModule,
     LabelsModule,
     PosModule,
   ],

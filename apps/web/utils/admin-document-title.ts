@@ -28,7 +28,7 @@ export const ADMIN_TITLE_BY_PATH: Record<string, string> = {
   '/admin/pos': 'POS — LUXTIMEE',
   '/admin/pos/mis-ventas': 'Mis ventas — LUXTIMEE',
   '/admin/pos/caja': 'Cierre de caja — LUXTIMEE',
-  '/admin/comprobantes': 'Comprobantes — LUXTIMEE',
+  '/admin/comprobantes': 'Comprobantes y garantías — LUXTIMEE',
   '/admin/gastos': 'Gastos — LUXTIMEE',
   '/admin/pending-costs': 'Costos pendientes — LUXTIMEE',
   '/admin/pending-info': 'Pendientes de info — LUXTIMEE',
