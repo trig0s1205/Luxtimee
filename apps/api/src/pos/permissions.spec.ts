@@ -4,10 +4,7 @@
  * - CronController (internal/cron): sin @Roles; protege con CRON_SECRET
  * - AuthController: endpoints de sesión/perfil autenticados sin @Roles (auto-servicio)
  */
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import {
-  Controller,
   ExecutionContext,
   ForbiddenException,
   UnauthorizedException,
@@ -16,26 +13,27 @@ import { Reflector } from '@nestjs/core';
 import { Role } from '@prisma/client';
 import { firstValueFrom, of } from 'rxjs';
 import { assertStaffRole } from '../auth/auth.service';
-import {
-  Financial,
-  ROLES_KEY,
-  Roles,
-} from '../common/decorators/metadata.decorators';
+import { ROLES_KEY } from '../common/decorators/metadata.decorators';
 import { FinancialGuard } from '../common/guards/financial.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { FinancialStripInterceptor } from '../common/interceptors/financial-strip.interceptor';
 import { ReceiptsController } from '../receipts/receipts.controller';
 import { WatchesController } from '../watches/watches.controller';
 
-@Controller()
-@Roles(Role.ADMIN, Role.SUPER_ADMIN)
-class DashboardsController {
-  @Roles(Role.SUPER_ADMIN)
-  @Financial()
-  profit() {
-    return null;
-  }
-}
+jest.mock('../dashboards/dashboards.service', () => ({
+  DashboardsService: class DashboardsService {},
+}));
+jest.mock('../integrations/reports.service', () => ({
+  ReportsService: class ReportsService {},
+}));
+jest.mock('../integrations/ga4.service', () => ({
+  Ga4Service: class Ga4Service {},
+}));
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { DashboardsController } = require('../dashboards/dashboards.controller') as {
+  DashboardsController: typeof import('../dashboards/dashboards.controller').DashboardsController;
+};
 
 function httpContext(
   role: Role | undefined,
@@ -114,13 +112,5 @@ describe('pos permissions — VENDEDOR_LOCAL', () => {
     ) as Role[];
     expect(classRoles).not.toContain(Role.VENDEDOR_LOCAL);
     expect(profitRoles).not.toContain(Role.VENDEDOR_LOCAL);
-
-    const realSrc = readFileSync(
-      join(__dirname, '../dashboards/dashboards.controller.ts'),
-      'utf8',
-    );
-    expect(realSrc).not.toMatch(/VENDEDOR_LOCAL/);
-    expect(realSrc).toMatch(/@Roles\(Role\.ADMIN,\s*Role\.SUPER_ADMIN\)/);
-    expect(realSrc).toMatch(/profit[\s\S]*?@Roles\(Role\.SUPER_ADMIN\)|@Roles\(Role\.SUPER_ADMIN\)[\s\S]*?profit/);
   });
 });
