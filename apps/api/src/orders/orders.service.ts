@@ -26,7 +26,8 @@ import type { OrdersPeriod } from './dto/orders-query.dto';
 import { findOrderIdsByTextSearch } from './order-search.util';
 import type { SpecialSalesQueryDto } from './dto/special-sale.dto';
 import { CreateSpecialSaleDto } from './dto/special-sale.dto';
-import { generateReadableId } from './order-pricing.util';
+import { nextOrderReadableId } from '../common/utils/document-counter.util';
+import { withTxnRetries } from '../common/utils/txn-retries.util';
 import {
   assertSpecialSaleInput,
   computeSpecialSaleProfit,
@@ -460,12 +461,13 @@ export class OrdersService {
     const profit = computeSpecialSaleProfit(salePrice, watch.cost);
     const productName = `${watch.brand.name} ${watch.model}`.trim();
     const now = new Date();
-    const readableId = generateReadableId((await this.prisma.order.count()) + 1);
 
-    const order = await this.prisma.$transaction(async (tx) => {
+    const order = await withTxnRetries(() =>
+      this.prisma.$transaction(async (tx) => {
       await reserveWatchStock(tx, [{ watchId: watch.id, quantity: 1 }], {
         message: 'Este reloj ya no está disponible',
       });
+      const readableId = await nextOrderReadableId(tx, now);
       const created = await tx.order.create({
         data: {
           readableId,
@@ -530,7 +532,8 @@ export class OrdersService {
         where: { id: created.id },
         include: orderInclude,
       });
-    }, STOCK_TRANSACTION);
+    }, STOCK_TRANSACTION),
+    );
 
     this.cache.invalidateTag(CACHE_TAGS.catalog);
     return this.toSpecialSale(order);

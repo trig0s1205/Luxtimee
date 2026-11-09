@@ -14,6 +14,7 @@ import {
   PAYMENT_METHOD_LABELS,
   type ReceiptConfigDto,
 } from '@luxtime/shared';
+import { STOCK_TRANSACTION } from '../common/utils/watch-stock.tx';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import {
@@ -202,13 +203,15 @@ export class ReceiptsService {
     const saleDate = order.paidAt ?? order.deliveredAt ?? new Date();
     const channel = order.source === 'LOCAL' ? 'LOCAL' : 'WEB';
 
-    return this.prisma.$transaction(async (tx) =>
-      this.issueInTx(tx, orderId, {
-        channel,
-        saleDate,
-        sellerId: order.sellerId,
-        config,
-      }),
+    return this.prisma.$transaction(
+      async (tx) =>
+        this.issueInTx(tx, orderId, {
+          channel,
+          saleDate,
+          sellerId: order.sellerId,
+          config,
+        }),
+      STOCK_TRANSACTION,
     );
   }
 
