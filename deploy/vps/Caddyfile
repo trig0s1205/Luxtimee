@@ -1,7 +1,23 @@
-# Sustituye api.TU-DOMINIO.com por el subdominio real de la API.
-# Caddy obtiene el certificado HTTPS automáticamente (Let's Encrypt).
+# HTTPS automático (Let's Encrypt). Variables desde el compose: API_DOMAIN, ACME_EMAIL.
+# Prueba local sin DNS: curl --resolve api.ejemplo.com:443:127.0.0.1 https://api.ejemplo.com/api/v1/health
+# En local puro (API_DOMAIN=localhost) Caddy usa su CA interna; curl -k solo para esa prueba.
 
-api.TU-DOMINIO.com {
-	encode gzip
-	reverse_proxy api:3000
+{
+	email {$ACME_EMAIL}
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+	request_body {
+		max_size 130MB
+	}
+	reverse_proxy api:3000 {
+		health_uri /api/v1/health
+		health_interval 30s
+		health_timeout 5s
+	}
+	log {
+		output stdout
+		format json
+	}
 }

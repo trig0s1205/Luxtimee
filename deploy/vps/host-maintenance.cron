@@ -1,0 +1,10 @@
+# Ejemplo documentado — NO se instala automáticamente.
+# Como deploy: crontab -e y pega (ajusta rutas si hace falta).
+#
+# Domingo 04:00: limpia imágenes Docker de más de 7 días
+0 4 * * 0 docker image prune -af --filter "until=168h" >> /home/deploy/docker-prune.log 2>&1
+#
+# Día 1 de cada mes 05:00: reporte de uso de disco Docker
+0 5 1 * * docker system df >> /home/deploy/docker-df.log 2>&1
+#
+# El cron de pre-pedidos NO va aquí: la API ya lo ejecuta cada hora (@Cron).
