@@ -173,3 +173,8 @@ docs/*
 /backups/
 **/backups/
 
+
+# Artefactos de despliegue / backups locales
+*.dump
+*.tar
+*.tar.gz
