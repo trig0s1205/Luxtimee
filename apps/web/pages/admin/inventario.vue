@@ -531,6 +531,7 @@ async function finishBulkDelete() {
         <div class="admin-inventory-create">
           <UiLuxButton @click="openCreate">+ Nuevo Reloj</UiLuxButton>
           <AdminBulkDraft />
+          <AdminImportPhotosByKey />
         </div>
       </div>
     </div>
