@@ -3,8 +3,8 @@ import { todayBogotaYmd } from '../../receipts/bogota-time.util';
 
 /**
  * Incremento atómico de DocumentCounter dentro de la misma tx.
- * El INSERT inicial usa `seed`; en conflicto solo hace lastValue + 1.
- * Un rollback de la tx no consume número.
+ * El INSERT inicial usa `seed`. En conflicto avanza +1, o salta a `seed`
+ * si el contador quedó detrás del máximo ya usado. Un rollback no consume número.
  */
 export async function nextDocumentSequence(
   tx: Prisma.TransactionClient,
@@ -18,7 +18,10 @@ export async function nextDocumentSequence(
     INSERT INTO "DocumentCounter" ("key", "lastValue", "updatedAt")
     VALUES (${key}, ${seed}, NOW())
     ON CONFLICT ("key") DO UPDATE
-      SET "lastValue" = "DocumentCounter"."lastValue" + 1,
+      SET "lastValue" = GREATEST(
+            "DocumentCounter"."lastValue" + 1,
+            EXCLUDED."lastValue"
+          ),
           "updatedAt" = NOW()
     RETURNING "lastValue"
   `;

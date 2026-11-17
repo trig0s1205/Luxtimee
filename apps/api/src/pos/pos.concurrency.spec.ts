@@ -6,6 +6,13 @@ import {
   WatchStatus,
 } from '@prisma/client';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
+import { acquireDbSuiteLock } from '../common/test/db-suite-lock';
+import {
+  bogotaYmdCompact,
+  formatOrderReadableId,
+  nextOrderReadableId,
+  orderReadableIdKey,
+} from '../common/utils/document-counter.util';
 import { reserveWatchStock } from '../common/utils/watch-stock.tx';
 import { PrismaService } from '../prisma/prisma.service';
 import { todayBogotaYmd } from '../receipts/bogota-time.util';
@@ -48,6 +55,7 @@ describeLocal('POS concurrency (localhost DB)', () => {
   });
   const db = prisma as unknown as PrismaService;
   const prefix = `posc${Date.now().toString(36)}`;
+  let releaseLock: (() => void) | undefined;
 
   let brandId = '';
   let watchId = '';
@@ -55,6 +63,7 @@ describeLocal('POS concurrency (localhost DB)', () => {
   const extraWatchIds: string[] = [];
 
   beforeAll(async () => {
+    releaseLock = await acquireDbSuiteLock();
     await prisma.$connect();
     const brand = await prisma.brand.create({
       data: {
@@ -130,7 +139,9 @@ describeLocal('POS concurrency (localhost DB)', () => {
         await prisma.brand.deleteMany({ where: { id: brandId } });
       }
     } finally {
-      await prisma.$disconnect();
+      await prisma.$disconnect().catch(() => undefined);
+      releaseLock?.();
+      releaseLock = undefined;
     }
   });
 
@@ -290,6 +301,37 @@ describeLocal('POS concurrency (localhost DB)', () => {
     expect(new Set(orderSeqs).size).toBe(15);
     for (let i = 1; i < orderSeqs.length; i += 1) {
       expect(orderSeqs[i]).toBe(orderSeqs[i - 1] + 1);
+    }
+  });
+
+  it('contador atrasado alcanza el máximo de readableId del día', async () => {
+    const now = new Date('2099-04-04T18:00:00.000Z');
+    const ymd = bogotaYmdCompact(now);
+    const key = orderReadableIdKey(ymd);
+    const readableId = formatOrderReadableId(ymd, 10);
+    await prisma.documentCounter.deleteMany({ where: { key } });
+    await prisma.order.deleteMany({ where: { readableId } });
+    await prisma.order.create({
+      data: {
+        readableId,
+        customerName: `Catchup ${prefix}`,
+        customerAddress: 'Local',
+        customerEmail: `${prefix}-catchup@pos.local`,
+      },
+    });
+    await prisma.documentCounter.create({
+      data: { key, lastValue: 2 },
+    });
+    try {
+      const first = await prisma.$transaction((tx) => nextOrderReadableId(tx, now));
+      const second = await prisma.$transaction((tx) => nextOrderReadableId(tx, now));
+      expect(first).toBe(formatOrderReadableId(ymd, 11));
+      expect(second).toBe(formatOrderReadableId(ymd, 12));
+    } finally {
+      await prisma.order.deleteMany({
+        where: { customerEmail: `${prefix}-catchup@pos.local` },
+      });
+      await prisma.documentCounter.deleteMany({ where: { key } });
     }
   });
 

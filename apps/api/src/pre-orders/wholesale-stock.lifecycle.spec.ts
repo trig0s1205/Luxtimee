@@ -19,6 +19,7 @@ import { WholesaleAccessService } from '../wholesale-access/wholesale-access.ser
 import { hashWholesaleToken } from '../wholesale-access/wholesale-token';
 import { PreOrdersService } from './pre-orders.service';
 import { OrdersService } from '../orders/orders.service';
+import { acquireDbSuiteLock } from '../common/test/db-suite-lock';
 
 jest.setTimeout(60_000);
 
@@ -33,11 +34,13 @@ describe('ciclo de stock mayorista', () => {
   let access: WholesaleAccessService;
   let token = '';
   let brandId = '';
+  let releaseLock: (() => void) | undefined;
 
   beforeAll(async () => {
     if (!process.env.DATABASE_URL) {
       throw new Error('DATABASE_URL es obligatoria para el ciclo de stock');
     }
+    releaseLock = await acquireDbSuiteLock();
     await prisma.$connect();
     const existing = await prisma.order.count();
     if (existing > 0) {
@@ -117,7 +120,9 @@ describe('ciclo de stock mayorista', () => {
       where: { name: { in: ['STOCK TEST', 'OTRO TOKEN'] } },
     });
     if (brandId) await prisma.brand.delete({ where: { id: brandId } }).catch(() => undefined);
-    await prisma.$disconnect();
+    await prisma.$disconnect().catch(() => undefined);
+    releaseLock?.();
+    releaseLock = undefined;
   });
 
   async function makeWatch(stock: number) {

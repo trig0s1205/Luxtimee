@@ -32,6 +32,7 @@ describe('document-counter / readableId', () => {
     expect(queryRaw).toHaveBeenCalledTimes(2);
     const sql = String(queryRaw.mock.calls[0][0]?.strings?.join('') ?? queryRaw.mock.calls[0][0]);
     expect(sql).toMatch(/ON CONFLICT/i);
+    expect(sql).toMatch(/GREATEST/i);
     expect(sql).toMatch(/lastValue/i);
   });
 
