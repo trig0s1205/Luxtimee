@@ -431,7 +431,7 @@ watch([brand, category, gender, dialColor, strapMaterial, minPrice, maxPrice, so
     </div>
 
     <div v-else class="pos-catalog__grid">
-      <PosWatchCard
+      <AdminPosWatchCard
         v-for="watch in items"
         :key="watch.id"
         :watch="watch"
@@ -452,7 +452,7 @@ watch([brand, category, gender, dialColor, strapMaterial, minPrice, maxPrice, so
       {{ loadingMore ? 'Cargando…' : 'Cargar más' }}
     </button>
 
-    <PosGalleryModal
+    <AdminPosGalleryModal
       v-if="galleryWatch"
       :watch="galleryWatch"
       :cart-qty="cartQty(galleryWatch.id)"

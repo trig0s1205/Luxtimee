@@ -803,7 +803,7 @@ onBeforeUnmount(() => {
 
       <section class="pos-zone admin-record-card p-4">
         <h2 class="admin-record-title">Catálogo</h2>
-        <PosCatalog
+        <AdminPosCatalog
           ref="catalogRef"
           :cart-qty-by-id="cartQtyById"
           @add="upsertWatch($event, 1)"
@@ -1081,14 +1081,18 @@ onBeforeUnmount(() => {
 
 .pos-cart__line {
   display: grid;
-  gap: 0.5rem;
-  grid-template-columns: 48px 1fr auto auto;
+  gap: 0.35rem 0.5rem;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "thumb main side"
+    "thumb qty side";
   align-items: center;
   border-bottom: 1px solid rgba(200, 169, 110, 0.15);
   padding-bottom: 0.65rem;
 }
 
 .pos-cart__thumb {
+  grid-area: thumb;
   width: 48px;
   height: 48px;
   object-fit: contain;
@@ -1098,6 +1102,11 @@ onBeforeUnmount(() => {
 
 .pos-cart__thumb--empty {
   background: rgba(255, 255, 255, 0.08);
+}
+
+.pos-cart__main {
+  grid-area: main;
+  min-width: 0;
 }
 
 .pos-cart__name {
@@ -1124,12 +1133,14 @@ onBeforeUnmount(() => {
 }
 
 .pos-cart__qty {
+  grid-area: qty;
   display: flex;
   align-items: center;
   gap: 0.35rem;
 }
 
 .pos-cart__side {
+  grid-area: side;
   display: grid;
   gap: 0.25rem;
   justify-items: end;
@@ -1316,12 +1327,15 @@ onBeforeUnmount(() => {
 
 @media (max-width: 700px) {
   .pos-cart__line {
-    grid-template-columns: 48px 1fr;
+    grid-template-columns: 48px minmax(0, 1fr);
+    grid-template-areas:
+      "thumb main"
+      "qty qty"
+      "side side";
   }
 
-  .pos-cart__qty,
   .pos-cart__side {
-    grid-column: 1 / -1;
+    justify-items: start;
   }
 }
 </style>
