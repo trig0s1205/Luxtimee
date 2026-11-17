@@ -10,11 +10,14 @@ ENV_FILE="${HOME}/luxtimee/.env"
 API_IMAGE="$(grep -E '^API_IMAGE=' "$ENV_FILE" | cut -d= -f2- || true)"
 [[ -n "$API_IMAGE" ]] || die "API_IMAGE vacío en .env"
 
+if ! true 2>/dev/null </dev/tty; then
+  die "Se necesita una terminal (/dev/tty). Ejemplo: ssh -t deploy@<IP>"
+fi
 printf 'Usuario de GitHub: '
-read -r GH_USER
+read -r GH_USER </dev/tty
 [[ -n "$GH_USER" ]] || die "Usuario vacío"
 printf 'Token con permiso read:packages (no se muestra): '
-read -rs GH_TOKEN
+read -rs GH_TOKEN </dev/tty
 printf '\n'
 [[ -n "$GH_TOKEN" ]] || die "Token vacío"
 

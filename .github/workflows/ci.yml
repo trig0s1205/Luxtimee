@@ -47,3 +47,15 @@ jobs:
         env:
           DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
           DIRECT_URL: "postgresql://ci:ci@localhost:5432/ci"
+
+  vps-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          shellcheck deploy/vps/*.sh deploy/vps/tests/*.sh
+      - name: set-env con TTY simulado
+        run: bash deploy/vps/tests/set-env-tty.sh

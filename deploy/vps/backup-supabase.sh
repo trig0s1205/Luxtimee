@@ -26,8 +26,18 @@ chmod 700 "$BACKUP_DIR"
 STAMP="$(date -u +%Y-%m-%d-%H%M)"
 OUT="${BACKUP_DIR}/luxtimee-${STAMP}.dump"
 
+# La imagen corre como root y, si el comando no es "postgres", el entrypoint no
+# hace gosu. Sin --user el dump queda de root y chmod 600 falla (set -e aborta).
+# HOME=/tmp: ese uid no está en /etc/passwd de la imagen; psql hace chdir a $HOME.
+run_pg() {
+  docker run --rm \
+    --user "$(id -u):$(id -g)" \
+    -e HOME=/tmp \
+    "$@"
+}
+
 printf 'Comprobando conexión (SHOW server_version)…\n'
-if ! docker run --rm -e PGPASSWORD_UNUSED=1 "$PG_IMAGE" \
+if ! run_pg -e PGPASSWORD_UNUSED=1 "$PG_IMAGE" \
   psql "$DIRECT_URL" -v ON_ERROR_STOP=1 -tAc 'SHOW server_version;' ; then
   cat >&2 <<'EOF'
 No se pudo conectar. Causas frecuentes:
@@ -39,7 +49,7 @@ EOF
 fi
 
 printf 'Generando dump…\n'
-docker run --rm -v "${BACKUP_DIR}:/backups" "$PG_IMAGE" \
+run_pg -v "${BACKUP_DIR}:/backups" "$PG_IMAGE" \
   pg_dump "$DIRECT_URL" -Fc --no-owner --no-privileges -f "/backups/luxtimee-${STAMP}.dump"
 chmod 600 "$OUT"
 
@@ -50,7 +60,7 @@ fi
 
 printf 'Tamaño: %s bytes\n' "$SIZE"
 printf 'Contenido (primeras líneas):\n'
-docker run --rm -v "${BACKUP_DIR}:/backups" "$PG_IMAGE" \
+run_pg -v "${BACKUP_DIR}:/backups" "$PG_IMAGE" \
   pg_restore --list "/backups/luxtimee-${STAMP}.dump" | head -n 20 || true
 
 HOST_HINT="$(hostname -I 2>/dev/null | awk '{print $1}')"

@@ -37,8 +37,11 @@ run_prisma status || true
 printf '\nSolo se aplicarán migraciones incluidas en API_IMAGE=%s\n' \
   "$(grep -E '^API_IMAGE=' .env | cut -d= -f2-)"
 printf 'Si la imagen sale de main SIN el PR #31, la migración del POS no se aplica.\n'
+if ! true 2>/dev/null </dev/tty; then
+  die "Se necesita una terminal (/dev/tty). Ejemplo: ssh -t deploy@<IP>"
+fi
 printf 'Escribe MIGRAR para continuar: '
-read -r confirm
+read -r confirm </dev/tty
 [[ "$confirm" == "MIGRAR" ]] || die "Abortado."
 
 run_prisma deploy

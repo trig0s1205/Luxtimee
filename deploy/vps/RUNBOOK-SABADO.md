@@ -42,15 +42,27 @@ Abrir **otra** terminal: `ssh deploy@<IP>`. Solo cuando entre bien, en la primer
 ssh -t root@<IP> "bash /home/deploy/luxtimee/harden-ssh.sh"
 ```
 
+La confirmación `ENTRO COMO DEPLOY` se lee de `/dev/tty` (por eso `-t`).
 Desde ahora solo `deploy`.
 
 ## T+0:40 — Secretos (10–15 min)
 
 ```bash
-ssh deploy@<IP>
+ssh -t deploy@<IP>
 cd ~/luxtimee
 bash ./set-env.sh
 ```
+
+`set-env.sh` lee el teclado en `/dev/tty`, no en stdin. Hace falta terminal
+(`ssh -t` si la sesión no es interactiva). No alimentes el script por un pipe
+ni pegues un bloque que ocupe stdin: las respuestas igual salen del teclado.
+
+Los secretos obligatorios (`DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`,
+`JWT_REFRESH_SECRET`, `CRON_SECRET`, `CLIENT_IP_SECRET`, `CLOUDINARY_API_KEY`,
+`CLOUDINARY_API_SECRET`) se vuelven a preguntar si quedan vacíos. La etiqueta
+«opcional, Enter=vacío» solo sale en claves que de verdad pueden ir vacías
+(`IMAGE_SERVICE_API_KEY`, `SMTP_PASS`, `RESEND_API_KEY`, WhatsApp, GA4, …).
+En `.env` se guarda solo el valor: el texto del prompt no entra en `DATABASE_URL`.
 
 `API_DOMAIN=api.luxtimee.com`, `API_IMAGE=ghcr.io/trig0s1205/luxtimee-api:sha-…`.
 
@@ -59,6 +71,8 @@ bash ./set-env.sh
 ```bash
 bash ./ghcr-login.sh
 ```
+
+Usuario y token también se leen de `/dev/tty`.
 
 Si falla GHCR (plan B, ~10–15 min extra desde el PC):
 
@@ -72,13 +86,24 @@ Si falla GHCR (plan B, ~10–15 min extra desde el PC):
 bash ./backup-supabase.sh
 ```
 
+`pg_dump` corre con el uid/gid de `deploy` (`--user` + `HOME=/tmp`), no como
+root. El `.dump` queda del usuario y `chmod 600` no aborta el script.
 Baja la copia al PC con el `scp` que imprime el script.
 
 ## T+1:05 — Migraciones (2–4 min)
 
 ```bash
 bash ./migrate.sh status
-bash ./migrate.sh deploy   # escribe MIGRAR
+```
+
+En el despliegue de producción, `migrate.sh status` reportó
+`Database schema is up to date` con **29 migraciones**. En ese caso no hay
+nada que aplicar: **no** corras `bash ./migrate.sh deploy` (el paso se salta).
+
+Si status muestra migraciones pendientes:
+
+```bash
+bash ./migrate.sh deploy   # escribe MIGRAR (lee /dev/tty)
 ```
 
 Solo aplica lo que trae la imagen elegida.

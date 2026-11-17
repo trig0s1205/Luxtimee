@@ -6,9 +6,12 @@ set -euo pipefail
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 [[ "$(id -u)" -eq 0 ]] || die "Debe ejecutarse como root/sudo."
 
+if ! true 2>/dev/null </dev/tty; then
+  die "Se necesita una terminal (/dev/tty). Ejemplo: ssh -t root@<IP>"
+fi
 printf 'Antes de continuar, confirma en OTRA terminal: ssh deploy@<IP> funciona.\n'
 printf 'Escribe exactamente: ENTRO COMO DEPLOY\n> '
-read -r confirm
+read -r confirm </dev/tty
 [[ "$confirm" == "ENTRO COMO DEPLOY" ]] || die "Confirmación incorrecta. Abortado."
 
 CONF=/etc/ssh/sshd_config.d/00-luxtimee-hardening.conf
