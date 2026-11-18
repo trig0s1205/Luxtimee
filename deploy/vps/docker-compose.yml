@@ -1,15 +1,28 @@
+# Producción VPS: API (GHCR) + Caddy (HTTPS).
+# Requiere .env con API_IMAGE, API_DOMAIN, ACME_EMAIL y secretos de la API.
+# No incluye postgres ni image-service.
+
 services:
   api:
-    image: ghcr.io/trig0s1205/luxtimee-api:latest
+    image: ${API_IMAGE:?Defina API_IMAGE en .env (tag sha-…, no latest)}
     restart: always
+    init: true
     env_file:
       - .env
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
-      PORT: 3000
+      PORT: "3000"
+      NODE_OPTIONS: ${NODE_OPTIONS:---max-old-space-size=1024}
     expose:
       - "3000"
+    mem_limit: 1400m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - api_uploads:/app/apps/api/uploads
     networks:
       - luxtimee
     logging:
@@ -36,6 +49,10 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "443:443/udp"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?Defina API_DOMAIN en .env}
+      ACME_EMAIL: ${ACME_EMAIL:?Defina ACME_EMAIL en .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -43,7 +60,8 @@ services:
     networks:
       - luxtimee
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     logging:
       driver: json-file
       options:
@@ -57,3 +75,4 @@ networks:
 volumes:
   caddy_data:
   caddy_config:
+  api_uploads:
