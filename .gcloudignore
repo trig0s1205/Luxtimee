@@ -6,7 +6,6 @@ node_modules
 **/.nuxt
 **/dist
 apps/web
-apps/image-service
 docs
 scripts
 .cursor

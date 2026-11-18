@@ -1,5 +1,5 @@
 /**
- * Reprocesa videos de relojes ya subidos a Cloudinary.
+ * Re-sube videos de relojes ya alojados en Cloudinary (sin microservicio).
  *
  * Uso (desde apps/api o raíz del monorepo):
  *   pnpm migrate:videos -- --dry-run
@@ -58,46 +58,12 @@ const prisma = new PrismaClient();
 const dryRun = process.argv.includes('--dry-run');
 const watchIdArg = process.argv.find((arg) => arg.startsWith('--id='))?.split('=')[1];
 
-const imageServiceUrl = (process.env.IMAGE_SERVICE_URL || 'http://localhost:8001').replace(/\/$/, '');
-const imageServiceKey = process.env.IMAGE_SERVICE_API_KEY || '';
-
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
   secure: true,
 });
-
-async function processVideoBuffer(buffer, filename = 'legacy.mp4') {
-  const formData = new FormData();
-  formData.append('file', new Blob([buffer], { type: 'video/mp4' }), filename);
-
-  const headers = {};
-  if (imageServiceKey) headers['X-API-Key'] = imageServiceKey;
-
-  const endpoints = [`${imageServiceUrl}/api/v1/process-video`, `${imageServiceUrl}/process-video`];
-  let lastError = null;
-
-  for (const endpoint of endpoints) {
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        body: formData,
-        headers,
-        signal: AbortSignal.timeout(300_000),
-      });
-      if (!response.ok) {
-        lastError = await response.text();
-        continue;
-      }
-      return Buffer.from(await response.arrayBuffer());
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
-    }
-  }
-
-  throw new Error(lastError || 'No se pudo procesar el video');
-}
 
 async function uploadVideo(buffer) {
   return new Promise((resolve, reject) => {
@@ -130,7 +96,7 @@ async function migrateWatch(watch) {
   console.log(`→ ${watch.sku} (${watch.id})`);
 
   if (dryRun) {
-    console.log('  dry-run: se reprocesaría', sourceUrl);
+    console.log('  dry-run: se re-subiría', sourceUrl);
     return { dryRun: true };
   }
 
@@ -138,8 +104,7 @@ async function migrateWatch(watch) {
   if (!response.ok) throw new Error(`No se pudo descargar ${sourceUrl}`);
 
   const inputBuffer = Buffer.from(await response.arrayBuffer());
-  const optimized = await processVideoBuffer(inputBuffer, `${watch.sku}.mp4`);
-  const newUrl = await uploadVideo(optimized);
+  const newUrl = await uploadVideo(inputBuffer);
 
   await prisma.watch.update({
     where: { id: watch.id },
@@ -151,7 +116,7 @@ async function migrateWatch(watch) {
     await cloudinary.uploader.destroy(oldPublicId, { resource_type: 'video' }).catch(() => undefined);
   }
 
-  console.log(`  ✓ ${Math.round(inputBuffer.length / 1024 / 1024)}MB → ${Math.round(optimized.length / 1024 / 1024)}MB`);
+  console.log(`  ✓ ${Math.round(inputBuffer.length / 1024 / 1024)}MB re-subido`);
   return { migrated: true, newUrl };
 }
 

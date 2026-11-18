@@ -42,13 +42,14 @@ Lista completa (ver comentarios en `apps/api/.env.example` y `deploy/vps/.env.pr
 - `COOKIE_SAME_SITE`, `CLIENT_IP_SECRET`, `CRON_SECRET`
 - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_CALLBACK_URL`
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_FOLDER`
-- `IMAGE_SERVICE_URL`, `IMAGE_SERVICE_API_KEY`, `REMBG_MODEL` (vacíos el sábado; no se despliega rembg)
 - `SEED_ADMIN_PASSWORD` (solo seeds locales; **no** en producción)
 - `EMAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_SECURE`, `RESEND_API_KEY`
 - `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_VERIFY_TOKEN`
 - `SENTRY_DSN`
 - `GA4_PROPERTY_ID`, `GA4_CLIENT_EMAIL`, `GA4_PRIVATE_KEY`
 - `NODE_OPTIONS` (prod VPS: `--max-old-space-size=1024`)
+
+`IMAGE_SERVICE_URL`, `IMAGE_SERVICE_API_KEY` y `REMBG_MODEL` ya no aplican: el image-service se eliminó y las fotos van directo a Cloudinary. En el VPS pueden quedar vacías; no se despliega rembg.
 
 Migraciones: **no** corren al arrancar el contenedor. Usa `prisma migrate deploy` a mano (ver `migrate.sh` / README de VPS).
 
@@ -88,7 +89,7 @@ Manual:
 
 1. Login admin: `/acceso/dev-portal-lx9k2`
 2. Catálogo `/catalogo`
-3. Subir imagen de reloj (Cloudinary)
+3. Subir imagen de reloj (directo a Cloudinary)
 4. Venta POS si el PR #31 está en la imagen y migrado
 5. Logs: `docker compose logs --tail=100 api`
 
