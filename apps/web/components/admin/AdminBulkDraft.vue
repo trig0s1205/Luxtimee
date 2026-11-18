@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue';
+import { findBatchDuplicates, type ImageDuplicateMatch, type ImageFingerprint } from '@luxtime/shared';
 import { selectionBadge } from '~/utils/bulk-photo-arrange';
+import { fingerprintImageFile } from '~/utils/image-fingerprint';
+import { storedDuplicateViews, type DuplicateHitView } from '~/utils/image-duplicates';
 import { useWatchBulkDraftStore } from '~/stores/watch-bulk-draft';
 
 const Draggable = defineAsyncComponent(() => import('vuedraggable'));
@@ -27,6 +30,142 @@ onBeforeUnmount(() => {
 });
 
 const readyCount = computed(() => store.preview?.pairs.length ?? 0);
+const reviewing = ref(false);
+const reviewError = ref('');
+
+type BulkDuplicate = {
+  pairId: string;
+  side: 'front' | 'back';
+  name: string;
+  previewUrl: string;
+  hits: DuplicateHitView[];
+  decision: 'pending' | 'keep';
+};
+
+const duplicateReview = ref<BulkDuplicate[]>([]);
+
+function reviewKey(item: { pairId: string; side: 'front' | 'back' }) {
+  return `${item.pairId}:${item.side}`;
+}
+
+async function uploadAll() {
+  if (store.confirming || reviewing.value) return;
+  if (duplicateReview.value.some((item) => item.decision !== 'keep')) return;
+  duplicateReview.value = [];
+  await store.confirmPreview();
+}
+
+async function scanBeforeUpload() {
+  if (store.confirming || reviewing.value || !store.preview?.pairs.length) return;
+  if (duplicateReview.value.length) {
+    await uploadAll();
+    return;
+  }
+  reviewing.value = true;
+  reviewError.value = '';
+  try {
+    const api = useApi();
+    const assets = String(useRuntimeConfig().public.apiAssetsUrl || 'http://localhost:3001');
+    const files = await store.previewFiles();
+    const fingerprinted: Array<{
+      pairId: string;
+      side: 'front' | 'back';
+      name: string;
+      previewUrl: string;
+      id: string;
+    } & ImageFingerprint> = [];
+    for (const file of files) {
+      const fingerprint = await fingerprintImageFile(file.file);
+      const pair = store.preview?.pairs.find((item) => item.id === file.pairId);
+      fingerprinted.push({
+        ...file,
+        ...fingerprint,
+        id: reviewKey(file),
+        previewUrl: file.side === 'front' ? pair?.frontUrl || '' : pair?.backUrl || '',
+      });
+    }
+    let stored = new Map<string, ImageDuplicateMatch['duplicates']>();
+    if (fingerprinted.length) {
+      try {
+        const response = await api.post<{ matches: ImageDuplicateMatch[] }>('/watches/image-duplicates', {
+          items: fingerprinted.map((item) => ({
+            id: item.id,
+            contentHash: item.contentHash,
+            ...(item.perceptualHash ? { perceptualHash: item.perceptualHash } : {}),
+          })),
+        });
+        stored = new Map(response.matches.map((match) => [match.id, match.duplicates]));
+      } catch {
+        reviewError.value = 'No se pudo comparar con el inventario. Puedes subir igual.';
+      }
+    }
+    const batch = findBatchDuplicates(fingerprinted);
+    const names = new Map(fingerprinted.map((item) => [item.id, item.name]));
+    const previews = new Map(fingerprinted.map((item) => [item.id, item.previewUrl]));
+    const next: BulkDuplicate[] = [];
+    for (const item of fingerprinted) {
+      const hits = storedDuplicateViews(stored.get(item.id) ?? [], assets);
+      for (const other of batch.filter((hit) => hit.id === item.id)) {
+        hits.push({
+          key: `batch-${other.otherId}`,
+          thumb: previews.get(other.otherId),
+          title: 'En este lote',
+          detail: names.get(other.otherId) || 'otra foto',
+        });
+      }
+      if (!hits.length) continue;
+      next.push({
+        pairId: item.pairId,
+        side: item.side,
+        name: item.name,
+        previewUrl: item.previewUrl,
+        hits,
+        decision: 'pending',
+      });
+    }
+    if (!next.length) {
+      await store.confirmPreview();
+      return;
+    }
+    duplicateReview.value = next;
+  } finally {
+    reviewing.value = false;
+  }
+}
+
+async function omitReview(items: BulkDuplicate[]) {
+  const byPair = new Map<string, Set<'front' | 'back'>>();
+  for (const item of items) {
+    const sides = byPair.get(item.pairId) ?? new Set<'front' | 'back'>();
+    sides.add(item.side);
+    byPair.set(item.pairId, sides);
+  }
+  for (const [pairId, sides] of byPair) {
+    if (sides.has('front') && sides.has('back')) await store.removePreviewWatch(pairId);
+  }
+  for (const [pairId, sides] of byPair) {
+    if (sides.has('back') && !sides.has('front')) await store.removePreviewPhoto(pairId, 'back');
+  }
+  for (const [pairId, sides] of byPair) {
+    if (sides.has('front') && !sides.has('back')) await store.removePreviewPhoto(pairId, 'front');
+  }
+  const alive = new Set(store.preview?.pairs.map((pair) => pair.id) ?? []);
+  duplicateReview.value = duplicateReview.value.filter((item) => {
+    if (!alive.has(item.pairId)) return false;
+    const pair = store.preview?.pairs.find((entry) => entry.id === item.pairId);
+    if (item.side === 'back' && !pair?.backUrl) return false;
+    return !items.some((skipped) => skipped.pairId === item.pairId && skipped.side === item.side);
+  });
+}
+
+async function omitAllDuplicates() {
+  await omitReview(duplicateReview.value.filter((item) => item.decision === 'pending'));
+  if (!store.preview?.pairs.length) return;
+  if (!duplicateReview.value.some((item) => item.decision !== 'keep')) {
+    duplicateReview.value = [];
+    await store.confirmPreview();
+  }
+}
 
 function start() {
   if (store.preview || store.board || store.preparing) {
@@ -190,9 +329,36 @@ function close() {
               </li>
             </template>
           </Draggable>
+          <div v-if="duplicateReview.length" class="admin-bulk-dupes" data-testid="bulk-duplicate-warning">
+            <p class="admin-bulk-draft-warn">Hay fotos repetidas. Nada se sube hasta que elijas.</p>
+            <article v-for="item in duplicateReview" :key="reviewKey(item)">
+              <img :src="item.previewUrl" alt="">
+              <div>
+                <strong>{{ item.side === 'front' ? 'Frente' : 'Dorso' }} · {{ item.name }}</strong>
+                <ul>
+                  <li v-for="hit in item.hits" :key="hit.key">
+                    <a v-if="hit.href" :href="hit.href">{{ hit.title }}</a>
+                    <span v-else>{{ hit.title }}</span>
+                    <span> · {{ hit.detail }}</span>
+                  </li>
+                </ul>
+                <div class="admin-bulk-draft-actions">
+                  <button type="button" class="admin-pagination-btn" @click="omitReview([item])">Omitir</button>
+                  <button type="button" class="admin-pagination-btn" @click="item.decision = 'keep'">Subir de todas formas</button>
+                </div>
+              </div>
+            </article>
+            <button type="button" class="admin-pagination-btn" @click="omitAllDuplicates()">Omitir todas las repetidas</button>
+          </div>
+          <p v-if="reviewError" class="admin-bulk-draft-warn">{{ reviewError }}</p>
           <div class="admin-bulk-draft-actions">
-            <UiLuxButton variant="ghost" :disabled="store.confirming" @click="store.cancelPreview()">Cancelar</UiLuxButton>
-            <UiLuxButton :disabled="store.confirming || !readyCount" @click="store.confirmPreview()">Subir todo</UiLuxButton>
+            <UiLuxButton variant="ghost" :disabled="store.confirming" @click="duplicateReview = []; store.cancelPreview()">Cancelar</UiLuxButton>
+            <UiLuxButton
+              :disabled="store.confirming || reviewing || !readyCount || duplicateReview.some((item) => item.decision !== 'keep')"
+              @click="scanBeforeUpload()"
+            >
+              {{ reviewing ? 'Revisando fotos…' : 'Subir todo' }}
+            </UiLuxButton>
           </div>
         </template>
 
@@ -503,6 +669,37 @@ function close() {
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.admin-bulk-dupes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.admin-bulk-dupes article {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.admin-bulk-dupes img {
+  width: 72px;
+  height: 96px;
+  object-fit: cover;
+}
+
+.admin-bulk-dupes ul {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--lux-white-dim);
+  font-size: 12px;
+}
+
+.admin-bulk-dupes a {
+  color: var(--lux-gold);
 }
 
 .admin-bulk-draft-row--error {

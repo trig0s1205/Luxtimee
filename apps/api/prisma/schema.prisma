@@ -294,6 +294,7 @@ model Watch {
   wishlist         WishlistItem[]
   certificates     Certificate[]
   wholesalePackageWatches WholesalePackageWatch[]
+  imageFingerprints WatchImageFingerprint[]
 
   @@index([brandId])
   @@index([categoryId])
@@ -301,6 +302,24 @@ model Watch {
   @@index([isActive, stock])
   @@index([status])
   @@index([slug])
+}
+
+model WatchImageFingerprint {
+  id             String   @id @default(cuid())
+  watchId        String
+  imageUrl       String
+  slot           String
+  contentHash    String?
+  perceptualHash String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  watch Watch @relation(fields: [watchId], references: [id], onDelete: Cascade)
+
+  @@unique([watchId, imageUrl])
+  @@index([watchId])
+  @@index([contentHash])
+  @@index([perceptualHash])
 }
 
 model ShippingZone {

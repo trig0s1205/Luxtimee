@@ -125,6 +125,7 @@ watch([retailMarginPercentage, wholesaleMarginPercentage], ([retail, wholesale])
 });
 
 const mediaError = ref('');
+const duplicates = useImageDuplicateGuard();
 const imagesOnlyMode = ref(!props.watch?.id);
 const primaryInput = ref<HTMLInputElement | null>(null);
 const secondaryInput = ref<HTMLInputElement | null>(null);
@@ -145,6 +146,7 @@ function setImageFile(slot: 'primary' | 'secondary', file: File | null) {
     form.secondaryImageFile = file;
     secondaryPreview.value = file ? URL.createObjectURL(file) : null;
   }
+  void duplicates.inspect(slot, file);
 }
 
 function setVideoFile(file: File | null) {
@@ -266,6 +268,12 @@ async function onVideoSelectAsync(event: Event) {
   toast.info('Video válido. Se optimizará al guardar (máx. 1080p, ~10 MB).');
 }
 
+function rejectNewImage(slot: 'primary' | 'secondary') {
+  setImageFile(slot, null);
+  if (slot === 'primary' && primaryInput.value) primaryInput.value.value = '';
+  if (slot === 'secondary' && secondaryInput.value) secondaryInput.value.value = '';
+}
+
 function clearImageSlot(slot: 'primary' | 'secondary') {
   if (slot === 'primary') {
     setImageFile('primary', null);
@@ -306,6 +314,12 @@ const isEdit = computed(() => !!props.watch?.id);
 
 async function onSubmit() {
   if (isBusy.value) return;
+
+  if (!(await duplicates.settle())) {
+    mediaError.value = 'Hay fotos repetidas. Omítelas o confirma que quieres subirlas.';
+    activeTab.value = 2;
+    return;
+  }
 
   if (!hasRequiredMedia()) {
     mediaError.value = imagesOnlyMode.value && !isEdit.value
@@ -547,6 +561,13 @@ const selectedCareTemplate = computed(() =>
             <input ref="primaryInput" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="onImageSelect('primary', $event)">
             <button v-if="primaryPreview || form.primaryImageUrl" type="button" class="admin-media-clear" @click="previewSrc = primaryPreview || form.primaryImageUrl || null">Ver foto</button>
             <button v-if="primaryPreview || form.primaryImageUrl" type="button" class="admin-media-clear" @click="clearImageSlot('primary')">Quitar</button>
+            <p v-if="duplicates.slots.primary.checking" class="admin-form-hint">Comparando fotos…</p>
+            <AdminImageDuplicateWarning
+              v-if="duplicates.slots.primary.hits.length && duplicates.slots.primary.decision !== 'keep'"
+              :hits="duplicates.slots.primary.hits"
+              @skip="rejectNewImage('primary')"
+              @keep="duplicates.keep('primary')"
+            />
           </div>
 
           <div class="admin-media-slot">
@@ -569,6 +590,13 @@ const selectedCareTemplate = computed(() =>
             <input ref="secondaryInput" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="onImageSelect('secondary', $event)">
             <button v-if="secondaryPreview || form.secondaryImageUrl" type="button" class="admin-media-clear" @click="previewSrc = secondaryPreview || form.secondaryImageUrl || null">Ver foto</button>
             <button v-if="secondaryPreview || form.secondaryImageUrl" type="button" class="admin-media-clear" @click="clearImageSlot('secondary')">Quitar</button>
+            <p v-if="duplicates.slots.secondary.checking" class="admin-form-hint">Comparando fotos…</p>
+            <AdminImageDuplicateWarning
+              v-if="duplicates.slots.secondary.hits.length && duplicates.slots.secondary.decision !== 'keep'"
+              :hits="duplicates.slots.secondary.hits"
+              @skip="rejectNewImage('secondary')"
+              @keep="duplicates.keep('secondary')"
+            />
           </div>
 
           <div class="admin-media-slot admin-media-slot--video">
