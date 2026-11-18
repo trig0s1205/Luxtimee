@@ -586,6 +586,51 @@ export class WatchesRepository {
       mostSold: toInsight(most),
     };
   }
+
+  findImageFingerprints() {
+    return this.prisma.watchImageFingerprint.findMany({
+      where: { watch: { deletedAt: null } },
+      select: {
+        imageUrl: true,
+        slot: true,
+        contentHash: true,
+        perceptualHash: true,
+        watch: { select: { id: true, sku: true, model: true } },
+      },
+    });
+  }
+
+  async saveImageFingerprint(input: {
+    watchId: string;
+    imageUrl: string;
+    slot: string;
+    contentHash: string;
+    perceptualHash: string | null;
+  }) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.watchImageFingerprint.deleteMany({
+        where: {
+          watchId: input.watchId,
+          slot: input.slot,
+          NOT: { imageUrl: input.imageUrl },
+        },
+      });
+      await tx.watchImageFingerprint.upsert({
+        where: {
+          watchId_imageUrl: {
+            watchId: input.watchId,
+            imageUrl: input.imageUrl,
+          },
+        },
+        create: input,
+        update: {
+          slot: input.slot,
+          contentHash: input.contentHash,
+          perceptualHash: input.perceptualHash,
+        },
+      });
+    });
+  }
 }
 
 const insightWatchSelect = {

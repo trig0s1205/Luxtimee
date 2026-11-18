@@ -6,11 +6,12 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
+import { compareFingerprints, fingerprintImageBytes } from '@luxtime/shared';
 import { WatchesRepository } from './watches.repository';
 import {
   CreateWatchDto,
+  MatchImageDuplicatesDto,
   MAX_BULK_DELETE_WATCHES,
   UpdateWatchDto,
 } from './dto';
@@ -542,6 +543,7 @@ export class WatchesService {
 
     const isProd = process.env.NODE_ENV === 'production';
     const mediaResults: Partial<Record<MediaSlot, MediaSlotResult>> = {};
+    const storedUrls: Partial<Record<'image1' | 'image2', string>> = {};
     const data: Prisma.WatchUpdateInput = {};
     let imageNeedsReview = existing.imageNeedsReview;
     const writtenPaths: string[] = [];
@@ -559,6 +561,7 @@ export class WatchesService {
             );
             data.primaryImageUrl = stored.url;
             data.frontImageUrl = stored.url;
+            storedUrls.image1 = stored.url;
             if (stored.needsReview) imageNeedsReview = true;
             mediaResults.image1 = { status: 'done' };
           } catch (error) {
@@ -583,6 +586,7 @@ export class WatchesService {
             );
             data.secondaryImageUrl = stored.url;
             data.backImageUrl = stored.url;
+            storedUrls.image2 = stored.url;
             if (stored.needsReview) imageNeedsReview = true;
             mediaResults.image2 = { status: 'done' };
           } catch (error) {
@@ -688,6 +692,12 @@ export class WatchesService {
     this.applyCatalogVisibility(existing, data, null);
 
     const updated = await this.watchesRepository.update(id, data);
+    if (files.image1 && storedUrls.image1) {
+      await this.rememberImageFingerprint(id, 'front', storedUrls.image1, files.image1.buffer);
+    }
+    if (files.image2 && storedUrls.image2) {
+      await this.rememberImageFingerprint(id, 'back', storedUrls.image2, files.image2.buffer);
+    }
     this.cache.invalidateTag(CACHE_TAGS.catalog);
 
     if (!isProd) {
@@ -818,12 +828,68 @@ export class WatchesService {
     }
   }
 
+  async matchImageDuplicates(items: MatchImageDuplicatesDto['items']) {
+    const stored = await this.watchesRepository.findImageFingerprints();
+    return {
+      matches: items.map((item) => {
+        const query = {
+          contentHash: item.contentHash.toLowerCase(),
+          perceptualHash: item.perceptualHash?.toLowerCase() ?? null,
+        };
+        const duplicates = stored.flatMap((row) => {
+          const match = compareFingerprints(query, {
+            contentHash: row.contentHash ?? '',
+            perceptualHash: row.perceptualHash,
+          });
+          if (!match) return [];
+          return [{
+            watchId: row.watch.id,
+            sku: row.watch.sku,
+            model: row.watch.model,
+            imageUrl: row.imageUrl,
+            slot: row.slot,
+            kind: match.kind,
+            distance: match.distance,
+          }];
+        });
+        duplicates.sort((a, b) => {
+          if (a.kind !== b.kind) return a.kind === 'exact' ? -1 : 1;
+          return a.distance - b.distance;
+        });
+        return { id: item.id, duplicates: duplicates.slice(0, 8) };
+      }),
+    };
+  }
+
+  private async rememberImageFingerprint(
+    watchId: string,
+    slot: string,
+    imageUrl: string,
+    buffer: Buffer,
+  ) {
+    try {
+      const fingerprint = await fingerprintImageBytes(new Uint8Array(buffer));
+      await this.watchesRepository.saveImageFingerprint({
+        watchId,
+        imageUrl,
+        slot,
+        contentHash: fingerprint.contentHash,
+        perceptualHash: fingerprint.perceptualHash,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `fingerprint_failed slot=${slot} ${error instanceof Error ? error.message : ''}`.trim(),
+      );
+    }
+  }
+
   async uploadImages(
     id: string,
     files: Express.Multer.File[],
     baseUrl: string,
   ) {
     const watch = await this.watchesRepository.findById(id);
+    const buffers: Buffer[] = [];
     for (const file of files) {
       const buffer = await readFile(file.path);
       try {
@@ -832,6 +898,7 @@ export class WatchesService {
         await unlink(file.path).catch(() => undefined);
         throw error;
       }
+      buffers.push(buffer);
     }
     const uploadedUrls = files.map(
       (file) => `${baseUrl}/uploads/watches/${file.filename}`,
@@ -845,6 +912,14 @@ export class WatchesService {
         mainImageIndex,
         frontImageUrl: mergedImages[mainImageIndex] ?? null,
       });
+      for (let index = 0; index < files.length; index += 1) {
+        await this.rememberImageFingerprint(
+          id,
+          `gallery-${watch.images.length + index}`,
+          uploadedUrls[index],
+          buffers[index],
+        );
+      }
       this.cache.invalidateTag(CACHE_TAGS.catalog);
       return updated;
     } catch (error) {
@@ -956,6 +1031,20 @@ export class WatchesService {
       }
 
       committed = true;
+      await this.rememberImageFingerprint(
+        result.watch.id,
+        'front',
+        storedUrls[0],
+        image1.buffer,
+      );
+      if (image2 && storedUrls[1]) {
+        await this.rememberImageFingerprint(
+          result.watch.id,
+          'back',
+          storedUrls[1],
+          image2.buffer,
+        );
+      }
       this.logger.log(
         `[watches:bulk-draft] ${result.watch.id} sku=${result.watch.sku}`,
       );

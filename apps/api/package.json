@@ -20,6 +20,7 @@
     "backfill:warranties": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/scripts/backfill-warranty-histories.ts",
     "sku:recompute": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/scripts/recompute-watch-sku-prefixes.ts",
     "wipe:transactional": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/scripts/wipe-transactional-data.ts",
+    "fingerprints:backfill": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/scripts/backfill-image-fingerprints.ts",
     "migrate:videos": "node scripts/migrate-watch-videos.mjs"
   },
   "dependencies": {

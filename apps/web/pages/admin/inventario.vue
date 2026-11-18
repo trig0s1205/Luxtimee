@@ -234,6 +234,16 @@ function openEdit(watch: WatchStaffDto) {
   showForm.value = true;
 }
 
+const route = useRoute();
+watch(() => route.query.reloj, async (id) => {
+  if (typeof id !== 'string' || !id || showForm.value) return;
+  try {
+    openEdit(await api.get<WatchStaffDto>(`/watches/${id}`));
+  } catch {
+    /* el aviso igual muestra el SKU */
+  }
+}, { immediate: true });
+
 async function handleSubmit(form: WatchFormPayload) {
   if (saving.value) return;
 

@@ -66,6 +66,7 @@ export * from './utils/sku-search.js';
 export * from './utils/homepage-hero.js';
 export * from './utils/wholesale-quote.js';
 export * from './utils/photo-pairs.js';
+export * from './utils/image-fingerprint.js';
 export * from './utils/bulk-draft-queue.js';
 export * from './utils/zip-ntfs.js';
 export * from './utils/whatsapp-link.js';
