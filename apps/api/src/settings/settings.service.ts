@@ -13,8 +13,10 @@ import type {
   LegalDocumentsDto,
   PlatformConfigDto,
   ProfitConfigDto,
+  ReceiptConfigDto,
   WhatsappSettingDto,
 } from '@luxtime/shared';
+import { sanitizePlainText } from '../common/utils/sanitize-text.util';
 import {
   emptyHeroSlide,
   HOMEPAGE_HERO_MAX_SLIDES,
@@ -308,6 +310,57 @@ export class SettingsService {
 
   setPlatformConfig(value: PlatformConfigDto) {
     return this.setJson('platform_config', value);
+  }
+
+  async getReceiptConfig(): Promise<ReceiptConfigDto> {
+    const platform = await this.getPlatformConfig();
+    const homepage = await this.getHomepageConfig();
+    const defaults: ReceiptConfigDto = {
+      businessName: 'LUXTIMEE',
+      ownerName: '',
+      ownerDocument: '',
+      phone: '',
+      whatsapp: '',
+      email: platform.supportEmail ?? '',
+      city: platform.city ?? '',
+      address: '',
+      logoUrl: homepage.branding?.navLogoUrl ?? '',
+      warrantyTerms:
+        'La garantía cubre defectos de fabricación del mecanismo durante el plazo indicado para cada reloj, contado desde la fecha de venta. No cubre golpes, caídas, humedad o ingreso de agua por mal uso, rayones, desgaste normal de correas, pulsos y baterías, ni relojes manipulados o abiertos por terceros. Para hacerla válida presente este comprobante. Luxtimee evaluará el reloj y decidirá si procede la reparación o el reemplazo.',
+      footerNote: '',
+    };
+    const stored = await this.getJson<Partial<ReceiptConfigDto>>('receipt_config', {});
+    return {
+      businessName: stored.businessName?.trim() || defaults.businessName,
+      ownerName: stored.ownerName ?? defaults.ownerName,
+      ownerDocument: stored.ownerDocument ?? defaults.ownerDocument,
+      phone: stored.phone ?? defaults.phone,
+      whatsapp: stored.whatsapp ?? defaults.whatsapp,
+      email: stored.email?.trim() || defaults.email,
+      city: stored.city?.trim() || defaults.city,
+      address: stored.address ?? defaults.address,
+      logoUrl: stored.logoUrl?.trim() || defaults.logoUrl,
+      warrantyTerms: stored.warrantyTerms?.trim() || defaults.warrantyTerms,
+      footerNote: stored.footerNote ?? defaults.footerNote,
+    };
+  }
+
+  async setReceiptConfig(value: ReceiptConfigDto): Promise<ReceiptConfigDto> {
+    const cleaned: ReceiptConfigDto = {
+      businessName: sanitizePlainText(value.businessName, 120) || 'LUXTIMEE',
+      ownerName: sanitizePlainText(value.ownerName, 120),
+      ownerDocument: sanitizePlainText(value.ownerDocument, 120),
+      phone: sanitizePlainText(value.phone, 120),
+      whatsapp: sanitizePlainText(value.whatsapp, 120),
+      email: sanitizePlainText(value.email, 120),
+      city: sanitizePlainText(value.city, 120),
+      address: sanitizePlainText(value.address, 120),
+      logoUrl: sanitizePlainText(value.logoUrl, 500),
+      warrantyTerms: sanitizePlainText(value.warrantyTerms, 6000),
+      footerNote: sanitizePlainText(value.footerNote, 300),
+    };
+    await this.setJson('receipt_config', cleaned);
+    return cleaned;
   }
 
   async getHomepageConfig(): Promise<HomepageConfigDto> {

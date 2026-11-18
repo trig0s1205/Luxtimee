@@ -10,6 +10,7 @@ import {
   OrderStage,
   OrderStatus,
   OrderType,
+  PaymentMethod,
   PriceType,
   Prisma,
   Role,
@@ -18,13 +19,15 @@ import { depositForUnits, formatCopAmount } from '@luxtime/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CertificatesService } from '../certificates/certificates.service';
+import { ReceiptsService } from '../receipts/receipts.service';
 import { assertValidTransition } from './state-machine';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import type { OrdersPeriod } from './dto/orders-query.dto';
 import { findOrderIdsByTextSearch } from './order-search.util';
 import type { SpecialSalesQueryDto } from './dto/special-sale.dto';
 import { CreateSpecialSaleDto } from './dto/special-sale.dto';
-import { generateReadableId } from './order-pricing.util';
+import { nextOrderReadableId } from '../common/utils/document-counter.util';
+import { withTxnRetries } from '../common/utils/txn-retries.util';
 import {
   assertSpecialSaleInput,
   computeSpecialSaleProfit,
@@ -55,6 +58,8 @@ const orderInclude = {
     include: { registeredBy: { select: { name: true } } },
     orderBy: { paidAt: 'asc' as const },
   },
+  seller: { select: { name: true } },
+  receipt: { select: { number: true, voidedAt: true } },
 } as const;
 
 const inventoryDeductedStatuses: OrderStatus[] = [
@@ -86,19 +91,35 @@ export class OrdersService {
     private certificatesService: CertificatesService,
     private cache: MemoryCacheService,
     private customerNotifier: CustomerNotifier,
+    private receiptsService: ReceiptsService,
   ) {}
 
+  private async safeEnsureReceipt(orderId: string) {
+    try {
+      await this.receiptsService.ensureForOrder(orderId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Comprobante no emitido para ${orderId}: ${message}`,
+      );
+    }
+  }
+
   private mapOrder(order: OrderWithRelations) {
-    const { items, shippingZone, payments, ...rest } = order;
+    const { items, shippingZone, payments, seller, receipt, ...rest } = order;
     const summary = summarizeOrderPayments({ ...order, payments, items });
     const depositExpected =
-      order.type === OrderType.ESPECIAL
+      order.type === OrderType.ESPECIAL || order.source === 'LOCAL'
         ? 0
         : depositForUnits(summary.unitCount);
     return {
       ...rest,
       ...summary,
       depositExpected,
+      customerDocument: order.customerDocument ?? null,
+      sellerName: seller?.name ?? null,
+      receiptNumber: receipt?.number ?? null,
+      receiptVoided: Boolean(receipt?.voidedAt),
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
       paidAt: order.paidAt?.toISOString() ?? null,
@@ -171,6 +192,7 @@ export class OrdersService {
       period?: OrdersPeriod;
       status?: OrderStatus;
       type?: OrderType;
+      source?: OrderSource;
       search?: string;
       page?: number;
       limit?: number;
@@ -185,6 +207,12 @@ export class OrdersService {
     if (options.status) filters.push({ status: options.status });
     const matchedIds = await findOrderIdsByTextSearch(this.prisma, options.search);
     if (matchedIds) filters.push({ id: { in: matchedIds } });
+
+    if (options.source) {
+      filters.push({ source: options.source });
+    } else if (options.type === OrderType.DETAL) {
+      filters.push({ source: { not: OrderSource.LOCAL } });
+    }
 
     const where: Prisma.OrderWhereInput = {
       stage: OrderStage.ORDER,
@@ -245,7 +273,11 @@ export class OrdersService {
   async transitionStatus(
     id: string,
     next: OrderStatus,
-    options: { confirmBalancePaid?: boolean; registeredById?: string } = {},
+    options: {
+      confirmBalancePaid?: boolean;
+      registeredById?: string;
+      paymentMethod?: PaymentMethod;
+    } = {},
   ) {
     const order = await this.prisma.order.findUnique({
       where: { id },
@@ -273,6 +305,7 @@ export class OrdersService {
         if (isInventoryDeducted(order)) {
           await this.restoreInventory(order.items, tx);
         }
+        await this.receiptsService.voidForOrder(tx, id, 'Pedido cancelado');
         return tx.order.findUniqueOrThrow({
           where: { id },
           include: orderInclude,
@@ -308,6 +341,15 @@ export class OrdersService {
       if (next === OrderStatus.PAGADO && !order.depositConfirmed) {
         await this.deductInventory(order.items, tx);
       }
+      if (
+        next === OrderStatus.PAGADO &&
+        options.paymentMethod !== undefined
+      ) {
+        await tx.orderPayment.updateMany({
+          where: { orderId: id, method: null },
+          data: { method: options.paymentMethod },
+        });
+      }
       if (next === OrderStatus.ENTREGADO) {
         await this.collectBalanceOnDelivery(
           tx,
@@ -325,6 +367,10 @@ export class OrdersService {
 
     if (next === OrderStatus.PAGADO) {
       await this.certificatesService.generateForOrder(id);
+      await this.safeEnsureReceipt(id);
+    }
+    if (next === OrderStatus.ENVIADO || next === OrderStatus.ENTREGADO) {
+      await this.safeEnsureReceipt(id);
     }
     if (next === OrderStatus.ENVIADO) {
       await this.notifyCustomer(order, 'shipped');
@@ -415,13 +461,14 @@ export class OrdersService {
     const profit = computeSpecialSaleProfit(salePrice, watch.cost);
     const productName = `${watch.brand.name} ${watch.model}`.trim();
     const now = new Date();
-    const readableId = generateReadableId((await this.prisma.order.count()) + 1);
 
-    const order = await this.prisma.$transaction(async (tx) => {
+    const order = await withTxnRetries(() =>
+      this.prisma.$transaction(async (tx) => {
       await reserveWatchStock(tx, [{ watchId: watch.id, quantity: 1 }], {
         message: 'Este reloj ya no está disponible',
       });
-      return tx.order.create({
+      const readableId = await nextOrderReadableId(tx, now);
+      const created = await tx.order.create({
         data: {
           readableId,
           stage: OrderStage.ORDER,
@@ -476,7 +523,17 @@ export class OrdersService {
         },
         include: orderInclude,
       });
-    }, STOCK_TRANSACTION);
+      await this.receiptsService.issueInTx(tx, created.id, {
+        channel: 'WEB',
+        saleDate: now,
+        sellerId: registeredById ?? null,
+      });
+      return tx.order.findUniqueOrThrow({
+        where: { id: created.id },
+        include: orderInclude,
+      });
+    }, STOCK_TRANSACTION),
+    );
 
     this.cache.invalidateTag(CACHE_TAGS.catalog);
     return this.toSpecialSale(order);
@@ -494,6 +551,7 @@ export class OrdersService {
     specialSkuSnapshot: string | null;
     specialProfit: number | null;
     items: Array<{ productName: string; watch: { sku: string } }>;
+    receipt?: { number: string; voidedAt: Date | null } | null;
   }) {
     const item = order.items[0];
     const salePrice = order.specialSalePrice ?? order.total;
@@ -509,6 +567,8 @@ export class OrdersService {
       cost,
       profit: order.specialProfit ?? salePrice - cost,
       note: order.specialNote ?? '',
+      receiptNumber: order.receipt?.number ?? null,
+      receiptVoided: Boolean(order.receipt?.voidedAt),
     };
   }
 
@@ -620,6 +680,9 @@ export class OrdersService {
       if (shouldDeduct) {
         await this.deductInventory(order.items, tx);
       }
+      if (next === OrderStatus.CANCELADO) {
+        await this.receiptsService.voidForOrder(tx, id, 'Pedido cancelado');
+      }
       if (next === OrderStatus.ENTREGADO) {
         const nextTotal =
           dto.shippingCost !== undefined
@@ -639,6 +702,13 @@ export class OrdersService {
       });
     }, STOCK_TRANSACTION);
 
+    if (
+      next === OrderStatus.PAGADO ||
+      next === OrderStatus.ENVIADO ||
+      next === OrderStatus.ENTREGADO
+    ) {
+      await this.safeEnsureReceipt(id);
+    }
     if (next === OrderStatus.ENVIADO) {
       await this.notifyCustomer(updated, 'shipped');
     }
@@ -683,6 +753,7 @@ export class OrdersService {
       if (isInventoryDeducted(order)) {
         await this.restoreInventory(order.items, tx);
       }
+      await this.receiptsService.voidForOrder(tx, id, 'Pedido eliminado');
       await tx.order.delete({ where: { id } });
     }, STOCK_TRANSACTION);
     this.cache.invalidateTag(CACHE_TAGS.catalog);

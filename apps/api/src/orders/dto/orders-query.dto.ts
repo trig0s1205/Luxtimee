@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
-import { OrderStatus, OrderType } from '@prisma/client';
+import { OrderSource, OrderStatus, OrderType } from '@prisma/client';
 
 const ORDER_PERIODS = ['day', 'week', 'month', 'all'] as const;
 const ORDER_STATUSES = [
@@ -11,6 +11,7 @@ const ORDER_STATUSES = [
   'CANCELADO',
 ] as const;
 const ORDER_TYPES = ['DETAL', 'MAYORISTA'] as const;
+const ORDER_SOURCES = ['WEB', 'WHATSAPP', 'MAYORISTA', 'LOCAL'] as const;
 
 export type OrdersPeriod = (typeof ORDER_PERIODS)[number];
 
@@ -26,6 +27,10 @@ export class OrdersQueryDto {
   @IsOptional()
   @IsIn(ORDER_TYPES)
   type?: OrderType;
+
+  @IsOptional()
+  @IsIn(ORDER_SOURCES)
+  source?: OrderSource;
 
   @IsOptional()
   @IsString()

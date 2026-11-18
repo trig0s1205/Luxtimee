@@ -86,7 +86,13 @@ const bulkDraft = useWatchBulkDraftStore();
 const selectionMode = ref(false);
 const selectingAll = ref(false);
 const selected = ref<Record<string, { model: string; brandName: string }>>({});
+const labelsWatchIds = ref<string[] | null>(null);
 let selectToken = 0;
+
+function openLabels(ids: string[]) {
+  if (!ids.length) return;
+  labelsWatchIds.value = [...ids];
+}
 
 const selectedIds = computed(() => Object.keys(selected.value));
 const selectedCount = computed(() => selectedIds.value.length);
@@ -558,6 +564,9 @@ async function finishBulkDelete() {
         {{ selectingAll ? 'Seleccionando...' : `Seleccionar todos (${total})` }}
       </button>
       <span class="admin-pagination-info">{{ selectedCount }} seleccionados</span>
+      <button type="button" class="admin-pagination-btn" :disabled="!selectedCount" @click="openLabels(selectedIds)">
+        Imprimir etiquetas ({{ selectedCount }})
+      </button>
       <button type="button" class="admin-pagination-btn admin-pagination-btn--danger" :disabled="!selectedCount" @click="handleBulkDelete">
         Eliminar
       </button>
@@ -580,8 +589,15 @@ async function finishBulkDelete() {
       :progress-by-id="progressById"
       @edit="openEdit"
       @delete="handleDelete"
+      @labels="(watch) => openLabels([watch.id])"
       @toggle-select="toggleSelect"
       @toggle-visible="toggleVisible"
+    />
+
+    <AdminLabelsModal
+      v-if="labelsWatchIds"
+      :watch-ids="labelsWatchIds"
+      @close="labelsWatchIds = null"
     />
 
     <div v-if="hasMore" class="admin-inventory-pagination">

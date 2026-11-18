@@ -112,17 +112,7 @@ export class ProductsService {
         data.profitPercent = dto.profitPercent;
     }
 
-    if (
-      dto.retailPrice !== undefined &&
-      dto.retailPrice !== existing.retailPrice
-    ) {
-      data.sku = await this.watchesRepository.allocateReplacementSku({
-        watchId: existing.id,
-        currentSku: existing.sku,
-        retailPrice: dto.retailPrice,
-        gender: existing.gender,
-      });
-    }
+    // El SKU es inmutable desde su creación: está impreso en las etiquetas con código de barras (POS).
 
     const watch = await this.prisma.watch.update({
       where: { id },

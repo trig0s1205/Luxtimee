@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ExpenseDto, ExpensesListDto } from '@luxtime/shared';
+import { ExpenseOrigin, EXPENSE_ORIGIN_LABELS } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { extractApiErrorMessage } from '~/utils/api-error';
 import { invalidateAdminCachePrefix } from '~/utils/admin-cache';
@@ -15,6 +16,7 @@ const PAGE_SIZE = 20;
 const page = ref(1);
 const searchInput = ref('');
 const search = ref('');
+const originFilter = ref<'' | ExpenseOrigin>('');
 const saving = ref(false);
 const deletingId = ref<string | null>(null);
 const editingId = ref<string | null>(null);
@@ -34,11 +36,19 @@ const form = reactive({
   description: '',
   amount: null as number | null,
   spentAt: bogotaToday(),
+  origin: ExpenseOrigin.PLATAFORMA as ExpenseOrigin,
 });
 
-const emptyList: ExpensesListDto = { items: [], total: 0, page: 1, limit: PAGE_SIZE };
+const emptyList: ExpensesListDto = {
+  items: [],
+  total: 0,
+  page: 1,
+  limit: PAGE_SIZE,
+  totalAmount: 0,
+  totalsByOrigin: { PLATAFORMA: 0, LOCAL: 0 },
+};
 const dataKey = computed(
-  () => `admin-expenses-${page.value}-${search.value}`,
+  () => `admin-expenses-${page.value}-${search.value}-${originFilter.value}`,
 );
 
 const { data, refresh, pending } = useAdminCachedData(
@@ -48,12 +58,17 @@ const { data, refresh, pending } = useAdminCachedData(
       page: page.value,
       limit: PAGE_SIZE,
       search: search.value || undefined,
+      origin: originFilter.value || undefined,
     }).catch(() => emptyList),
   { watch: [dataKey] },
 );
 
 const expenses = computed(() => data.value?.items ?? []);
 const total = computed(() => data.value?.total ?? 0);
+const totalsByOrigin = computed(() => data.value?.totalsByOrigin ?? emptyList.totalsByOrigin);
+const grandTotal = computed(
+  () => totalsByOrigin.value.PLATAFORMA + totalsByOrigin.value.LOCAL,
+);
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)));
 const searchMiss = computed(() => searchEmptyMessage({
   term: search.value,
@@ -75,12 +90,21 @@ function isoDate(value: string) {
   return new Date(value).toISOString().slice(0, 10);
 }
 
+function originLabel(origin: ExpenseOrigin) {
+  return EXPENSE_ORIGIN_LABELS[origin] ?? origin;
+}
+
+function originTone(origin: ExpenseOrigin): 'nacional' | 'local' {
+  return origin === ExpenseOrigin.LOCAL ? 'local' : 'nacional';
+}
+
 function resetForm() {
   editingId.value = null;
   form.name = '';
   form.description = '';
   form.amount = null;
   form.spentAt = bogotaToday();
+  form.origin = ExpenseOrigin.PLATAFORMA;
 }
 
 function onSearchInput() {
@@ -91,12 +115,17 @@ function onSearchInput() {
   }, 300);
 }
 
+function onOriginFilterChange() {
+  page.value = 1;
+}
+
 function editExpense(expense: ExpenseDto) {
   editingId.value = expense.id;
   form.name = expense.name;
   form.description = expense.description ?? '';
   form.amount = expense.amount;
   form.spentAt = isoDate(expense.spentAt);
+  form.origin = expense.origin ?? ExpenseOrigin.PLATAFORMA;
 }
 
 async function save() {
@@ -117,6 +146,7 @@ async function save() {
       description: form.description.trim(),
       amount,
       spentAt: form.spentAt || bogotaToday(),
+      origin: form.origin,
     };
     if (editingId.value) {
       await api.patch(`/expenses/${editingId.value}`, payload);
@@ -167,6 +197,21 @@ useSeoMeta({ title: 'Gastos — LUXTIMEE Admin' });
     <UiSectionHeader label="Finanzas" :title="`Gastos (${total})`" />
     <p class="admin-record-muted">Los gastos se muestran aparte y no se restan de la ganancia.</p>
 
+    <div class="admin-expenses-totals">
+      <article class="admin-record-card p-4">
+        <p class="admin-record-muted">Plataforma</p>
+        <p class="admin-record-amount">{{ formatCop(totalsByOrigin.PLATAFORMA) }}</p>
+      </article>
+      <article class="admin-record-card p-4">
+        <p class="admin-record-muted">Local</p>
+        <p class="admin-record-amount">{{ formatCop(totalsByOrigin.LOCAL) }}</p>
+      </article>
+      <article class="admin-record-card p-4">
+        <p class="admin-record-muted">Total</p>
+        <p class="admin-record-amount">{{ formatCop(grandTotal) }}</p>
+      </article>
+    </div>
+
     <form class="admin-record-card p-5 space-y-4" @submit.prevent="save">
       <h2 class="admin-record-title">{{ editingId ? 'Editar gasto' : 'Registrar gasto' }}</h2>
       <label class="block space-y-2">
@@ -177,7 +222,7 @@ useSeoMeta({ title: 'Gastos — LUXTIMEE Admin' });
         <span class="text-xs uppercase tracking-widest text-lux-white-dim">Descripción (opcional)</span>
         <textarea v-model="form.description" rows="2" maxlength="500" class="admin-record-textarea" />
       </label>
-      <div class="grid gap-4 md:grid-cols-2">
+      <div class="grid gap-4 md:grid-cols-3">
         <label class="block space-y-2">
           <span class="text-xs uppercase tracking-widest text-lux-white-dim">Valor (COP)</span>
           <input
@@ -198,6 +243,13 @@ useSeoMeta({ title: 'Gastos — LUXTIMEE Admin' });
             class="w-full bg-lux-black-2 border border-lux-gold/20 px-4 py-3 text-sm"
           >
         </label>
+        <label class="block space-y-2">
+          <span class="text-xs uppercase tracking-widest text-lux-white-dim">Origen</span>
+          <select v-model="form.origin" class="admin-record-select w-full" required>
+            <option :value="ExpenseOrigin.PLATAFORMA">{{ EXPENSE_ORIGIN_LABELS.PLATAFORMA }}</option>
+            <option :value="ExpenseOrigin.LOCAL">{{ EXPENSE_ORIGIN_LABELS.LOCAL }}</option>
+          </select>
+        </label>
       </div>
       <div class="admin-record-actions">
         <button type="submit" class="admin-record-btn admin-record-btn--primary" :disabled="saving">
@@ -209,8 +261,13 @@ useSeoMeta({ title: 'Gastos — LUXTIMEE Admin' });
       </div>
     </form>
 
-    <div class="admin-orders-search">
+    <div class="admin-orders-search admin-expenses-toolbar">
       <UiLuxInput v-model="searchInput" placeholder="Buscar por nombre o descripción..." @input="onSearchInput" />
+      <select v-model="originFilter" class="admin-filter-select" @change="onOriginFilterChange">
+        <option value="">Todos los orígenes</option>
+        <option :value="ExpenseOrigin.PLATAFORMA">{{ EXPENSE_ORIGIN_LABELS.PLATAFORMA }}</option>
+        <option :value="ExpenseOrigin.LOCAL">{{ EXPENSE_ORIGIN_LABELS.LOCAL }}</option>
+      </select>
       <p v-if="searchMiss" class="admin-search-empty" role="status">{{ searchMiss }}</p>
     </div>
 
@@ -224,6 +281,7 @@ useSeoMeta({ title: 'Gastos — LUXTIMEE Admin' });
               <span class="admin-record-title">{{ expense.name }}</span>
               <span v-if="expense.description" class="admin-record-subtitle">{{ expense.description }}</span>
             </div>
+            <UiLuxBadge :tone="originTone(expense.origin)">{{ originLabel(expense.origin) }}</UiLuxBadge>
           </div>
           <div class="admin-record-meta">
             <span class="admin-record-amount">{{ formatCop(expense.amount) }}</span>
@@ -259,3 +317,34 @@ useSeoMeta({ title: 'Gastos — LUXTIMEE Admin' });
     </nav>
   </div>
 </template>
+
+<style scoped>
+.admin-expenses-totals {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 1rem;
+}
+
+.admin-expenses-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.admin-record-select,
+.admin-filter-select {
+  background: var(--lux-black-2, #141414);
+  border: 1px solid rgba(200, 169, 110, 0.2);
+  color: inherit;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+  .admin-expenses-totals {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

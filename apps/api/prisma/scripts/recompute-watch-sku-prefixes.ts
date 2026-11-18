@@ -12,6 +12,10 @@ import { planSkuRecompute } from '../../src/watches/utils/sku.util';
 const prisma = new PrismaClient();
 
 async function main() {
+  console.log(
+    'Desactivado: el SKU de cada reloj es fijo porque está impreso en etiquetas con código de barras. Recalcular prefijos dejaría etiquetas inválidas.',
+  );
+  process.exit(1);
   const columns = await prisma.$queryRaw<{ column_name: string }[]>`
     SELECT column_name
     FROM information_schema.columns

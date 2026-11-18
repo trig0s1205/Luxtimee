@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { ExpenseOrigin, Prisma } from '@prisma/client';
 import { sanitizePlainText } from '../common/utils/sanitize-text.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateExpenseDto, UpdateExpenseDto } from './dto/expense.dto';
@@ -11,6 +11,10 @@ const expenseInclude = {
 type ExpenseRow = Prisma.ExpenseGetPayload<{ include: typeof expenseInclude }>;
 
 export type ExpensePeriod = 'day' | 'week' | 'month' | 'all';
+
+function emptyOriginTotals(): { PLATAFORMA: number; LOCAL: number } {
+  return { PLATAFORMA: 0, LOCAL: 0 };
+}
 
 function bogotaToday() {
   return new Intl.DateTimeFormat('en-CA', {
@@ -47,6 +51,16 @@ function periodStart(period: ExpensePeriod) {
   return new Date(Date.UTC(year, month - 1, 1));
 }
 
+function toOriginTotals(
+  rows: Array<{ origin: ExpenseOrigin; _sum: { amount: number | null } }>,
+) {
+  const totals = emptyOriginTotals();
+  for (const row of rows) {
+    totals[row.origin] = row._sum.amount ?? 0;
+  }
+  return totals;
+}
+
 @Injectable()
 export class ExpensesService {
   constructor(private prisma: PrismaService) {}
@@ -58,6 +72,7 @@ export class ExpensesService {
       description: expense.description,
       amount: expense.amount,
       spentAt: expense.spentAt.toISOString(),
+      origin: expense.origin,
       createdById: expense.createdById,
       createdByName: expense.createdBy?.name ?? null,
       createdAt: expense.createdAt.toISOString(),
@@ -78,16 +93,24 @@ export class ExpensesService {
     return value;
   }
 
+  private cleanOrigin(value?: string | null): ExpenseOrigin | undefined {
+    if (value == null) return undefined;
+    if (value === ExpenseOrigin.PLATAFORMA || value === ExpenseOrigin.LOCAL) return value;
+    throw new BadRequestException('El origen no es válido');
+  }
+
   async findAll(query: {
     search?: string;
     from?: string;
     to?: string;
+    origin?: string;
     page?: number;
     limit?: number;
   }) {
     const page = query.page ?? 1;
     const limit = Math.min(100, query.limit ?? 20);
     const search = query.search?.trim();
+    const origin = this.cleanOrigin(query.origin);
     const spentAt: Prisma.DateTimeFilter = {};
     if (query.from) spentAt.gte = expenseDate(query.from);
     if (query.to) spentAt.lte = expenseDate(query.to);
@@ -95,7 +118,7 @@ export class ExpensesService {
       throw new BadRequestException('La fecha inicial no puede ser posterior a la final');
     }
 
-    const where: Prisma.ExpenseWhereInput = {
+    const baseWhere: Prisma.ExpenseWhereInput = {
       ...(search
         ? {
             OR: [
@@ -106,8 +129,12 @@ export class ExpensesService {
         : {}),
       ...(query.from || query.to ? { spentAt } : {}),
     };
+    const where: Prisma.ExpenseWhereInput = {
+      ...baseWhere,
+      ...(origin ? { origin } : {}),
+    };
 
-    const [total, rows] = await Promise.all([
+    const [total, rows, amountAgg, originGroups] = await Promise.all([
       this.prisma.expense.count({ where }),
       this.prisma.expense.findMany({
         where,
@@ -116,6 +143,12 @@ export class ExpensesService {
         skip: (page - 1) * limit,
         take: limit,
       }),
+      this.prisma.expense.aggregate({ where, _sum: { amount: true } }),
+      this.prisma.expense.groupBy({
+        by: ['origin'],
+        where: baseWhere,
+        _sum: { amount: true },
+      }),
     ]);
 
     return {
@@ -123,13 +156,20 @@ export class ExpensesService {
       total,
       page,
       limit,
+      totalAmount: amountAgg._sum.amount ?? 0,
+      totalsByOrigin: toOriginTotals(originGroups),
     };
   }
 
-  async summary(period: ExpensePeriod = 'month') {
+  async summary(period: ExpensePeriod = 'month', origin?: string) {
     const since = periodStart(period);
-    const where: Prisma.ExpenseWhereInput = since ? { spentAt: { gte: since } } : {};
-    const [total, count, rows] = await Promise.all([
+    const originFilter = this.cleanOrigin(origin);
+    const periodWhere: Prisma.ExpenseWhereInput = since ? { spentAt: { gte: since } } : {};
+    const where: Prisma.ExpenseWhereInput = {
+      ...periodWhere,
+      ...(originFilter ? { origin: originFilter } : {}),
+    };
+    const [total, count, rows, originGroups] = await Promise.all([
       this.prisma.expense.aggregate({ where, _sum: { amount: true } }),
       this.prisma.expense.count({ where }),
       this.prisma.expense.findMany({
@@ -138,12 +178,18 @@ export class ExpensesService {
         orderBy: [{ spentAt: 'desc' }, { createdAt: 'desc' }],
         take: 8,
       }),
+      this.prisma.expense.groupBy({
+        by: ['origin'],
+        where: periodWhere,
+        _sum: { amount: true },
+      }),
     ]);
     return {
       period,
       total: total._sum.amount ?? 0,
       count,
       items: rows.map((row) => this.map(row)),
+      byOrigin: toOriginTotals(originGroups),
     };
   }
 
@@ -152,12 +198,14 @@ export class ExpensesService {
     const amount = this.cleanAmount(dto.amount);
     const spentAt = expenseDate(dto.spentAt);
     const description = sanitizePlainText(dto.description ?? '', 500) || null;
+    const origin = this.cleanOrigin(dto.origin) ?? ExpenseOrigin.PLATAFORMA;
     const expense = await this.prisma.expense.create({
       data: {
         name,
         description,
         amount,
         spentAt,
+        origin,
         createdById: createdById ?? null,
       },
       include: expenseInclude,
@@ -178,6 +226,7 @@ export class ExpensesService {
           : {}),
         ...(dto.amount !== undefined ? { amount: this.cleanAmount(dto.amount) } : {}),
         ...(dto.spentAt !== undefined ? { spentAt: expenseDate(dto.spentAt) } : {}),
+        ...(dto.origin !== undefined ? { origin: this.cleanOrigin(dto.origin)! } : {}),
       },
       include: expenseInclude,
     });

@@ -23,6 +23,7 @@ describe('gastos', () => {
             description: data.description,
             amount: data.amount,
             spentAt: data.spentAt,
+            origin: data.origin ?? 'PLATAFORMA',
             createdById: data.createdById,
             createdBy: { id: 'u1', name: 'Admin' },
             createdAt: new Date('2026-11-02T12:00:00.000Z'),
@@ -55,6 +56,7 @@ describe('gastos', () => {
         description: null,
         amount: 8000,
         spentAt: new Date('2026-11-02T12:00:00.000Z'),
+        origin: 'PLATAFORMA',
         createdById: null,
         createdBy: null,
         createdAt: new Date('2026-11-02T12:00:00.000Z'),
@@ -66,6 +68,9 @@ describe('gastos', () => {
         aggregate: async () => ({ _sum: { amount: 8000 } }),
         count: async () => 1,
         findMany: async () => rows,
+        groupBy: async () => [
+          { origin: 'PLATAFORMA', _sum: { amount: 8000 } },
+        ],
       },
     };
     const service = new ExpensesService(prisma as never);
@@ -73,5 +78,6 @@ describe('gastos', () => {
     expect(summary.total).toBe(8000);
     expect(summary.count).toBe(1);
     expect(summary.items[0].name).toBe('Bolsas');
+    expect(summary.byOrigin).toEqual({ PLATAFORMA: 8000, LOCAL: 0 });
   });
 });

@@ -16,7 +16,12 @@ const api = useApi();
 const auth = useAuthStore();
 const toast = useToast();
 const { confirm } = useConfirm();
+const config = useRuntimeConfig();
 const canSeeProfit = computed(() => auth.isSuperAdmin);
+
+function downloadReceipt(sale: SpecialSaleDto) {
+  window.open(`${config.public.apiBaseUrl}/receipts/order/${sale.id}/pdf`, '_blank');
+}
 
 const PAGE_SIZE = 20;
 const page = ref(1);
@@ -303,6 +308,18 @@ useSeoMeta({ title: 'Ventas especiales — LUXTIMEE Admin' });
             <td v-if="canSeeProfit">{{ formatCop(sale.profit) }}</td>
             <td>{{ sale.note }}</td>
             <td>
+              <button
+                type="button"
+                class="admin-record-btn"
+                @click="downloadReceipt(sale)"
+              >
+                Descargar comprobante
+              </button>
+              <span v-if="sale.receiptNumber" class="admin-record-muted">
+                N.º {{ sale.receiptNumber }}
+              </span>
+              <span v-if="sale.receiptVoided" class="admin-record-chip">Anulado</span>
+              <p class="admin-record-muted">Descárgalo y envíalo al cliente por WhatsApp.</p>
               <button
                 type="button"
                 class="admin-record-btn admin-record-btn--ghost"
