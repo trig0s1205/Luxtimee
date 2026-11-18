@@ -1,244 +1,154 @@
 # Despliegue VPS (Ubuntu 24.04) — API Luxtimee
 
-Guía para alguien no experto. La base de datos sigue en Supabase (Ohio / `us-east-2`).
-**Recomendación:** crea el VPS en una región cercana a Ohio (por ejemplo Virginia / `us-east`) para menor latencia.
+Guía en español de Colombia. La base de datos sigue en **Supabase** (Ohio / `us-east-2`).
+VPS recomendado: Vultr High Frequency, **Atlanta**, 1 vCPU / **2 GB** / 64 GB NVMe.
 
-Archivos de esta carpeta (`deploy/vps/`):
+**Documentos del sábado**
 
-- `docker-compose.yml` — servicios `api` (GHCR) + `caddy` (HTTPS)
-- `Caddyfile` — reverse proxy al contenedor `api`
-- Este README
+| Archivo | Para qué |
+|---------|----------|
+| [`CHECKLIST-PREVIA.md`](./CHECKLIST-PREVIA.md) | Viernes: qué reunir antes de pagar Vultr |
+| [`RUNBOOK-SABADO.md`](./RUNBOOK-SABADO.md) | Paso a paso con tiempos el día del lanzamiento |
+| Este README | Scripts, variables y alternativa manual |
 
-La imagen se publica con el workflow `.github/workflows/api-image.yml` como `ghcr.io/trig0s1205/luxtimee-api:latest`.
-
----
-
-## 1. Crear un usuario no root con sudo y llave SSH
-
-Entra al VPS como root (solo la primera vez) y crea un usuario:
-
-```bash
-adduser deploy
-usermod -aG sudo deploy
-mkdir -p /home/deploy/.ssh
-nano /home/deploy/.ssh/authorized_keys
-# Pega tu clave pública (id_rsa.pub o id_ed25519.pub) y guarda
-chmod 700 /home/deploy/.ssh
-chmod 600 /home/deploy/.ssh/authorized_keys
-chown -R deploy:deploy /home/deploy/.ssh
-```
-
-Desactiva login root por contraseña:
-
-```bash
-nano /etc/ssh/sshd_config
-```
-
-Asegura estas líneas:
-
-```
-PermitRootLogin no
-PasswordAuthentication no
-PubkeyAuthentication yes
-```
-
-Reinicia SSH:
-
-```bash
-systemctl restart ssh
-```
-
-Cierra la sesión y vuelve a entrar como `deploy` con tu llave.
+Plan B (sin VPS): `deploy/render/` (arranque en frío, 512 MB).
 
 ---
 
-## 2. Firewall (solo 22, 80 y 443)
+## Archivos de esta carpeta
 
-```bash
-sudo apt update
-sudo apt install -y ufw
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw allow OpenSSH
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw enable
-sudo ufw status
-```
+| Archivo | Quién / cuándo |
+|---------|----------------|
+| `bootstrap-server.sh` | root, **una vez** en Ubuntu 24.04 nuevo |
+| `harden-ssh.sh` | root, **después** de probar `ssh deploy@IP` |
+| `set-env.sh` | deploy, genera `~/luxtimee/.env` (600) |
+| `.env.production.example` | plantilla (sin secretos reales) |
+| `ghcr-login.sh` | deploy, login GHCR + verifica tag |
+| `backup-supabase.sh` | deploy, **antes** de migrar |
+| `migrate.sh` | deploy, `status` \| `deploy` |
+| `deploy.sh` / `rollback.sh` | deploy, levanta / revierte tag `sha-…` |
+| `smoke-test.sh` / `smoke-test-web.sh` | deploy o PC con bash |
+| `ship-image.ps1` | PC (plan B si falla GHCR) |
+| `docker-compose.yml` | api + caddy; `API_IMAGE` **obligatorio** (sin default `latest`) |
+| `Caddyfile` | dominio vía `{$API_DOMAIN}` |
+| `host-maintenance.cron` | ejemplo opcional (no instalado) |
 
----
+Todos los scripts del servidor: `bash ./nombre.sh` (funciona aunque `scp` no conserve el bit de ejecución).
+Antes de bootstrap desde Windows: `sed -i 's/\r$//' …/*.sh` (ver runbook).
 
-## 3. Instalar Docker y el plugin Compose
-
-Comandos oficiales (Ubuntu):
-
-```bash
-sudo apt update
-sudo apt install -y ca-certificates curl
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
-
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-sudo usermod -aG docker deploy
-```
-
-Cierra sesión y vuelve a entrar para que el grupo `docker` aplique. Prueba:
-
-```bash
-docker run --rm hello-world
-docker compose version
-```
+Imagen: `ghcr.io/trig0s1205/luxtimee-api:sha-<completo>` (workflow `api-image.yml`).
+`latest` solo existe tras push a `main`. Para código sin mergear: Actions → Run workflow en la rama → tag `sha-…`.
 
 ---
 
-## 4. Actualizaciones de seguridad automáticas
+## Flujo rápido (resumen)
+
+1. Bootstrap + harden (runbook).
+2. `bash ./set-env.sh` → `bash ./ghcr-login.sh`.
+3. `bash ./backup-supabase.sh` → `bash ./migrate.sh deploy`.
+4. `bash ./deploy.sh sha-…` → `bash ./smoke-test.sh https://api.luxtimee.com`.
+5. Cambiar variables en Vercel y redeploy (ver runbook).
+
+Comando Prisma validado en la imagen:
 
 ```bash
-sudo apt install -y unattended-upgrades
-sudo dpkg-reconfigure -plow unattended-upgrades
+./node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma
 ```
 
-Elige “Yes” / sí cuando pregunte por actualizaciones automáticas.
+(`migrate.sh` lo usa vía `docker compose run`).
+
+Memoria: `NODE_OPTIONS=--max-old-space-size=1024`, `mem_limit: 1400m` (~600 MB para SO + Caddy + swap).
 
 ---
 
-## 5. Carpeta de la app, .env y levantar servicios
+## Tabla de variables (quién las escribe)
 
-```bash
-mkdir -p ~/luxtimee
-cd ~/luxtimee
-```
+| Variable | Obligatoria | Dónde conseguirla | Quién |
+|----------|-------------|-------------------|-------|
+| `NODE_ENV` | sí | fijo `production` | set-env / Daniel |
+| `USE_MOCKS` | sí | fijo `false` | set-env |
+| `PORT` / `HOST` | sí | `3000` / `0.0.0.0` | set-env |
+| `FRONTEND_URL` | sí | sitio Vercel | Daniel |
+| `STAFF_LOGIN_SLUG` | sí | igual a `NUXT_PUBLIC_STAFF_LOGIN_SLUG` | Daniel |
+| `DATABASE_URL` | sí | Supabase → Transaction pooler + `?pgbouncer=true` | Daniel |
+| `DIRECT_URL` | sí | Supabase → Direct o Session (5432), IPv4 | Daniel |
+| `JWT_*` / `CRON_SECRET` | sí | generar (`set-env` / openssl) | Daniel |
+| `CLIENT_IP_SECRET` | sí | **mismo** que `NUXT_CLIENT_IP_SECRET` en Vercel | Daniel |
+| `COOKIE_SAME_SITE` | sí | fijo `lax` | set-env |
+| `GOOGLE_OAUTH_*` | si usas Google | Google Cloud Console | Daniel |
+| `CLOUDINARY_*` | sí (prod) | Cloudinary dashboard | Daniel |
+| `CLOUDINARY_FOLDER` | sí | confirmar valor real de prod (no inventar) | Daniel |
+| `IMAGE_SERVICE_*` | no sábado | vacíos | — |
+| `EMAIL_*` / `SMTP_*` / `RESEND_*` | opcional | SMTP o Resend | Daniel |
+| `WHATSAPP_*` | opcional | Meta WhatsApp Cloud | Daniel |
+| `SENTRY_DSN` | opcional | Sentry | Daniel |
+| `GA4_*` | opcional | Google Cloud / GA4 | Daniel |
+| `API_DOMAIN` | sí (compose) | ej. `api.luxtimee.com` | Daniel |
+| `ACME_EMAIL` | sí (Caddy) | correo Let's Encrypt | Daniel |
+| `API_IMAGE` | sí | GHCR tag `sha-…` | Daniel |
+| `NODE_OPTIONS` | sí | `--max-old-space-size=1024` | set-env |
+| `SEED_ADMIN_PASSWORD` | **NO** en prod | — | — |
 
-Copia desde tu PC (o clona el repo) estos archivos a `~/luxtimee`:
-
-- `docker-compose.yml` (de `deploy/vps/`)
-- `Caddyfile` (de `deploy/vps/`)
-- `.env` (creado a partir de `apps/api/.env.example`)
-
-Edita el `Caddyfile` y cambia `api.TU-DOMINIO.com` por tu subdominio real.
-
-Crea el `.env` en el servidor (nunca lo subas a git):
-
-```bash
-nano ~/luxtimee/.env
-```
-
-Pega las variables de `apps/api/.env.example` con valores reales de producción
-(`NODE_ENV=production`, `USE_MOCKS=false`, `PORT=3000`, `FRONTEND_URL=https://www.tu-dominio.com`, etc.).
-
-Login en GitHub Container Registry (necesitas un Personal Access Token con `read:packages`):
-
-```bash
-echo TU_GITHUB_PAT | docker login ghcr.io -u TU_USUARIO_GITHUB --password-stdin
-docker compose pull
-docker compose up -d
-docker compose ps
-```
-
-Comprueba salud (desde el VPS; el puerto 3000 no está publicado al exterior):
-
-```bash
-docker compose exec api node -e "fetch('http://127.0.0.1:3000/api/v1/health').then(async (r)=>{console.log(await r.text()); process.exit(r.ok?0:1)})"
-```
-
-Cuando el DNS ya apunte al VPS:
-
-```bash
-curl -fsS https://api.TU-DOMINIO.com/api/v1/health
-```
-
+Sin comillas en `.env`. Evita `$` sin codificar (Compose lo interpola). `GA4_PRIVATE_KEY` en una línea con `\n` literales.
 
 ---
 
-## 6. DNS
+## Vercel (web)
 
-En tu proveedor de DNS crea un registro **A**:
+Tras la API sana:
 
-- Nombre: `api` (o el subdominio que pusiste en el Caddyfile)
-- Valor: IP pública del VPS
+| Variable | Notas |
+|----------|--------|
+| `NUXT_API_UPSTREAM_URL` | origen **sin** `/api/v1` (ej. `https://api.luxtimee.com`) |
+| `NUXT_API_INTERNAL_URL` | si existe hoy: **con** `/api/v1` |
+| `NUXT_PUBLIC_API_UPLOAD_URL` | si existe hoy: **con** `/api/v1` (subidas del navegador) |
+| `NUXT_PUBLIC_API_ASSETS_URL` | confirmar si aplica |
+| `NUXT_CLIENT_IP_SECRET` / `NUXT_PUBLIC_STAFF_LOGIN_SLUG` | **no cambian** |
 
-Espera la propagación. Caddy pedirá el certificado solo cuando el DNS ya apunte al VPS.
+Un cambio de variables solo aplica con **Redeploy**.
 
----
-
-## 7. Logs, reinicio y actualización manual
-
-```bash
-cd ~/luxtimee
-docker compose logs -f api
-docker compose restart api
-docker compose pull api
-docker compose up -d api
-```
-
-Migraciones Prisma (solo cuando haya migraciones nuevas; no corren al arrancar):
-
-```bash
-docker compose run --rm --entrypoint sh api -c \
-  'node ../../node_modules/prisma/build/index.js migrate deploy --schema prisma/schema.prisma'
-```
-
-Si la ruta del CLI cambia en la imagen, usa:
-
-```bash
-docker compose run --rm --entrypoint sh api -c \
-  'PRISMA=$(find /app/node_modules -path "*/prisma/build/index.js" | head -n 1); node "$PRISMA" migrate deploy --schema prisma/schema.prisma'
-```
+DNS Cloudflare: registro `api` en **solo DNS** (nube gris) para que Caddy obtenga el certificado.
 
 ---
 
-## 8. Limpieza semanal de imágenes viejas
+## Secrets de GitHub Actions (despliegue automático opcional)
 
-```bash
-crontab -e
-```
+| Tipo | Nombre | Uso |
+|------|--------|-----|
+| Variable | `DEPLOY_TARGET=vps` | Activa job `deploy-vps` en `api-image.yml` |
+| Secret | `VPS_HOST` / `VPS_USER` / `VPS_SSH_KEY` | SSH post-push a `main` |
 
-Añade (domingos 04:00 hora del servidor):
-
-```
-0 4 * * 0 docker image prune -af --filter "until=168h" >> /home/deploy/docker-prune.log 2>&1
-```
+El sábado el despliegue es **manual** con los scripts (más control).
 
 ---
 
-## 9. Secrets y variables de GitHub Actions (despliegue automático)
+## Alternativa manual (sin scripts)
 
-En el repo: **Settings → Secrets and variables → Actions**.
+Si no puedes usar los `.sh`, los pasos clásicos siguen siendo:
 
-### Variables (Variables)
-
-| Nombre | Valor | Uso |
-|--------|-------|-----|
-| `DEPLOY_TARGET` | `vps` | Activa el job `deploy-vps` del workflow `api-image.yml`. Si no existe o no es `vps`, ese job se salta. |
-
-### Secrets
-
-| Nombre | Contenido |
-|--------|-----------|
-| `VPS_HOST` | IP o hostname del VPS |
-| `VPS_USER` | Usuario SSH (ej. `deploy`) |
-| `VPS_SSH_KEY` | Clave privada SSH completa (incluye `-----BEGIN...-----`) |
-
-El workflow entra por SSH y ejecuta:
+1. Usuario `deploy` + SSH keys + ufw 22/80/443.
+2. Docker CE + compose plugin; `usermod -aG docker deploy`.
+3. Carpeta `~/luxtimee` con `docker-compose.yml`, `Caddyfile`, `.env` (600).
+4. `API_IMAGE=ghcr.io/trig0s1205/luxtimee-api:sha-…` (obligatorio; sin default `latest`).
+5. `API_DOMAIN` / `ACME_EMAIL` en `.env`; el Caddyfile usa `{$API_DOMAIN}` (no editar a mano el dominio).
+6. `docker login ghcr.io` → `docker compose pull` → `docker compose up -d`.
+7. Migraciones:
 
 ```bash
-cd ~/luxtimee && docker compose pull api && docker compose up -d api && docker image prune -f
+docker compose run --rm --no-deps --entrypoint sh api -c \
+  './node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma'
 ```
 
-Render no usa estos secrets (se despliega solo con `render.yaml`).
+8. Salud: `curl -fsS https://api.TU-DOMINIO.com/api/v1/health`
+
+Limpieza semanal opcional: ver `host-maintenance.cron`.
 
 ---
 
-## 10. Proxy de la web (Vercel)
+## Probar Caddy sin DNS público
 
-Cuando la API ya responda en tu dominio, cambia en Vercel la variable
-`NUXT_API_UPSTREAM_URL` (y si aplica `NUXT_API_INTERNAL_URL`) a la URL HTTPS nueva
-(ej. `https://api.tu-dominio.com`). No dejes la URL antigua de Cloud Run.
-Ver `docs/deploy.md` para el archivo del monorepo donde se lee esa variable.
+```bash
+curl -k --resolve api.luxtimee.com:443:127.0.0.1 https://api.luxtimee.com/api/v1/health
+```
+
+En local de desarrollo con `API_DOMAIN=localhost`, Caddy usa CA interna (`curl -k`).
