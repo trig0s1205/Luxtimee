@@ -12,6 +12,7 @@ export function adminTabTitle(base: string, unread: number) {
 export const ADMIN_TITLE_BY_PATH: Record<string, string> = {
   '/admin': 'Administración — LUXTIMEE',
   '/admin/inventario': 'Inventario — LUXTIMEE',
+  '/admin/importar-relojes': 'Importar relojes — LUXTIMEE',
   '/admin/auditoria': 'Auditoría — LUXTIMEE',
   '/admin/catalog-settings': 'Catálogo — LUXTIMEE',
   '/admin/configuracion': 'Configuración — LUXTIMEE',
