@@ -69,6 +69,7 @@ export * from './utils/photo-pairs.js';
 export * from './utils/bulk-draft-queue.js';
 export * from './utils/zip-ntfs.js';
 export * from './utils/whatsapp-link.js';
+export * from './utils/whatsapp-compose.js';
 export * from './utils/deposit.js';
 export * from './utils/product-watch-name.js';
 export * from './types/warranty-history.js';
