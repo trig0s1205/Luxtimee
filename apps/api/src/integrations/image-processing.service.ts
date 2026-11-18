@@ -1,47 +1,13 @@
 import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { MAX_VIDEO_INPUT_BYTES } from '@luxtime/shared';
 import { v2 as cloudinary } from 'cloudinary';
-import {
-  detectImageMime,
-  detectVideoMime,
-} from '../common/utils/file-magic.util';
-
-function isTimeoutError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  return (
-    error.name === 'TimeoutError' ||
-    error.name === 'AbortError' ||
-    /aborted|timeout/i.test(error.message)
-  );
-}
-
-function mapGatewayError(
-  kind: 'imagen' | 'video',
-  error: unknown,
-  status?: number,
-): string {
-  if (isTimeoutError(error)) {
-    return kind === 'imagen'
-      ? 'La carga tardó demasiado. Intenta de nuevo.'
-      : 'La carga del video tardó demasiado. Usa un clip más corto.';
-  }
-  if (status === 400 || status === 415 || status === 422) {
-    return kind === 'imagen'
-      ? 'El archivo no es válido o está dañado.'
-      : 'El video no es válido o está dañado.';
-  }
-  return kind === 'imagen'
-    ? 'Falló el proceso de carga. Intenta de nuevo.'
-    : 'Falló el proceso del video. Intenta de nuevo.';
-}
 
 function cloudinaryMessage(kind: 'imagen' | 'video', error: unknown): string {
   const raw = error instanceof Error ? error.message : '';
   if (/timeout|timed out/i.test(raw)) {
     return kind === 'imagen'
       ? 'La carga tardó demasiado. Intenta de nuevo.'
-      : 'La carga del video tardó demasiado. Intenta de nuevo.';
+      : 'La carga del video tardó demasiado. Usa un clip más corto.';
   }
   if (/file size|too large|entity too large/i.test(raw)) {
     return 'El archivo pesa demasiado para guardarlo.';
@@ -52,6 +18,7 @@ function cloudinaryMessage(kind: 'imagen' | 'video', error: unknown): string {
   return 'Falló el proceso de carga. Intenta de nuevo.';
 }
 
+/** Subida y borrado en Cloudinary (fotos, videos, assets de homepage). */
 @Injectable()
 export class ImageProcessingService {
   private readonly logger = new Logger(ImageProcessingService.name);
@@ -65,189 +32,6 @@ export class ImageProcessingService {
         secure: true,
       });
     }
-  }
-
-  async processWithMicroservice(file: Express.Multer.File): Promise<Buffer> {
-    const baseUrl = this.config
-      .get<string>('IMAGE_SERVICE_URL', 'http://localhost:8001')
-      .replace(/\/$/, '');
-    const endpoints = [`${baseUrl}/api/v1/process-watch`, `${baseUrl}/process`];
-
-    if (!file.buffer?.length) {
-      throw new Error('El archivo de imagen no contiene buffer en memoria');
-    }
-
-    const mime = detectImageMime(file.buffer) ?? file.mimetype ?? 'image/jpeg';
-    let lastError: Error | null = null;
-
-    for (const endpoint of endpoints) {
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          const formData = new FormData();
-          const blob = new Blob([Uint8Array.from(file.buffer)], { type: mime });
-          formData.append('file', blob, file.originalname);
-
-          this.logger.log(
-            `Procesando imagen en ${endpoint} (intento ${attempt}) mime=${mime} bytes=${file.buffer.length}`,
-          );
-
-          const headers: Record<string, string> = {};
-          const apiKey = this.config
-            .get<string>('IMAGE_SERVICE_API_KEY')
-            ?.trim();
-          if (apiKey) headers['X-API-Key'] = apiKey;
-
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            body: formData,
-            headers,
-            signal: AbortSignal.timeout(240_000),
-          });
-
-          if (response.status === 404) {
-            lastError = new Error(
-              mapGatewayError(
-                'imagen',
-                new Error(`Image service respondió 404`),
-                404,
-              ),
-            );
-            break;
-          }
-
-          if (!response.ok) {
-            const mapped = mapGatewayError(
-              'imagen',
-              new Error('upstream'),
-              response.status,
-            );
-            lastError = new Error(mapped);
-            this.logger.warn(`upload_failed kind=image reason=upstream status=${response.status}`);
-            if (response.status < 500) break;
-            continue;
-          }
-
-          const buffer = Buffer.from(await response.arrayBuffer());
-          if (!buffer.length) {
-            throw new Error('El microservicio devolvió una imagen vacía');
-          }
-
-          this.logger.log(
-            `Imagen procesada correctamente (${buffer.length} bytes)`,
-          );
-          return buffer;
-        } catch (error) {
-          lastError = new Error(mapGatewayError('imagen', error));
-          this.logger.warn('upload_failed kind=image reason=upstream');
-          if (!isTimeoutError(error) && lastError.message.includes('API key'))
-            break;
-        }
-      }
-    }
-
-    throw new BadGatewayException(
-      lastError?.message ??
-        'No se pudo procesar la imagen. Verifica que image-service esté corriendo en el puerto 8001.',
-    );
-  }
-
-  async processVideoWithMicroservice(
-    file: Express.Multer.File,
-  ): Promise<Buffer> {
-    if (this.config.get('USE_MOCKS') === 'true') {
-      return file.buffer;
-    }
-
-    const baseUrl = this.config
-      .get<string>('IMAGE_SERVICE_URL', 'http://localhost:8001')
-      .replace(/\/$/, '');
-    const endpoints = [
-      `${baseUrl}/api/v1/process-video`,
-      `${baseUrl}/process-video`,
-    ];
-
-    if (!file.buffer?.length) {
-      throw new Error('El archivo de video no contiene buffer en memoria');
-    }
-
-    if (file.buffer.length > MAX_VIDEO_INPUT_BYTES) {
-      throw new BadGatewayException(
-        'El video supera el tamaño máximo de entrada (120MB)',
-      );
-    }
-
-    const mime = detectVideoMime(file.buffer) ?? (file.mimetype || 'video/mp4');
-    let lastError: Error | null = null;
-
-    for (const endpoint of endpoints) {
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          const formData = new FormData();
-          const blob = new Blob([Uint8Array.from(file.buffer)], { type: mime });
-          formData.append('file', blob, file.originalname || 'watch-video.mp4');
-
-          this.logger.log(
-            `Procesando video en ${endpoint} (intento ${attempt}) mime=${mime} bytes=${file.buffer.length}`,
-          );
-
-          const headers: Record<string, string> = {};
-          const apiKey = this.config
-            .get<string>('IMAGE_SERVICE_API_KEY')
-            ?.trim();
-          if (apiKey) headers['X-API-Key'] = apiKey;
-
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            body: formData,
-            headers,
-            signal: AbortSignal.timeout(300_000),
-          });
-
-          if (response.status === 404) {
-            lastError = new Error(
-              mapGatewayError(
-                'video',
-                new Error('Image service respondió 404'),
-                404,
-              ),
-            );
-            break;
-          }
-
-          if (!response.ok) {
-            const mapped = mapGatewayError(
-              'video',
-              new Error('upstream'),
-              response.status,
-            );
-            lastError = new Error(mapped);
-            this.logger.warn(`upload_failed kind=video reason=upstream status=${response.status}`);
-            if (response.status < 500) break;
-            continue;
-          }
-
-          const buffer = Buffer.from(await response.arrayBuffer());
-          if (!buffer.length) {
-            throw new Error('El microservicio devolvió un video vacío');
-          }
-
-          this.logger.log(
-            `Video procesado correctamente (${buffer.length} bytes)`,
-          );
-          return buffer;
-        } catch (error) {
-          lastError = new Error(mapGatewayError('video', error));
-          this.logger.warn('upload_failed kind=video reason=upstream');
-          if (!isTimeoutError(error) && lastError.message.includes('API key'))
-            break;
-        }
-      }
-    }
-
-    throw new BadGatewayException(
-      lastError?.message ??
-        'No se pudo procesar el video. Verifica que image-service esté corriendo.',
-    );
   }
 
   async uploadToCloudinary(
