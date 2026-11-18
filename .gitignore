@@ -74,7 +74,9 @@ web_modules/
 .env
 .env.*
 !.env.example
+!.env.*.example
 !.env.defaults
+!**/.env.production.example
 
 # Cookie jars (pueden contener sesiones). Invalidar las sesiones si este archivo llegó a un commit.
 cookies.txt
@@ -173,3 +175,8 @@ docs/*
 /backups/
 **/backups/
 
+
+# Artefactos de despliegue / backups locales
+*.dump
+*.tar
+*.tar.gz
