@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   Body,
+  HttpCode,
+  HttpStatus,
   Controller,
   Delete,
   Get,
@@ -28,6 +30,7 @@ import {
   BulkDeleteWatchesDto,
   BulkDraftWatchDto,
   CreateWatchDto,
+  MatchImageDuplicatesDto,
   UpdateWatchDto,
   WatchQueryDto,
 } from './dto';
@@ -179,6 +182,13 @@ export class WatchesController {
   @Audit('DELETE', 'Watch')
   bulkRemove(@Body() dto: BulkDeleteWatchesDto) {
     return this.watchesService.bulkRemove(dto.ids);
+  }
+
+  @Post('image-duplicates')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  matchImageDuplicates(@Body() dto: MatchImageDuplicatesDto) {
+    return this.watchesService.matchImageDuplicates(dto.items);
   }
 
   @Post('bulk-draft')
