@@ -240,7 +240,6 @@ test.afterAll(() => {
     (line) => !/cdn\.example|qa-ui\.mp4|Download the React DevTools/i.test(line),
   );
   if (noisy.length) {
-    // eslint-disable-next-line no-console
     console.log('CONSOLE_ERRORS\n' + noisy.join('\n'));
   }
 });
