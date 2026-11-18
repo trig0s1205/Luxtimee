@@ -13,6 +13,7 @@ import {
 } from './utils/sku.util';
 import { BULK_DRAFT_IDEMPOTENCY_FIELD } from './utils/bulk-draft.util';
 import { WatchQueryDto } from './dto/watch-query.dto';
+import { DRAFT_WATCH_MODEL } from './utils/watch-pending.util';
 
 const watchInclude = {
   brand: true,
@@ -325,24 +326,104 @@ export class WatchesRepository {
     });
   }
 
+  /**
+   * IDs de relojes con info general incompleta (misma lógica que getMissingGeneralFields),
+   * paginados en SQL para no cargar todo el inventario en memoria.
+   */
+  async findPendingGeneralIds(page = 1, limit = 10) {
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.min(50, Math.max(1, limit));
+    const skip = (safePage - 1) * safeLimit;
+    const draft = DRAFT_WATCH_MODEL;
+
+    const rows = await this.prisma.$queryRaw<Array<{ id: string; total: bigint }>>`
+      WITH pending AS (
+        SELECT w.id, w."updatedAt",
+          COUNT(*) OVER() AS total
+        FROM "Watch" w
+        WHERE w."deletedAt" IS NULL
+          AND (
+            btrim(coalesce(w.model, '')) = ''
+            OR w.model = ${draft}
+            OR w."categoryId" IS NULL
+            OR w.gender IS NULL
+            OR btrim(coalesce(w.gender, '')) = ''
+            OR w.description IS NULL
+            OR btrim(coalesce(w.description, '')) = ''
+            OR w."retailPrice" <= 0
+            OR w."wholesalePrice" <= 0
+            OR w.stock < 0
+            OR (
+              coalesce(w."primaryImageUrl", '') = ''
+              AND coalesce(w."frontImageUrl", '') = ''
+              AND (
+                cardinality(w.images) IS NULL
+                OR cardinality(w.images) = 0
+                OR coalesce(w.images[1], '') = ''
+              )
+            )
+            OR (
+              coalesce(w."secondaryImageUrl", '') = ''
+              AND coalesce(w."backImageUrl", '') = ''
+              AND (
+                cardinality(w.images) IS NULL
+                OR cardinality(w.images) < 2
+                OR coalesce(w.images[2], '') = ''
+              )
+            )
+            OR coalesce(w."videoUrl", '') = ''
+            OR (
+              coalesce(w."movementType", '') = ''
+              AND w."mechanismId" IS NULL
+            )
+          )
+        ORDER BY w."updatedAt" DESC
+      )
+      SELECT id, total
+      FROM pending
+      OFFSET ${skip}
+      LIMIT ${safeLimit}
+    `;
+
+    const total = rows.length ? Number(rows[0]!.total) : 0;
+    return {
+      ids: rows.map((row) => row.id),
+      total,
+      page: safePage,
+      limit: safeLimit,
+    };
+  }
+
   async findPendingCost(page = 1, limit = 10) {
     const safePage = Math.max(1, page);
     const safeLimit = Math.min(50, Math.max(1, limit));
     const where = {
       deletedAt: null,
-      OR: [{ cost: null }, { cost: 0 }],
+      OR: [{ cost: null }, { cost: { lte: 0 } }],
     };
-    const [total, data] = await Promise.all([
+    const [total, data] = await this.prisma.$transaction([
       this.prisma.watch.count({ where }),
       this.prisma.watch.findMany({
         where,
-        include: { brand: true },
-        orderBy: { createdAt: 'desc' },
+        include: watchInclude,
+        orderBy: { updatedAt: 'desc' },
         skip: (safePage - 1) * safeLimit,
         take: safeLimit,
       }),
     ]);
     return { data, total, page: safePage, limit: safeLimit };
+  }
+
+  async findByIdsPreservingOrder(ids: string[]) {
+    if (!ids.length) return [];
+    const watches = await this.prisma.watch.findMany({
+      where: { id: { in: ids } },
+      include: watchInclude,
+    });
+    const byId = new Map(watches.map((watch) => [watch.id, watch]));
+    return ids
+      .map((id) => byId.get(id))
+      .filter((watch): watch is NonNullable<typeof watch> => !!watch);
   }
 
   async brandExists(id: string) {

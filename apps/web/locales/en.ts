@@ -148,7 +148,7 @@ export default {
     wholesaleTitle: 'Wholesale pricing',
     wholesaleMessage: 'With 4 or more watches, prices have automatically switched to wholesale rates.',
     wholesaleOk: 'Got it',
-    stockLimit: 'The selected piece has no more units available.',
+    stockLimit: 'Este reloj ya no está disponible',
     wholesaleDrawerTitle: 'Wholesale cart',
     wholesaleDrawerSubtitle: 'Exclusive partner pricing',
     wholesaleDrawerEmpty: 'Your wholesale cart is empty.',

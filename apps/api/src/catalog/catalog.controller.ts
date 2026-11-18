@@ -63,6 +63,12 @@ export class CatalogController {
     return this.catalogService.listPublicSitemap();
   }
 
+  @Get(':slug/related')
+  @Cacheable({ ttlMs: 60_000, tag: CACHE_TAGS.catalog, maxAge: 60 })
+  related(@Param('slug') slug: string) {
+    return this.catalogService.findRelatedBySlug(slug);
+  }
+
   @Get(':slug')
   @Cacheable({ ttlMs: 60_000, tag: CACHE_TAGS.catalog, maxAge: 60 })
   bySlug(@Param('slug') slug: string) {

@@ -91,6 +91,7 @@ describe('confirmar abono', () => {
       {} as never,
       {} as never,
       notifier as never,
+      { invalidateTag: () => undefined } as never,
     );
 
     const result = await service.confirmDeposit('o1', 'user-1');

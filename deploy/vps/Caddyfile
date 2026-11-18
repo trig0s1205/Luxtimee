@@ -1,0 +1,7 @@
+# Sustituye api.TU-DOMINIO.com por el subdominio real de la API.
+# Caddy obtiene el certificado HTTPS automáticamente (Let's Encrypt).
+
+api.TU-DOMINIO.com {
+	encode gzip
+	reverse_proxy api:3000
+}

@@ -75,6 +75,7 @@ describe('ciclo de stock mayorista', () => {
       access,
       offers,
       notifier,
+      new MemoryCacheService(),
     );
     orders = new OrdersService(
       db,
@@ -246,7 +247,7 @@ describe('ciclo de stock mayorista', () => {
       preOrders.updatePreOrder(order.order.id, {
         items: [{ watchId: same.id, quantity: 100 }],
       }),
-    ).rejects.toThrow(/Stock insuficiente/);
+    ).rejects.toThrow(/ya no está disponible/);
     expect((await stockOf(same.id)).stock).toBe(8);
   });
 

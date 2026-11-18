@@ -3,13 +3,10 @@ import type { PackagingPhotoDto, WatchPublicDto } from '@luxtime/shared';
 import { watch as watchRef } from 'vue';
 import { formatCop } from '~/utils/format';
 import { absoluteAssetUrl, productJsonLd } from '~/utils/seo';
-import { buildRelatedWatches } from '~/utils/similar-watches';
 import { buildProductWhatsappMessage } from '~/utils/product-whatsapp';
 import { STOREFRONT_CACHE_MS } from '~/utils/storefront-cache';
 import { visiblePackagingPhotos } from '~/utils/packaging-gallery';
 import { PACKAGING_PHOTOS_KEY } from '~/composables/usePackagingPhotos';
-
-const RELATED_WATCHES_TOTAL = 18;
 
 const route = useRoute();
 const slug = computed(() => String(route.params.slug));
@@ -27,17 +24,22 @@ const { data: watch, error, pending, refresh } = await useCachedAsyncData(
   { watch: [slug], lazy: import.meta.client, staleTime: STOREFRONT_CACHE_MS.product },
 );
 
-const { data: catalogPool, pending: relatedPending, refresh: refreshCatalogPool } = await useCachedAsyncData<WatchPublicDto[]>(
-  () => `product-related-pool-${slug.value}`,
+const {
+  data: relatedWatchesData,
+  pending: relatedPending,
+  refresh: refreshRelated,
+} = await useCachedAsyncData<WatchPublicDto[]>(
+  () => `product-related-${slug.value}`,
   async () => {
     try {
-      return (await catalog.listCatalog({ limit: 100, available: 'true' })).data;
+      return await catalog.getRelated(slug.value);
     } catch {
       return [];
     }
   },
-  { lazy: true, server: false, default: (): WatchPublicDto[] => [], staleTime: STOREFRONT_CACHE_MS.catalog },
+  { lazy: true, server: false, default: (): WatchPublicDto[] => [], staleTime: STOREFRONT_CACHE_MS.catalog, watch: [slug] },
 );
+const relatedWatches = computed(() => relatedWatchesData.value ?? []);
 
 const { data: packagingData } = useCachedAsyncData<PackagingPhotoDto[]>(
   PACKAGING_PHOTOS_KEY,
@@ -55,14 +57,10 @@ watchRef(slug, () => {
   packagingOpen.value = false;
 });
 
-const relatedWatches = computed(() => (
-  watch.value ? buildRelatedWatches(watch.value, catalogPool.value ?? [], RELATED_WATCHES_TOTAL) : []
-));
-
 onMounted(() => {
   void loadSettings();
   if (watch.value) void refresh();
-  void refreshCatalogPool();
+  void refreshRelated();
 });
 
 if (import.meta.server && error.value) {

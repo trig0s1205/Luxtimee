@@ -261,6 +261,67 @@ export class CatalogService {
     return this.mapPublicWatch(watch);
   }
 
+  /** Relacionados para ficha/popup: máx. 8, stock > 0, misma marca → categoría → resto. */
+  async findRelatedBySlug(slug: string, limit = 8) {
+    const safeLimit = Math.min(8, Math.max(1, limit));
+    const current = await this.prisma.watch.findFirst({
+      where: { slug, deletedAt: null },
+      select: { id: true, brandId: true, categoryId: true },
+    });
+    if (!current) throw new NotFoundException('Producto no encontrado');
+
+    const baseWhere: Prisma.WatchWhereInput = {
+      ...this.publicCatalogWhere(),
+      id: { not: current.id },
+    };
+    const cardInclude = {
+      brand: true,
+      category: true,
+    } as const;
+
+    const byBrand = await this.prisma.watch.findMany({
+      where: { ...baseWhere, brandId: current.brandId },
+      include: cardInclude,
+      orderBy: { createdAt: 'desc' },
+      take: safeLimit,
+    });
+
+    const selected = [...byBrand];
+    const selectedIds = new Set(selected.map((w) => w.id));
+
+    if (selected.length < safeLimit && current.categoryId) {
+      const byCategory = await this.prisma.watch.findMany({
+        where: {
+          ...baseWhere,
+          categoryId: current.categoryId,
+          id: { notIn: [...selectedIds, current.id] },
+        },
+        include: cardInclude,
+        orderBy: { createdAt: 'desc' },
+        take: safeLimit - selected.length,
+      });
+      for (const watch of byCategory) {
+        selected.push(watch);
+        selectedIds.add(watch.id);
+      }
+    }
+
+    if (selected.length < safeLimit) {
+      const fillers = await this.prisma.watch.findMany({
+        where: {
+          ...baseWhere,
+          id: { notIn: [...selectedIds, current.id] },
+        },
+        include: cardInclude,
+        orderBy: { createdAt: 'desc' },
+        take: safeLimit - selected.length,
+      });
+      selected.push(...fillers);
+    }
+
+    return selected.map((w) => this.mapPublicWatch(w));
+  }
+
   async findBestSellers(limit = 6) {
     const items = await this.prisma.orderItem.findMany({
       where: {

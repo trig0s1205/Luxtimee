@@ -303,7 +303,7 @@ describe('stock de venta especial', () => {
     const { service } = buildOrdersService(prisma);
     await expect(
       service.createSpecialSale({ watchId: 'w1', salePrice: SALE, note: 'regalo' }),
-    ).rejects.toThrow(/Sin stock/);
+    ).rejects.toThrow(/ya no está disponible/);
     expect(tx).not.toHaveBeenCalled();
   });
 
@@ -321,7 +321,7 @@ describe('stock de venta especial', () => {
     const { service } = buildOrdersService(prisma);
     await expect(
       service.createSpecialSale({ watchId: 'w1', salePrice: SALE, note: 'regalo' }),
-    ).rejects.toThrow(/Sin stock/);
+    ).rejects.toThrow(/ya no está disponible/);
     expect(create).not.toHaveBeenCalled();
   });
 

@@ -163,7 +163,11 @@ __pycache__
 .venv
 .pytest_cache
 
-docs/
+# Documentación operativa versionada (deploy/backups). El resto de /docs locales se ignora.
+docs/*
+!docs/deploy.md
+!docs/backups.md
+
 
 # Respaldos locales de mantenimiento (pg_dump)
 /backups/

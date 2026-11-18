@@ -133,8 +133,8 @@ function dismiss() {
 
 onMounted(async () => {
   try {
-    const res = await catalog.listCatalog({ limit: 60, available: 'true' });
-    const items = res.data.map(toPoolItem).filter((item) => item.product);
+    const arrivals = await catalog.getNewArrivals();
+    const items = arrivals.map(toPoolItem).filter((item) => item.product);
     watchPool.value = items.length ? items : fallbackPool();
   } catch {
     watchPool.value = fallbackPool();
