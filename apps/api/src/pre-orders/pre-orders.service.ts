@@ -36,12 +36,13 @@ import {
   nextStatusAfterDeposit,
 } from '../orders/state-machine';
 import {
-  generateReadableId,
   priceOrderLines,
 } from '../orders/order-pricing.util';
 import { formatWatchOrderLabel, formatWatchWhatsappLabel } from '../orders/watch-description.util';
 import { WholesaleAccessService } from '../wholesale-access/wholesale-access.service';
 import { WholesaleOffersService } from '../wholesale-offers/wholesale-offers.service';
+import { nextOrderReadableId } from '../common/utils/document-counter.util';
+import { withTxnRetries } from '../common/utils/txn-retries.util';
 import {
   reserveWatchStock,
   restoreWatchStock,
@@ -406,11 +407,6 @@ export class PreOrdersService {
     });
   }
 
-  private async nextReadableId() {
-    const count = await this.prisma.order.count();
-    return generateReadableId(count + 1);
-  }
-
   async createPublic(
     dto: CreatePreOrderDto,
     userId?: string,
@@ -555,14 +551,15 @@ export class PreOrdersService {
     });
 
     const now = new Date();
-    const readableId = await this.nextReadableId();
-    const order = await this.prisma.$transaction(async (tx) => {
+    const order = await withTxnRetries(() =>
+      this.prisma.$transaction(async (tx) => {
       await reserveWatchStock(tx, lineInputs, {
         requireActive: true,
         message: 'Este reloj ya no está disponible',
         inactiveMessage: 'Este reloj ya no está disponible',
       });
 
+      const readableId = await nextOrderReadableId(tx, now);
       return tx.order.create({
         data: {
           readableId,
@@ -601,7 +598,8 @@ export class PreOrdersService {
         },
         include: orderInclude,
       });
-    }, STOCK_TRANSACTION);
+    }, STOCK_TRANSACTION),
+    );
     this.invalidateCatalogCache();
 
     await this.notificationsService.emit({

@@ -8,7 +8,7 @@ const props = defineProps<{
   redirect?: string | null;
 }>();
 
-const STAFF_ROLES = new Set<Role>([Role.ADMIN, Role.SUPER_ADMIN]);
+const STAFF_ROLES = new Set<Role>([Role.ADMIN, Role.SUPER_ADMIN, Role.VENDEDOR_LOCAL]);
 
 const route = useRoute();
 const auth = useAuthStore();

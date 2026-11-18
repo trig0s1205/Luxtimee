@@ -57,6 +57,7 @@ export class OrdersController {
       period: query.period,
       status: query.status,
       type: query.type,
+      source: query.source,
       search: query.search,
       page: query.page,
       limit: query.limit,
@@ -82,6 +83,7 @@ export class OrdersController {
     return this.ordersService.transitionStatus(id, dto.status as OrderStatus, {
       confirmBalancePaid: dto.confirmBalancePaid,
       registeredById: user?.id,
+      paymentMethod: dto.paymentMethod,
     });
   }
 

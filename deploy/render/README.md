@@ -1,6 +1,9 @@
-# Despliegue en Render (plan gratis) — API Luxtimee
+# Plan B (arranque en frío, 512 MB) — Render
 
-Opción B: sin VPS. Render construye `apps/api/Dockerfile` desde la raíz del repo
+**Plan B** si el VPS no está disponible. Arranque en frío y ~512 MB de RAM.
+El camino principal del sábado es Vultr: ver `deploy/vps/RUNBOOK-SABADO.md`.
+
+Render construye `apps/api/Dockerfile` desde la raíz del repo
 según `render.yaml` (región **ohio**, plan **free**).
 
 La base de datos sigue en Supabase (Ohio). Render no sustituye a Postgres.

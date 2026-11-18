@@ -22,7 +22,6 @@ Write-Host "Ahora ingresa los valores que obtuviste de Supabase y Cloudinary:" -
 $databaseUrl        = Read-Host "DATABASE_URL (pooler Supabase, puerto 6543)"
 $directUrl          = Read-Host "DIRECT_URL   (directa Supabase, puerto 5432)"
 $frontendUrl        = Read-Host "FRONTEND_URL (URL exacta de Vercel, sin / final)"
-$imageServiceUrl    = Read-Host "IMAGE_SERVICE_URL (URL Cloud Run image-service)"
 $cloudinaryName     = Read-Host "CLOUDINARY_CLOUD_NAME"
 $cloudinaryKey      = Read-Host "CLOUDINARY_API_KEY"
 $cloudinarySecret   = Read-Host "CLOUDINARY_API_SECRET"
@@ -33,7 +32,6 @@ $secrets = @{
     JWT_SECRET            = $jwtSecret
     CRON_SECRET           = $cronSecret
     FRONTEND_URL          = $frontendUrl
-    IMAGE_SERVICE_URL     = $imageServiceUrl
     CLOUDINARY_CLOUD_NAME = $cloudinaryName
     CLOUDINARY_API_KEY    = $cloudinaryKey
     CLOUDINARY_API_SECRET = $cloudinarySecret

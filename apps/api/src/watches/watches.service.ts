@@ -434,21 +434,7 @@ export class WatchesService {
     this.maybeAutoPublishDraft(existing, data, dto);
     this.applyCatalogVisibility(existing, data, dto);
 
-    const nextRetailPrice = dto.retailPrice ?? existing.retailPrice;
-    const nextGender = dto.gender !== undefined ? dto.gender : existing.gender;
-    const priceChanged =
-      dto.retailPrice !== undefined && dto.retailPrice !== existing.retailPrice;
-    const genderChanged =
-      dto.gender !== undefined &&
-      (dto.gender ?? null) !== (existing.gender ?? null);
-    if (priceChanged || genderChanged) {
-      data.sku = await this.watchesRepository.allocateReplacementSku({
-        watchId: existing.id,
-        currentSku: existing.sku,
-        retailPrice: nextRetailPrice,
-        gender: nextGender,
-      });
-    }
+    // El SKU es inmutable desde su creación: está impreso en las etiquetas con código de barras (POS).
 
     const watch = await this.watchesRepository.update(id, data);
     this.logger.log(`[watches:update] ${watch.id} sku=${watch.sku}`);
@@ -601,20 +587,8 @@ export class WatchesService {
         (async () => {
           try {
             assertMediaFile(files.video!, 'video');
-            let videoBuffer: Buffer;
-            try {
-              videoBuffer =
-                await this.imageProcessing.processVideoWithMicroservice(
-                  files.video!,
-                );
-            } catch (videoProcessError) {
-              this.logger.warn(
-                `Video processing failed, uploading original: ${slotErrorMessage(videoProcessError)}`,
-              );
-              videoBuffer = files.video!.buffer;
-            }
             const videoUrl = await this.persistWatchVideo(
-              videoBuffer,
+              files.video!.buffer,
               isProd,
               writtenPaths,
             );
@@ -720,40 +694,19 @@ export class WatchesService {
     writtenPaths: string[],
   ): Promise<{ url: string; needsReview: boolean }> {
     assertMediaFile(file, 'image');
-    let buffer: Buffer;
-    let needsReview = false;
-
-    try {
-      buffer = await this.imageProcessing.processWithMicroservice(file);
-    } catch (_error) {
-      this.logger.warn('upload_failed slot=image reason=process');
-      buffer = file.buffer;
-      needsReview = true;
-    }
-
     try {
       return {
         url: await this.persistWatchImage(
-          buffer,
+          file.buffer,
           file,
-          needsReview,
+          false,
           isProd,
           writtenPaths,
         ),
-        needsReview,
+        needsReview: false,
       };
     } catch (cloudError) {
-      if (!needsReview) {
-        this.logger.warn('upload_failed slot=image reason=upstream');
-        const url = await this.persistWatchImage(
-          file.buffer,
-          file,
-          true,
-          isProd,
-          writtenPaths,
-        );
-        return { url, needsReview: true };
-      }
+      this.logger.warn('upload_failed slot=image reason=upstream');
       throw cloudError;
     }
   }

@@ -51,6 +51,8 @@ jobs:
         with:
           context: .
           file: apps/api/Dockerfile
+          # VPS Vultr es linux/amd64; evita sorpresas si el runner cambia.
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
