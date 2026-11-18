@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -10,6 +11,7 @@ import {
 } from 'class-validator';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const ORIGINS = ['PLATAFORMA', 'LOCAL'] as const;
 
 export class CreateExpenseDto {
   @IsString()
@@ -31,6 +33,10 @@ export class CreateExpenseDto {
   @IsString()
   @Matches(DATE)
   spentAt?: string;
+
+  @IsOptional()
+  @IsIn(ORIGINS)
+  origin?: (typeof ORIGINS)[number];
 }
 
 export class UpdateExpenseDto {
@@ -55,6 +61,10 @@ export class UpdateExpenseDto {
   @IsString()
   @Matches(DATE)
   spentAt?: string;
+
+  @IsOptional()
+  @IsIn(ORIGINS)
+  origin?: (typeof ORIGINS)[number];
 }
 
 export class ExpensesQueryDto {
@@ -74,6 +84,10 @@ export class ExpensesQueryDto {
   to?: string;
 
   @IsOptional()
+  @IsIn(ORIGINS)
+  origin?: (typeof ORIGINS)[number];
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Type(() => Number)
@@ -90,4 +104,8 @@ export class ExpenseSummaryQueryDto {
   @IsOptional()
   @IsString()
   period?: string;
+
+  @IsOptional()
+  @IsIn(ORIGINS)
+  origin?: (typeof ORIGINS)[number];
 }

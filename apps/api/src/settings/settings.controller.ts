@@ -39,6 +39,7 @@ import {
   SetHomepageConfigBodyDto,
   SetPlatformBodyDto,
   SetProfitBodyDto,
+  SetReceiptBodyDto,
   SetWhatsappBodyDto,
 } from './dto/settings-body.dto';
 import {
@@ -108,6 +109,21 @@ export class SettingsController {
   @Audit('UPDATE', 'Setting')
   setPlatform(@Body() body: SetPlatformBodyDto) {
     return this.settingsService.setPlatformConfig(body);
+  }
+
+  @Get('receipt')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  getReceipt() {
+    return this.settingsService.getReceiptConfig();
+  }
+
+  @Patch('receipt')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  @Audit('UPDATE', 'Setting')
+  setReceipt(@Body() body: SetReceiptBodyDto) {
+    return this.settingsService.setReceiptConfig(body);
   }
 
   @Get('profit')

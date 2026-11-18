@@ -16,6 +16,7 @@ import { WarrantyHistoriesModule } from './warranty-histories/warranty-histories
 import { CareModule } from './care/care.module';
 import { ProductsModule } from './products/products.module';
 import { WatchesModule } from './watches/watches.module';
+import { WatchesImportModule } from './watches-import/watches-import.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { IntegrationsModule } from './integrations/integrations.module';
@@ -34,6 +35,10 @@ import { SegmentationModule } from './segmentation/segmentation.module';
 import { WholesaleAccessModule } from './wholesale-access/wholesale-access.module';
 import { WholesaleOffersModule } from './wholesale-offers/wholesale-offers.module';
 import { ExpensesModule } from './expenses/expenses.module';
+import { ReceiptsModule } from './receipts/receipts.module';
+import { WarrantyClaimsModule } from './warranty-claims/warranty-claims.module';
+import { LabelsModule } from './labels/labels.module';
+import { PosModule } from './pos/pos.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { CacheModule } from './common/cache/cache.module';
 import { ResponseCacheInterceptor } from './common/cache/response-cache.interceptor';
@@ -63,6 +68,8 @@ const isProd = process.env.NODE_ENV === 'production';
     WarrantiesModule,
     CareModule,
     ProductsModule,
+    // Importantes rutas estáticas (import/*, by-import-key) antes de watches/:id
+    WatchesImportModule,
     WatchesModule,
     InventoryModule,
     CatalogModule,
@@ -83,6 +90,10 @@ const isProd = process.env.NODE_ENV === 'production';
     WholesaleAccessModule,
     WholesaleOffersModule,
     ExpensesModule,
+    ReceiptsModule,
+    WarrantyClaimsModule,
+    LabelsModule,
+    PosModule,
   ],
   providers: [
     {

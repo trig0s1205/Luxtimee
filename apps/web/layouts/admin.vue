@@ -3,11 +3,12 @@ import type { BrandDto, CategoryDto, ShippingZoneDto } from '@luxtime/shared';
 import { preloadRouteComponents } from '#app';
 import { adminDocumentTitle, adminTitleForPath } from '~/utils/admin-document-title';
 import { warmupAdminModules } from '~/utils/admin-warmup';
+import { isLocalSellerRoute } from '~/utils/local-seller-routes';
 
 const auth = useAuthStore();
 
-// Doble verificación: si no hay usuario staff, no renderizar nada
-if (!auth.user || (auth.user.role !== 'ADMIN' && auth.user.role !== 'SUPER_ADMIN')) {
+// Doble verificación: si no hay acceso al panel, no renderizar nada
+if (!auth.user || !auth.canUsePanel) {
   throw createError({ statusCode: 403, statusMessage: 'Acceso denegado' });
 }
 
@@ -15,14 +16,24 @@ const api = useApi();
 
 const route = useRoute();
 const { unreadCount, watchInbox } = useAdminNotifications();
-watchInbox();
+if (!auth.isLocalSeller) {
+  watchInbox();
+}
+
+if (import.meta.client && auth.isLocalSeller && !isLocalSellerRoute(route.path)) {
+  await navigateTo('/admin/pos', { replace: true });
+}
 
 useHead(() => {
   const base = adminTitleForPath(route.path);
   const label = base.replace(/\s+—\s+LUXTIMEE$/, '');
   return {
     title: label,
-    titleTemplate: (title?: string) => adminDocumentTitle(title, unreadCount.value, base),
+    titleTemplate: (title?: string) => adminDocumentTitle(
+      title,
+      auth.isLocalSeller ? 0 : unreadCount.value,
+      base,
+    ),
     meta: [{ name: 'robots', key: 'robots', content: 'noindex, nofollow' }],
   };
 }, { tagPriority: 'critical' });
@@ -36,6 +47,7 @@ const ADMIN_ROUTES = [
   '/admin/pedidos/detal',
   '/admin/pedidos/mayor',
   '/admin/pedidos/especiales',
+  '/admin/pedidos/local',
   '/admin/gastos',
   '/admin/ventas',
   '/admin/garantias',
@@ -47,6 +59,10 @@ const ADMIN_ROUTES = [
   '/admin/dashboards/analytics',
   '/admin/dashboards/ganancia',
   '/admin/notificaciones',
+  '/admin/pos',
+  '/admin/pos/mis-ventas',
+  '/admin/pos/caja',
+  '/admin/comprobantes',
 ];
 
 useHead({
@@ -58,6 +74,8 @@ onMounted(() => {
 
   auth.hydrateTokens();
 
+  if (auth.isLocalSeller) return;
+
   for (const route of ADMIN_ROUTES) {
     void preloadRouteComponents(route);
   }
@@ -66,7 +84,7 @@ onMounted(() => {
   const adminData = useAdminDataStore();
 
   async function loadSharedAdminData() {
-    if (!auth.hasApiSession) return;
+    if (!auth.hasApiSession || auth.isLocalSeller) return;
     catalog.invalidate();
     await catalog.ensureAll({
       brands: () => api.get<BrandDto[]>('/brands'),

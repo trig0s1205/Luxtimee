@@ -35,6 +35,8 @@ export function notificationMessage(type: string, payload: Record<string, unknow
         : status || 'otro estado';
       return ref ? `Pedido ${ref} cambió a ${label}` : `Un pedido cambió a ${label}`;
     }
+    case 'POS_SALE':
+      return ref ? `Venta en local ${ref}` : 'Nueva venta en local';
     default:
       return 'Nueva notificación';
   }
@@ -50,11 +52,18 @@ export function notificationHref(type: string, payload: Record<string, unknown>)
   if (type === 'PRE_ORDER_CONFIRMED' || type === 'ORDER_STATUS_CHANGED') {
     return `/admin/pedidos/detal${query}`;
   }
+  if (type === 'POS_SALE') return `/admin/pos/mis-ventas${query}`;
   return '/admin/notificaciones';
 }
 
 export function notificationTone(type: string): 'success' | 'info' | 'warning' {
-  if (type === 'NEW_PRE_ORDER' || type === 'PRE_ORDER_CONFIRMED') return 'success';
+  if (
+    type === 'NEW_PRE_ORDER' ||
+    type === 'PRE_ORDER_CONFIRMED' ||
+    type === 'POS_SALE'
+  ) {
+    return 'success';
+  }
   if (type === 'PRE_ORDER_REMINDER' || type === 'PRE_ORDER_SUSPENDED') return 'warning';
   return 'info';
 }

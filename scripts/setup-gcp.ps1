@@ -73,4 +73,4 @@ Write-Host "  Project activo: $currentProject" -ForegroundColor Green
 & $gcloud artifacts repositories list --location=$Region --project=$ProjectId
 
 Write-Host ""
-Write-Host "Fase 2 lista. Siguiente: .\scripts\deploy-image-service.ps1 -ProjectId `"$ProjectId`"" -ForegroundColor Green
+Write-Host "Fase 2 lista. Siguiente: .\scripts\deploy-api.ps1 -ProjectId `"$ProjectId`"" -ForegroundColor Green

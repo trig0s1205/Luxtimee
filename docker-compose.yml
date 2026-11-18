@@ -17,23 +17,5 @@ services:
       timeout: 5s
       retries: 10
 
-  image-service:
-    build:
-      context: ./apps/image-service
-      dockerfile: Dockerfile
-    container_name: luxtime-image-service
-    restart: unless-stopped
-    environment:
-      IMAGE_SERVICE_API_KEY: ${IMAGE_SERVICE_API_KEY:-dev-image-service-key}
-      REMBG_MODEL: u2netp
-    ports:
-      - "127.0.0.1:8001:8001"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 120s
-
 volumes:
   luxtime_pg_data:

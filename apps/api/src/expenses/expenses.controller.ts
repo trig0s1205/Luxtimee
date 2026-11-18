@@ -35,7 +35,7 @@ export class ExpensesController {
     const period = PERIODS.includes(query.period as ExpensePeriod)
       ? (query.period as ExpensePeriod)
       : 'month';
-    return this.expenses.summary(period);
+    return this.expenses.summary(period, query.origin);
   }
 
   @Get()

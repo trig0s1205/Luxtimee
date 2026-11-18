@@ -1,6 +1,9 @@
 <script setup lang="ts">
 definePageMeta({
-  middleware: ['admin', () => navigateTo('/admin/inventario', { replace: true })],
+  middleware: ['admin', () => {
+    const auth = useAuthStore();
+    return navigateTo(auth.isLocalSeller ? '/admin/pos' : '/admin/inventario', { replace: true });
+  }],
 });
 </script>
 

@@ -253,6 +253,7 @@ watch(products, () => {
 onMounted(() => {
   syncMobileCatalog();
   window.addEventListener('resize', syncMobileCatalog, { passive: true });
+  if (!products.value.length) void refresh();
   nextTick(() => observe());
 });
 

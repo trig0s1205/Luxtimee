@@ -69,6 +69,11 @@ function build(prisma: unknown) {
     { generateForOrder: jest.fn(async () => []) } as never,
     { invalidateTag: () => undefined } as never,
     { notifyOrder: jest.fn() } as never,
+    {
+      ensureForOrder: jest.fn(async () => null),
+      voidForOrder: jest.fn(async () => undefined),
+      issueInTx: jest.fn(async () => ({ id: 'receipt-1' })),
+    } as never,
   );
 }
 
