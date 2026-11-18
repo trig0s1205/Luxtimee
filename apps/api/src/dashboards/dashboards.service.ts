@@ -20,6 +20,11 @@ import {
   GLOBAL_INVENTORY_LOW_THRESHOLD,
   PRE_ORDER_ALERT_HOURS,
 } from '@luxtime/shared';
+import {
+  channelForSource,
+  commissionPercentForSource,
+  summarizeProfitByChannel,
+} from './profit-channel.util';
 
 @Injectable()
 export class DashboardsService {
@@ -105,19 +110,23 @@ export class DashboardsService {
         const revenue = allocations[index] ?? 0;
         if (revenue <= 0) return [];
         const lineTotal = lineTotals[index] ?? 0;
+        const lineCommissionPercent = commissionPercentForSource(
+          order.source,
+          commissionPercent,
+        );
         const priced = profitBreakdownFromLine({
           orderType: order.type,
           unitPrice: item.unitPrice,
           quantity: item.quantity,
           liveCost: item.watch.cost,
           costSnapshot: order.specialCostSnapshot,
-          commissionPercent,
+          commissionPercent: lineCommissionPercent,
         });
         const ratio = lineTotal > 0 ? revenue / lineTotal : 0;
         const cost = ratio >= 1 ? priced.cost : Math.round(priced.cost * ratio);
         const grossProfit = revenue - cost;
         const commission = Math.round(
-          grossProfit * (commissionPercent / 100),
+          grossProfit * (lineCommissionPercent / 100),
         );
         return [
           {
@@ -131,8 +140,9 @@ export class DashboardsService {
             revenue,
             cost,
             profit: grossProfit - commission,
-            commissionPercent,
+            commissionPercent: lineCommissionPercent,
             commission,
+            channel: channelForSource(order.source),
             paidAt: recognized.paidAt.toISOString(),
           },
         ];
@@ -175,6 +185,7 @@ export class DashboardsService {
           orderStatus: order.status ?? OrderStatus.PENDIENTE,
           shippingCost: recognized.shipping,
           shippingZoneName: order.shippingZone?.name ?? null,
+          channel: channelForSource(order.source),
           paidAt: recognized.paidAt.toISOString(),
         },
       ];
@@ -199,6 +210,7 @@ export class DashboardsService {
       commissionPercent,
       totalInventoryInvestment,
       totalShippingRevenue,
+      byChannel: summarizeProfitByChannel(items, shippingItems),
       items,
       shippingItems,
     };

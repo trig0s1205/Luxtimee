@@ -12,6 +12,7 @@ enum Role {
   SUPER_ADMIN
   ADMIN
   CUSTOMER
+  VENDEDOR_LOCAL
 }
 
 enum OrderStage {
@@ -37,6 +38,33 @@ enum OrderSource {
   WEB
   WHATSAPP
   MAYORISTA
+  LOCAL
+}
+
+enum PaymentMethod {
+  EFECTIVO
+  TRANSFERENCIA
+  DATAFONO_BOLD
+  NO_ESPECIFICADO
+}
+
+enum ReceiptChannel {
+  WEB
+  LOCAL
+}
+
+enum WarrantyClaimStatus {
+  RECIBIDO
+  EN_REVISION
+  REPARADO
+  REEMPLAZADO
+  RECHAZADO
+  ENTREGADO
+}
+
+enum ExpenseOrigin {
+  PLATAFORMA
+  LOCAL
 }
 
 enum MarketingContactStatus {
@@ -104,6 +132,11 @@ model User {
   wholesaleGrants    WholesaleAccess[]  @relation("WholesaleGrants")
   orderPayments      OrderPayment[]     @relation("RegisteredPayments")
   expenses           Expense[]          @relation("CreatedExpenses")
+  soldOrders         Order[]            @relation("SoldOrders")
+  issuedReceipts     SaleReceipt[]      @relation("ReceiptSeller")
+  cashClosings       CashClosing[]      @relation("CashClosings")
+  warrantyClaims     WarrantyClaim[]    @relation("ClaimCreatedBy")
+  warrantyClaimEvents WarrantyClaimEvent[] @relation("ClaimEventBy")
 }
 
 model RefreshSession {
@@ -293,6 +326,7 @@ model Order {
   customerAddress  String
   customerEmail    String
   customerPhone    String?
+  customerDocument String?
   userId             String?
   wholesaleAccessId  String?
   shippingZoneId     String?
@@ -309,6 +343,7 @@ model Order {
   specialSkuSnapshot       String?
   specialProfit            Int?
   assignedToId     String?
+  sellerId         String?
   paidAt           DateTime?
   shippedAt        DateTime?
   deliveredAt      DateTime?
@@ -322,14 +357,18 @@ model Order {
   wholesaleAccess WholesaleAccess? @relation(fields: [wholesaleAccessId], references: [id])
   shippingZone ShippingZone? @relation(fields: [shippingZoneId], references: [id])
   assignedTo   User?         @relation("AssignedOrders", fields: [assignedToId], references: [id])
+  seller       User?         @relation("SoldOrders", fields: [sellerId], references: [id], onDelete: SetNull)
   items        OrderItem[]
   warrantyHistories WarrantyHistory[]
   payments     OrderPayment[]
+  receipt      SaleReceipt?
 
   @@index([stage, status])
   @@index([createdAt])
   @@index([stage, suspendedAt, preOrderActiveAt])
   @@index([wholesaleAccessId])
+  @@index([source])
+  @@index([sellerId])
 }
 
 model OrderItem {
@@ -555,6 +594,12 @@ model OrderPayment {
   amount         Int
   paidAt         DateTime         @default(now())
   registeredById String?
+  method         PaymentMethod?
+  reference      String?
+  proofUrl       String?
+  cardLast4      String?          @db.VarChar(4)
+  cashReceived   Int?
+  changeGiven    Int?
   createdAt      DateTime         @default(now())
 
   order        Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -563,22 +608,168 @@ model OrderPayment {
   @@index([orderId])
   @@index([paidAt])
   @@index([type])
+  @@index([method])
 }
 
 model Expense {
-  id          String   @id @default(cuid())
+  id          String        @id @default(cuid())
   name        String
-  description String?  @db.Text
+  description String?       @db.Text
   amount      Int
   spentAt     DateTime
+  origin      ExpenseOrigin @default(PLATAFORMA)
   createdById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   createdBy User? @relation("CreatedExpenses", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([spentAt])
   @@index([name])
+  @@index([origin])
+}
+
+model DocumentCounter {
+  key       String   @id
+  lastValue Int
+  updatedAt DateTime @updatedAt
+}
+
+/// Comprobante interno de venta y garantía (no es factura electrónica).
+model SaleReceipt {
+  id               String         @id @default(cuid())
+  number           String         @unique
+  sequence         Int
+  orderId          String?        @unique
+  orderReadableId  String
+  channel          ReceiptChannel
+  saleDate         DateTime
+  issuedAt         DateTime       @default(now())
+  voidedAt         DateTime?
+  voidReason       String?
+  backfilled       Boolean        @default(false)
+  customerName     String
+  customerDocument String?
+  customerPhone    String?
+  customerEmail    String?
+  sellerId         String?
+  sellerName       String
+  subtotal         Int
+  shippingCost     Int            @default(0)
+  total            Int
+  businessSnapshot Json
+  warrantyTerms    String         @db.Text
+  paymentsSnapshot Json
+  // Reservado para integrar un proveedor de facturación electrónica en el futuro.
+  fiscalStatus     String?
+  fiscalProvider   String?
+  fiscalExternalId String?
+  fiscalPayload    Json?
+
+  order  Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  seller User?             @relation("ReceiptSeller", fields: [sellerId], references: [id], onDelete: SetNull)
+  items  SaleReceiptItem[]
+  pdf    SaleReceiptPdf?
+
+  @@index([saleDate])
+  @@index([customerPhone])
+  @@index([customerDocument])
+  @@index([orderReadableId])
+}
+
+model SaleReceiptItem {
+  id                   String    @id @default(cuid())
+  receiptId            String
+  position             Int
+  productName          String
+  brandName            String?
+  model                String?
+  reference            String?
+  sku                  String
+  limitedEditionNumber String?
+  quantity             Int
+  unitPrice            Int
+  lineTotal            Int
+  warrantyMonths       Int
+  warrantyStartsAt     DateTime
+  warrantyEndsAt       DateTime?
+  warrantyExtraTerms   String?   @db.Text
+
+  receipt SaleReceipt     @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  claims  WarrantyClaim[]
+
+  @@index([receiptId])
+  @@index([sku])
+}
+
+model SaleReceiptPdf {
+  receiptId String   @id
+  data      Bytes
+  sha256    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  receipt SaleReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+}
+
+model CashClosing {
+  id            String   @id @default(cuid())
+  businessDate  DateTime @db.Date
+  userId        String
+  openingCash   Int
+  countedCash   Int
+  expectedCash  Int
+  difference    Int
+  totalCash     Int
+  totalTransfer Int
+  totalCard     Int
+  totalOther    Int
+  totalSales    Int
+  salesCount    Int
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now())
+
+  user User @relation("CashClosings", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([businessDate, userId])
+  @@index([businessDate])
+}
+
+model WarrantyClaim {
+  id            String              @id @default(cuid())
+  receiptItemId String
+  status        WarrantyClaimStatus @default(RECIBIDO)
+  reportedIssue String              @db.Text
+  notes         String?             @db.Text
+  outOfWarranty Boolean             @default(false)
+  createdById   String
+  resolvedAt    DateTime?
+  deliveredAt   DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  receiptItem SaleReceiptItem      @relation(fields: [receiptItemId], references: [id], onDelete: Restrict)
+  createdBy   User                 @relation("ClaimCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  events      WarrantyClaimEvent[]
+
+  @@index([status])
+  @@index([receiptItemId])
+  @@index([createdAt])
+}
+
+model WarrantyClaimEvent {
+  id          String               @id @default(cuid())
+  claimId     String
+  fromStatus  WarrantyClaimStatus?
+  toStatus    WarrantyClaimStatus
+  note        String?              @db.Text
+  createdById String
+  createdAt   DateTime             @default(now())
+
+  claim     WarrantyClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  createdBy User          @relation("ClaimEventBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([claimId])
 }
 
 model PackagingPhoto {

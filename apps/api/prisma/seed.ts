@@ -52,6 +52,21 @@ async function main() {
     },
   });
 
+  await prisma.user.upsert({
+    where: { email: 'vendedora@luxtime.co' },
+    update: {
+      role: Role.VENDEDOR_LOCAL,
+      name: 'Vendedora Local',
+      passwordHash: defaultStaffPassword,
+    },
+    create: {
+      email: 'vendedora@luxtime.co',
+      name: 'Vendedora Local',
+      role: Role.VENDEDOR_LOCAL,
+      passwordHash: defaultStaffPassword,
+    },
+  });
+
   const settings = [
     {
       key: 'whatsapp_link',

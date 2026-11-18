@@ -1,9 +1,17 @@
+import type { ExpenseOrigin } from '../index.js';
+
+export interface ExpenseOriginTotals {
+  PLATAFORMA: number;
+  LOCAL: number;
+}
+
 export interface ExpenseDto {
   id: string;
   name: string;
   description: string | null;
   amount: number;
   spentAt: string;
+  origin: ExpenseOrigin;
   createdById: string | null;
   createdByName: string | null;
   createdAt: string;
@@ -15,6 +23,8 @@ export interface ExpensesListDto {
   total: number;
   page: number;
   limit: number;
+  totalAmount: number;
+  totalsByOrigin: ExpenseOriginTotals;
 }
 
 export interface ExpenseSummaryDto {
@@ -22,6 +32,7 @@ export interface ExpenseSummaryDto {
   total: number;
   count: number;
   items: ExpenseDto[];
+  byOrigin: ExpenseOriginTotals;
 }
 
 export interface CreateExpenseDto {
@@ -29,6 +40,7 @@ export interface CreateExpenseDto {
   description?: string;
   amount: number;
   spentAt?: string;
+  origin?: ExpenseOrigin;
 }
 
 export interface UpdateExpenseDto {
@@ -36,4 +48,5 @@ export interface UpdateExpenseDto {
   description?: string | null;
   amount?: number;
   spentAt?: string;
+  origin?: ExpenseOrigin;
 }

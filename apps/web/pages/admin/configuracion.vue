@@ -4,6 +4,7 @@ import type {
   HomepageConfigDto,
   PlatformConfigDto,
   ProfitConfigDto,
+  ReceiptConfigDto,
   WhatsappSettingDto,
 } from '@luxtime/shared';
 import { extractApiErrorMessage } from '~/utils/api-error';
@@ -57,6 +58,19 @@ const profit = reactive<ProfitConfigDto>({
   ownerProfitPercent: 65,
 });
 const commission = reactive<CommissionConfigDto>({ percent: 5 });
+const receipt = reactive<ReceiptConfigDto>({
+  businessName: 'LUXTIMEE',
+  ownerName: '',
+  ownerDocument: '',
+  phone: '',
+  whatsapp: '',
+  email: '',
+  city: '',
+  address: '',
+  logoUrl: '',
+  warrantyTerms: '',
+  footerNote: '',
+});
 
 const home = reactive<HomepageConfigDto>(structuredClone(DEFAULT_HOMEPAGE_CONFIG));
 home.hero.slides = normalizeHeroSlides(home.hero);
@@ -83,6 +97,7 @@ const savingProfile = ref(false);
 const savingEmail = ref(false);
 const savingPassword = ref(false);
 const savingPlatform = ref(false);
+const savingReceipt = ref(false);
 const savingIndexSection = ref<'logo' | 'hero' | 'founder' | 'featured' | 'proof' | 'faq' | 'contact' | 'ads' | null>(null);
 const uploadingSlot = ref<number | null>(null);
 const uploadingHeroKey = ref<string | null>(null);
@@ -117,6 +132,9 @@ useAsyncData('admin-config', async () => {
 
   const platformRes = await api.get<PlatformConfigDto>('/settings/platform').catch(() => null);
   if (platformRes) Object.assign(platform, platformRes);
+
+  const receiptRes = await api.get<ReceiptConfigDto>('/settings/receipt').catch(() => null);
+  if (receiptRes) Object.assign(receipt, receiptRes);
 
   if (auth.isSuperAdmin) {
     const [profitRes, commissionRes] = await Promise.all([
@@ -221,6 +239,19 @@ async function savePassword() {
     toast.error(extractApiErrorMessage(err, 'No se pudo cambiar la contraseña.'));
   } finally {
     savingPassword.value = false;
+  }
+}
+
+async function saveReceiptSettings() {
+  savingReceipt.value = true;
+  try {
+    const saved = await api.patch<ReceiptConfigDto>('/settings/receipt', { ...receipt });
+    Object.assign(receipt, saved);
+    toast.success('Datos del comprobante guardados.');
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo guardar el comprobante.'));
+  } finally {
+    savingReceipt.value = false;
   }
 }
 
@@ -880,6 +911,70 @@ function onConfigImageClick(event: MouseEvent) {
             <UiLuxInput v-model="platform.facebookUrl" placeholder="https://www.facebook.com/LUXTIMEE" />
           </label>
         </div>
+      </section>
+
+      <section class="admin-config-card">
+        <h2>Comprobante de venta y garantía</h2>
+        <p class="admin-config-hint">
+          Estos datos se copian en cada comprobante nuevo. Los comprobantes ya emitidos no cambian.
+        </p>
+        <div class="admin-config-fields admin-config-fields--grid">
+          <label>
+            <span>Nombre del negocio</span>
+            <UiLuxInput v-model="receipt.businessName" placeholder="LUXTIMEE" />
+          </label>
+          <label>
+            <span>Responsable</span>
+            <UiLuxInput v-model="receipt.ownerName" />
+          </label>
+          <label>
+            <span>Documento del responsable</span>
+            <UiLuxInput v-model="receipt.ownerDocument" />
+          </label>
+          <label>
+            <span>Teléfono</span>
+            <UiLuxInput v-model="receipt.phone" />
+          </label>
+          <label>
+            <span>WhatsApp</span>
+            <UiLuxInput v-model="receipt.whatsapp" />
+          </label>
+          <label>
+            <span>Correo</span>
+            <UiLuxInput v-model="receipt.email" type="email" />
+          </label>
+          <label>
+            <span>Ciudad</span>
+            <UiLuxInput v-model="receipt.city" />
+          </label>
+          <label>
+            <span>Dirección</span>
+            <UiLuxInput v-model="receipt.address" />
+          </label>
+          <label>
+            <span>URL del logo</span>
+            <UiLuxInput v-model="receipt.logoUrl" placeholder="https://res.cloudinary.com/..." />
+          </label>
+        </div>
+        <div v-if="receipt.logoUrl" class="admin-config-logo-preview">
+          <img :src="resolveMedia(receipt.logoUrl)" alt="Vista previa del logo" width="120" height="48" />
+        </div>
+        <label class="admin-config-textarea-label">
+          <span>Términos de la garantía</span>
+          <textarea v-model="receipt.warrantyTerms" rows="6" class="admin-record-textarea" />
+        </label>
+        <label class="admin-config-textarea-label">
+          <span>Nota al pie (opcional)</span>
+          <textarea v-model="receipt.footerNote" rows="2" class="admin-record-textarea" />
+        </label>
+        <button
+          type="button"
+          class="admin-record-btn admin-record-btn--primary"
+          :disabled="savingReceipt"
+          @click="saveReceiptSettings"
+        >
+          {{ savingReceipt ? 'Guardando...' : 'Guardar comprobante' }}
+        </button>
       </section>
 
       <section v-if="auth.isSuperAdmin" class="admin-config-card">

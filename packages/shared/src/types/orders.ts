@@ -1,4 +1,11 @@
-import type { OrderSource, OrderStage, OrderStatus, OrderType, PriceType } from '../index.js';
+import type {
+  OrderSource,
+  OrderStage,
+  OrderStatus,
+  OrderType,
+  PaymentMethod,
+  PriceType,
+} from '../index.js';
 
 export interface CartItemDto {
   watchId: string;
@@ -57,6 +64,12 @@ export interface OrderPaymentDto {
   paidAt: string;
   registeredById: string | null;
   registeredByName: string | null;
+  method?: PaymentMethod | null;
+  reference?: string | null;
+  proofUrl?: string | null;
+  cardLast4?: string | null;
+  cashReceived?: number | null;
+  changeGiven?: number | null;
 }
 
 export interface OrderItemDto {
@@ -92,6 +105,10 @@ export interface OrderDto {
   customerAddress: string;
   customerEmail: string;
   customerPhone: string | null;
+  customerDocument: string | null;
+  sellerName: string | null;
+  receiptNumber: string | null;
+  receiptVoided: boolean;
   shippingZoneId: string | null;
   shippingZone?: {
     id: string;
@@ -176,6 +193,8 @@ export interface SpecialSaleDto {
   cost: number;
   profit: number;
   note: string;
+  receiptNumber: string | null;
+  receiptVoided: boolean;
 }
 
 export interface SpecialSalesListDto {
