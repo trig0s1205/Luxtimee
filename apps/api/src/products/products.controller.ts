@@ -124,25 +124,12 @@ export class ProductsController {
       const file = files[i];
       const side = sides[i];
 
-      try {
-        const processed =
-          await this.imageProcessing.processWithMicroservice(file);
-        const url = await this.imageProcessing.uploadToCloudinary(
-          processed,
-          `${id}-${side}-${Date.now()}`,
-        );
-
-        if (side === 'front') updates.frontImageUrl = url;
-        else updates.backImageUrl = url;
-      } catch {
-        const fallbackUrl = await this.imageProcessing.uploadToCloudinary(
-          file.buffer,
-          `${id}-${side}-raw-${Date.now()}`,
-        );
-        if (side === 'front') updates.frontImageUrl = fallbackUrl;
-        else updates.backImageUrl = fallbackUrl;
-        updates.imageNeedsReview = true;
-      }
+      const url = await this.imageProcessing.uploadToCloudinary(
+        file.buffer,
+        `${id}-${side}-${Date.now()}`,
+      );
+      if (side === 'front') updates.frontImageUrl = url;
+      else updates.backImageUrl = url;
     }
 
     return this.productsService.updateImages(id, updates, user.role);

@@ -1,8 +1,8 @@
 # Build multi-stage de la API. Contexto: raíz del monorepo.
-# Migraciones Prisma: NO se ejecutan al arrancar. Ejemplo aparte:
-#   docker run --rm --env-file .env -w /app/apps/api IMAGE \
-#     sh -c 'node ./node_modules/prisma/build/index.js migrate deploy --schema prisma/schema.prisma'
-# (o con pnpm exec prisma migrate deploy si el CLI está disponible en la imagen)
+# Migraciones Prisma: NO se ejecutan al arrancar. Comando validado en la imagen:
+#   docker compose run --rm --no-deps --entrypoint sh api -c \
+#     './node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma'
+# (WORKDIR de la imagen = /app/apps/api; el symlink .bin apunta al CLI de pnpm)
 
 FROM node:20-alpine AS builder
 WORKDIR /app
@@ -10,6 +10,8 @@ RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
+# El postinstall de la API corre `prisma generate`: el schema debe existir antes del install.
+COPY apps/api/prisma ./apps/api/prisma
 COPY packages/shared/package.json ./packages/shared/
 
 RUN pnpm install --frozen-lockfile
@@ -25,13 +27,15 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production \
-    NODE_OPTIONS=--max-old-space-size=384 \
+    NODE_OPTIONS=--max-old-space-size=1024 \
     PORT=3000 \
     HOST=0.0.0.0
 
 RUN apk add --no-cache openssl \
   && addgroup -S nodejs \
-  && adduser -S nestjs -G nodejs
+  && adduser -S nestjs -G nodejs \
+  && mkdir -p /app/apps/api/uploads/watches/videos \
+  && chown -R nestjs:nodejs /app/apps/api/uploads
 
 COPY --from=builder --chown=nestjs:nodejs /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
