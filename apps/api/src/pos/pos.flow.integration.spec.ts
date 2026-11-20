@@ -16,6 +16,7 @@ import {
 import type { ExecutionContext } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 import { hashPassword } from '../auth/password.util';
+import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
 import { acquireDbSuiteLock } from '../common/test/db-suite-lock';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -101,6 +102,7 @@ describeLocal('POS flow (localhost DB)', () => {
   let expenses: ExpensesService;
   let labels: LabelsService;
   let claims: WarrantyClaimsService;
+  let cache: MemoryCacheService;
   let dashboards: DashboardsService;
   let storeCatalog: CatalogService;
   let inventory: InventoryService;
@@ -119,7 +121,7 @@ describeLocal('POS flow (localhost DB)', () => {
   beforeAll(async () => {
     releaseLock = await acquireDbSuiteLock();
     await prisma.$connect();
-    const cache = new MemoryCacheService();
+    cache = new MemoryCacheService();
     const settings = new SettingsService(db, cache, {} as never);
     receipts = new ReceiptsService(db, settings, pdf);
     const notifications = { emit: async () => ({ id: 'n' }) } as never;
@@ -142,7 +144,7 @@ describeLocal('POS flow (localhost DB)', () => {
     );
     expenses = new ExpensesService(db);
     labels = new LabelsService(db, new LabelPdfRenderer());
-    claims = new WarrantyClaimsService(db);
+    claims = new WarrantyClaimsService(db, cache);
     preOrders = new PreOrdersService(
       db,
       notifications,
@@ -656,6 +658,166 @@ describeLocal('POS flow (localhost DB)', () => {
     expect(updated.status).toBe(WarrantyClaimStatus.EN_REVISION);
     const listed = await claims.findAll({ q: receipt.number });
     expect(listed.items.some((item) => item.id === claim.id)).toBe(true);
+  });
+
+  it('REEMPLAZADO descuenta stock una sola vez y el selector oculta costos', async () => {
+    const skuRep = `QA-${prefix}-REP`.toUpperCase();
+    const skuEmpty = `QA-${prefix}-OUT`.toUpperCase();
+    const rep = await prisma.watch.create({
+      data: {
+        sku: skuRep,
+        slug: skuRep.toLowerCase(),
+        model: `Modelo ${skuRep}`,
+        reference: skuRep,
+        retailPrice: PRICE,
+        wholesalePrice: 111111,
+        cost: 222222,
+        stock: 1,
+        status: WatchStatus.DISPONIBLE,
+        isActive: true,
+        isPublished: true,
+        warrantyMonths: 12,
+        movementType: 'Quartz',
+        brandId,
+      },
+    });
+    watchIds.push(rep.id);
+    const empty = await prisma.watch.create({
+      data: {
+        sku: skuEmpty,
+        slug: skuEmpty.toLowerCase(),
+        model: `Modelo ${skuEmpty}`,
+        reference: skuEmpty,
+        retailPrice: PRICE,
+        wholesalePrice: 111111,
+        cost: 222222,
+        stock: 0,
+        status: WatchStatus.AGOTADO,
+        isActive: true,
+        isPublished: true,
+        warrantyMonths: 12,
+        movementType: 'Quartz',
+        brandId,
+      },
+    });
+    watchIds.push(empty.id);
+
+    const receipt = await prisma.saleReceipt.findFirstOrThrow({
+      where: { orderId: orderIds[1], voidedAt: null },
+      include: { items: true },
+    });
+    const claim = await claims.create(
+      {
+        receiptItemId: receipt.items[0].id,
+        reportedIssue: 'El cristal está rayado',
+      },
+      sellerId,
+    );
+    await claims.updateStatus(
+      claim.id,
+      { status: WarrantyClaimStatus.EN_REVISION },
+      sellerId,
+    );
+
+    await expect(
+      claims.updateStatus(
+        claim.id,
+        { status: WarrantyClaimStatus.REEMPLAZADO, replacementSku: skuEmpty },
+        sellerId,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    const untouched = await prisma.warrantyClaim.findUniqueOrThrow({
+      where: { id: claim.id },
+    });
+    expect(untouched.status).toBe(WarrantyClaimStatus.EN_REVISION);
+    expect(untouched.replacementWatchId).toBeNull();
+    expect((await watchId(skuEmpty)).stock).toBe(0);
+    expect((await watchId(skuRep)).stock).toBe(1);
+
+    const invalidateTag = cache.invalidateTag.bind(cache);
+    const invalidated: string[] = [];
+    cache.invalidateTag = (tag: string) => {
+      invalidated.push(tag);
+      invalidateTag(tag);
+    };
+    let replaced: Awaited<ReturnType<WarrantyClaimsService['updateStatus']>>;
+    try {
+      replaced = await claims.updateStatus(
+        claim.id,
+        {
+          status: WarrantyClaimStatus.REEMPLAZADO,
+          replacementSku: skuRep.toLowerCase(),
+          note: 'entrega en tienda',
+        },
+        sellerId,
+      );
+    } finally {
+      cache.invalidateTag = invalidateTag;
+    }
+
+    expect(invalidated).toContain(CACHE_TAGS.catalog);
+    expect((await watchId(skuRep)).stock).toBe(0);
+    expect(replaced!.status).toBe(WarrantyClaimStatus.REEMPLAZADO);
+    expect(replaced!.replacementSku).toBe(skuRep);
+    expect(replaced!.replacementWatch).toMatchObject({
+      id: rep.id,
+      sku: skuRep,
+      brand: `QA POS ${prefix}`,
+      model: `Modelo ${skuRep}`,
+      price: PRICE,
+    });
+    expect(replaced!.replacementWatch).not.toHaveProperty('costPrice');
+    expect(replaced!.replacementWatch).not.toHaveProperty('wholesalePrice');
+    expect(replaced!.replacementWatch).not.toHaveProperty('cost');
+    expect(
+      replaced!.events.some(
+        (event) =>
+          event.toStatus === WarrantyClaimStatus.REEMPLAZADO &&
+          event.note?.includes(`Reemplazo SKU: ${skuRep}`),
+      ),
+    ).toBe(true);
+    const stored = await prisma.warrantyClaim.findUniqueOrThrow({
+      where: { id: claim.id },
+    });
+    expect(stored.replacementWatchId).toBe(rep.id);
+
+    await prisma.watch.update({
+      where: { id: rep.id },
+      data: { stock: 5, status: WatchStatus.DISPONIBLE },
+    });
+    await prisma.warrantyClaim.update({
+      where: { id: claim.id },
+      data: { status: WarrantyClaimStatus.EN_REVISION },
+    });
+    await expect(
+      claims.updateStatus(
+        claim.id,
+        { status: WarrantyClaimStatus.REEMPLAZADO, replacementSku: skuRep },
+        sellerId,
+      ),
+    ).rejects.toThrow(/ya descontó/);
+    expect((await watchId(skuRep)).stock).toBe(5);
+    expect(
+      (await prisma.warrantyClaim.findUniqueOrThrow({ where: { id: claim.id } }))
+        .status,
+    ).toBe(WarrantyClaimStatus.EN_REVISION);
+
+    const options = await claims.listReplacementWatches({ sku: skuRep });
+    expect(options.data).toEqual([
+      {
+        id: rep.id,
+        sku: skuRep,
+        brand: `QA POS ${prefix}`,
+        model: `Modelo ${skuRep}`,
+        stock: 5,
+        price: PRICE,
+      },
+    ]);
+    const serialized = JSON.stringify(options);
+    expect(serialized).not.toContain('costPrice');
+    expect(serialized).not.toContain('wholesalePrice');
+    expect(serialized).not.toContain('111111');
+    expect(serialized).not.toContain('222222');
   });
 
   it('catálogo público, inventario y pre-pedido web siguen moviendo stock', async () => {

@@ -1,46 +1,92 @@
 <script setup lang="ts">
-import type { BrandDto, PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
 import { watchPrimaryImage } from '~/utils/media-url';
+
+type SafeWatch = {
+  id: string;
+  sku: string;
+  brand: string;
+  model: string;
+  stock: number;
+  price: number;
+  frontImageUrl?: string | null;
+  primaryImageUrl?: string | null;
+  images?: string[];
+};
+
+type ReplacementWatchesResponse = {
+  brands: Array<{ slug: string; name: string }>;
+  data: SafeWatch[];
+  total: number;
+};
+
+const props = defineProps<{
+  suggestedSku?: string;
+}>();
 
 const modelValue = defineModel<string>({ default: '' });
 
 const api = useApi();
-const catalogStore = useAdminCatalogStore();
 
 const selectedBrandSlug = ref('');
 const modelSearch = ref('');
 const loadingWatches = ref(false);
-const watches = ref<WatchStaffDto[]>([]);
+const brands = ref<Array<{ slug: string; name: string }>>([]);
+const watches = ref<SafeWatch[]>([]);
+const pinned = ref<SafeWatch | null>(null);
 const listTotal = ref(0);
 const lightboxSrc = ref<string | null>(null);
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
-const brands = computed(() => catalogStore.brands);
-
-const selectedWatch = computed(() =>
-  watches.value.find((watch) => watch.sku === modelValue.value) ?? null,
-);
-
-onMounted(() => {
-  catalogStore.ensureBrands(() => api.get<BrandDto[]>('/brands'));
+const selectedWatch = computed(() => {
+  const fromList = watches.value.find((watch) => watch.sku === modelValue.value);
+  if (fromList) return fromList;
+  if (pinned.value?.sku === modelValue.value) return pinned.value;
+  return null;
 });
 
-async function loadWatches(slug: string, term: string) {
-  if (!slug) {
-    watches.value = [];
-    listTotal.value = 0;
-    return;
+onMounted(() => {
+  void bootstrap();
+});
+
+async function bootstrap() {
+  await loadWatches('', '');
+  const sku = props.suggestedSku?.trim();
+  if (!sku) return;
+  try {
+    const res = await api.get<ReplacementWatchesResponse>(
+      '/warranty-claims/replacement-watches',
+      { sku, limit: 5 },
+    );
+    const match = res.data.find(
+      (watch) => watch.sku.toLowerCase() === sku.toLowerCase() && watch.stock > 0,
+    );
+    if (!match) return;
+    pinned.value = match;
+    if (!modelValue.value) modelValue.value = match.sku;
+  } catch {
+    pinned.value = null;
   }
+}
+
+async function loadWatches(slug: string, term: string) {
   if (term.length === 1) return;
   loadingWatches.value = true;
   try {
-    const res = await api.get<PaginatedResponse<WatchStaffDto>>('/watches', {
-      brand: slug,
-      availability: 'sellable',
-      search: term.length >= 2 ? term : undefined,
-      page: 1,
-      limit: 100,
-    });
+    const res = await api.get<ReplacementWatchesResponse>(
+      '/warranty-claims/replacement-watches',
+      {
+        brand: slug || undefined,
+        search: term.length >= 2 ? term : undefined,
+        page: 1,
+        limit: 100,
+      },
+    );
+    brands.value = res.brands;
+    if (!slug) {
+      watches.value = [];
+      listTotal.value = 0;
+      return;
+    }
     watches.value = res.data;
     listTotal.value = res.total;
   } catch {
@@ -59,13 +105,21 @@ function scheduleSearch() {
 }
 
 watch(selectedBrandSlug, (slug) => {
-  modelValue.value = '';
   modelSearch.value = '';
-  void loadWatches(slug, '');
+  void loadWatches(slug, '').then(() => {
+    if (watches.value.some((item) => item.sku === modelValue.value)) return;
+    if (pinned.value?.sku === modelValue.value) return;
+    modelValue.value = '';
+  });
 });
 
 function selectWatch(sku: string) {
-  modelValue.value = modelValue.value === sku ? '' : sku;
+  if (modelValue.value === sku) {
+    modelValue.value = '';
+    return;
+  }
+  modelValue.value = sku;
+  pinned.value = watches.value.find((item) => item.sku === sku) ?? pinned.value;
 }
 
 function openLightbox(src: string) {
@@ -84,7 +138,7 @@ function closeLightbox() {
         <span>Marca</span>
         <select v-model="selectedBrandSlug" class="admin-warranty-picker__control">
           <option value="">Seleccionar marca</option>
-          <option v-for="brand in brands" :key="brand.id" :value="brand.slug">
+          <option v-for="brand in brands" :key="brand.slug" :value="brand.slug">
             {{ brand.name }}
           </option>
         </select>
@@ -140,7 +194,7 @@ function closeLightbox() {
           </button>
 
           <div class="admin-warranty-picker__meta">
-            <strong>{{ watch.brand.name }} {{ watch.model }}</strong>
+            <strong>{{ watch.brand }} {{ watch.model }}</strong>
             <span>{{ watch.sku }}</span>
             <span>{{ watch.stock }} uds.</span>
           </div>
