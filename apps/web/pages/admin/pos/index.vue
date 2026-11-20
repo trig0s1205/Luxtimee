@@ -406,7 +406,6 @@ useLiveRefresh(reloadCatalogSilent, {
 function onVisibilityChange() {
   if (document.visibilityState === 'visible' && !successSale.value) {
     focusScanner();
-    void reloadCatalogSilent();
   }
 }
 

@@ -172,7 +172,10 @@ function buildQuery(nextPage: number) {
   };
 }
 
+let catalogGeneration = 0;
+
 async function loadPage(nextPage: number, append: boolean) {
+  catalogGeneration += 1;
   abort?.abort();
   abort = new AbortController();
   if (append) loadingMore.value = true;
@@ -216,18 +219,24 @@ let silentFlight: Promise<void> | null = null;
 
 async function reloadSilent() {
   if (silentFlight) return silentFlight;
+  if (loading.value || loadingMore.value) return;
   silentFlight = (async () => {
+    const generation = catalogGeneration;
     silentBusy.value = true;
     try {
       const pages = Math.max(1, page.value);
       const collected: PosCatalogWatchDto[] = [];
+      let last: PosCatalogPageDto | null = null;
       for (let next = 1; next <= pages; next += 1) {
         const data = await api.get<PosCatalogPageDto>('/pos/catalog', buildQuery(next));
+        if (generation !== catalogGeneration) return;
+        last = data;
         collected.push(...safeCatalogItems<PosCatalogWatchDto>(data));
-        page.value = Number(data?.page) || next;
-        total.value = Number(data?.total) || collected.length;
-        hasMore.value = Boolean(data?.hasMore);
       }
+      if (generation !== catalogGeneration) return;
+      page.value = Number(last?.page) || pages;
+      total.value = Number(last?.total) || collected.length;
+      hasMore.value = Boolean(last?.hasMore);
       items.value = collected;
       emit('refreshed', collected);
     } catch {
