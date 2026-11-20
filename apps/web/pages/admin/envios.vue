@@ -256,6 +256,32 @@ async function removeZone(zone: ShippingZoneDto) {
   color: var(--lux-white-dim);
   font-size: 13px;
 }
+
+@media (max-width: 767px) {
+  .shipping-zone-row {
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .shipping-zone-info {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .shipping-zone-free,
+  .shipping-zone-price,
+  .shipping-zone-input,
+  .shipping-zone-delete {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .shipping-zone-input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
 </style>
 
 

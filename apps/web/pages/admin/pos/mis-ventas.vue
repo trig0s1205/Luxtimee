@@ -184,4 +184,38 @@ onMounted(() => {
   text-transform: uppercase;
   color: var(--lux-white-dim, #9ca3af);
 }
+
+.pos-sales-field .admin-input {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 700px) {
+  .pos-sales-toolbar,
+  .pos-sales-field,
+  .admin-record-summary,
+  .admin-record-summary-actions {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .pos-sales-field {
+    flex: 1 1 100%;
+  }
+
+  .admin-record-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-record-summary-actions {
+    justify-content: flex-start;
+  }
+
+  .admin-record-summary-actions .admin-record-btn {
+    max-width: 100%;
+    white-space: normal;
+  }
+}
 </style>

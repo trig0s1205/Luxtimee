@@ -499,4 +499,37 @@ useSeoMeta({ title: 'Pendientes de info — LUXTIMEE Admin' });
   font-size: 12px;
   color: var(--lux-white-dim);
 }
+
+@media (max-width: 767px) {
+  .pending-info,
+  .pending-info-table {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .pending-info-table,
+  .pending-info-table thead,
+  .pending-info-table tbody,
+  .pending-info-table tr,
+  .pending-info-table th,
+  .pending-info-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .pending-info-table thead {
+    display: none;
+  }
+
+  .pending-info-table tr {
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(200, 169, 110, 0.12);
+  }
+
+  .pending-info-table td {
+    border: 0;
+    padding: 6px 0;
+  }
+}
 </style>

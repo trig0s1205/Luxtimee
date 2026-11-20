@@ -42,11 +42,18 @@ const emptyList: PreOrdersListDto = {
 
 const cacheKey = computed(() => `admin-pre-orders-${props.bucket}-${page.value}`);
 
+const { preOrderRevision } = useAdminNotifications();
+
 const { data: list, refresh, pending } = useAdminCachedData(
   cacheKey,
   () => api.get<PreOrdersListDto>(endpoint.value, { page: page.value, limit: PAGE_SIZE }).catch(() => emptyList),
   { watch: [cacheKey] },
 );
+
+watch(preOrderRevision, (revision) => {
+  if (props.bucket !== 'active' || revision <= 0) return;
+  void refresh();
+});
 
 useLiveRefresh(() => refresh(), {
   intervalMs: 25_000,

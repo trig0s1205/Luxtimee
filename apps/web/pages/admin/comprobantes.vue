@@ -740,4 +740,45 @@ watch(claimStatus, () => {
   border: 1px solid rgba(212, 175, 55, 0.28);
   background: #111111;
 }
+
+@media (max-width: 767px) {
+  .admin-comprobantes-tabs,
+  .admin-record-actions,
+  .admin-record-summary,
+  .admin-record-summary-actions,
+  .admin-comprobantes-item,
+  .admin-comprobantes-item__main {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .admin-comprobantes-tabs {
+    flex-wrap: wrap;
+  }
+
+  .admin-record-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-record-summary-actions {
+    justify-content: flex-start;
+  }
+
+  .admin-comprobantes-item__main,
+  .admin-comprobantes-item__main strong,
+  .admin-record-subtitle {
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  .admin-record-actions .admin-record-btn,
+  .admin-comprobantes-tabs .admin-record-btn,
+  .admin-record-summary-actions .admin-record-btn {
+    flex: 1 1 8rem;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
+  }
+}
 </style>

@@ -336,6 +336,31 @@ onMounted(async () => {
   color: var(--lux-white-dim, #9ca3af);
 }
 
+.pos-caja-field .admin-input {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 700px) {
+  .pos-caja-toolbar,
+  .pos-caja-field,
+  .pos-caja-totals,
+  .admin-record-summary {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .pos-caja-field {
+    flex: 1 1 100%;
+  }
+
+  .admin-record-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .pos-caja-totals {
   display: grid;
   gap: 0.75rem;

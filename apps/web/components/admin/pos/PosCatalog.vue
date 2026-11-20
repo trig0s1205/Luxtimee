@@ -528,8 +528,11 @@ watch([brand, category, gender, dialColor, strapMaterial, minPrice, maxPrice, so
 
 .pos-catalog__filters .admin-input,
 .pos-catalog__toolbar .admin-input {
+  box-sizing: border-box;
   min-height: 44px;
-  min-width: 140px;
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 140px;
 }
 
 .pos-catalog__chip {
@@ -556,8 +559,23 @@ watch([brand, category, gender, dialColor, strapMaterial, minPrice, maxPrice, so
 
 .pos-catalog__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr));
   gap: 0.85rem;
+}
+
+@media (max-width: 700px) {
+  .pos-catalog,
+  .pos-catalog__toolbar,
+  .pos-catalog__filters,
+  .pos-catalog__chips {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .pos-catalog__filters .admin-input,
+  .pos-catalog__toolbar .admin-input {
+    flex-basis: 100%;
+  }
 }
 
 .pos-catalog__skeleton {
