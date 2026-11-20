@@ -678,6 +678,9 @@ describeLocal('POS flow (localhost DB)', () => {
         isPublished: true,
         warrantyMonths: 12,
         movementType: 'Quartz',
+        frontImageUrl: `https://cdn.example/${skuRep}-front.jpg`,
+        primaryImageUrl: `https://cdn.example/${skuRep}-primary.jpg`,
+        images: [`https://cdn.example/${skuRep}-gallery.jpg`],
         brandId,
       },
     });
@@ -811,6 +814,9 @@ describeLocal('POS flow (localhost DB)', () => {
         model: `Modelo ${skuRep}`,
         stock: 5,
         price: PRICE,
+        frontImageUrl: `https://cdn.example/${skuRep}-front.jpg`,
+        primaryImageUrl: `https://cdn.example/${skuRep}-primary.jpg`,
+        images: [`https://cdn.example/${skuRep}-gallery.jpg`],
       },
     ]);
     const serialized = JSON.stringify(options);

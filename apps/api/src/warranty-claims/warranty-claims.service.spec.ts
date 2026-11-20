@@ -461,6 +461,9 @@ describe('WarrantyClaimsService', () => {
         model: 'A',
         stock: 2,
         retailPrice: 100000,
+        frontImageUrl: 'https://cdn.example/front.jpg',
+        primaryImageUrl: 'https://cdn.example/primary.jpg',
+        images: ['https://cdn.example/gallery.jpg'],
         cost: 222222,
         costPrice: 222222,
         wholesalePrice: 111111,
@@ -486,13 +489,19 @@ describe('WarrantyClaimsService', () => {
         model: 'A',
         stock: 2,
         price: 100000,
+        frontImageUrl: 'https://cdn.example/front.jpg',
+        primaryImageUrl: 'https://cdn.example/primary.jpg',
+        images: ['https://cdn.example/gallery.jpg'],
       },
     ]);
     expect(Object.keys(page.data[0]).sort()).toEqual([
       'brand',
+      'frontImageUrl',
       'id',
+      'images',
       'model',
       'price',
+      'primaryImageUrl',
       'sku',
       'stock',
     ]);
@@ -504,6 +513,11 @@ describe('WarrantyClaimsService', () => {
     const select = (
       findMany.mock.calls as unknown as Array<[{ select: Record<string, unknown> }]>
     )[0][0].select;
+    expect(select).toMatchObject({
+      frontImageUrl: true,
+      primaryImageUrl: true,
+      images: true,
+    });
     expect(select).not.toHaveProperty('cost');
     expect(select).not.toHaveProperty('costPrice');
     expect(select).not.toHaveProperty('wholesalePrice');

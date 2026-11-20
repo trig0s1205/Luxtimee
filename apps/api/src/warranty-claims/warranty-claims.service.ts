@@ -60,6 +60,13 @@ const replacementWatchSelect = {
   brand: { select: { name: true } },
 } satisfies Prisma.WatchSelect;
 
+const replacementPickerSelect = {
+  ...replacementWatchSelect,
+  frontImageUrl: true,
+  primaryImageUrl: true,
+  images: true,
+} satisfies Prisma.WatchSelect;
+
 const claimDetailInclude = {
   receiptItem: {
     include: {
@@ -93,6 +100,9 @@ type ClaimDetailRow = Prisma.WarrantyClaimGetPayload<{
 type ReplacementWatchRow = Prisma.WatchGetPayload<{
   select: typeof replacementWatchSelect;
 }>;
+type ReplacementPickerRow = Prisma.WatchGetPayload<{
+  select: typeof replacementPickerSelect;
+}>;
 
 function toReplacementWatchOption(row: ReplacementWatchRow) {
   return {
@@ -102,6 +112,15 @@ function toReplacementWatchOption(row: ReplacementWatchRow) {
     model: row.model,
     stock: row.stock,
     price: row.retailPrice,
+  };
+}
+
+function toReplacementPickerWatch(row: ReplacementPickerRow) {
+  return {
+    ...toReplacementWatchOption(row),
+    frontImageUrl: row.frontImageUrl,
+    primaryImageUrl: row.primaryImageUrl,
+    images: row.images,
   };
 }
 
@@ -291,7 +310,7 @@ export class WarrantyClaimsService {
       shouldList
         ? this.prisma.watch.findMany({
             where,
-            select: replacementWatchSelect,
+            select: replacementPickerSelect,
             orderBy: [{ brand: { name: 'asc' } }, { model: 'asc' }],
             skip: (page - 1) * limit,
             take: limit,
@@ -301,7 +320,7 @@ export class WarrantyClaimsService {
 
     return {
       brands,
-      data: rows.map(toReplacementWatchOption),
+      data: rows.map(toReplacementPickerWatch),
       total,
       page,
       limit,
