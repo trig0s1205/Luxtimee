@@ -120,6 +120,8 @@ const catalogAsync = useCachedAsyncData<PaginatedResponse<WatchPublicDto>>(
 
 const { data: catalogResult, pending, refresh } = catalogAsync;
 
+useLiveRefresh(() => refresh(), { intervalMs: 0 });
+
 await Promise.all([brandsAsync, categoriesAsync, mechanismsAsync, catalogAsync]);
 
 const products = computed(() => catalogResult.value?.data ?? []);

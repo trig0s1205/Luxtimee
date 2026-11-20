@@ -9,6 +9,11 @@ export interface CacheableOptions {
   tag: string;
   /** Valor de `max-age` en segundos para el header Cache-Control. */
   maxAge?: number;
+  /**
+   * Si es true, el header HTTP es `private, no-store`.
+   * La caché en memoria del proceso se mantiene.
+   */
+  privateNoStore?: boolean;
 }
 
 export const Cacheable = (options: CacheableOptions) =>

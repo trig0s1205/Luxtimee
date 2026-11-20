@@ -23,7 +23,7 @@ export class CatalogController {
   constructor(private catalogService: CatalogService) {}
 
   @Get()
-  @Cacheable({ ttlMs: 60_000, tag: CACHE_TAGS.catalog, maxAge: 60 })
+  @Cacheable({ ttlMs: 60_000, tag: CACHE_TAGS.catalog, privateNoStore: true })
   list(@Query() query: CatalogQueryDto) {
     this.logger.log(`[catalog:list] params=${JSON.stringify(query)}`);
     return this.catalogService.list(query);
@@ -64,13 +64,13 @@ export class CatalogController {
   }
 
   @Get(':slug/related')
-  @Cacheable({ ttlMs: 60_000, tag: CACHE_TAGS.catalog, maxAge: 60 })
+  @Cacheable({ ttlMs: 60_000, tag: CACHE_TAGS.catalog, privateNoStore: true })
   related(@Param('slug') slug: string) {
     return this.catalogService.findRelatedBySlug(slug);
   }
 
   @Get(':slug')
-  @Cacheable({ ttlMs: 60_000, tag: CACHE_TAGS.catalog, maxAge: 60 })
+  @Cacheable({ ttlMs: 60_000, tag: CACHE_TAGS.catalog, privateNoStore: true })
   bySlug(@Param('slug') slug: string) {
     return this.catalogService.findBySlug(slug);
   }

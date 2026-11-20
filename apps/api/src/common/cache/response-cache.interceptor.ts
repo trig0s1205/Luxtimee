@@ -10,6 +10,13 @@ import { Observable, of, tap } from 'rxjs';
 import { CACHEABLE_KEY, type CacheableOptions } from './cache.decorator';
 import { MemoryCacheService } from './memory-cache.service';
 
+export function cacheControlHeader(options: CacheableOptions): string {
+  if (options.privateNoStore) return 'private, no-store';
+  const maxAge =
+    options.maxAge ?? Math.max(1, Math.floor(options.ttlMs / 1000));
+  return `public, max-age=${maxAge}, stale-while-revalidate=30`;
+}
+
 @Injectable()
 export class ResponseCacheInterceptor implements NestInterceptor {
   constructor(
@@ -54,11 +61,6 @@ export class ResponseCacheInterceptor implements NestInterceptor {
   }
 
   private setCacheHeaders(res: Response, options: CacheableOptions) {
-    const maxAge =
-      options.maxAge ?? Math.max(1, Math.floor(options.ttlMs / 1000));
-    res.setHeader(
-      'Cache-Control',
-      `public, max-age=${maxAge}, stale-while-revalidate=30`,
-    );
+    res.setHeader('Cache-Control', cacheControlHeader(options));
   }
 }
