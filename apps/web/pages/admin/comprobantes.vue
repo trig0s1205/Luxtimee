@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {
   WARRANTY_CLAIM_STATUS_LABELS,
-  type WarrantyClaimStatus,
+  WarrantyClaimStatus,
 } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import { extractApiErrorMessage } from '~/utils/api-error';
@@ -59,7 +59,18 @@ type ClaimListItem = {
   customerPhone: string | null;
 };
 
+type ReplacementWatch = {
+  id: string;
+  sku: string;
+  brand: string;
+  model: string;
+  stock: number;
+  price: number;
+};
+
 type ClaimDetail = ClaimListItem & {
+  replacementSku: string | null;
+  replacementWatch: ReplacementWatch | null;
   allowedTransitions: WarrantyClaimStatus[];
   events: Array<{
     id: string;
@@ -87,6 +98,10 @@ const claimDetail = ref<ClaimDetail | null>(null);
 const claimNotesDraft = ref('');
 const savingNotes = ref(false);
 const updatingStatus = ref(false);
+
+const replaceOpen = ref(false);
+const replacementSku = ref('');
+const replacementNote = ref('');
 
 const claimFormItemId = ref<string | null>(null);
 const claimIssue = ref('');
@@ -285,18 +300,51 @@ async function saveClaimNotes() {
   }
 }
 
-async function transitionClaim(next: WarrantyClaimStatus) {
+function closeReplace() {
+  if (updatingStatus.value) return;
+  replaceOpen.value = false;
+}
+
+function transitionClaim(next: WarrantyClaimStatus) {
+  if (!claimDetail.value) return;
+  if (next === WarrantyClaimStatus.REEMPLAZADO) {
+    replacementSku.value = '';
+    replacementNote.value = '';
+    replaceOpen.value = true;
+    return;
+  }
+  void sendStatus({ status: next });
+}
+
+function confirmReplace() {
+  if (!replacementSku.value.trim()) {
+    toast.warning('Selecciona el reloj de reemplazo.');
+    return;
+  }
+  void sendStatus({
+    status: WarrantyClaimStatus.REEMPLAZADO,
+    replacementSku: replacementSku.value.trim(),
+    note: replacementNote.value.trim() || undefined,
+  });
+}
+
+async function sendStatus(body: {
+  status: WarrantyClaimStatus;
+  replacementSku?: string;
+  note?: string;
+}) {
   if (!claimDetail.value) return;
   updatingStatus.value = true;
   try {
     const detail = await api.patch<ClaimDetail>(
       `/warranty-claims/${claimDetail.value.id}/status`,
-      { status: next },
+      body,
     );
     claimDetail.value = detail;
     claimNotesDraft.value = detail.notes ?? '';
+    replaceOpen.value = false;
     await loadClaims();
-    toast.success(`Estado: ${WARRANTY_CLAIM_STATUS_LABELS[next]}`);
+    toast.success(`Estado: ${WARRANTY_CLAIM_STATUS_LABELS[body.status]}`);
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'No se pudo actualizar el estado.'));
   } finally {
@@ -519,6 +567,13 @@ watch(claimStatus, () => {
           <p class="admin-record-muted">
             Comprobante {{ claimDetail.receiptNumber }} · SKU {{ claimDetail.sku }}
           </p>
+          <p v-if="claimDetail.replacementSku" class="admin-record-muted">
+            Reemplazo:
+            <template v-if="claimDetail.replacementWatch">
+              {{ claimDetail.replacementWatch.brand }} {{ claimDetail.replacementWatch.model }} ·
+            </template>
+            SKU {{ claimDetail.replacementSku }}
+          </p>
 
           <div class="space-y-2">
             <h3 class="admin-record-title">Historial</h3>
@@ -569,6 +624,57 @@ watch(claimStatus, () => {
         </div>
       </article>
     </section>
+
+    <Teleport to="body">
+      <div
+        v-if="replaceOpen"
+        class="admin-comprobantes-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Reemplazar reloj"
+        @click.self="closeReplace"
+      >
+        <div class="admin-comprobantes-modal__card">
+          <h3 class="admin-record-title">Reemplazar reloj</h3>
+          <p class="admin-record-muted">
+            Se descontará 1 unidad del reloj elegido.
+          </p>
+          <AdminWarrantyReplacementPicker
+            v-model="replacementSku"
+            :suggested-sku="claimDetail?.sku"
+          />
+          <label class="block space-y-2">
+            <span class="text-xs uppercase tracking-widest text-lux-white-dim">
+              Nota (opcional)
+            </span>
+            <textarea
+              v-model="replacementNote"
+              rows="2"
+              maxlength="2000"
+              class="admin-record-textarea"
+            />
+          </label>
+          <div class="admin-record-actions">
+            <button
+              type="button"
+              class="admin-record-btn admin-record-btn--primary"
+              :disabled="updatingStatus || !replacementSku"
+              @click="confirmReplace"
+            >
+              {{ updatingStatus ? 'Guardando…' : 'Confirmar reemplazo' }}
+            </button>
+            <button
+              type="button"
+              class="admin-record-btn admin-record-btn--ghost"
+              :disabled="updatingStatus"
+              @click="closeReplace"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -612,5 +718,26 @@ watch(claimStatus, () => {
   display: grid;
   gap: 0.4rem;
   font-size: 0.9rem;
+}
+
+.admin-comprobantes-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.admin-comprobantes-modal__card {
+  width: min(100%, 760px);
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  background: #111111;
 }
 </style>

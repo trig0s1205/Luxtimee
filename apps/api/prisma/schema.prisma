@@ -295,6 +295,7 @@ model Watch {
   certificates     Certificate[]
   wholesalePackageWatches WholesalePackageWatch[]
   imageFingerprints WatchImageFingerprint[]
+  warrantyReplacements WarrantyClaim[]
 
   @@index([brandId])
   @@index([categoryId])
@@ -762,18 +763,22 @@ model WarrantyClaim {
   notes         String?             @db.Text
   outOfWarranty Boolean             @default(false)
   createdById   String
-  resolvedAt    DateTime?
-  deliveredAt   DateTime?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  resolvedAt         DateTime?
+  deliveredAt        DateTime?
+  replacementWatchId String?
+  replacementSku     String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
-  receiptItem SaleReceiptItem      @relation(fields: [receiptItemId], references: [id], onDelete: Restrict)
-  createdBy   User                 @relation("ClaimCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  events      WarrantyClaimEvent[]
+  receiptItem      SaleReceiptItem      @relation(fields: [receiptItemId], references: [id], onDelete: Restrict)
+  createdBy        User                 @relation("ClaimCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  replacementWatch Watch?               @relation(fields: [replacementWatchId], references: [id], onDelete: SetNull)
+  events           WarrantyClaimEvent[]
 
   @@index([status])
   @@index([receiptItemId])
   @@index([createdAt])
+  @@index([replacementWatchId])
 }
 
 model WarrantyClaimEvent {
