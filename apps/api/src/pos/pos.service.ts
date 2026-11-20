@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   OrderPaymentType,
@@ -22,12 +23,14 @@ import type {
   PosCustomerHintDto,
   PosMySaleDto,
   PosSaleResultDto,
+  PosVoidSaleResultDto,
 } from '@luxtime/shared';
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import {
   reserveWatchStock,
+  restoreWatchStock,
   STOCK_TRANSACTION,
 } from '../common/utils/watch-stock.tx';
 import { sanitizePlainText } from '../common/utils/sanitize-text.util';
@@ -320,6 +323,109 @@ export class PosService {
     return result;
   }
 
+  async voidSale(
+    orderId: string,
+    rawReason: string,
+    user: AuthenticatedUser,
+  ): Promise<PosVoidSaleResultDto> {
+    if (user.role !== Role.ADMIN && user.role !== Role.SUPER_ADMIN) {
+      throw new ForbiddenException('No tienes permisos para esta acción');
+    }
+    const reason = sanitizePlainText(rawReason, 500);
+    if (reason.length < 5) {
+      throw new BadRequestException(
+        'El motivo debe tener entre 5 y 500 caracteres',
+      );
+    }
+
+    const result = await withTxnRetries(() =>
+      this.prisma.$transaction(async (tx): Promise<PosVoidSaleResultDto> => {
+        const locked = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM "Order" WHERE id = ${orderId} FOR UPDATE
+        `;
+        if (!locked.length) {
+          throw new NotFoundException('Venta no encontrada');
+        }
+
+        const order = await tx.order.findUnique({
+          where: { id: orderId },
+          include: {
+            items: { select: { watchId: true, quantity: true } },
+            receipt: { select: { id: true, voidedAt: true } },
+          },
+        });
+        if (!order) throw new NotFoundException('Venta no encontrada');
+        if (order.stage !== OrderStage.ORDER) {
+          throw new BadRequestException(
+            'Solo se pueden anular ventas confirmadas',
+          );
+        }
+        if (order.source !== OrderSource.LOCAL) {
+          throw new BadRequestException(
+            'Solo se pueden anular ventas del local',
+          );
+        }
+        if (
+          order.canceledAt ||
+          order.status === OrderStatus.CANCELADO ||
+          order.receipt?.voidedAt
+        ) {
+          throw new ConflictException('Esta venta ya fue anulada');
+        }
+
+        const businessDate = todayBogotaYmd(order.paidAt ?? order.createdAt);
+        let afterCashClosing = false;
+        if (order.sellerId) {
+          const closing = await tx.cashClosing.findUnique({
+            where: {
+              businessDate_userId: {
+                businessDate: new Date(`${businessDate}T00:00:00.000Z`),
+                userId: order.sellerId,
+              },
+            },
+            select: { id: true },
+          });
+          afterCashClosing = Boolean(closing);
+        }
+
+        const now = new Date();
+        await tx.order.update({
+          where: { id: order.id },
+          data: { status: OrderStatus.CANCELADO, canceledAt: now },
+        });
+        await restoreWatchStock(
+          tx,
+          order.items.map((item) => ({
+            watchId: item.watchId,
+            quantity: item.quantity,
+          })),
+        );
+        await this.receiptsService.voidForOrder(tx, order.id, reason);
+        const receipt = await tx.saleReceipt.findUnique({
+          where: { orderId: order.id },
+          select: { voidedAt: true, voidReason: true },
+        });
+
+        return {
+          orderId: order.id,
+          readableId: order.readableId,
+          status: 'CANCELADO',
+          canceledAt: now.toISOString(),
+          afterCashClosing,
+          receipt: receipt
+            ? {
+                voidedAt: receipt.voidedAt?.toISOString() ?? null,
+                voidReason: receipt.voidReason,
+              }
+            : null,
+        };
+      }, STOCK_TRANSACTION),
+    );
+
+    this.cache.invalidateTag(CACHE_TAGS.catalog);
+    return result;
+  }
+
   async mySales(
     query: PosMySalesQueryDto,
     user: AuthenticatedUser,
@@ -345,7 +451,14 @@ export class PosService {
         where,
         include: {
           payments: { select: { method: true } },
-          receipt: { select: { id: true, number: true, voidedAt: true } },
+          receipt: {
+            select: {
+              id: true,
+              number: true,
+              voidedAt: true,
+              voidReason: true,
+            },
+          },
           seller: { select: { name: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -367,6 +480,12 @@ export class PosService {
         receiptId: order.receipt?.id ?? null,
         receiptNumber: order.receipt?.number ?? null,
         receiptVoided: Boolean(order.receipt?.voidedAt),
+        receipt: order.receipt
+          ? {
+              voidedAt: order.receipt.voidedAt?.toISOString() ?? null,
+              voidReason: order.receipt.voidReason,
+            }
+          : null,
         status: order.status,
         sellerName: order.seller?.name ?? null,
       })),

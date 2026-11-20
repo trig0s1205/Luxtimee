@@ -64,8 +64,24 @@ export type PosMySaleDto = {
   receiptId: string | null;
   receiptNumber: string | null;
   receiptVoided: boolean;
+  receipt: {
+    voidedAt: string | null;
+    voidReason: string | null;
+  } | null;
   status: string | null;
   sellerName: string | null;
+};
+
+export type PosVoidSaleResultDto = {
+  orderId: string;
+  readableId: string;
+  status: 'CANCELADO';
+  canceledAt: string;
+  afterCashClosing: boolean;
+  receipt: {
+    voidedAt: string | null;
+    voidReason: string | null;
+  } | null;
 };
 
 export type PosCashClosingPreviewDto = {

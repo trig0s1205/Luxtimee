@@ -11,7 +11,7 @@ import {
   type OrderItemDto,
   type OrderListPeriod,
   type OrdersListDto,
-  type OrderSource,
+  OrderSource,
   type OrderStatusValue,
   type OrderType,
   PaymentMethod,
@@ -33,10 +33,20 @@ const props = defineProps<{
 
 const api = useApi();
 const toast = useToast();
+const auth = useAuthStore();
 const { confirm } = useConfirm();
 const config = useRuntimeConfig();
 
+function isReceiptVoided(order: OrderDto) {
+  return order.receiptVoided || Boolean(order.receipt?.voidedAt);
+}
+
+function voidReasonText(order: OrderDto) {
+  return order.receipt?.voidReason?.trim() ?? '';
+}
+
 function canDownloadReceipt(order: OrderDto) {
+  if (isReceiptVoided(order) || order.status === OrderStatus.CANCELADO) return false;
   return (
     order.status === OrderStatus.PAGADO ||
     order.status === OrderStatus.ENVIADO ||
@@ -45,7 +55,58 @@ function canDownloadReceipt(order: OrderDto) {
 }
 
 function downloadReceipt(order: OrderDto) {
+  if (!canDownloadReceipt(order)) return;
   window.open(`${config.public.apiBaseUrl}/receipts/order/${order.id}/pdf`, '_blank');
+}
+
+const voidTarget = ref<OrderDto | null>(null);
+const voidReasonInput = ref('');
+const voidPending = ref(false);
+const voidReasonClean = computed(() => voidReasonInput.value.trim());
+const voidReasonValid = computed(() => {
+  const length = voidReasonClean.value.length;
+  return length >= 5 && length <= 500;
+});
+
+function canVoidSale(order: OrderDto) {
+  const role = auth.user?.role;
+  if (role !== 'ADMIN' && role !== 'SUPER_ADMIN') return false;
+  if (props.source !== OrderSource.LOCAL && order.source !== OrderSource.LOCAL) return false;
+  if (order.status === OrderStatus.CANCELADO || order.canceledAt || isReceiptVoided(order)) {
+    return false;
+  }
+  return true;
+}
+
+function openVoid(order: OrderDto) {
+  voidTarget.value = order;
+  voidReasonInput.value = '';
+}
+
+function closeVoid() {
+  if (voidPending.value) return;
+  voidTarget.value = null;
+  voidReasonInput.value = '';
+}
+
+async function confirmVoid() {
+  const order = voidTarget.value;
+  if (!order || !voidReasonValid.value || voidPending.value) return;
+  voidPending.value = true;
+  try {
+    await api.post(`/pos/sales/${order.id}/void`, { reason: voidReasonClean.value });
+    toast.success(`Venta anulada — ${order.readableId}`);
+    voidTarget.value = null;
+    voidReasonInput.value = '';
+    invalidateAdminCache(dataKey.value);
+    invalidateAdminCachePrefix('admin-orders-');
+    invalidateMoneyCaches();
+    await refresh();
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo anular la venta.'));
+  } finally {
+    voidPending.value = false;
+  }
 }
 
 const PAGE_SIZE = 15;
@@ -438,6 +499,8 @@ useSeoMeta({ title: props.seoTitle });
             </span>
             <span class="admin-record-date">{{ formatDate(order.createdAt) }}</span>
             <span v-if="orderHasDeliveryNotes(order)" class="admin-delivery-note-badge">Nota entrega</span>
+            <span v-if="isReceiptVoided(order)" class="admin-record-chip">Anulado</span>
+            <span v-if="voidReasonText(order)" class="admin-record-muted">{{ voidReasonText(order) }}</span>
           </div>
 
           <div class="admin-record-summary-actions" @click.stop>
@@ -609,10 +672,11 @@ useSeoMeta({ title: props.seoTitle });
             </AdminAccordionSection>
 
             <div class="admin-record-actions">
-              <template v-if="canDownloadReceipt(order)">
+              <template v-if="canDownloadReceipt(order) || isReceiptVoided(order)">
                 <button
                   type="button"
                   class="admin-record-btn"
+                  :disabled="!canDownloadReceipt(order)"
                   @click.stop="downloadReceipt(order)"
                 >
                   Descargar comprobante
@@ -620,9 +684,18 @@ useSeoMeta({ title: props.seoTitle });
                 <span v-if="order.receiptNumber" class="admin-record-muted">
                   N.º {{ order.receiptNumber }}
                 </span>
-                <span v-if="order.receiptVoided" class="admin-record-chip">Anulado</span>
-                <p class="admin-record-muted">Descárgalo y envíalo al cliente por WhatsApp.</p>
+                <span v-if="isReceiptVoided(order)" class="admin-record-chip">Anulado</span>
+                <span v-if="voidReasonText(order)" class="admin-record-muted">{{ voidReasonText(order) }}</span>
+                <p v-if="canDownloadReceipt(order)" class="admin-record-muted">Descárgalo y envíalo al cliente por WhatsApp.</p>
               </template>
+              <button
+                v-if="canVoidSale(order)"
+                type="button"
+                class="admin-record-btn admin-record-btn--danger"
+                @click.stop="openVoid(order)"
+              >
+                Anular venta
+              </button>
               <button
                 v-if="canRegisterBalance(order)"
                 type="button"
@@ -714,6 +787,50 @@ useSeoMeta({ title: props.seoTitle });
     </nav>
   </div>
 
+  <div
+    v-if="voidTarget"
+    class="admin-modal-backdrop"
+    @click.self="closeVoid"
+  >
+    <div class="admin-modal void-sale-modal" role="dialog" aria-modal="true" aria-labelledby="void-sale-title">
+      <div class="void-sale-header">
+        <h2 id="void-sale-title" class="admin-record-title">Anular venta</h2>
+        <button type="button" class="void-sale-close" aria-label="Cerrar" :disabled="voidPending" @click="closeVoid">✕</button>
+      </div>
+      <div class="void-sale-body">
+        <p class="admin-record-muted">{{ voidTarget.readableId }} · {{ voidTarget.customerName }}</p>
+        <p class="void-sale-warning">
+          Se repondrá el stock, el comprobante quedará anulado y un cierre de caja ya guardado de ese día no se recalculará.
+        </p>
+        <label class="void-sale-field">
+          <span>Motivo de la anulación</span>
+          <textarea
+            v-model="voidReasonInput"
+            class="admin-record-textarea"
+            rows="4"
+            maxlength="500"
+            required
+            placeholder="Describe por qué se anula esta venta"
+          />
+        </label>
+        <p class="admin-record-muted">{{ voidReasonClean.length }}/500 · mínimo 5 caracteres</p>
+      </div>
+      <div class="admin-record-actions void-sale-footer">
+        <button
+          type="button"
+          class="admin-record-btn admin-record-btn--danger"
+          :disabled="voidPending || !voidReasonValid"
+          @click="confirmVoid"
+        >
+          {{ voidPending ? 'Anulando...' : 'Anular venta' }}
+        </button>
+        <button type="button" class="admin-record-btn admin-record-btn--ghost" :disabled="voidPending" @click="closeVoid">
+          Volver
+        </button>
+      </div>
+    </div>
+  </div>
+
   <AdminOrderEditModal
     v-if="editingOrder"
     :order="editingOrder"
@@ -730,6 +847,59 @@ useSeoMeta({ title: props.seoTitle });
   align-items: flex-end;
   gap: 2px;
   text-align: right;
+}
+
+.void-sale-modal {
+  max-width: 480px;
+}
+
+.void-sale-header,
+.void-sale-body,
+.void-sale-footer {
+  padding: 1.25rem 1.5rem;
+}
+
+.void-sale-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(200, 169, 110, 0.15);
+}
+
+.void-sale-body {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.void-sale-warning {
+  margin: 0;
+  color: #e3b15a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.void-sale-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.void-sale-field span {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lux-white-dim, #9ca3af);
+}
+
+.void-sale-close {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.void-sale-footer {
+  border-top: 1px solid rgba(200, 169, 110, 0.15);
 }
 </style>
 

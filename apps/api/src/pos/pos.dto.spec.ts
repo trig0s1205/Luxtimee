@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { CreatePosSaleDto, PosCatalogQueryDto } from './dto/pos.dto';
+import { CreatePosSaleDto, PosCatalogQueryDto, VoidPosSaleDto } from './dto/pos.dto';
 
 describe('POS DTOs', () => {
   it('rechaza serial, unitPrice o discount en ítems', async () => {
@@ -23,6 +23,18 @@ describe('POS DTOs', () => {
       forbidNonWhitelisted: true,
     });
     expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it('el motivo de anulación se recorta y exige entre 5 y 500 caracteres', async () => {
+    const short = plainToInstance(VoidPosSaleDto, { reason: '  ab  ' });
+    expect((await validate(short)).some((error) => error.property === 'reason')).toBe(true);
+
+    const ok = plainToInstance(VoidPosSaleDto, { reason: '  cliente devolvió el reloj  ' });
+    expect(await validate(ok)).toHaveLength(0);
+    expect(ok.reason).toBe('cliente devolvió el reloj');
+
+    const long = plainToInstance(VoidPosSaleDto, { reason: 'a'.repeat(501) });
+    expect((await validate(long)).some((error) => error.property === 'reason')).toBe(true);
   });
 
   it('limit 100 en catálogo es inválido', async () => {

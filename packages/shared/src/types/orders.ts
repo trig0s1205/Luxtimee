@@ -109,6 +109,10 @@ export interface OrderDto {
   sellerName: string | null;
   receiptNumber: string | null;
   receiptVoided: boolean;
+  receipt: {
+    voidedAt: string | null;
+    voidReason: string | null;
+  } | null;
   shippingZoneId: string | null;
   shippingZone?: {
     id: string;
