@@ -55,8 +55,12 @@ async function load() {
   }
 }
 
+function isVoided(sale: PosMySaleDto) {
+  return sale.receiptVoided || Boolean(sale.receipt?.voidedAt);
+}
+
 function downloadReceipt(sale: PosMySaleDto) {
-  if (!sale.receiptId || sale.receiptVoided) {
+  if (!sale.receiptId || isVoided(sale)) {
     toast.warning('Esta venta no tiene comprobante disponible.');
     return;
   }
@@ -129,15 +133,15 @@ onMounted(() => {
             <span class="admin-record-date">{{ formatWhen(sale.createdAt) }}</span>
             <span class="admin-record-muted">{{ sale.methods.join(' · ') || 'Sin método' }}</span>
             <span v-if="sale.sellerName" class="admin-record-muted">{{ sale.sellerName }}</span>
-            <span v-if="sale.receiptNumber" class="admin-record-muted">
-              {{ sale.receiptVoided ? 'Anulado' : sale.receiptNumber }}
-            </span>
+            <span v-if="isVoided(sale)" class="admin-record-chip">Anulado</span>
+            <span v-if="sale.receipt?.voidReason" class="admin-record-muted">{{ sale.receipt.voidReason }}</span>
+            <span v-if="sale.receiptNumber" class="admin-record-muted">{{ sale.receiptNumber }}</span>
           </div>
           <div class="admin-record-summary-actions">
             <button
               type="button"
               class="admin-record-btn admin-record-btn--ghost"
-              :disabled="!sale.receiptId || sale.receiptVoided"
+              :disabled="!sale.receiptId || isVoided(sale)"
               @click="downloadReceipt(sale)"
             >
               Descargar comprobante

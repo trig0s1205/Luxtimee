@@ -59,7 +59,7 @@ const orderInclude = {
     orderBy: { paidAt: 'asc' as const },
   },
   seller: { select: { name: true } },
-  receipt: { select: { number: true, voidedAt: true } },
+  receipt: { select: { number: true, voidedAt: true, voidReason: true } },
 } as const;
 
 const inventoryDeductedStatuses: OrderStatus[] = [
@@ -120,6 +120,12 @@ export class OrdersService {
       sellerName: seller?.name ?? null,
       receiptNumber: receipt?.number ?? null,
       receiptVoided: Boolean(receipt?.voidedAt),
+      receipt: receipt
+        ? {
+            voidedAt: receipt.voidedAt?.toISOString() ?? null,
+            voidReason: receipt.voidReason ?? null,
+          }
+        : null,
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
       paidAt: order.paidAt?.toISOString() ?? null,

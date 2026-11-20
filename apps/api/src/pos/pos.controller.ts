@@ -30,6 +30,7 @@ import {
   PosCustomersQueryDto,
   PosMySalesQueryDto,
   PosWatchesSearchDto,
+  VoidPosSaleDto,
 } from './dto/pos.dto';
 import { PosCatalogService } from './pos-catalog.service';
 import { PosService } from './pos.service';
@@ -94,6 +95,17 @@ export class PosController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.posService.createSale(dto, user);
+  }
+
+  @Post('sales/:id/void')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @Audit('VOID', 'Order')
+  voidSale(
+    @Param('id') id: string,
+    @Body() dto: VoidPosSaleDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.posService.voidSale(id, dto.reason, user);
   }
 
   @Get('my-sales')

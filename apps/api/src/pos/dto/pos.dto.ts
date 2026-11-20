@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -215,6 +215,14 @@ export class CreatePosSaleDto {
   @IsString()
   @MaxLength(300)
   note?: string;
+}
+
+export class VoidPosSaleDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MinLength(5)
+  @MaxLength(500)
+  reason!: string;
 }
 
 export class CashClosingPreviewQueryDto {
