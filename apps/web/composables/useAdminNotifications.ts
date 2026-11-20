@@ -4,11 +4,11 @@ import {
   notificationTone,
   type StaffNotification,
 } from '~/utils/admin-notification';
-import { invalidateAdminCache } from '~/utils/admin-cache';
+import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
+import { createAdminInboxPoll } from '~/utils/admin-inbox-poll';
 
-const POLL_MS = 30_000;
-const HIDDEN_PAUSE_MS = 5 * 60 * 1000;
 const SOUND_KEY = 'luxtimee-admin-notif-sound';
+const DESKTOP_KEY = 'luxtimee-admin-notif-desktop';
 const SEEN_KEY = 'luxtimee-admin-seen-ids';
 
 let audioCtx: AudioContext | null = null;
@@ -50,21 +50,89 @@ function saveSeen(ids: Set<string>) {
   sessionStorage.setItem(SEEN_KEY, JSON.stringify([...ids].slice(-200)));
 }
 
+function readDesktopPermission(): 'default' | 'granted' | 'denied' | 'unsupported' {
+  if (!import.meta.client || typeof Notification === 'undefined') return 'unsupported';
+  return Notification.permission;
+}
+
 export function useAdminNotifications() {
   const api = useApi();
   const toast = useToast();
   const unreadCount = useState('admin-notif-unread', () => 0);
   const soundEnabled = useState('admin-notif-sound', () => true);
+  const desktopEnabled = useState('admin-notif-desktop', () => false);
+  const desktopPermission = useState<'default' | 'granted' | 'denied' | 'unsupported'>(
+    'admin-notif-desktop-permission',
+    () => 'default',
+  );
+  const preOrderRevision = useState('admin-preorder-live', () => 0);
 
-  async function refreshUnread() {
-    const count = await api.get<number>('/notifications/unread-count');
-    unreadCount.value = typeof count === 'number' ? count : 0;
-    return unreadCount.value;
+  const desktopButtonLabel = computed(() => {
+    if (desktopPermission.value === 'denied') return 'Avisos de escritorio bloqueados';
+    if (desktopEnabled.value) return 'Avisos de escritorio activos';
+    return 'Activar avisos de escritorio';
+  });
+
+  function syncDesktopPreference() {
+    desktopPermission.value = readDesktopPermission();
+    const optedIn = import.meta.client
+      ? localStorage.getItem(DESKTOP_KEY) === '1'
+      : false;
+    desktopEnabled.value = optedIn && desktopPermission.value === 'granted';
   }
 
   function setSoundEnabled(enabled: boolean) {
     soundEnabled.value = enabled;
     if (import.meta.client) localStorage.setItem(SOUND_KEY, enabled ? '1' : '0');
+  }
+
+  async function requestDesktopAlerts() {
+    if (!import.meta.client || typeof Notification === 'undefined') {
+      desktopPermission.value = 'unsupported';
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      desktopPermission.value = 'denied';
+      desktopEnabled.value = false;
+      return;
+    }
+    if (Notification.permission === 'granted') {
+      const next = !desktopEnabled.value;
+      desktopEnabled.value = next;
+      localStorage.setItem(DESKTOP_KEY, next ? '1' : '0');
+      desktopPermission.value = 'granted';
+      return;
+    }
+    const result = await Notification.requestPermission();
+    desktopPermission.value = result;
+    const granted = result === 'granted';
+    desktopEnabled.value = granted;
+    localStorage.setItem(DESKTOP_KEY, granted ? '1' : '0');
+  }
+
+  function showDesktopPreOrder(item: StaffNotification) {
+    if (!import.meta.client || document.visibilityState !== 'hidden') return;
+    if (!desktopEnabled.value || typeof Notification === 'undefined') return;
+    if (Notification.permission !== 'granted' || item.type !== 'NEW_PRE_ORDER') return;
+    try {
+      const note = new Notification(notificationMessage(item.type, item.payload), {
+        body: 'Hay un pre-pedido nuevo en el panel.',
+        tag: `pre-order-${item.id}`,
+      });
+      note.onclick = () => {
+        window.focus();
+        void navigateTo(notificationHref(item.type, item.payload));
+        note.close();
+      };
+    } catch {
+      /* el aviso en la app sigue disponible */
+    }
+  }
+
+  async function refreshUnread() {
+    const count = await api.get<number>('/notifications/unread-count');
+    unreadCount.value = typeof count === 'number' ? count : 0;
+    return unreadCount.value;
   }
 
   function showIncoming(items: StaffNotification[]) {
@@ -80,17 +148,17 @@ export function useAdminNotifications() {
           onClick: () => { void navigateTo(href); },
         },
       });
-      if (item.type === 'NEW_PRE_ORDER' && soundEnabled.value && !played) {
-        playPreOrderChime();
-        played = true;
+      if (item.type === 'NEW_PRE_ORDER') {
+        showDesktopPreOrder(item);
+        if (soundEnabled.value && !played) {
+          playPreOrderChime();
+          played = true;
+        }
       }
     }
   }
 
   function watchInbox() {
-    let timer = 0;
-    let pauseTimer = 0;
-    let polling = false;
     let bootstrapped = false;
     let lastCount = -1;
 
@@ -112,6 +180,10 @@ export function useAdminNotifications() {
         lastCount = count;
         if (fresh.length) {
           invalidateAdminCache('notifications');
+          if (fresh.some((item) => item.type === 'NEW_PRE_ORDER')) {
+            invalidateAdminCachePrefix('admin-pre-orders-active');
+            preOrderRevision.value += 1;
+          }
           showIncoming(fresh);
         }
       } catch {
@@ -119,44 +191,41 @@ export function useAdminNotifications() {
       }
     }
 
-    function start() {
-      window.clearInterval(timer);
-      void tick(bootstrapped);
-      timer = window.setInterval(() => { void tick(false); }, POLL_MS);
-      polling = true;
-    }
-
-    function stop() {
-      window.clearInterval(timer);
-      timer = 0;
-      polling = false;
-    }
+    const poll = createAdminInboxPoll({
+      tick: (forceList) => { void tick(forceList); },
+      setInterval: (handler, ms) => window.setInterval(handler, ms),
+      clearInterval: (id) => window.clearInterval(id),
+    });
 
     function onVisibility() {
-      if (document.hidden) {
-        window.clearTimeout(pauseTimer);
-        pauseTimer = window.setTimeout(() => stop(), HIDDEN_PAUSE_MS);
-        return;
-      }
-      window.clearTimeout(pauseTimer);
-      if (!polling) start();
-      else void tick(true);
+      poll.onVisibility(document.visibilityState === 'hidden');
     }
 
     onMounted(() => {
       soundEnabled.value = localStorage.getItem(SOUND_KEY) !== '0';
+      syncDesktopPreference();
       window.addEventListener('pointerdown', onGesture);
       document.addEventListener('visibilitychange', onVisibility);
-      start();
+      poll.start(document.visibilityState === 'hidden');
     });
 
     onBeforeUnmount(() => {
-      stop();
-      window.clearTimeout(pauseTimer);
+      poll.stop();
       window.removeEventListener('pointerdown', onGesture);
       document.removeEventListener('visibilitychange', onVisibility);
     });
   }
 
-  return { unreadCount, soundEnabled, setSoundEnabled, refreshUnread, watchInbox };
+  return {
+    unreadCount,
+    soundEnabled,
+    setSoundEnabled,
+    desktopEnabled,
+    desktopPermission,
+    desktopButtonLabel,
+    requestDesktopAlerts,
+    preOrderRevision,
+    refreshUnread,
+    watchInbox,
+  };
 }

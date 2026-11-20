@@ -5,6 +5,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   OrderPaymentType,
   OrderStage,
@@ -16,6 +17,7 @@ import {
 } from '@prisma/client';
 import {
   depositForUnits,
+  formatCopAmount,
   isAlwaysFreeShippingZone,
   PRE_ORDER_RESPONSE_HOURS,
   WHOLESALE_MIN_UNITS,
@@ -50,6 +52,7 @@ import {
 } from '../common/utils/watch-stock.tx';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
+import { CustomerMailer } from '../integrations/customer-mailer.service';
 import { CustomerNotifier } from '../integrations/customer-notifier.service';
 import type { CustomerOrderEvent } from '../integrations/customer-notifier.service';
 import {
@@ -107,6 +110,8 @@ export class PreOrdersService {
     private wholesaleOffers: WholesaleOffersService,
     private customerNotifier: CustomerNotifier,
     private cache: MemoryCacheService,
+    private mailer?: CustomerMailer,
+    private config?: ConfigService,
   ) {}
 
   /** Invalida listados/fichas públicas tras cualquier cambio de stock. */
@@ -166,6 +171,75 @@ export class PreOrdersService {
         }),
       ),
     };
+  }
+
+  private frontendBase() {
+    const configured = this.config?.get<string>('FRONTEND_URL')?.trim();
+    return (configured || 'http://localhost:3000').replace(/\/$/, '');
+  }
+
+  private alertStaffNewPreOrder(order: OrderWithRelations) {
+    if (!this.mailer) return;
+    void this.deliverStaffPreOrderAlert(order);
+  }
+
+  private async deliverStaffPreOrderAlert(order: OrderWithRelations) {
+    try {
+      const staff = await this.prisma.user.findMany({
+        where: { role: { in: [Role.ADMIN, Role.SUPER_ADMIN] } },
+        select: { email: true },
+      });
+      const emails = [
+        ...new Set(
+          staff
+            .map((row) => row.email?.trim() ?? '')
+            .filter((email) => email.includes('@')),
+        ),
+      ];
+      if (!emails.length || !this.mailer) return;
+      const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
+      const skus = [
+        ...new Set(
+          order.items
+            .map((item) => item.productSku?.trim())
+            .filter((sku): sku is string => !!sku),
+        ),
+      ];
+      const skuSummary = skus.length
+        ? skus.length > 12
+          ? `${skus.slice(0, 12).join(', ')}…`
+          : skus.join(', ')
+        : '—';
+      const link = `${this.frontendBase()}/admin/pre-pedidos/activos`;
+      const text = [
+        `Pre-pedido: ${order.readableId}`,
+        `Origen: ${order.source}`,
+        `Cliente: ${order.customerName}`,
+        `Ítems: ${itemCount}`,
+        `Total: ${formatCopAmount(order.total)}`,
+        `SKU: ${skuSummary}`,
+        `Panel: ${link}`,
+      ].join('\n');
+      const subject = `LUXTIMEE — nuevo pre-pedido ${order.readableId}`;
+      const html = `<p>${escapeHtml(text).replace(/\n/g, '<br>')}</p><p><a href="${escapeHtml(link)}">Abrir pre-pedidos activos</a></p>`;
+      await Promise.all(
+        emails.map(async (to) => {
+          try {
+            await this.mailer!.send({ to, subject, text, html });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            this.logger.error(
+              `Aviso de pre-pedido ${order.readableId} no enviado a ${to}: ${message}`,
+            );
+          }
+        }),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Aviso de pre-pedido ${order.readableId} no enviado: ${message}`,
+      );
+    }
   }
 
   private async notifyCustomer(
@@ -607,6 +681,7 @@ export class PreOrdersService {
       targetRole: Role.ADMIN,
       payload: { orderId: order.id, readableId: order.readableId },
     });
+    this.alertStaffNewPreOrder(order);
     await this.notifyCustomer(order, 'created');
 
     const mapped = this.mapOrder(order);
@@ -1153,6 +1228,14 @@ function indexQuotesByWatch<T extends { watchId: string }>(lines: T[]) {
     byWatch.set(line.watchId, line);
   }
   return byWatch;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function formatExtrasLabel(extras: Array<{ name: string; quantity: number }>) {

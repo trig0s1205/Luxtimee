@@ -15,7 +15,13 @@ useHead({
 
 const api = useApi();
 const toast = useToast();
-const { refreshUnread, unreadCount } = useAdminNotifications();
+const {
+  refreshUnread,
+  unreadCount,
+  desktopPermission,
+  desktopButtonLabel,
+  requestDesktopAlerts,
+} = useAdminNotifications();
 const now = ref(Date.now());
 let clock = 0;
 
@@ -100,6 +106,15 @@ async function openNotification(item: StaffNotification) {
         @click="deleteRead"
       >
         Eliminar leídas
+      </button>
+      <button
+        v-if="desktopPermission !== 'unsupported'"
+        type="button"
+        class="admin-pagination-btn"
+        :disabled="desktopPermission === 'denied'"
+        @click="requestDesktopAlerts()"
+      >
+        {{ desktopButtonLabel }}
       </button>
     </div>
     <div class="space-y-3">

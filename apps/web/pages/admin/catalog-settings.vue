@@ -323,6 +323,20 @@ async function deleteMechanism(mechanism: MechanismDto) {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+@media (max-width: 700px) {
+  .catalog-settings-tabs {
+    flex-wrap: wrap;
+  }
+
+  .catalog-settings-tab {
+    padding: 10px 12px;
+  }
+
+  .catalog-settings-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 </style>
 
 

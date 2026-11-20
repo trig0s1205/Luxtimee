@@ -2,7 +2,14 @@
 const route = useRoute();
 const auth = useAuthStore();
 const mediaQueue = useMediaUploadStore();
-const { unreadCount, soundEnabled, setSoundEnabled } = useAdminNotifications();
+const {
+  unreadCount,
+  soundEnabled,
+  setSoundEnabled,
+  desktopPermission,
+  desktopButtonLabel,
+  requestDesktopAlerts,
+} = useAdminNotifications();
 
 const unreadBadge = computed(() => {
   if (unreadCount.value <= 0) return '';
@@ -288,6 +295,15 @@ function onNavigate() {
           @click="setSoundEnabled(!soundEnabled)"
         >
           {{ soundEnabled ? 'Silenciar avisos' : 'Activar sonido' }}
+        </button>
+        <button
+          v-if="desktopPermission !== 'unsupported'"
+          type="button"
+          class="admin-nav-sound"
+          :disabled="desktopPermission === 'denied'"
+          @click="requestDesktopAlerts()"
+        >
+          {{ desktopButtonLabel }}
         </button>
 
         <NuxtLink
