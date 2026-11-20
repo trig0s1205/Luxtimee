@@ -41,6 +41,10 @@ const {
 );
 const relatedWatches = computed(() => relatedWatchesData.value ?? []);
 
+useLiveRefresh(async () => {
+  await Promise.all([refresh(), refreshRelated()]);
+}, { intervalMs: 0 });
+
 const { data: packagingData } = useCachedAsyncData<PackagingPhotoDto[]>(
   PACKAGING_PHOTOS_KEY,
   () => fetchPackagingPhotos(),

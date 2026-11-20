@@ -65,8 +65,8 @@ export default defineNuxtConfig({
   ],
   routeRules: {
     '/': { swr: FRESH_SWR_SECONDS },
-    '/catalogo': { swr: FRESH_SWR_SECONDS },
-    '/producto/**': { swr: FRESH_SWR_SECONDS },
+    '/catalogo': {},
+    '/producto/**': {},
     '/relojeria-bucaramanga': { swr: STATIC_PAGE_SWR_SECONDS },
     '/sorteos': { swr: STATIC_PAGE_SWR_SECONDS },
     '/vigilancia': { swr: STATIC_PAGE_SWR_SECONDS },

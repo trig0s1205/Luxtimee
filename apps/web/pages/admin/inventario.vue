@@ -119,8 +119,22 @@ const listPending = ref(false);
 let listAbort: AbortController | null = null;
 let listRequest = 0;
 
-async function refreshWatches() {
+async function refreshWatches(silent = false) {
   if (!staffReady.value) return;
+  if (silent) {
+    const queryAtStart = JSON.stringify(fetchQuery.value);
+    try {
+      const res = await api.get<PaginatedResponse<WatchStaffDto>>(
+        '/watches',
+        fetchQuery.value as Record<string, string | number | boolean | undefined>,
+      );
+      if (queryAtStart !== JSON.stringify(fetchQuery.value)) return;
+      paginated.value = res;
+    } catch {
+      /* refresco silencioso */
+    }
+    return;
+  }
   const requestId = ++listRequest;
   listAbort?.abort();
   const controller = new AbortController();
@@ -195,6 +209,19 @@ watch(staffReady, (ready) => {
 watch(fetchQuery, () => {
   if (staffReady.value) void refreshWatches();
 }, { deep: true, immediate: true });
+
+useLiveRefresh(() => refreshWatches(true), {
+  intervalMs: 30_000,
+  pauseWhen: () =>
+    showForm.value
+    || saving.value
+    || Boolean(labelsWatchIds.value)
+    || bulkDelete.pendingCount > 0
+    || bulkDraft.preparing
+    || bulkDraft.confirming
+    || Boolean(bulkDraft.board)
+    || Boolean(bulkDraft.preview),
+});
 
 useAdminRefetchWhenAuthed([refreshWatches, refreshInsights, refreshCare, loadCatalogMeta]);
 

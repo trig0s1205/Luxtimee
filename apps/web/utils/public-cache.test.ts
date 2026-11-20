@@ -12,8 +12,8 @@ import { STOREFRONT_CACHE_MS } from './storefront-cache';
 
 test('catálogo y ficha no superan la ventana SWR', () => {
   assert.equal(FRESH_SWR_SECONDS, 60);
-  assert.ok(STOREFRONT_CACHE_MS.catalog <= FRESH_SWR_SECONDS * 1000);
-  assert.ok(STOREFRONT_CACHE_MS.product <= FRESH_SWR_SECONDS * 1000);
+  assert.equal(STOREFRONT_CACHE_MS.catalog, 10_000);
+  assert.equal(STOREFRONT_CACHE_MS.product, 10_000);
 });
 
 test('el resto del storefront puede cachearse más tiempo', () => {
