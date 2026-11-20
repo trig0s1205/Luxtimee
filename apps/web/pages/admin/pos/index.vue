@@ -18,6 +18,7 @@ import {
   photoInitials,
   stockBadge,
 } from '~/utils/pos-catalog';
+import { cartHasBlockedStock } from '~/utils/pos-cart-stock';
 
 definePageMeta({ middleware: ['admin'] });
 useSeoMeta({ title: 'POS — LUXTIMEE Admin' });
@@ -52,7 +53,11 @@ const auth = useAuthStore();
 const toast = useToast();
 const config = useRuntimeConfig();
 const { confirm } = useConfirm();
-const catalogRef = ref<{ reload: () => Promise<void> } | null>(null);
+const catalogRef = ref<{
+  reload: () => Promise<void>;
+  reloadSilent: () => Promise<void>;
+  previewOpen: PosWatchDto | null;
+} | null>(null);
 
 const scanInput = ref('');
 const scanBusy = ref(false);
@@ -111,8 +116,10 @@ const changePreview = computed(() => {
   return change;
 });
 
+const stockBlocked = computed(() => cartHasBlockedStock(cart.value));
+
 const canSubmit = computed(() => {
-  if (selling.value || !cart.value.length) return false;
+  if (selling.value || !cart.value.length || stockBlocked.value) return false;
   if (customer.name.trim().length < 2) return false;
   if (paymentsSum.value !== subtotal.value) return false;
   for (const p of payments.value) {
@@ -364,6 +371,37 @@ function onWindowKeydown(event: KeyboardEvent) {
     void handleScanEnter(result.code, true);
   }
 }
+
+async function syncCartStock(loaded: PosWatchDto[]) {
+  const byId = new Map(loaded.map((watch) => [watch.id, watch.stock]));
+  for (const line of cart.value) {
+    if (byId.has(line.watchId)) {
+      line.stock = byId.get(line.watchId) ?? line.stock;
+      continue;
+    }
+    try {
+      const fresh = await api.get<PosWatchDto>(
+        `/pos/watches/by-sku/${encodeURIComponent(line.sku)}`,
+      );
+      line.stock = fresh.stock;
+    } catch {
+      /* el ítem sigue con el stock anterior */
+    }
+  }
+}
+
+async function reloadCatalogSilent() {
+  await catalogRef.value?.reloadSilent();
+}
+
+useLiveRefresh(reloadCatalogSilent, {
+  intervalMs: 20_000,
+  pauseWhen: () =>
+    selling.value
+    || Boolean(successSale.value)
+    || manualOpen.value
+    || Boolean(catalogRef.value?.previewOpen),
+});
 
 function onVisibilityChange() {
   if (document.visibilityState === 'visible' && !successSale.value) {
@@ -721,7 +759,12 @@ onBeforeUnmount(() => {
         </div>
 
         <ul v-else class="pos-cart">
-          <li v-for="line in cart" :key="line.watchId" class="pos-cart__line">
+          <li
+            v-for="line in cart"
+            :key="line.watchId"
+            class="pos-cart__line"
+            :class="{ 'pos-cart__line--blocked': line.stock <= 0 || line.quantity > line.stock }"
+          >
             <img
               v-if="line.imageUrl"
               :src="line.imageUrl"
@@ -753,7 +796,7 @@ onBeforeUnmount(() => {
                 v-if="line.quantity > line.stock || line.stock === 0"
                 class="pos-cart__badge"
               >
-                Agotado
+                Stock insuficiente. Ajusta la cantidad o quita el reloj.
               </span>
             </div>
             <div class="pos-cart__qty">
@@ -808,6 +851,7 @@ onBeforeUnmount(() => {
           :cart-qty-by-id="cartQtyById"
           @add="upsertWatch($event, 1)"
           @preview-closed="focusScanner"
+          @refreshed="syncCartStock"
         />
       </section>
 
@@ -1085,6 +1129,11 @@ onBeforeUnmount(() => {
   padding: 0;
   display: grid;
   gap: 0.65rem;
+}
+
+.pos-cart__line--blocked {
+  background: rgba(180, 60, 50, 0.08);
+  outline: 1px solid rgba(180, 60, 50, 0.45);
 }
 
 .pos-cart__line {

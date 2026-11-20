@@ -55,6 +55,13 @@ watch(preOrderRevision, (revision) => {
   void refresh();
 });
 
+useLiveRefresh(() => refresh(), {
+  intervalMs: 25_000,
+  enabled: () => props.bucket === 'active',
+  pauseWhen: () =>
+    Boolean(editingOrder.value || deletingId.value || previewSrc.value),
+});
+
 const preOrders = computed(() => list.value?.items ?? []);
 const total = computed(() => list.value?.total ?? 0);
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)));

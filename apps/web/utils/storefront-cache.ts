@@ -1,8 +1,8 @@
-/** TTL del cliente. Catálogo, ficha, stock y precio: ≤ 60s. El resto puede vivir más. */
+/** TTL del cliente. Catálogo y ficha: 10s para no mostrar stock agotado. */
 export const STOREFRONT_CACHE_MS = {
   static: 10 * 60 * 1000,
-  catalog: 60 * 1000,
-  product: 60 * 1000,
+  catalog: 10_000,
+  product: 10_000,
   homepage: 10 * 60 * 1000,
 } as const;
 

@@ -7,15 +7,22 @@ import {
   Prisma,
   WarrantyClaimStatus,
 } from '@prisma/client';
+import { CACHE_TAGS } from '../common/cache/cache.decorator';
+import { MemoryCacheService } from '../common/cache/memory-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { warrantyStatus } from '../receipts/warranty.util';
 import { normalizeReceiptNumberQuery } from '../receipts/receipt-search.util';
+import {
+  reserveWatchStock,
+  STOCK_TRANSACTION,
+} from '../common/utils/watch-stock.tx';
 import {
   assertClaimTransition,
   getClaimAllowedTransitions,
 } from './claim-state';
 import type {
   CreateWarrantyClaimDto,
+  ReplacementWatchesQueryDto,
   UpdateWarrantyClaimNotesDto,
   UpdateWarrantyClaimStatusDto,
   WarrantyClaimsQueryDto,
@@ -44,6 +51,22 @@ const claimListInclude = {
   },
 } satisfies Prisma.WarrantyClaimInclude;
 
+const replacementWatchSelect = {
+  id: true,
+  sku: true,
+  model: true,
+  stock: true,
+  retailPrice: true,
+  brand: { select: { name: true } },
+} satisfies Prisma.WatchSelect;
+
+const replacementPickerSelect = {
+  ...replacementWatchSelect,
+  frontImageUrl: true,
+  primaryImageUrl: true,
+  images: true,
+} satisfies Prisma.WatchSelect;
+
 const claimDetailInclude = {
   receiptItem: {
     include: {
@@ -60,6 +83,7 @@ const claimDetailInclude = {
       },
     },
   },
+  replacementWatch: { select: replacementWatchSelect },
   events: {
     orderBy: { createdAt: 'asc' as const },
     include: { createdBy: { select: { id: true, name: true } } },
@@ -73,10 +97,45 @@ type ClaimListRow = Prisma.WarrantyClaimGetPayload<{
 type ClaimDetailRow = Prisma.WarrantyClaimGetPayload<{
   include: typeof claimDetailInclude;
 }>;
+type ReplacementWatchRow = Prisma.WatchGetPayload<{
+  select: typeof replacementWatchSelect;
+}>;
+type ReplacementPickerRow = Prisma.WatchGetPayload<{
+  select: typeof replacementPickerSelect;
+}>;
+
+function toReplacementWatchOption(row: ReplacementWatchRow) {
+  return {
+    id: row.id,
+    sku: row.sku,
+    brand: row.brand.name,
+    model: row.model,
+    stock: row.stock,
+    price: row.retailPrice,
+  };
+}
+
+function toReplacementPickerWatch(row: ReplacementPickerRow) {
+  return {
+    ...toReplacementWatchOption(row),
+    frontImageUrl: row.frontImageUrl,
+    primaryImageUrl: row.primaryImageUrl,
+    images: row.images,
+  };
+}
+
+function replacementEventNote(sku: string, note?: string) {
+  const skuNote = `Reemplazo SKU: ${sku}`;
+  const extra = note?.trim();
+  return extra ? `${skuNote}. ${extra}` : skuNote;
+}
 
 @Injectable()
 export class WarrantyClaimsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: MemoryCacheService,
+  ) {}
 
   async create(dto: CreateWarrantyClaimDto, userId: string) {
     const item = await this.prisma.saleReceiptItem.findUnique({
@@ -128,32 +187,45 @@ export class WarrantyClaimsService {
     dto: UpdateWarrantyClaimStatusDto,
     userId: string,
   ) {
-    const existing = await this.prisma.warrantyClaim.findUnique({
-      where: { id },
-      select: { id: true, status: true },
-    });
-    if (!existing) throw new NotFoundException('Reclamo no encontrado');
-
-    assertClaimTransition(existing.status, dto.status);
-
-    // REEMPLAZADO no descuenta stock automáticamente en esta versión;
-    // documentar el reemplazo en notes/note del evento.
-    const now = new Date();
-    const data: Prisma.WarrantyClaimUpdateInput = {
-      status: dto.status,
-    };
-    if (
-      dto.status === WarrantyClaimStatus.REPARADO ||
-      dto.status === WarrantyClaimStatus.REEMPLAZADO ||
-      dto.status === WarrantyClaimStatus.RECHAZADO
-    ) {
-      data.resolvedAt = now;
-    }
-    if (dto.status === WarrantyClaimStatus.ENTREGADO) {
-      data.deliveredAt = now;
+    const replacementSku = dto.replacementSku?.trim();
+    if (dto.status === WarrantyClaimStatus.REEMPLAZADO && !replacementSku) {
+      throw new BadRequestException('Indica el SKU del reloj de reemplazo');
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.warrantyClaim.findUnique({
+        where: { id },
+        select: { id: true, status: true, replacementWatchId: true },
+      });
+      if (!existing) throw new NotFoundException('Reclamo no encontrado');
+
+      assertClaimTransition(existing.status, dto.status);
+
+      if (dto.status === WarrantyClaimStatus.REEMPLAZADO) {
+        return this.applyReplacement(tx, {
+          id,
+          fromStatus: existing.status,
+          replacementWatchId: existing.replacementWatchId,
+          sku: replacementSku!,
+          note: dto.note,
+          userId,
+        });
+      }
+
+      const now = new Date();
+      const data: Prisma.WarrantyClaimUpdateInput = {
+        status: dto.status,
+      };
+      if (
+        dto.status === WarrantyClaimStatus.REPARADO ||
+        dto.status === WarrantyClaimStatus.RECHAZADO
+      ) {
+        data.resolvedAt = now;
+      }
+      if (dto.status === WarrantyClaimStatus.ENTREGADO) {
+        data.deliveredAt = now;
+      }
+
       await tx.warrantyClaimEvent.create({
         data: {
           claimId: id,
@@ -168,7 +240,11 @@ export class WarrantyClaimsService {
         data,
         include: claimDetailInclude,
       });
-    });
+    }, STOCK_TRANSACTION);
+
+    if (dto.status === WarrantyClaimStatus.REEMPLAZADO) {
+      this.cache.invalidateTag(CACHE_TAGS.catalog);
+    }
 
     return this.mapDetail(updated);
   }
@@ -186,6 +262,69 @@ export class WarrantyClaimsService {
       include: claimDetailInclude,
     });
     return this.mapDetail(updated);
+  }
+
+  async listReplacementWatches(query: ReplacementWatchesQueryDto) {
+    const page = query.page ?? 1;
+    const limit = Math.min(100, query.limit ?? 20);
+    const brand = query.brand?.trim();
+    const search = query.search?.trim();
+    const sku = query.sku?.trim();
+    const where: Prisma.WatchWhereInput = {
+      deletedAt: null,
+      isActive: true,
+      stock: { gt: 0 },
+    };
+    if (brand) {
+      where.brand = { slug: { equals: brand, mode: 'insensitive' } };
+    }
+    if (sku) {
+      where.sku = { equals: sku, mode: 'insensitive' };
+    }
+    if (search && search.length >= 2) {
+      where.AND = [
+        {
+          OR: [
+            { sku: { contains: search, mode: 'insensitive' } },
+            { model: { contains: search, mode: 'insensitive' } },
+            { brand: { name: { contains: search, mode: 'insensitive' } } },
+          ],
+        },
+      ];
+    }
+
+    const shouldList = Boolean(brand || sku || (search && search.length >= 2));
+    const [brands, total, rows] = await Promise.all([
+      this.prisma.brand.findMany({
+        where: {
+          watches: {
+            some: { deletedAt: null, isActive: true, stock: { gt: 0 } },
+          },
+        },
+        select: { slug: true, name: true },
+        orderBy: { name: 'asc' },
+      }),
+      shouldList
+        ? this.prisma.watch.count({ where })
+        : Promise.resolve(0),
+      shouldList
+        ? this.prisma.watch.findMany({
+            where,
+            select: replacementPickerSelect,
+            orderBy: [{ brand: { name: 'asc' } }, { model: 'asc' }],
+            skip: (page - 1) * limit,
+            take: limit,
+          })
+        : Promise.resolve([]),
+    ]);
+
+    return {
+      brands,
+      data: rows.map(toReplacementPickerWatch),
+      total,
+      page,
+      limit,
+    };
   }
 
   async findAll(query: WarrantyClaimsQueryDto) {
@@ -219,6 +358,71 @@ export class WarrantyClaimsService {
     });
     if (!claim) throw new NotFoundException('Reclamo no encontrado');
     return this.mapDetail(claim);
+  }
+
+  private async applyReplacement(
+    tx: Prisma.TransactionClient,
+    input: {
+      id: string;
+      fromStatus: WarrantyClaimStatus;
+      replacementWatchId: string | null;
+      sku: string;
+      note?: string;
+      userId: string;
+    },
+  ) {
+    if (input.replacementWatchId) {
+      throw new BadRequestException(
+        'Este reclamo ya descontó un reloj de reemplazo',
+      );
+    }
+
+    const watch = await tx.watch.findFirst({
+      where: {
+        sku: { equals: input.sku, mode: 'insensitive' },
+        deletedAt: null,
+      },
+      select: { id: true, sku: true },
+    });
+    if (!watch) {
+      throw new BadRequestException('Reloj de reemplazo no encontrado');
+    }
+
+    await reserveWatchStock(
+      tx,
+      [{ watchId: watch.id, quantity: 1 }],
+      { requireActive: true },
+    );
+
+    const claimed = await tx.warrantyClaim.updateMany({
+      where: { id: input.id, replacementWatchId: null },
+      data: {
+        status: WarrantyClaimStatus.REEMPLAZADO,
+        resolvedAt: new Date(),
+        replacementWatchId: watch.id,
+        replacementSku: watch.sku,
+      },
+    });
+    if (claimed.count !== 1) {
+      throw new BadRequestException(
+        'Este reclamo ya descontó un reloj de reemplazo',
+      );
+    }
+
+    await tx.warrantyClaimEvent.create({
+      data: {
+        claimId: input.id,
+        fromStatus: input.fromStatus,
+        toStatus: WarrantyClaimStatus.REEMPLAZADO,
+        note: replacementEventNote(watch.sku, input.note),
+        createdById: input.userId,
+      },
+    });
+
+    return tx.warrantyClaim.findUniqueOrThrow({
+      where: { id: input.id },
+      include: claimDetailInclude,
+    });
   }
 
   private buildListWhere(
@@ -257,6 +461,13 @@ export class WarrantyClaimsService {
     return where;
   }
 
+  private mapReplacementWatch(
+    watch: ClaimDetailRow['replacementWatch'],
+  ) {
+    if (!watch) return null;
+    return toReplacementWatchOption(watch);
+  }
+
   private mapList(row: ClaimListRow) {
     const last = row.events[0] ?? null;
     return {
@@ -268,6 +479,7 @@ export class WarrantyClaimsService {
       createdAt: row.createdAt.toISOString(),
       resolvedAt: row.resolvedAt?.toISOString() ?? null,
       deliveredAt: row.deliveredAt?.toISOString() ?? null,
+      replacementSku: row.replacementSku ?? null,
       productName: row.receiptItem.productName,
       sku: row.receiptItem.sku,
       limitedEditionNumber: row.receiptItem.limitedEditionNumber,
@@ -289,6 +501,7 @@ export class WarrantyClaimsService {
   }
 
   private mapDetail(row: ClaimDetailRow) {
+    const replacementWatch = this.mapReplacementWatch(row.replacementWatch);
     return {
       id: row.id,
       status: row.status,
@@ -298,6 +511,8 @@ export class WarrantyClaimsService {
       createdAt: row.createdAt.toISOString(),
       resolvedAt: row.resolvedAt?.toISOString() ?? null,
       deliveredAt: row.deliveredAt?.toISOString() ?? null,
+      replacementSku: row.replacementSku ?? replacementWatch?.sku ?? null,
+      replacementWatch,
       allowedTransitions: getClaimAllowedTransitions(row.status),
       createdByName: row.createdBy.name,
       productName: row.receiptItem.productName,
@@ -311,7 +526,6 @@ export class WarrantyClaimsService {
       customerPhone: row.receiptItem.receipt.customerPhone,
       customerDocument: row.receiptItem.receipt.customerDocument,
       saleDate: row.receiptItem.receipt.saleDate.toISOString(),
-      // El reemplazo de reloj no descuenta stock automáticamente.
       events: row.events.map((ev) => ({
         id: ev.id,
         fromStatus: ev.fromStatus,

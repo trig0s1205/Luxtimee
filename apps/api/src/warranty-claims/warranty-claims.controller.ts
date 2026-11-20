@@ -17,6 +17,7 @@ import {
 import { RolesGuard } from '../common/guards/roles.guard';
 import {
   CreateWarrantyClaimDto,
+  ReplacementWatchesQueryDto,
   UpdateWarrantyClaimNotesDto,
   UpdateWarrantyClaimStatusDto,
   WarrantyClaimsQueryDto,
@@ -32,6 +33,11 @@ export class WarrantyClaimsController {
   @Get()
   findAll(@Query() query: WarrantyClaimsQueryDto) {
     return this.claims.findAll(query);
+  }
+
+  @Get('replacement-watches')
+  listReplacementWatches(@Query() query: ReplacementWatchesQueryDto) {
+    return this.claims.listReplacementWatches(query);
   }
 
   @Get(':id')

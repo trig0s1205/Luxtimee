@@ -51,6 +51,8 @@ const watches = computed(() => data.value?.data ?? []);
 const total = computed(() => data.value?.total ?? 0);
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)));
 
+useLiveRefresh(() => refresh(), { intervalMs: 0 });
+
 watch([loaded, isAuthed], ([ready, authed]) => {
   if (ready && authed) refresh();
 });
