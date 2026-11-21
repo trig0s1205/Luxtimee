@@ -23,7 +23,12 @@ import { ImageProcessingService } from '../integrations/image-processing.service
 import { mkdir, readFile, unlink, writeFile } from 'fs/promises';
 import { extname, join } from 'path';
 import { randomUUID } from 'crypto';
-import { assertImageBuffer, assertMediaFile } from '../common/utils/file-magic.util';
+import {
+  assertImageBuffer,
+  assertMediaFile,
+  detectImageMime,
+  MAX_IMAGE_BYTES,
+} from '../common/utils/file-magic.util';
 import { BULK_DRAFT_IDEMPOTENCY_FIELD } from './utils/bulk-draft.util';
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
@@ -889,15 +894,15 @@ export class WatchesService {
     idempotencyKey?: string;
   }) {
     const idempotencyKey = this.normalizeIdempotencyKey(input.idempotencyKey);
-    const image1 = this.assertDraftImage(input.image1, 'image1');
-    const image2 = input.image2?.buffer?.length
-      ? this.assertDraftImage(input.image2, 'image2')
-      : null;
-
     const existing = await this.watchesRepository.findByBulkDraftKey(
       idempotencyKey,
     );
     if (existing) return { ...existing, reused: true };
+
+    const image1 = this.assertDraftImage(input.image1, 'image1');
+    const image2 = input.image2?.buffer?.length
+      ? this.assertDraftImage(input.image2, 'image2')
+      : null;
 
     const brandId = await this.watchesRepository.findFirstBrandId();
     if (!brandId) {
@@ -1033,23 +1038,16 @@ export class WatchesService {
     if (!file?.buffer?.length) {
       throw new BadRequestException(`${label}: falta la imagen`);
     }
-    try {
-      assertMediaFile(file, 'image');
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        const response = error.getResponse();
-        const message =
-          typeof response === 'string'
-            ? response
-            : response && typeof response === 'object' && 'message' in response
-              ? String((response as { message?: unknown }).message ?? '')
-              : '';
-        throw new BadRequestException(
-          `${label}: ${message || 'imagen no válida'}`,
-        );
-      }
-      throw error;
+    if (file.buffer.length > MAX_IMAGE_BYTES) {
+      throw new BadRequestException(`${label}: El archivo pesa demasiado. Máximo 10 MB.`);
     }
+    const detected = detectImageMime(file.buffer);
+    if (!detected) {
+      throw new BadRequestException(
+        `${label}: El archivo no es un JPG, PNG o WEBP válido. Puede estar dañado o ser otro tipo.`,
+      );
+    }
+    file.mimetype = detected;
     return file;
   }
 
