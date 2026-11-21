@@ -23,11 +23,10 @@ function pickSafeMessage(value: unknown): string | null {
   }
 
   if (Array.isArray(value)) {
-    for (const item of value) {
-      const picked = pickSafeMessage(item);
-      if (picked) return picked;
-    }
-    return null;
+    const parts = value
+      .map((item) => pickSafeMessage(item))
+      .filter((item): item is string => Boolean(item));
+    return parts.length ? parts.join(' · ') : null;
   }
 
   if (value && typeof value === 'object' && 'message' in value) {

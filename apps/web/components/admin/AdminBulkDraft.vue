@@ -231,6 +231,7 @@ function close() {
         <span class="admin-watch-progress" :class="{ 'admin-watch-progress--error': job.status === 'error' }">
           <span :style="{ width: `${job.progress}%` }" />
         </span>
+        <span v-if="job.status === 'error' && job.errorMessage" class="admin-bulk-draft-reason">{{ job.errorMessage }}</span>
         <button
           v-if="job.status === 'error'"
           type="button"
@@ -704,6 +705,12 @@ function close() {
 
 .admin-bulk-draft-row--error {
   color: #ff5555;
+}
+
+.admin-bulk-draft-reason {
+  color: #ff8888;
+  font-size: 12px;
+  line-height: 1.3;
 }
 
 @media (max-width: 768px) {

@@ -1,11 +1,15 @@
 import {
   BadRequestException,
   Body,
+  CallHandler,
+  ExecutionContext,
   HttpCode,
   HttpStatus,
   Controller,
   Delete,
   Get,
+  Injectable,
+  NestInterceptor,
   Param,
   Patch,
   Post,
@@ -15,6 +19,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { Observable } from 'rxjs';
 import {
   FileFieldsInterceptor,
   FilesInterceptor,
@@ -64,14 +69,14 @@ function imageFileFilter(
   file: Express.Multer.File,
   cb: (error: Error | null, acceptFile: boolean) => void,
 ) {
-  if (!ALLOWED_IMAGE_MIME.has(file.mimetype)) {
-    cb(
-      new BadRequestException('Solo se permiten imágenes JPEG, PNG o WEBP'),
-      false,
-    );
+  if (isGenericUploadMime(file.mimetype) || ALLOWED_IMAGE_MIME.has(file.mimetype)) {
+    cb(null, true);
     return;
   }
-  cb(null, true);
+  cb(
+    new BadRequestException('Solo se permiten imágenes JPEG, PNG o WEBP'),
+    false,
+  );
 }
 
 function isGenericUploadMime(mime?: string) {
@@ -113,6 +118,18 @@ function mediaFileFilter(
     new BadRequestException('image1 e image2 deben ser JPEG, PNG o WEBP'),
     false,
   );
+}
+
+@Injectable()
+class StripBulkDraftFileFieldsInterceptor implements NestInterceptor {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const request = context.switchToHttp().getRequest<{ body?: Record<string, unknown> }>();
+    if (request.body && typeof request.body === 'object') {
+      delete request.body.image1;
+      delete request.body.image2;
+    }
+    return next.handle();
+  }
 }
 
 @Controller({ path: 'watches', version: '1' })
@@ -206,6 +223,7 @@ export class WatchesController {
         limits: BULK_DRAFT_UPLOAD_LIMITS,
       },
     ),
+    StripBulkDraftFileFieldsInterceptor,
   )
   bulkDraft(
     @UploadedFiles()

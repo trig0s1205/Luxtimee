@@ -8,12 +8,6 @@ export async function compressCatalogImage(file: File): Promise<Blob> {
   const bitmap = await createImageBitmap(file).catch(() => null);
   if (!bitmap) throw new Error(`${file.name}: no se pudo leer la foto.`);
   try {
-    const longest = Math.max(bitmap.width, bitmap.height);
-    const alreadySmall = file.type === 'image/jpeg'
-      && longest <= MAX_EDGE
-      && file.size > 0
-      && file.size <= 2_500_000;
-    if (alreadySmall) return file;
     let edge = MAX_EDGE;
     const quality = QUALITY;
     let blob = await renderJpeg(bitmap, edge, quality);

@@ -744,9 +744,9 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
 
       while (rateRetries < 12) {
         const body = new FormData();
-        body.append('image1', new File([stored.front], job.frontName, { type: stored.frontType }));
-        if (stored.back && stored.backType) {
-          body.append('image2', new File([stored.back], job.backName || 'dorso.jpg', { type: stored.backType }));
+        body.append('image1', new File([stored.front], job.frontName, { type: stored.frontType || 'image/jpeg' }));
+        if (stored.back) {
+          body.append('image2', new File([stored.back], job.backName || 'dorso.jpg', { type: stored.backType || 'image/jpeg' }));
         }
         body.append('idempotencyKey', job.idempotencyKey);
         const response = await fetch(`${uploadBase}/watches/bulk-draft`, {

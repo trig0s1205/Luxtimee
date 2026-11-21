@@ -288,13 +288,34 @@ describe('WatchesService.createBulkDraft', () => {
     };
     const { service, imageProcessing } = serviceWith(repo);
     const result = await service.createBulkDraft({
-      image1: image('001.jpg'),
-      image2: image('002.jpg'),
+      image1: image('001.jpg', Buffer.from('no-es-imagen'), 'application/octet-stream'),
+      image2: image('002.jpg', Buffer.from('tampoco'), 'image/png'),
       idempotencyKey: key,
     });
     expect(result).toMatchObject({ id: 'watch-1', reused: true });
+    expect(repo.findByBulkDraftKey).toHaveBeenCalledWith(key);
     expect(imageProcessing.uploadToCloudinary).not.toHaveBeenCalled();
     expect(repo.createBulkDraftOnce).not.toHaveBeenCalled();
+  });
+
+  it('acepta JPEG real aunque el MIME declarado no coincida', async () => {
+    const repo = {
+      findByBulkDraftKey: jest.fn().mockResolvedValue(null),
+      findFirstBrandId: jest.fn().mockResolvedValue('brand-1'),
+      brandExists: jest.fn().mockResolvedValue(true),
+      findBySlug: jest.fn().mockResolvedValue(null),
+      createBulkDraftOnce: jest.fn().mockResolvedValue({
+        created: true,
+        watch: { id: 'watch-4', sku: 'RM-006' },
+      }),
+    };
+    const { service } = serviceWith(repo);
+    const file = image('wa.jpg', jpeg, 'application/octet-stream');
+    await service.createBulkDraft({
+      image1: file,
+      idempotencyKey: 'batch-1:wa.jpg|',
+    });
+    expect(file.mimetype).toBe('image/jpeg');
   });
 
   it('si la segunda foto no se guarda, no crea el reloj y borra la primera', async () => {

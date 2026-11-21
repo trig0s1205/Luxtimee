@@ -610,12 +610,27 @@ async function finishBulkDelete() {
       </button>
     </div>
 
-    <ul v-if="offscreenJobs.length" class="admin-bulk-progress">
+    <ul v-if="offscreenJobs.length || bulkDraft.activeJobs.length" class="admin-bulk-progress">
       <li v-for="job in offscreenJobs" :key="job.id">
         <span>{{ job.brandName }} {{ job.model }}</span>
         <span class="admin-watch-progress" :class="{ 'admin-watch-progress--error': job.status === 'error' }">
           <span :style="{ width: `${job.progress}%` }" />
         </span>
+      </li>
+      <li v-for="job in bulkDraft.activeJobs" :key="`draft-${job.id}`">
+        <span>{{ job.backName ? `${job.frontName} + ${job.backName}` : job.frontName }}</span>
+        <span class="admin-watch-progress" :class="{ 'admin-watch-progress--error': job.status === 'error' }">
+          <span :style="{ width: `${job.progress}%` }" />
+        </span>
+        <span v-if="job.status === 'error' && job.errorMessage" class="admin-bulk-draft-reason">{{ job.errorMessage }}</span>
+        <button
+          v-if="job.status === 'error'"
+          type="button"
+          class="admin-pagination-btn"
+          @click="bulkDraft.retry(job.id)"
+        >
+          Reintentar
+        </button>
       </li>
     </ul>
 
@@ -736,12 +751,18 @@ async function finishBulkDelete() {
 
 .admin-bulk-progress li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 120px auto;
+  gap: 8px 12px;
   align-items: center;
   padding: 8px 12px;
   font-size: 12px;
   color: var(--lux-white);
+}
+
+.admin-bulk-draft-reason {
+  grid-column: 1 / -1;
+  color: #ff8888;
+  line-height: 1.3;
 }
 
 .admin-watch-progress {
