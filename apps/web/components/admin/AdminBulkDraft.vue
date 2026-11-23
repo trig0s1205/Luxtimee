@@ -4,6 +4,7 @@ import { findBatchDuplicates, type ImageDuplicateMatch, type ImageFingerprint } 
 import { selectionBadge } from '~/utils/bulk-photo-arrange';
 import { fingerprintImageFile } from '~/utils/image-fingerprint';
 import { storedDuplicateViews, type DuplicateHitView } from '~/utils/image-duplicates';
+import { duplicateRemovalNote, planDuplicatePairRemoval } from '~/utils/bulk-duplicate-removal';
 import { useWatchBulkDraftStore } from '~/stores/watch-bulk-draft';
 
 const Draggable = defineAsyncComponent(() => import('vuedraggable'));
@@ -52,6 +53,16 @@ async function removeFailedJobs() {
 }
 
 const readyCount = computed(() => store.preview?.pairs.length ?? 0);
+const uploadTotal = computed(() => store.jobs.length);
+const uploadDone = computed(() => store.doneCount);
+const flowStep = computed(() => {
+  if (store.settlement && !store.pendingCount && !store.preparing && !store.preview && !store.board) return 4;
+  if (store.jobs.length && !store.pendingCount && !store.preparing && !store.preview && !store.board) return 4;
+  if (store.pendingCount || store.confirming || store.jobs.some((job) => job.status === 'running' || job.status === 'queued')) return 3;
+  if (store.preview || store.board || reviewing.value) return 2;
+  return 1;
+});
+const steps = ['Elegir fotos', 'Revisar pares y repetidas', 'Subiendo', 'Listo'];
 const reviewing = ref(false);
 const reviewError = ref('');
 
@@ -65,6 +76,7 @@ type BulkDuplicate = {
 };
 
 const duplicateReview = ref<BulkDuplicate[]>([]);
+const pairRemovalNote = ref('');
 
 function reviewKey(item: { pairId: string; side: 'front' | 'back' }) {
   return `${item.pairId}:${item.side}`;
@@ -122,7 +134,6 @@ async function scanBeforeUpload() {
       }
     }
     const batch = findBatchDuplicates(fingerprinted);
-    const names = new Map(fingerprinted.map((item) => [item.id, item.name]));
     const previews = new Map(fingerprinted.map((item) => [item.id, item.previewUrl]));
     const next: BulkDuplicate[] = [];
     for (const item of fingerprinted) {
@@ -131,8 +142,8 @@ async function scanBeforeUpload() {
         hits.push({
           key: `batch-${other.otherId}`,
           thumb: previews.get(other.otherId),
-          title: 'En este lote',
-          detail: names.get(other.otherId) || 'otra foto',
+          kind: other.kind === 'exact' ? 'exact' : 'near',
+          caption: 'En este lote',
         });
       }
       if (!hits.length) continue;
@@ -156,28 +167,15 @@ async function scanBeforeUpload() {
 }
 
 async function omitReview(items: BulkDuplicate[]) {
-  const byPair = new Map<string, Set<'front' | 'back'>>();
-  for (const item of items) {
-    const sides = byPair.get(item.pairId) ?? new Set<'front' | 'back'>();
-    sides.add(item.side);
-    byPair.set(item.pairId, sides);
-  }
-  for (const [pairId, sides] of byPair) {
-    if (sides.has('front') && sides.has('back')) await store.removePreviewWatch(pairId);
-  }
-  for (const [pairId, sides] of byPair) {
-    if (sides.has('back') && !sides.has('front')) await store.removePreviewPhoto(pairId, 'back');
-  }
-  for (const [pairId, sides] of byPair) {
-    if (sides.has('front') && !sides.has('back')) await store.removePreviewPhoto(pairId, 'front');
-  }
-  const alive = new Set(store.preview?.pairs.map((pair) => pair.id) ?? []);
-  duplicateReview.value = duplicateReview.value.filter((item) => {
-    if (!alive.has(item.pairId)) return false;
-    const pair = store.preview?.pairs.find((entry) => entry.id === item.pairId);
-    if (item.side === 'back' && !pair?.backUrl) return false;
-    return !items.some((skipped) => skipped.pairId === item.pairId && skipped.side === item.side);
-  });
+  const plan = planDuplicatePairRemoval(
+    items,
+    (store.preview?.pairs ?? []).map((pair) => ({ id: pair.id, hasBack: !!pair.backUrl })),
+  );
+  for (const pairId of plan.removePairIds) await store.removePreviewWatch(pairId);
+  const note = duplicateRemovalNote(plan.partialPairIds.length);
+  if (note) pairRemovalNote.value = note;
+  const removed = new Set(plan.removePairIds);
+  duplicateReview.value = duplicateReview.value.filter((item) => !removed.has(item.pairId));
 }
 
 async function omitAllDuplicates() {
@@ -295,14 +293,27 @@ function close() {
     <div v-if="open" class="admin-modal-backdrop" @click.self="close">
       <div class="admin-modal admin-bulk-draft-modal" :class="{ 'admin-modal--wide': !!store.preview || !!store.board }">
         <header class="admin-bulk-draft-head">
-          <h2>{{ store.preview ? 'Revisar relojes' : store.board ? 'Armar pares' : 'Carga masiva de fotos' }}</h2>
+          <div>
+            <p class="admin-bulk-kicker">Inventario</p>
+            <h2>Carga por fotos</h2>
+          </div>
           <button type="button" class="admin-pagination-btn" @click="close">Cerrar</button>
         </header>
+        <ol class="admin-bulk-steps" aria-label="Progreso de la carga">
+          <li v-for="(label, index) in steps" :key="label" :class="{ 'is-on': flowStep === index + 1, 'is-done': flowStep > index + 1 }">
+            <span>{{ index + 1 }}</span>
+            {{ label }}
+          </li>
+        </ol>
 
         <p v-if="store.preparing" class="admin-pagination-info">{{ store.prepareLabel || 'Preparando fotos…' }}</p>
 
         <template v-else-if="store.preview">
-          <p class="admin-bulk-draft-copy">{{ readyCount }} relojes listos. Nada se sube hasta pulsar Subir todo.</p>
+          <p class="admin-bulk-draft-copy">{{ readyCount }} pares listos. Nada se sube hasta pulsar Subir todo.</p>
+          <div v-if="store.pendingCount || store.doneCount" class="admin-bulk-meter" aria-label="Progreso de subida">
+            <div><span :style="{ width: `${uploadTotal ? Math.round((uploadDone / uploadTotal) * 100) : 0}%` }" /></div>
+            <p>{{ uploadDone }} de {{ uploadTotal }} pares</p>
+          </div>
           <p v-if="store.preview.orphan" class="admin-bulk-draft-warn">
             Quedó una foto sin par: {{ store.preview.orphan.name }}. Puedes subirla solo con frente o descartarla.
           </p>
@@ -369,26 +380,19 @@ function close() {
             </template>
           </Draggable>
           <div v-if="duplicateReview.length" class="admin-bulk-dupes" data-testid="bulk-duplicate-warning">
-            <p class="admin-bulk-draft-warn">Hay fotos repetidas. Nada se sube hasta que elijas.</p>
+            <p class="admin-bulk-draft-warn">Compara solo la foto. Nada se sube hasta que elijas.</p>
             <article v-for="item in duplicateReview" :key="reviewKey(item)">
-              <img :src="item.previewUrl" alt="">
-              <div>
-                <strong>{{ item.side === 'front' ? 'Frente' : 'Dorso' }} · {{ item.name }}</strong>
-                <ul>
-                  <li v-for="hit in item.hits" :key="hit.key">
-                    <a v-if="hit.href" :href="hit.href">{{ hit.title }}</a>
-                    <span v-else>{{ hit.title }}</span>
-                    <span> · {{ hit.detail }}</span>
-                  </li>
-                </ul>
-                <div class="admin-bulk-draft-actions">
-                  <button type="button" class="admin-pagination-btn" @click="omitReview([item])">Omitir</button>
-                  <button type="button" class="admin-pagination-btn" @click="item.decision = 'keep'">Subir de todas formas</button>
-                </div>
-              </div>
+              <AdminImageDuplicateWarning
+                :incoming="item.previewUrl"
+                :hits="item.hits"
+                @zoom="zoomUrl = $event"
+                @skip="omitReview([item])"
+                @keep="item.decision = 'keep'"
+              />
             </article>
-            <button type="button" class="admin-pagination-btn" @click="omitAllDuplicates()">Omitir todas las repetidas</button>
+            <button type="button" class="admin-pagination-btn" @click="omitAllDuplicates()">Quitar todas las repetidas</button>
           </div>
+          <p v-if="pairRemovalNote" class="admin-bulk-draft-copy">{{ pairRemovalNote }}</p>
           <p v-if="reviewError" class="admin-bulk-draft-warn">{{ reviewError }}</p>
           <div class="admin-bulk-draft-actions">
             <UiLuxButton variant="ghost" :disabled="store.confirming" @click="duplicateReview = []; store.cancelPreview()">Cancelar</UiLuxButton>
@@ -427,6 +431,16 @@ function close() {
         </template>
 
         <template v-else>
+          <p v-if="flowStep === 4 && !store.failedCount" class="admin-bulk-draft-copy">
+            Listo. {{ store.settlement?.done || store.doneCount }} pares quedaron en borrador.
+          </p>
+          <p v-else-if="store.failedCount" class="admin-bulk-draft-warn">
+            Algunas fotos no se subieron. Puedes reintentar o quitar las fallidas.
+          </p>
+          <div v-if="uploadTotal" class="admin-bulk-meter">
+            <div><span :style="{ width: `${uploadTotal ? Math.round((uploadDone / uploadTotal) * 100) : 0}%` }" /></div>
+            <p>{{ uploadDone }} de {{ uploadTotal }} pares</p>
+          </div>
           <p class="admin-bulk-draft-copy">
             En el celular se abre la galería: toca frente, dorso, frente, dorso. En el computador elige la carpeta o arrastra las fotos; el orden del explorador no se usa.
           </p>
@@ -479,12 +493,80 @@ function close() {
   gap: 12px;
 }
 
+.admin-bulk-kicker {
+  margin: 0 0 4px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--lux-gold, #c8a96e);
+}
+
 .admin-bulk-draft-head h2 {
   margin: 0;
   font-family: var(--lux-font-display, serif);
-  font-size: 22px;
+  font-size: 28px;
   font-weight: 400;
   color: var(--lux-white);
+}
+
+.admin-bulk-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-bulk-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--lux-white-dim);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.admin-bulk-steps span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(200, 169, 110, 0.35);
+  border-radius: 50%;
+  font-size: 11px;
+}
+
+.admin-bulk-steps .is-on,
+.admin-bulk-steps .is-done {
+  color: var(--lux-white);
+}
+
+.admin-bulk-steps .is-on span,
+.admin-bulk-steps .is-done span {
+  border-color: var(--lux-gold, #c8a96e);
+  color: var(--lux-gold, #c8a96e);
+}
+
+.admin-bulk-meter {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-bulk-meter div {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.admin-bulk-meter span {
+  display: block;
+  height: 100%;
+  background: var(--lux-gold, #c8a96e);
+}
+
+.admin-bulk-meter p,
+.admin-bulk-draft-copy {
+  margin: 0;
 }
 
 .admin-bulk-draft-copy,
@@ -609,6 +691,8 @@ function close() {
 .admin-bulk-draft-preview li {
   grid-template-columns: auto auto minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: start;
+  gap: 16px;
+  padding: 16px;
   border-bottom: var(--border-hairline);
 }
 
@@ -721,27 +805,7 @@ function close() {
 }
 
 .admin-bulk-dupes article {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.admin-bulk-dupes img {
-  width: 72px;
-  height: 96px;
-  object-fit: cover;
-}
-
-.admin-bulk-dupes ul {
-  margin: 4px 0 0;
-  padding: 0;
-  list-style: none;
-  color: var(--lux-white-dim);
-  font-size: 12px;
-}
-
-.admin-bulk-dupes a {
-  color: var(--lux-gold);
+  padding: 4px 0;
 }
 
 .admin-bulk-draft-row--error {

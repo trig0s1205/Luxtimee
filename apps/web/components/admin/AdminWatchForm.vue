@@ -87,7 +87,7 @@ const form = reactive<WatchFormPayload>({
   images: props.watch?.images?.length ? [...props.watch.images] : [],
   mainImageIndex: props.watch?.mainImageIndex ?? 0,
   primaryImageUrl: props.watch?.primaryImageUrl ?? props.watch?.frontImageUrl ?? props.watch?.images?.[0] ?? undefined,
-  secondaryImageUrl: props.watch?.secondaryImageUrl ?? props.watch?.images?.[1] ?? undefined,
+  secondaryImageUrl: props.watch?.secondaryImageUrl ?? props.watch?.backImageUrl ?? props.watch?.images?.[1] ?? undefined,
   videoUrl: props.watch?.videoUrl ?? undefined,
   primaryImageFile: null,
   secondaryImageFile: null,
@@ -266,6 +266,30 @@ async function onVideoSelectAsync(event: Event) {
 
   setVideoFile(file);
   toast.info('Video válido. Se optimizará al guardar (máx. 1080p, ~10 MB).');
+}
+
+function swapImageSlots() {
+  const primaryFile = form.primaryImageFile;
+  const secondaryFile = form.secondaryImageFile;
+  const primaryUrl = form.primaryImageUrl;
+  const secondaryUrl = form.secondaryImageUrl;
+  const primaryObject = primaryPreview.value;
+  const secondaryObject = secondaryPreview.value;
+  form.primaryImageFile = secondaryFile;
+  form.secondaryImageFile = primaryFile;
+  form.primaryImageUrl = secondaryUrl;
+  form.secondaryImageUrl = primaryUrl;
+  primaryPreview.value = secondaryObject;
+  secondaryPreview.value = primaryObject;
+  const images = [...form.images];
+  if (images.length >= 2) {
+    const [first, second] = images;
+    images[0] = second;
+    images[1] = first;
+    form.images = images;
+    form.mainImageIndex = 0;
+  }
+  duplicates.swapSlots();
 }
 
 function rejectNewImage(slot: 'primary' | 'secondary') {
@@ -564,11 +588,25 @@ const selectedCareTemplate = computed(() =>
             <p v-if="duplicates.slots.primary.checking" class="admin-form-hint">Comparando fotos…</p>
             <AdminImageDuplicateWarning
               v-if="duplicates.slots.primary.hits.length && duplicates.slots.primary.decision !== 'keep'"
+              :incoming="primaryPreview || form.primaryImageUrl"
               :hits="duplicates.slots.primary.hits"
+              @zoom="previewSrc = $event"
               @skip="rejectNewImage('primary')"
               @keep="duplicates.keep('primary')"
             />
           </div>
+
+          <button
+            type="button"
+            class="admin-media-swap"
+            aria-label="Intercambiar frente y dorso"
+            @click="swapImageSlots"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M7 7h11M15 4l3 3-3 3" />
+              <path d="M17 17H6M9 14l-3 3 3 3" />
+            </svg>
+          </button>
 
           <div class="admin-media-slot">
             <label>Foto secundaria <span class="admin-form-required">*</span></label>
@@ -593,7 +631,9 @@ const selectedCareTemplate = computed(() =>
             <p v-if="duplicates.slots.secondary.checking" class="admin-form-hint">Comparando fotos…</p>
             <AdminImageDuplicateWarning
               v-if="duplicates.slots.secondary.hits.length && duplicates.slots.secondary.decision !== 'keep'"
+              :incoming="secondaryPreview || form.secondaryImageUrl"
               :hits="duplicates.slots.secondary.hits"
+              @zoom="previewSrc = $event"
               @skip="rejectNewImage('secondary')"
               @keep="duplicates.keep('secondary')"
             />
@@ -907,8 +947,22 @@ const selectedCareTemplate = computed(() =>
 
 .admin-media-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
+  align-items: start;
+}
+
+.admin-media-swap {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-top: 92px;
+  padding: 0;
+  border: 1px solid rgba(200, 169, 110, 0.45);
+  background: transparent;
+  color: var(--lux-gold, #c8a96e);
+  cursor: pointer;
 }
 
 .admin-media-slot {
@@ -1105,6 +1159,10 @@ const selectedCareTemplate = computed(() =>
   .admin-form-grid,
   .admin-media-grid {
     grid-template-columns: 1fr;
+  }
+
+  .admin-media-swap {
+    margin: 0 auto;
   }
 
   .admin-watch-tabs {

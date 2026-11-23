@@ -566,6 +566,20 @@ export class WatchesRepository {
     });
   }
 
+  async reassignImageFingerprintSlots(
+    watchId: string,
+    slots: Array<{ imageUrl: string; slot: string }>,
+  ) {
+    await this.prisma.$transaction(
+      slots.map((slot) =>
+        this.prisma.watchImageFingerprint.updateMany({
+          where: { watchId, imageUrl: slot.imageUrl },
+          data: { slot: slot.slot },
+        }),
+      ),
+    );
+  }
+
   async saveImageFingerprint(input: {
     watchId: string;
     imageUrl: string;

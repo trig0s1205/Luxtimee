@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { DuplicateHitView } from '~/utils/image-duplicates';
 
-defineProps<{
+const props = defineProps<{
+  incoming?: string;
   hits: DuplicateHitView[];
   showSkipAll?: boolean;
 }>();
@@ -10,30 +11,37 @@ const emit = defineEmits<{
   skip: [];
   keep: [];
   skipAll: [];
+  zoom: [src: string];
 }>();
+
+const match = computed(() => props.hits[0] ?? null);
+
+function label(kind: DuplicateHitView['kind']) {
+  return kind === 'exact' ? 'Ya existe' : 'Muy parecida';
+}
 </script>
 
 <template>
   <div class="dup-warn" data-testid="image-duplicate-warning" role="status">
-    <p>
-      Esta foto ya está en el inventario o se repite en este lote.
-      No se bloquea la carga: omítela o súbela igual.
-    </p>
-    <ul>
-      <li v-for="hit in hits" :key="hit.key">
-        <img v-if="hit.thumb" :src="hit.thumb" alt="">
-        <div>
-          <a v-if="hit.href" :href="hit.href">{{ hit.title }}</a>
-          <strong v-else>{{ hit.title }}</strong>
-          <span>{{ hit.detail }}</span>
-        </div>
-      </li>
-    </ul>
+    <div v-if="match" class="dup-pair">
+      <button v-if="incoming" type="button" class="dup-shot" @click="emit('zoom', incoming)">
+        <img :src="incoming" alt="Foto nueva">
+        <span>Nueva</span>
+      </button>
+      <button v-if="match.thumb" type="button" class="dup-shot" @click="emit('zoom', match.thumb)">
+        <img :src="match.thumb" alt="Foto existente">
+        <span>Inventario</span>
+      </button>
+      <div class="dup-copy">
+        <strong>{{ label(match.kind) }}</strong>
+        <em v-if="match.caption">{{ match.caption }}</em>
+      </div>
+    </div>
     <div class="dup-warn-actions">
-      <button type="button" class="admin-pagination-btn" @click="emit('skip')">Omitir</button>
-      <button type="button" class="admin-pagination-btn" @click="emit('keep')">Subir de todas formas</button>
+      <button type="button" class="admin-pagination-btn" @click="emit('skip')">Quitar de esta carga</button>
+      <button type="button" class="admin-pagination-btn" @click="emit('keep')">Subir igual</button>
       <button v-if="showSkipAll" type="button" class="admin-pagination-btn" @click="emit('skipAll')">
-        Omitir todas las repetidas
+        Quitar todas las repetidas
       </button>
     </div>
   </div>
@@ -41,57 +49,66 @@ const emit = defineEmits<{
 
 <style scoped>
 .dup-warn {
-  margin-top: 8px;
-  padding: 12px;
-  border: 1px solid rgba(200, 169, 110, 0.45);
-  background: rgba(200, 169, 110, 0.08);
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid rgba(200, 169, 110, 0.35);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--lux-white, #f5f1e8);
   font-family: var(--lux-font-body, sans-serif);
-  font-size: 12px;
-  line-height: 1.4;
 }
 
-.dup-warn p {
-  margin: 0 0 8px;
+.dup-pair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
 }
 
-.dup-warn ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.dup-shot {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--lux-white-dim, rgba(255, 255, 255, 0.62));
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
 }
 
-.dup-warn li {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.dup-warn img {
-  width: 54px;
-  height: 72px;
+.dup-shot img {
+  width: 92px;
+  height: 118px;
   object-fit: cover;
   background: rgba(0, 0, 0, 0.35);
 }
 
-.dup-warn a,
-.dup-warn strong {
-  display: block;
-  color: var(--lux-gold, #c8a96e);
-  font-weight: 500;
+.dup-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
-.dup-warn span {
-  color: var(--lux-white-dim, rgba(255, 255, 255, 0.72));
+.dup-copy strong {
+  font-family: var(--lux-font-display, serif);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--lux-gold, #c8a96e);
+}
+
+.dup-copy em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--lux-white-dim, rgba(255, 255, 255, 0.55));
 }
 
 .dup-warn-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 </style>

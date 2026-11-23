@@ -180,6 +180,14 @@ export class UpdateWatchDto {
   images?: string[];
 
   @IsOptional()
+  @IsString()
+  primaryImageUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  secondaryImageUrl?: string;
+
+  @IsOptional()
   @IsInt()
   @Min(0)
   @Type(() => Number)

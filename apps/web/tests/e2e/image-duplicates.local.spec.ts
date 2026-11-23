@@ -117,10 +117,10 @@ test.describe('avisos de fotos repetidas', () => {
     const warning = page.getByTestId('image-duplicate-warning').first();
     await expect(warning).toBeVisible();
     await expect(warning).toContainText('DUP-LOCAL');
-    await expect(warning).toContainText('Submariner local');
+    await expect(warning).toContainText('Ya existe');
     mkdirSync('/opt/cursor/artifacts', { recursive: true });
     await warning.screenshot({ path: '/opt/cursor/artifacts/aviso-foto-individual.png' });
-    await warning.getByRole('button', { name: 'Omitir' }).click();
+    await warning.getByRole('button', { name: 'Quitar de esta carga' }).click();
     await expect(page.getByTestId('image-duplicate-warning')).toHaveCount(0);
     await page.getByRole('button', { name: 'Guardar borrador con imágenes' }).click();
     await expect(page.locator('.admin-media-error')).toContainText('foto');
@@ -140,9 +140,9 @@ test.describe('avisos de fotos repetidas', () => {
     await page.getByRole('button', { name: 'Subir todo' }).click();
     const bulk = page.getByTestId('bulk-duplicate-warning');
     await expect(bulk).toBeVisible();
-    await expect(bulk).toContainText('Omitir todas las repetidas');
+    await expect(bulk).toContainText('Quitar todas las repetidas');
     await bulk.screenshot({ path: '/opt/cursor/artifacts/aviso-carga-masiva.png' });
-    await bulk.getByRole('button', { name: 'Omitir todas las repetidas' }).click();
+    await bulk.getByRole('button', { name: 'Quitar todas las repetidas' }).click();
     await expect(bulk).toHaveCount(0);
     expect(uploads.filter((url) => url.includes('/watches/bulk-draft'))).toEqual([]);
   });

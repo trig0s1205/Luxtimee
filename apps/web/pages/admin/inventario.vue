@@ -366,6 +366,16 @@ async function handleSubmit(form: WatchFormPayload) {
       payload.cost = Number(form.cost);
     }
 
+    const current = editingWatch.value;
+    if (current && !hasNewPrimaryImage && form.primaryImageUrl) {
+      const originalPrimary = current.primaryImageUrl || current.frontImageUrl || current.images?.[0];
+      if (form.primaryImageUrl !== originalPrimary) payload.primaryImageUrl = form.primaryImageUrl;
+    }
+    if (current && !hasNewSecondaryImage && form.secondaryImageUrl) {
+      const originalSecondary = current.secondaryImageUrl || current.backImageUrl || current.images?.[1];
+      if (form.secondaryImageUrl !== originalSecondary) payload.secondaryImageUrl = form.secondaryImageUrl;
+    }
+
     let brandName = brands.value?.find((b) => b.id === (draftMode ? fallbackBrandId : form.brandId))?.name ?? '';
 
     if (watchId) {
