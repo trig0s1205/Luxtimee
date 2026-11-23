@@ -25,7 +25,7 @@ const imageSrc = computed(() => {
   if (imageBroken.value) return null;
   const raw = fallbackGallery(props.watch.gallery, props.watch.imageUrl)[0] ?? null;
   if (!raw) return null;
-  return optimizeCloudinaryImageUrl(resolve(raw) ?? raw, 480);
+  return optimizeCloudinaryImageUrl(resolve(raw) ?? raw, 160);
 });
 
 const atLimit = computed(() => props.cartQty >= props.watch.stock);
@@ -59,7 +59,6 @@ watch(
       >
       <span v-else class="pos-card__placeholder" aria-hidden="true">
         <span class="pos-card__initials">{{ initials }}</span>
-        <span>Sin foto</span>
       </span>
     </button>
 
@@ -99,90 +98,101 @@ watch(
 <style scoped>
 .pos-card {
   display: flex;
-  flex-direction: column;
-  gap: 0;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.65rem;
   min-width: 0;
   overflow: hidden;
-  padding: 0;
+  padding: 0.5rem;
 }
 
 .pos-card__media {
-  aspect-ratio: 1;
-  width: 100%;
+  flex: 0 0 72px;
+  width: 72px;
+  height: 72px;
   border: 0;
-  border-bottom: 1px solid rgba(200, 169, 110, 0.18);
+  border-radius: 4px;
   background: #f7f3ea;
   padding: 0;
   cursor: pointer;
   overflow: hidden;
-  min-height: 44px;
 }
 
 .pos-card__media img {
-  width: 100%;
-  height: 100%;
+  width: 72px;
+  height: 72px;
   object-fit: cover;
   display: block;
+  border-radius: 4px;
 }
 
 .pos-card__placeholder {
   display: grid;
   place-content: center;
-  gap: 0.35rem;
-  height: 100%;
+  width: 72px;
+  height: 72px;
+  border-radius: 4px;
   color: #8a7a5a;
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
-  text-align: center;
   background: #f3eee3;
 }
 
 .pos-card__initials {
   font-family: var(--lux-font-display, Cormorant, Georgia, serif);
-  font-size: 1.6rem;
+  font-size: 1rem;
   color: var(--lux-gold, #b8962e);
 }
 
 .pos-card__body {
   display: grid;
-  gap: 0.3rem;
-  padding: 0.75rem 0.8rem 0.85rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.1rem 0.5rem;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
 }
 
 .pos-card__brand {
   margin: 0;
   color: var(--lux-gold, #b8962e);
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  grid-column: 1;
 }
 
 .pos-card__model {
   margin: 0;
   font-family: var(--lux-font-display, Cormorant, Georgia, serif);
-  font-size: 1.15rem;
+  font-size: 1rem;
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.15;
+  grid-column: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pos-card__sku {
   margin: 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   color: #6b7280;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
+  grid-column: 1;
 }
 
 .pos-card__price {
-  margin: 0.15rem 0 0;
-  font-size: 1.05rem;
+  margin: 0;
+  font-size: 0.95rem;
   font-weight: 700;
+  grid-column: 1;
 }
 
 .pos-card__badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 0.2rem;
+  gap: 0.25rem;
+  grid-column: 1;
 }
 
 .pos-card__badge {
@@ -208,8 +218,21 @@ watch(
 }
 
 .pos-card__add {
-  margin-top: 0.45rem;
-  width: 100%;
-  min-height: 44px;
+  grid-column: 2;
+  grid-row: 1 / span 5;
+  align-self: center;
+  min-height: 36px;
+  padding: 0.25rem 0.7rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .pos-card__media,
+  .pos-card__media img,
+  .pos-card__placeholder {
+    flex-basis: 64px;
+    width: 64px;
+    height: 64px;
+  }
 }
 </style>
