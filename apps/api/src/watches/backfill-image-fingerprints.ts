@@ -3,11 +3,13 @@ import { fingerprintImageBytes } from '@luxtime/shared';
 import { imageSlotsFromWatch } from './image-slots';
 
 export type BackfillSummary = {
+  total: number;
   pending: number;
   updated: number;
   skipped: number;
   remoteSkipped: number;
   failed: number;
+  failedUrls: string[];
 };
 
 export async function runImageFingerprintBackfill(input: {
@@ -16,6 +18,8 @@ export async function runImageFingerprintBackfill(input: {
   force?: boolean;
   allowRemoteImages?: boolean;
   readBytes?: (imageUrl: string) => Promise<Uint8Array | null>;
+  acceptRemoteUrl?: (imageUrl: string) => boolean;
+  onProgress?: (processed: number) => void;
   log?: (line: string) => void;
 }): Promise<BackfillSummary> {
   const log = input.log ?? (() => undefined);
@@ -35,39 +39,59 @@ export async function runImageFingerprintBackfill(input: {
   });
 
   const summary: BackfillSummary = {
+    total: 0,
     pending: 0,
     updated: 0,
     skipped: 0,
     remoteSkipped: 0,
     failed: 0,
+    failedUrls: [],
   };
+  let processed = 0;
 
   for (const watch of watches) {
     const known = new Map(
       watch.imageFingerprints.map((row) => [row.imageUrl, row]),
     );
     for (const slot of imageSlotsFromWatch(watch)) {
+      summary.total += 1;
+      processed += 1;
       const current = known.get(slot.imageUrl);
       const complete = Boolean(current?.contentHash && current?.perceptualHash);
       if (complete && !input.force) {
         summary.skipped += 1;
+        input.onProgress?.(processed);
         continue;
       }
       if (!input.apply) {
         summary.pending += 1;
         log(`pendiente ${watch.id} ${slot.slot} ${slot.imageUrl}`);
+        input.onProgress?.(processed);
         continue;
       }
       if (isRemoteUrl(slot.imageUrl) && !input.allowRemoteImages) {
         summary.remoteSkipped += 1;
         log(`omitida remota ${slot.imageUrl}`);
+        input.onProgress?.(processed);
+        continue;
+      }
+      if (
+        isRemoteUrl(slot.imageUrl)
+        && input.acceptRemoteUrl
+        && !input.acceptRemoteUrl(slot.imageUrl)
+      ) {
+        summary.remoteSkipped += 1;
+        log(`omitida fuera de Cloudinary ${slot.imageUrl}`);
+        input.onProgress?.(processed);
         continue;
       }
       try {
         const bytes = await input.readBytes?.(slot.imageUrl);
         if (!bytes?.length) {
           summary.failed += 1;
+          summary.failedUrls.push(slot.imageUrl);
           log(`sin bytes ${slot.imageUrl}`);
+          input.onProgress?.(processed);
           continue;
         }
         const fingerprint = await fingerprintImageBytes(bytes);
@@ -91,10 +115,12 @@ export async function runImageFingerprintBackfill(input: {
         summary.updated += 1;
       } catch (error) {
         summary.failed += 1;
+        summary.failedUrls.push(slot.imageUrl);
         log(
           `falló ${slot.imageUrl}: ${error instanceof Error ? error.message : 'error'}`,
         );
       }
+      input.onProgress?.(processed);
     }
   }
 

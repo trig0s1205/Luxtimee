@@ -51,6 +51,25 @@ Lista completa (ver comentarios en `apps/api/.env.example` y `deploy/vps/.env.pr
 
 Migraciones: **no** corren al arrancar el contenedor. Usa `prisma migrate deploy` a mano (ver `migrate.sh` / README de VPS).
 
+## Huellas de fotos ya subidas (una vez)
+
+La tabla `WatchImageFingerprint` ya existe. Las fotos viejas no tienen hash, así que el aviso de duplicados no las ve. El entrypoint compilado va en la imagen (`dist/scripts/backfill-image-fingerprints.prod.js`). El script de servidor `deploy/vps/fingerprints-backfill.sh` entra con el resto de `deploy/vps/*.sh`: `bootstrap-server.sh` copia la carpeta a `~/luxtimee` y el job `vps-scripts` pasa shellcheck sobre `deploy/vps/*.sh`. En un VPS ya creado, copia el archivo nuevo antes de usarlo:
+
+```bash
+scp deploy/vps/fingerprints-backfill.sh deploy@<IP>:~/luxtimee/
+```
+
+Después de desplegar la imagen que incluye el script, como usuario `deploy`:
+
+```bash
+cd ~/luxtimee
+bash ./backup-supabase.sh
+bash ./fingerprints-backfill.sh status
+bash ./fingerprints-backfill.sh apply
+```
+
+`status` solo cuenta (no descarga ni escribe). `apply` exige un `luxtimee-*.dump` de las últimas 2 horas, muestra ese conteo y pide escribir `HUELLAS` en la terminal (`ssh -t`). Dentro del contenedor solo corre si `CONFIRM_PROD_FINGERPRINTS=SI`. No hay migración nueva.
+
 ---
 
 ## Variables de Vercel (web)
