@@ -9,6 +9,7 @@ import { useWatchBulkDraftStore } from '~/stores/watch-bulk-draft';
 const Draggable = defineAsyncComponent(() => import('vuedraggable'));
 
 const store = useWatchBulkDraftStore();
+const { confirm } = useConfirm();
 const open = ref(false);
 const narrow = ref(false);
 const input = ref<HTMLInputElement | null>(null);
@@ -19,15 +20,36 @@ function syncNarrow() {
   narrow.value = window.matchMedia('(max-width: 768px)').matches;
 }
 
+function blockFileNavigation(event: DragEvent) {
+  const types = event.dataTransfer?.types;
+  if (types && Array.from(types).includes('Files')) event.preventDefault();
+}
+
 onMounted(() => {
   store.hydrate();
   syncNarrow();
   window.addEventListener('resize', syncNarrow);
+  window.addEventListener('dragover', blockFileNavigation);
+  window.addEventListener('drop', blockFileNavigation);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', syncNarrow);
+  window.removeEventListener('dragover', blockFileNavigation);
+  window.removeEventListener('drop', blockFileNavigation);
 });
+
+async function removeFailedJob(id: string) {
+  const ok = await confirm('Se quita de la cola; no borra ningún reloj.');
+  if (!ok) return;
+  await store.remove(id);
+}
+
+async function removeFailedJobs() {
+  const ok = await confirm('Se quita de la cola; no borra ningún reloj.');
+  if (!ok) return;
+  await store.removeFailed();
+}
 
 const readyCount = computed(() => store.preview?.pairs.length ?? 0);
 const reviewing = ref(false);
@@ -221,6 +243,14 @@ function close() {
     >
       Reintentar todas
     </button>
+    <button
+      v-if="store.failedCount && !open"
+      type="button"
+      class="admin-pagination-btn"
+      @click="removeFailedJobs()"
+    >
+      Quitar fallidos
+    </button>
     <ul v-if="store.activeJobs.length" class="admin-bulk-draft-list">
       <li
         v-for="job in store.activeJobs"
@@ -239,6 +269,14 @@ function close() {
           @click="store.retry(job.id)"
         >
           Reintentar
+        </button>
+        <button
+          v-if="job.status === 'error'"
+          type="button"
+          class="admin-pagination-btn"
+          @click="removeFailedJob(job.id)"
+        >
+          Quitar
         </button>
       </li>
     </ul>
@@ -411,6 +449,9 @@ function close() {
           </p>
           <button v-if="store.failedCount" type="button" class="admin-pagination-btn" @click="store.retryFailed()">
             Reintentar todas
+          </button>
+          <button v-if="store.failedCount" type="button" class="admin-pagination-btn" @click="removeFailedJobs()">
+            Quitar fallidos
           </button>
         </template>
 

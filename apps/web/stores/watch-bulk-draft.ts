@@ -16,6 +16,14 @@ import { moveItem, pairInOrder, sortByNaturalName } from '~/utils/bulk-photo-arr
 import { compressCatalogImage } from '~/utils/catalog-image';
 import { invalidateStorefrontCatalogCaches } from '~/utils/storefront-cache';
 import { retryAfterMs } from '~/utils/draft-image';
+import {
+  BULK_DRAFT_MISSING_PHOTO,
+  BULK_DRAFT_QUOTA_MESSAGE,
+  decideBulkDraftRetry,
+  bulkDraftPhotosMissing,
+  bulkDraftUploadErrorMessage,
+  isQuotaExceededError,
+} from '~/utils/bulk-draft-retry';
 
 export type BulkDraftStatus = BulkDraftQueueStatus;
 
@@ -32,6 +40,7 @@ type BulkDraftRuntime = {
 
 let runtime: BulkDraftRuntime | null = null;
 let swapTail: Promise<void> = Promise.resolve();
+let storagePersistRequested = false;
 
 export function bindWatchBulkDraftRuntime(next: BulkDraftRuntime) {
   runtime = next;
@@ -121,6 +130,31 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function waitUntilOnline(): Promise<void> {
+  if (typeof navigator === 'undefined' || navigator.onLine !== false) return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => {
+      window.removeEventListener('online', done);
+      resolve();
+    };
+    window.addEventListener('online', done);
+  });
+}
+
+function isFetchFailure(error: unknown): boolean {
+  if (!error || typeof error !== 'object' || 'statusCode' in error) return false;
+  const name = error instanceof Error ? error.name : '';
+  return error instanceof TypeError || name === 'TimeoutError' || name === 'AbortError';
+}
+
+function askPersistStorage() {
+  if (storagePersistRequested || typeof navigator === 'undefined') return;
+  storagePersistRequested = true;
+  const persist = navigator.storage?.persist?.bind(navigator.storage);
+  if (!persist) return;
+  void Promise.resolve(persist()).catch(() => undefined);
+}
+
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, 1);
@@ -134,13 +168,18 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
+function rejectIdb(reject: (reason: unknown) => void, error: DOMException | null) {
+  reject(error ?? new Error('IndexedDB'));
+}
+
 async function idbPut(id: string, value: StoredPair) {
   const db = await openDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(DB_STORE, 'readwrite');
     tx.objectStore(DB_STORE).put(value, id);
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB'));
+    tx.onerror = () => rejectIdb(reject, tx.error);
+    tx.onabort = () => rejectIdb(reject, tx.error);
   });
   db.close();
 }
@@ -163,7 +202,8 @@ async function idbDelete(id: string) {
     const tx = db.transaction(DB_STORE, 'readwrite');
     tx.objectStore(DB_STORE).delete(id);
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB'));
+    tx.onerror = () => rejectIdb(reject, tx.error);
+    tx.onabort = () => rejectIdb(reject, tx.error);
   });
   db.close();
 }
@@ -426,6 +466,8 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
       } catch (error) {
         if (import.meta.client) localStorage.removeItem(PREVIEW_KEY);
         await Promise.all(written.map((id) => idbDelete(id).catch(() => undefined)));
+        this.prepareLabel = '';
+        if (isQuotaExceededError(error)) throw new Error(BULK_DRAFT_QUOTA_MESSAGE);
         throw error;
       }
     },
@@ -463,6 +505,7 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
         const preview = this.preview;
         if (!preview) return;
         if (preview.orphan) void idbDelete(preview.orphan.id).catch(() => undefined);
+        askPersistStorage();
         const jobs: BulkDraftJob[] = preview.pairs.map((pair) => ({
           id: pair.id,
           batchId: pair.batchId,
@@ -656,6 +699,22 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
       }
     },
 
+    async remove(id: string) {
+      const job = this.jobs.find((item) => item.id === id);
+      if (!job || job.status === 'running') return;
+      this.jobs = this.jobs.filter((item) => item.id !== id);
+      this.persist();
+      await idbDelete(id).catch(() => undefined);
+    },
+
+    async removeFailed() {
+      const failed = this.jobs.filter((job) => job.status === 'error');
+      if (!failed.length) return;
+      this.jobs = this.jobs.filter((job) => job.status !== 'error');
+      this.persist();
+      await Promise.all(failed.map((job) => idbDelete(job.id).catch(() => undefined)));
+    },
+
     retry(id: string) {
       this._queueRetries(new Set([id]));
     },
@@ -708,10 +767,10 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
           if (job.status === 'running' && job.progress < 88) job.progress += 6;
         }, 200);
         const stored = await idbGet(job.id);
-        if (!stored) {
-          throw new Error('Faltan las fotos en este navegador. Vuelve a elegir el par.');
+        if (bulkDraftPhotosMissing(stored)) {
+          throw new Error(BULK_DRAFT_MISSING_PHOTO);
         }
-        const payload = await this._post(job, stored);
+        const payload = await this._post(job, stored!);
         job.progress = 100;
         job.status = 'done';
         job.watchId = typeof payload?.id === 'string' ? payload.id : undefined;
@@ -738,45 +797,81 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
       const uploadBase = currentUploadBase();
       const auth = useAuthStore();
       const crossOrigin = /^https?:\/\//i.test(uploadBase) && !uploadBase.startsWith('/');
-      let token = await inAppContext(() => auth.ensureUploadToken());
+      let token = '';
       let authRetried = false;
       let rateRetries = 0;
+      let transientRetries = 0;
 
-      while (rateRetries < 12) {
-        const body = new FormData();
-        body.append('image1', new File([stored.front], job.frontName, { type: stored.frontType || 'image/jpeg' }));
-        if (stored.back) {
-          body.append('image2', new File([stored.back], job.backName || 'dorso.jpg', { type: stored.backType || 'image/jpeg' }));
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        await waitUntilOnline();
+        try {
+          if (!token) token = await inAppContext(() => auth.ensureUploadToken());
+          const body = new FormData();
+          body.append('image1', new File([stored.front], job.frontName, { type: stored.frontType || 'image/jpeg' }));
+          if (stored.back) {
+            body.append('image2', new File([stored.back], job.backName || 'dorso.jpg', { type: stored.backType || 'image/jpeg' }));
+          }
+          body.append('idempotencyKey', job.idempotencyKey);
+          const response = await fetch(`${uploadBase}/watches/bulk-draft`, {
+            method: 'POST',
+            body,
+            credentials: crossOrigin ? 'omit' : 'include',
+            signal: AbortSignal.timeout(120_000),
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          if (response.status === 401 && !authRetried) {
+            authRetried = true;
+            token = await inAppContext(() => auth.ensureUploadToken(true));
+            continue;
+          }
+          if (response.status === 429) {
+            rateRetries += 1;
+            if (rateRetries >= 12) throw new Error('Demasiadas solicitudes. Reintenta el par.');
+            await delay(retryAfterMs(response.headers.get('Retry-After')));
+            continue;
+          }
+          const payload = await response.json().catch(() => null) as { id?: string; message?: string } | null;
+          if (!response.ok) {
+            const missing = bulkDraftUploadErrorMessage(response.status, payload);
+            if (missing) throw new Error(missing);
+            const decision = decideBulkDraftRetry({
+              attempt: transientRetries,
+              status: response.status,
+            }, Math.random());
+            if (decision.action === 'retry') {
+              transientRetries += 1;
+              await delay(decision.delayMs);
+              continue;
+            }
+            throw {
+              statusCode: response.status,
+              data: payload,
+              message: payload?.message,
+            };
+          }
+          return payload;
+        } catch (error) {
+          if (!isFetchFailure(error)) throw error;
+          const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+          const decision = decideBulkDraftRetry({
+            attempt: transientRetries,
+            offline,
+            isTypeError: error instanceof TypeError,
+            errorName: error instanceof Error ? error.name : undefined,
+          }, Math.random());
+          if (decision.action === 'pause') {
+            await waitUntilOnline();
+            continue;
+          }
+          if (decision.action === 'retry') {
+            transientRetries += 1;
+            await delay(decision.delayMs);
+            continue;
+          }
+          throw error;
         }
-        body.append('idempotencyKey', job.idempotencyKey);
-        const response = await fetch(`${uploadBase}/watches/bulk-draft`, {
-          method: 'POST',
-          body,
-          credentials: crossOrigin ? 'omit' : 'include',
-          signal: AbortSignal.timeout(120_000),
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (response.status === 401 && !authRetried) {
-          authRetried = true;
-          token = await inAppContext(() => auth.ensureUploadToken(true));
-          continue;
-        }
-        if (response.status === 429) {
-          rateRetries += 1;
-          await delay(retryAfterMs(response.headers.get('Retry-After')));
-          continue;
-        }
-        const payload = await response.json().catch(() => null) as { id?: string; message?: string } | null;
-        if (!response.ok) {
-          throw {
-            statusCode: response.status,
-            data: payload,
-            message: payload?.message,
-          };
-        }
-        return payload;
       }
-      throw new Error('Demasiadas solicitudes. Reintenta el par.');
     },
 
     clearFinished() {
