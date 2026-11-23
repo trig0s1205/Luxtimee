@@ -83,6 +83,12 @@ const mediaQueue = useMediaUploadStore();
 const bulkDelete = useWatchBulkDeleteStore();
 const bulkDraft = useWatchBulkDraftStore();
 
+async function removeFailedDraft(id: string) {
+  const ok = await confirm('Se quita de la cola; no borra ningún reloj.');
+  if (!ok) return;
+  await bulkDraft.remove(id);
+}
+
 const selectionMode = ref(false);
 const selectingAll = ref(false);
 const selected = ref<Record<string, { model: string; brandName: string }>>({});
@@ -630,6 +636,14 @@ async function finishBulkDelete() {
           @click="bulkDraft.retry(job.id)"
         >
           Reintentar
+        </button>
+        <button
+          v-if="job.status === 'error'"
+          type="button"
+          class="admin-pagination-btn"
+          @click="removeFailedDraft(job.id)"
+        >
+          Quitar
         </button>
       </li>
     </ul>

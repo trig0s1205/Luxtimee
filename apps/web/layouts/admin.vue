@@ -105,6 +105,53 @@ onMounted(() => {
 });
 
 const bulkDraft = useWatchBulkDraftStore();
+const holdBulkSession = computed(() => bulkDraft.pendingCount > 0 || Boolean(bulkDraft.preview));
+let bulkWakeLock: WakeLockSentinel | null = null;
+
+function warnBulkUnload(event: BeforeUnloadEvent) {
+  event.preventDefault();
+  event.returnValue = '';
+}
+
+async function acquireBulkWakeLock() {
+  if (!holdBulkSession.value || document.visibilityState !== 'visible') return;
+  if (!navigator.wakeLock?.request) return;
+  try {
+    bulkWakeLock = await navigator.wakeLock.request('screen');
+  } catch {
+    bulkWakeLock = null;
+  }
+}
+
+function releaseBulkWakeLock() {
+  const current = bulkWakeLock;
+  bulkWakeLock = null;
+  void current?.release().catch(() => undefined);
+}
+
+function onBulkVisibility() {
+  if (document.visibilityState === 'visible') void acquireBulkWakeLock();
+}
+
+watch(holdBulkSession, (hold) => {
+  if (!import.meta.client) return;
+  if (hold) {
+    window.addEventListener('beforeunload', warnBulkUnload);
+    document.addEventListener('visibilitychange', onBulkVisibility);
+    void acquireBulkWakeLock();
+  } else {
+    window.removeEventListener('beforeunload', warnBulkUnload);
+    document.removeEventListener('visibilitychange', onBulkVisibility);
+    releaseBulkWakeLock();
+  }
+}, { immediate: true });
+
+onBeforeUnmount(() => {
+  if (!import.meta.client) return;
+  window.removeEventListener('beforeunload', warnBulkUnload);
+  document.removeEventListener('visibilitychange', onBulkVisibility);
+  releaseBulkWakeLock();
+});
 const bulkNotice = computed(() => {
   if (!auth.isStaff) return '';
   const pending = bulkDraft.pendingCount;
