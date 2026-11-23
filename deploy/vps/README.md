@@ -26,6 +26,7 @@ Plan B (sin VPS): `deploy/render/` (arranque en frío, 512 MB).
 | `ghcr-login.sh` | deploy, login GHCR + verifica tag |
 | `backup-supabase.sh` | deploy, **antes** de migrar |
 | `migrate.sh` | deploy, `status` \| `deploy` |
+| `fingerprints-backfill.sh` | deploy, una vez: `status` (dry-run) \| `apply` (huellas Cloudinary) |
 | `deploy.sh` / `rollback.sh` | deploy, levanta / revierte tag `sha-…` |
 | `smoke-test.sh` / `smoke-test-web.sh` | deploy o PC con bash |
 | `ship-image.ps1` | PC (plan B si falla GHCR) |
