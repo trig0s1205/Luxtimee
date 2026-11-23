@@ -47,8 +47,8 @@ export function useImageDuplicateGuard() {
     ) {
       views.unshift({
         key: 'peer',
-        title: 'En este formulario',
-        detail: slot === 'primary' ? 'También es la foto secundaria' : 'También es la foto principal',
+        kind: 'exact',
+        caption: slot === 'primary' ? 'También es la secundaria' : 'También es la principal',
       });
     }
     return views;
@@ -104,6 +104,17 @@ export function useImageDuplicateGuard() {
     slots[slot].decision = 'keep';
   }
 
+  function swapSlots() {
+    const primary = { ...slots.primary, stored: [...slots.primary.stored], hits: [...slots.primary.hits] };
+    const secondary = { ...slots.secondary, stored: [...slots.secondary.stored], hits: [...slots.secondary.hits] };
+    Object.assign(slots.primary, secondary);
+    Object.assign(slots.secondary, primary);
+    const token = generation.primary;
+    generation.primary = generation.secondary;
+    generation.secondary = token;
+    syncHits();
+  }
+
   async function settle() {
     const started = Date.now();
     while ((slots.primary.checking || slots.secondary.checking) && Date.now() - started < 15_000) {
@@ -116,6 +127,7 @@ export function useImageDuplicateGuard() {
     slots,
     inspect,
     keep,
+    swapSlots,
     settle,
   };
 }

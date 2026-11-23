@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 import { compareFingerprints, fingerprintImageBytes } from '@luxtime/shared';
+import { assignExistingWatchImages } from './assign-existing-watch-images';
 import { WatchesRepository } from './watches.repository';
 import {
   CreateWatchDto,
@@ -407,12 +408,33 @@ export class WatchesService {
       data.faqs = normalizeFaqItems(
         dto.faqs,
       ) as unknown as Prisma.InputJsonValue;
-    if (dto.images) {
+    let fingerprintSlots: Array<{ imageUrl: string; slot: 'front' | 'back' }> | null = null;
+    if (dto.primaryImageUrl !== undefined || dto.secondaryImageUrl !== undefined) {
+      let assigned;
+      try {
+        assigned = assignExistingWatchImages(
+        existing,
+        dto.primaryImageUrl,
+        dto.secondaryImageUrl,
+      );
+      data.primaryImageUrl = assigned.primaryImageUrl || null;
+      data.secondaryImageUrl = assigned.secondaryImageUrl || null;
+      data.frontImageUrl = assigned.frontImageUrl || null;
+      data.backImageUrl = assigned.backImageUrl || null;
+      data.images = assigned.images;
+      data.mainImageIndex = assigned.mainImageIndex;
+      fingerprintSlots = assigned.fingerprintSlots;
+      } catch (error) {
+        throw new BadRequestException(
+          error instanceof Error ? error.message : 'No se pudieron reordenar las fotos',
+        );
+      }
+    } else if (dto.images) {
       data.images = dto.images;
       data.frontImageUrl =
         dto.images[dto.mainImageIndex ?? existing.mainImageIndex] ?? null;
     }
-    if (dto.mainImageIndex !== undefined) {
+    if (dto.mainImageIndex !== undefined && !fingerprintSlots) {
       data.mainImageIndex = dto.mainImageIndex;
       const images = dto.images ?? existing.images;
       data.frontImageUrl = images[dto.mainImageIndex] ?? null;
@@ -443,6 +465,9 @@ export class WatchesService {
     // El SKU es inmutable desde su creación: está impreso en las etiquetas con código de barras (POS).
 
     const watch = await this.watchesRepository.update(id, data);
+    if (fingerprintSlots?.length) {
+      await this.watchesRepository.reassignImageFingerprintSlots(id, fingerprintSlots);
+    }
     this.logger.log(`[watches:update] ${watch.id} sku=${watch.sku}`);
     this.cache.invalidateTag(CACHE_TAGS.catalog);
     return watch;

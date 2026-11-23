@@ -75,6 +75,15 @@ export function useAdminWatchEditSubmit() {
       careTemplateId: form.careTemplateId || '',
     };
 
+    const originalPrimary = editingWatch.primaryImageUrl || editingWatch.frontImageUrl || editingWatch.images?.[0];
+    const originalSecondary = editingWatch.secondaryImageUrl || editingWatch.backImageUrl || editingWatch.images?.[1];
+    if (!hasNewPrimaryImage && form.primaryImageUrl && form.primaryImageUrl !== originalPrimary) {
+      payload.primaryImageUrl = form.primaryImageUrl;
+    }
+    if (!hasNewSecondaryImage && form.secondaryImageUrl && form.secondaryImageUrl !== originalSecondary) {
+      payload.secondaryImageUrl = form.secondaryImageUrl;
+    }
+
     if (form.cost !== undefined) {
       payload.cost = Number(form.cost);
     }
