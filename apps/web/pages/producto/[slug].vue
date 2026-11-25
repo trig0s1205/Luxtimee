@@ -16,7 +16,7 @@ const cart = useCartStore();
 const analytics = useAnalytics();
 const { t } = useLocale();
 const { openChat, loadSettings } = useWhatsApp();
-const { watchPrimaryImage, watchSecondaryImage, watchVideoUrl } = useMediaUrl();
+const { watchPrimaryImage, watchSecondaryImage } = useMediaUrl();
 
 const { data: watch, error, pending, refresh } = await useCachedAsyncData(
   () => `product-detail-${slug.value}`,
@@ -143,7 +143,6 @@ function buyOnWhatsApp() {
         <CatalogProductGallery
           :front-url="watchPrimaryImage(watch)"
           :back-url="watchSecondaryImage(watch)"
-          :video-url="watchVideoUrl(watch)"
           :alt="`${watch.brand.name} ${watch.model}`"
         />
       </div>

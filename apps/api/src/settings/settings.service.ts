@@ -576,7 +576,7 @@ export class SettingsService {
 
   async deleteFounderImage(url: string): Promise<void> {
     if (url.includes('res.cloudinary.com')) {
-      await this.imageProcessing.deleteCloudinaryAsset(url, 'image');
+      await this.imageProcessing.deleteCloudinaryAsset(url);
       return;
     }
 

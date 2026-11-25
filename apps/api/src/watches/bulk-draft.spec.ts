@@ -43,7 +43,6 @@ function image(name: string, buffer = jpeg, mimetype = 'image/jpeg') {
 function serviceWith(repo: Record<string, jest.Mock>, images?: Record<string, jest.Mock>) {
   const imageProcessing = {
     uploadToCloudinary: jest.fn(),
-    uploadVideoToCloudinary: jest.fn(),
     deleteCloudinaryAsset: jest.fn().mockResolvedValue(undefined),
     ...images,
   };

@@ -56,7 +56,6 @@ export function sellableWatchSql() {
       OR btrim(coalesce(w."backImageUrl", '')) <> ''
       OR coalesce(cardinality(w.images), 0) >= 2
     )
-    AND btrim(coalesce(w."videoUrl", '')) <> ''
     AND (
       btrim(coalesce(w."movementType", '')) <> ''
       OR w."mechanismId" IS NOT NULL

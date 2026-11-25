@@ -1,4 +1,4 @@
-export type ImportPhotoSlot = 'front' | 'back' | 'video';
+export type ImportPhotoSlot = 'front' | 'back';
 
 export type ParsedImportMedia = {
   importKey: string;
@@ -7,8 +7,8 @@ export type ParsedImportMedia = {
 };
 
 /**
- * Convenciones: NNN_1_frente.jpg, NNN_2_dorso.jpg, NNN_video.mp4
- * También: NNN-frente, NNN-dorso, NNN_1, NNN_2; jpg/jpeg/png/webp/mp4.
+ * Convenciones: NNN_1_frente.jpg, NNN_2_dorso.jpg
+ * También: NNN-frente, NNN-dorso, NNN_1, NNN_2; jpg/jpeg/png/webp.
  */
 export function parseImportMediaFileName(
   fileName: string,
@@ -18,12 +18,8 @@ export function parseImportMediaFileName(
   if (!keyMatch) return null;
   const importKey = keyMatch[1];
   const lower = base.toLowerCase();
-  const ext = (lower.match(/\.(jpe?g|png|webp|mp4)$/) || [])[1];
+  const ext = (lower.match(/\.(jpe?g|png|webp)$/) || [])[1];
   if (!ext) return null;
-
-  if (ext === 'mp4' || /(?:^|[_-])video(?:[_./-]|$)/i.test(lower)) {
-    return { importKey, slot: 'video', fileName: base };
-  }
 
   const isFront =
     /frente/i.test(lower) ||
@@ -51,7 +47,6 @@ export type GroupedImportMedia = {
   importKey: string;
   front?: File;
   back?: File;
-  video?: File;
 };
 
 export function groupImportMediaFiles(files: File[]): {
@@ -68,8 +63,7 @@ export function groupImportMediaFiles(files: File[]): {
     }
     const g = map.get(parsed.importKey) || { importKey: parsed.importKey };
     if (parsed.slot === 'front') g.front = file;
-    else if (parsed.slot === 'back') g.back = file;
-    else g.video = file;
+    else g.back = file;
     map.set(parsed.importKey, g);
   }
   return {

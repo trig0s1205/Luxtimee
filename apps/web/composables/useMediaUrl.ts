@@ -1,4 +1,4 @@
-import { resolveMediaUrl, watchPrimaryImage, watchSecondaryImage, watchVideoUrl } from '~/utils/media-url';
+import { resolveMediaUrl, watchPrimaryImage, watchSecondaryImage } from '~/utils/media-url';
 
 export function useMediaUrl() {
   const config = useRuntimeConfig();
@@ -10,7 +10,5 @@ export function useMediaUrl() {
       watchPrimaryImage(watch, assetsBaseUrl),
     watchSecondaryImage: (watch: Parameters<typeof watchSecondaryImage>[0]) =>
       watchSecondaryImage(watch, assetsBaseUrl),
-    watchVideoUrl: (watch: Parameters<typeof watchVideoUrl>[0]) =>
-      watchVideoUrl(watch, assetsBaseUrl),
   };
 }

@@ -13,15 +13,13 @@ const complete = {
   movementType: 'Cuarzo',
   primaryImageUrl: 'a',
   secondaryImageUrl: 'b',
-  videoUrl: 'v',
 };
 
 test('stock cero es agotado, no incompleto', () => {
   assert.equal(isWatchIncomplete(complete), false);
 });
 
-test('sin descripción o sin video queda incompleto', () => {
+test('sin descripción queda incompleto', () => {
   assert.equal(isWatchIncomplete({ ...complete, description: '  ' }), true);
-  assert.equal(isWatchIncomplete({ ...complete, videoUrl: '' }), true);
   assert.equal(isWatchIncomplete({ ...complete, model: 'Pendiente de completar' }), true);
 });

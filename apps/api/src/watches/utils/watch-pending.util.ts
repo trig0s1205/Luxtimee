@@ -10,7 +10,6 @@ export type PendingFieldCode =
   | 'stock'
   | 'primaryImage'
   | 'secondaryImage'
-  | 'video'
   | 'movement'
   | 'cost';
 
@@ -34,7 +33,6 @@ export type WatchPendingShape = {
   secondaryImageUrl?: string | null;
   frontImageUrl?: string | null;
   backImageUrl?: string | null;
-  videoUrl?: string | null;
   images?: string[];
   cost?: number | null;
 };
@@ -89,9 +87,6 @@ export function getMissingGeneralFields(
   }
   if (!hasSecondaryImage(watch)) {
     missing.push({ code: 'secondaryImage', label: 'Foto secundaria' });
-  }
-  if (!watch.videoUrl?.trim()) {
-    missing.push({ code: 'video', label: 'Video' });
   }
   const movement = (watch.movementType ?? '').trim();
   if (!movement && !watch.mechanismId) {

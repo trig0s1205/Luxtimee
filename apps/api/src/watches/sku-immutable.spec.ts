@@ -33,7 +33,6 @@ describe('SKU inmutable', () => {
       primaryImageUrl: 'a.jpg',
       secondaryImageUrl: null,
       backImageUrl: null,
-      videoUrl: 'v.mp4',
       draftReady: true,
       caseMaterial: null,
       dialColor: null,

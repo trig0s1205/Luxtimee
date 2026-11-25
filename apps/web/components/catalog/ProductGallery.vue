@@ -1,7 +1,6 @@
 <script setup lang="ts">
 type GallerySlide = {
   key: string;
-  type: 'image' | 'video';
   src: string;
   label: string;
 };
@@ -9,7 +8,6 @@ type GallerySlide = {
 const props = defineProps<{
   frontUrl?: string | null;
   backUrl?: string | null;
-  videoUrl?: string | null;
   alt: string;
 }>();
 
@@ -18,9 +16,8 @@ const touchStartX = ref(0);
 
 const slides = computed<GallerySlide[]>(() => {
   const items: GallerySlide[] = [];
-  if (props.frontUrl) items.push({ key: 'front', type: 'image', src: props.frontUrl, label: 'Frontal' });
-  if (props.backUrl) items.push({ key: 'back', type: 'image', src: props.backUrl, label: 'Trasera' });
-  if (props.videoUrl) items.push({ key: 'video', type: 'video', src: props.videoUrl, label: 'Video' });
+  if (props.frontUrl) items.push({ key: 'front', src: props.frontUrl, label: 'Frontal' });
+  if (props.backUrl) items.push({ key: 'back', src: props.backUrl, label: 'Trasera' });
   return items;
 });
 
@@ -59,7 +56,6 @@ function onTouchEnd(e: TouchEvent) {
   <div v-if="slides.length" class="product-gallery">
     <div
       class="product-gallery__stage"
-      :class="{ 'product-gallery__stage--video': activeSlide?.type === 'video' }"
       @touchstart.passive="onTouchStart"
       @touchend.passive="onTouchEnd"
     >
@@ -83,17 +79,8 @@ function onTouchEnd(e: TouchEvent) {
       </button>
 
       <Transition name="product-gallery-fade" mode="out-in">
-        <video
-          v-if="activeSlide?.type === 'video'"
-          :key="activeSlide.key"
-          :src="activeSlide.src"
-          class="product-gallery__media product-gallery__media--video"
-          controls
-          playsinline
-          preload="metadata"
-        />
         <img
-          v-else-if="activeSlide"
+          v-if="activeSlide"
           :key="activeSlide.key"
           :src="activeSlide.src"
           :alt="alt"
@@ -152,28 +139,10 @@ function onTouchEnd(e: TouchEvent) {
   border: var(--border-hairline);
 }
 
-.product-gallery__stage--video {
-  aspect-ratio: auto;
-  height: auto;
-  display: block;
-  overflow: visible;
-  background: transparent;
-  border-color: transparent;
-}
-
 .product-gallery__media {
   width: 100%;
   height: 100%;
   object-fit: contain;
-}
-
-.product-gallery__media--video {
-  display: block;
-  width: 100%;
-  height: auto;
-  object-fit: contain;
-  background: transparent;
-  vertical-align: top;
 }
 
 .product-gallery__arrow {

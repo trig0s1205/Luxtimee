@@ -5,14 +5,14 @@ import {
   parseImportMediaFileName,
 } from './import-photo-names';
 
-test('acepta variantes de frente/dorso/video', () => {
+test('acepta variantes de frente/dorso', () => {
   assert.deepEqual(parseImportMediaFileName('001_1_frente.jpg'), {
     importKey: '001',
     slot: 'front',
     fileName: '001_1_frente.jpg',
   });
   assert.equal(parseImportMediaFileName('001_2_dorso.jpg')?.slot, 'back');
-  assert.equal(parseImportMediaFileName('001_video.mp4')?.slot, 'video');
+  assert.equal(parseImportMediaFileName('001_video.mp4'), null);
   assert.equal(parseImportMediaFileName('001-frente.jpeg')?.slot, 'front');
   assert.equal(parseImportMediaFileName('001-dorso.png')?.slot, 'back');
   assert.equal(parseImportMediaFileName('001_1.webp')?.slot, 'front');
