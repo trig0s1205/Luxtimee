@@ -5,6 +5,7 @@ import { extractApiErrorMessage, isAbortError, isBadRequest } from '~/utils/api-
 import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
 import { invalidateStorefrontCatalogCaches } from '~/utils/storefront-cache';
 import { searchEmptyMessage } from '~/utils/search-empty';
+import { INVENTORY_PAGE_SIZE, loadInventoryCount, mergeInventoryPage } from '~/utils/inventory-pagination';
 const AdminWatchFormLazy = defineAsyncComponent(() => import('~/components/admin/AdminWatchForm.vue'));
 
 type WatchFormPayload = {
@@ -45,8 +46,7 @@ const { confirm } = useConfirm();
 const auth = useAuthStore();
 const catalogStore = useAdminCatalogStore();
 
-const PAGE_SIZE = 30;
-const loadPages = ref(1);
+const loadedPages = ref(1);
 
 const query = reactive({
   search: '',
@@ -60,15 +60,12 @@ function onSearchInput() {
   if (searchDebounce) clearTimeout(searchDebounce);
   searchDebounce = setTimeout(() => {
     query.search = searchInput.value;
-    loadPages.value = 1;
   }, 300);
 }
 
-const fetchQuery = computed(() => ({
+const listFilters = computed(() => ({
   search: query.search || undefined,
   brand: query.brand || undefined,
-  page: 1,
-  limit: PAGE_SIZE * loadPages.value,
 }));
 
 const showForm = ref(false);
@@ -120,42 +117,44 @@ const staffReady = computed(
 const paginated = ref<PaginatedResponse<WatchStaffDto> | null>(null);
 const listPending = ref(false);
 let listAbort: AbortController | null = null;
-let listRequest = 0;
+let listGeneration = 0;
+let pendingToken = 0;
 
-async function refreshWatches(silent = false) {
+async function refreshWatches(silent = false, pages = loadedPages.value) {
   if (!staffReady.value) return;
-  if (silent) {
-    const queryAtStart = JSON.stringify(fetchQuery.value);
-    try {
-      const res = await api.get<PaginatedResponse<WatchStaffDto>>(
-        '/watches',
-        fetchQuery.value as Record<string, string | number | boolean | undefined>,
-      );
-      if (queryAtStart !== JSON.stringify(fetchQuery.value)) return;
-      paginated.value = res;
-    } catch {
-      /* refresco silencioso */
-    }
-    return;
+  const generation = silent ? listGeneration : ++listGeneration;
+  const token = silent ? 0 : ++pendingToken;
+  let controller: AbortController | null = null;
+  if (!silent) {
+    listAbort?.abort();
+    controller = new AbortController();
+    listAbort = controller;
+    listPending.value = true;
   }
-  const requestId = ++listRequest;
-  listAbort?.abort();
-  const controller = new AbortController();
-  listAbort = controller;
-  listPending.value = true;
+  const filters = { ...listFilters.value };
   try {
-    const res = await api.get<PaginatedResponse<WatchStaffDto>>(
-      '/watches',
-      fetchQuery.value as Record<string, string | number | boolean | undefined>,
-      { signal: controller.signal },
+    const loaded = await loadInventoryCount<WatchStaffDto>(
+      Math.max(1, pages) * INVENTORY_PAGE_SIZE,
+      (page, limit) => api.get<PaginatedResponse<WatchStaffDto>>(
+        '/watches',
+        { ...filters, page, limit },
+        controller ? { signal: controller.signal } : undefined,
+      ),
+      { pageSize: 100, isStale: () => generation !== listGeneration },
     );
-    if (requestId !== listRequest) return;
-    paginated.value = res;
+    if (loaded.stale || generation !== listGeneration) return;
+    loadedPages.value = Math.max(1, Math.ceil(loaded.data.length / INVENTORY_PAGE_SIZE));
+    paginated.value = {
+      data: loaded.data,
+      total: loaded.total,
+      page: 1,
+      limit: loaded.data.length || INVENTORY_PAGE_SIZE,
+    };
   } catch (err: unknown) {
-    if (requestId !== listRequest || isAbortError(err)) return;
-    toast.error(extractApiErrorMessage(err, 'No se pudo cargar el inventario'));
+    if (generation !== listGeneration || isAbortError(err)) return;
+    if (!silent) toast.error(extractApiErrorMessage(err, 'No se pudo cargar el inventario'));
   } finally {
-    if (requestId === listRequest) listPending.value = false;
+    if (!silent && token === pendingToken) listPending.value = false;
   }
 }
 
@@ -206,12 +205,14 @@ watch(staffReady, (ready) => {
     void loadCatalogMeta();
     void refreshInsights();
     void refreshCare();
+    void refreshWatches();
   }
 }, { immediate: true });
 
-watch(fetchQuery, () => {
-  if (staffReady.value) void refreshWatches();
-}, { deep: true, immediate: true });
+watch(listFilters, () => {
+  loadedPages.value = 1;
+  if (staffReady.value) void refreshWatches(false, 1);
+}, { deep: true });
 
 useLiveRefresh(() => refreshWatches(true), {
   intervalMs: 30_000,
@@ -250,12 +251,37 @@ async function reloadInventory() {
   await Promise.all([refreshWatches(), refreshInsights()]);
 }
 
-watch(() => query.brand, () => {
-  loadPages.value = 1;
-});
-
-function loadMore() {
-  loadPages.value += 1;
+async function loadMore() {
+  if (listPending.value || !hasMore.value) return;
+  const generation = ++listGeneration;
+  const token = ++pendingToken;
+  listAbort?.abort();
+  const controller = new AbortController();
+  listAbort = controller;
+  listPending.value = true;
+  const filters = { ...listFilters.value };
+  const page = loadedPages.value + 1;
+  try {
+    const res = await api.get<PaginatedResponse<WatchStaffDto>>(
+      '/watches',
+      { ...filters, page, limit: INVENTORY_PAGE_SIZE },
+      { signal: controller.signal },
+    );
+    if (generation !== listGeneration) return;
+    const data = mergeInventoryPage(paginated.value?.data ?? [], res.data);
+    loadedPages.value = page;
+    paginated.value = {
+      data,
+      total: res.total,
+      page: 1,
+      limit: data.length || INVENTORY_PAGE_SIZE,
+    };
+  } catch (err: unknown) {
+    if (generation !== listGeneration || isAbortError(err)) return;
+    toast.error(extractApiErrorMessage(err, 'No se pudo cargar el inventario'));
+  } finally {
+    if (token === pendingToken) listPending.value = false;
+  }
 }
 
 function openCreate() {
@@ -468,7 +494,7 @@ async function selectAllFiltered() {
   try {
     const collected: Record<string, { model: string; brandName: string }> = {};
     let page = 1;
-    do {
+    for (;;) {
       const res = await api.get<PaginatedResponse<WatchStaffDto>>('/watches', {
         search: query.search || undefined,
         brand: query.brand || undefined,
@@ -479,9 +505,9 @@ async function selectAllFiltered() {
       for (const watch of res.data) {
         collected[watch.id] = { model: watch.model, brandName: watch.brand.name };
       }
-      if (res.data.length < 100) break;
+      if (res.data.length < 100 || Object.keys(collected).length >= res.total) break;
       page += 1;
-    } while (page <= 200);
+    }
     if (token === selectToken) selected.value = collected;
   } catch (err: unknown) {
     if (token === selectToken) toast.error(extractApiErrorMessage(err, 'No se pudo seleccionar el inventario'));
