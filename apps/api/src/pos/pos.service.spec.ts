@@ -17,6 +17,7 @@ function buildService(overrides: {
     {} as never,
     (overrides.receipts ?? {
       issueInTx: jest.fn(async () => ({ id: 'rcpt-1', number: 'LXT-000001' })),
+      loadReceiptConfig: jest.fn(async () => ({ businessName: 'LUXTIMEE' })),
     }) as never,
     (overrides.notifications ?? { emit: jest.fn(async () => undefined) }) as never,
     (overrides.cache ?? { invalidateTag: jest.fn() }) as never,
@@ -77,7 +78,10 @@ describe('PosService.createSale', () => {
     let createdData: Record<string, unknown> | null = null;
 
     const service = buildService({
-      receipts: { issueInTx },
+      receipts: {
+        issueInTx,
+        loadReceiptConfig: jest.fn(async () => ({ businessName: 'LUXTIMEE' })),
+      },
       cache: { invalidateTag },
       notifications: { emit },
       prisma: {
@@ -97,18 +101,19 @@ describe('PosService.createSale', () => {
             },
           ]),
         },
+        order: { findUnique: jest.fn(async () => null) },
         $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
           fn({
-            $queryRaw: jest
-              .fn()
-              .mockResolvedValueOnce([{ max_seq: 0 }])
-              .mockResolvedValueOnce([{ lastValue: 1 }]),
+            documentCounter: { findUnique: jest.fn(async () => ({ lastValue: 4 })) },
+            $queryRaw: jest.fn().mockResolvedValue([{ lastValue: 5 }]),
             order: {
               create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
                 createdData = data;
                 return { id: 'o1', readableId: data.readableId };
               }),
             },
+            orderItem: { createMany: jest.fn(async () => ({ count: 1 })) },
+            orderPayment: { createMany: jest.fn(async () => ({ count: 1 })) },
           }),
         ),
       },
@@ -131,21 +136,14 @@ describe('PosService.createSale', () => {
       [{ watchId: 'w1', quantity: 3 }],
       expect.objectContaining({ requireActive: true }),
     );
-    const items = (createdData?.items as { create: Array<{ quantity: number; unitPrice: number }> })
-      .create;
-    expect(items).toEqual([
-      expect.objectContaining({ quantity: 3, unitPrice: 100_000 }),
-    ]);
-    expect(createdData?.payments).toEqual({
-      create: [
-        expect.objectContaining({
-          method: 'EFECTIVO',
-          amount: 300_000,
-          registeredById: 'seller-1',
-        }),
-      ],
-    });
-    expect(issueInTx).toHaveBeenCalled();
+    expect(createdData).toEqual(
+      expect.objectContaining({ subtotal: 300_000, total: 300_000, customerEmail: null }),
+    );
+    expect(issueInTx).toHaveBeenCalledWith(
+      expect.anything(),
+      'o1',
+      expect.objectContaining({ config: { businessName: 'LUXTIMEE' } }),
+    );
     expect(invalidateTag).toHaveBeenCalledWith(CACHE_TAGS.catalog);
     expect(emit).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'POS_SALE' }),
@@ -156,5 +154,71 @@ describe('PosService.createSale', () => {
       receiptNumber: 'LXT-000001',
       total: 300_000,
     });
+  });
+
+  it('aplica descuentos de línea y de venta y no abre tx si el motivo falta', async () => {
+    const $transaction = jest.fn();
+    const service = buildService({
+      prisma: {
+        watch: {
+          findMany: jest.fn(async () => [
+            {
+              id: 'w1',
+              sku: 'RM-001',
+              model: 'A',
+              reference: null,
+              retailPrice: 100_000,
+              stock: 2,
+              frontImageUrl: null,
+              primaryImageUrl: null,
+              images: [],
+              brand: { name: 'Casio' },
+            },
+          ]),
+        },
+        $transaction,
+      },
+    });
+    await expect(
+      service.createSale(
+        {
+          customer: { name: 'Ana' },
+          items: [{ watchId: 'w1', quantity: 1, discountPercent: 10 }],
+          payments: [{ method: 'EFECTIVO', amount: 90_000, cashReceived: 90_000 }],
+        },
+        user,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect($transaction).not.toHaveBeenCalled();
+  });
+
+  it('devuelve la venta existente si la clave de idempotencia ya está guardada', async () => {
+    const $transaction = jest.fn();
+    const service = buildService({
+      prisma: {
+        order: {
+          findUnique: jest.fn(async () => ({
+            id: 'o1',
+            readableId: 'LX-1',
+            total: 100_000,
+            payments: [{ changeGiven: 0 }],
+            receipt: { id: 'rcpt-1', number: 'LXT-000001' },
+          })),
+        },
+        watch: { findMany: jest.fn() },
+        $transaction,
+      },
+    });
+    const result = await service.createSale(
+      {
+        customer: { name: 'Ana' },
+        items: [{ watchId: 'w1', quantity: 1 }],
+        payments: [{ method: 'EFECTIVO', amount: 1, cashReceived: 1 }],
+        idempotencyKey: '6c1b4b4e-1c1a-4c2a-9c2a-6c1b4b4e1c1a',
+      },
+      user,
+    );
+    expect(result.orderId).toBe('o1');
+    expect($transaction).not.toHaveBeenCalled();
   });
 });

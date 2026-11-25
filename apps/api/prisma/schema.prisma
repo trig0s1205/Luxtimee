@@ -344,7 +344,7 @@ model Order {
   source           OrderSource  @default(WEB)
   customerName     String
   customerAddress  String
-  customerEmail    String
+  customerEmail    String?
   customerPhone    String?
   customerDocument String?
   userId             String?
@@ -354,7 +354,10 @@ model Order {
   depositExpected  Int          @default(0)
   depositConfirmed Boolean      @default(false)
   subtotal         Int          @default(0)
+  discountAmount   Int          @default(0)
+  discountReason   String?
   total            Int          @default(0)
+  posIdempotencyKey String?     @unique
   whatsappMessage  String?      @db.Text
   specialNote              String? @db.Text
   specialSalePrice         Int?
@@ -401,6 +404,7 @@ model OrderItem {
   productImage String?
   quantity     Int
   unitPrice    Int
+  discountAmount Int       @default(0)
   priceType    PriceType
   deliveryNote String?   @db.Text
   extrasSnapshot Json     @default("[]")

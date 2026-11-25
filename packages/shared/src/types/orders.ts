@@ -82,6 +82,7 @@ export interface OrderItemDto {
   watchThumbnail: string | null;
   quantity: number;
   unitPrice: number;
+  discountAmount?: number;
   priceType: PriceType;
   deliveryNote: string | null;
   extrasSnapshot?: Array<{
@@ -103,7 +104,7 @@ export interface OrderDto {
   source: OrderSource;
   customerName: string;
   customerAddress: string;
-  customerEmail: string;
+  customerEmail: string | null;
   customerPhone: string | null;
   customerDocument: string | null;
   sellerName: string | null;
@@ -128,6 +129,8 @@ export interface OrderDto {
   unitCount: number;
   payments: OrderPaymentDto[];
   subtotal: number;
+  discountAmount?: number;
+  discountReason?: string | null;
   total: number;
   whatsappMessage: string | null;
   paidAt: string | null;

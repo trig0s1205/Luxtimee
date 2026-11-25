@@ -30,6 +30,25 @@ const total = ref(0);
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / limit)));
 const isAdmin = computed(() => auth.isStaff || auth.isSuperAdmin);
+const voidTarget = ref<PosMySaleDto | null>(null);
+const voidReason = ref('');
+const voidPending = ref(false);
+
+function sameBogotaDay(iso: string) {
+  const saleDay = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(iso));
+  return saleDay === bogotaToday();
+}
+
+function canVoid(sale: PosMySaleDto) {
+  if (isVoided(sale)) return false;
+  if (isAdmin.value) return true;
+  return sale.sellerId === auth.user?.id && sameBogotaDay(sale.createdAt);
+}
 
 async function load() {
   pending.value = true;
@@ -57,6 +76,24 @@ async function load() {
 
 function isVoided(sale: PosMySaleDto) {
   return sale.receiptVoided || Boolean(sale.receipt?.voidedAt);
+}
+
+async function confirmVoid() {
+  if (!voidTarget.value || voidReason.value.trim().length < 5) return;
+  voidPending.value = true;
+  try {
+    await api.post(`/pos/sales/${voidTarget.value.id}/void`, {
+      reason: voidReason.value.trim(),
+    });
+    toast.success('Venta anulada.');
+    voidTarget.value = null;
+    voidReason.value = '';
+    await load();
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo anular la venta.'));
+  } finally {
+    voidPending.value = false;
+  }
 }
 
 function downloadReceipt(sale: PosMySaleDto) {
@@ -130,6 +167,7 @@ onMounted(() => {
           </div>
           <div class="admin-record-meta">
             <span class="admin-record-amount">{{ formatCop(sale.total) }}</span>
+            <span v-if="sale.discountAmount" class="admin-record-muted">Descuento {{ formatCop(sale.discountAmount) }}</span>
             <span class="admin-record-date">{{ formatWhen(sale.createdAt) }}</span>
             <span class="admin-record-muted">{{ sale.methods.join(' · ') || 'Sin método' }}</span>
             <span v-if="sale.sellerName" class="admin-record-muted">{{ sale.sellerName }}</span>
@@ -146,6 +184,14 @@ onMounted(() => {
             >
               Descargar comprobante
             </button>
+            <button
+              v-if="canVoid(sale)"
+              type="button"
+              class="admin-record-btn admin-record-btn--ghost"
+              @click="voidTarget = sale"
+            >
+              Anular
+            </button>
           </div>
         </div>
       </article>
@@ -161,6 +207,20 @@ onMounted(() => {
         Siguiente
       </button>
     </nav>
+
+    <div v-if="voidTarget" class="admin-modal-backdrop" @click.self="voidTarget = null">
+      <div class="admin-modal" role="dialog" aria-modal="true">
+        <h2 class="admin-record-title">Anular venta</h2>
+        <p class="admin-record-muted">{{ voidTarget.readableId }} · se repone el stock</p>
+        <textarea v-model="voidReason" class="admin-record-textarea" rows="3" maxlength="500" placeholder="Motivo (mínimo 5 caracteres)" />
+        <div class="admin-record-actions">
+          <button type="button" class="admin-record-btn admin-record-btn--ghost" @click="voidTarget = null">Cancelar</button>
+          <button type="button" class="admin-record-btn admin-record-btn--primary" :disabled="voidReason.trim().length < 5 || voidPending" @click="confirmVoid">
+            {{ voidPending ? 'Anulando…' : 'Anular' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 

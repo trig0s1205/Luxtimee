@@ -537,6 +537,8 @@ useSeoMeta({ title: props.seoTitle });
             </AdminAccordionSection>
 
             <AdminAccordionSection title="Pagos" :subtitle="`Falta por pagar: ${formatCop(order.balanceDue ?? 0)}`">
+              <p>Subtotal: {{ formatCop(order.subtotal) }}</p>
+              <p v-if="order.discountAmount">Descuento: {{ formatCop(order.discountAmount) }}<span v-if="order.discountReason"> · {{ order.discountReason }}</span></p>
               <p>Total: {{ formatCop(order.total) }}</p>
               <p class="admin-record-muted">Abono pagado: {{ formatCop(order.depositPaid ?? 0) }}</p>
               <p class="admin-record-muted">Falta por pagar: {{ formatCop(order.balanceDue ?? 0) }}</p>

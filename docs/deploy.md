@@ -37,7 +37,7 @@ Lista completa (ver comentarios en `apps/api/.env.example` y `deploy/vps/.env.pr
 
 - `NODE_ENV`, `USE_MOCKS`, `PORT`, `HOST`
 - `FRONTEND_URL`, `STAFF_LOGIN_SLUG`
-- `DATABASE_URL`, `DIRECT_URL`
+- `DATABASE_URL` (pooler 6543: `pgbouncer=true&connection_limit=10&pool_timeout=20`), `DIRECT_URL` (5432, solo migraciones)
 - `JWT_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_EXPIRES`, `JWT_REFRESH_EXPIRES`
 - `COOKIE_SAME_SITE`, `CLIENT_IP_SECRET`, `CRON_SECRET`
 - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_CALLBACK_URL`

@@ -3,10 +3,12 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsEmail,
   IsIn,
   IsInt,
   IsOptional,
+  IsUUID,
   IsString,
   Matches,
   Max,
@@ -79,6 +81,15 @@ export class PosCatalogQueryDto {
   @Max(48)
   @Type(() => Number)
   limit?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === true || value === 'true' || value === '1') return true;
+    if (value === false || value === 'false' || value === '0') return false;
+    return undefined;
+  })
+  @IsBoolean()
+  inStock?: boolean;
 }
 
 export class PosWatchesSearchDto {
@@ -154,6 +165,19 @@ export class PosSaleItemDto {
   @Max(10)
   @Type(() => Number)
   quantity!: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  discountAmount?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @Type(() => Number)
+  discountPercent?: number;
 }
 
 export class PosPaymentDto {
@@ -215,6 +239,28 @@ export class CreatePosSaleDto {
   @IsString()
   @MaxLength(300)
   note?: string;
+
+  @IsOptional()
+  @IsUUID()
+  idempotencyKey?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  discountAmount?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @Type(() => Number)
+  discountPercent?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  discountReason?: string;
 }
 
 export class VoidPosSaleDto {

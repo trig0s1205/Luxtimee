@@ -36,12 +36,15 @@ describe('document-counter / readableId', () => {
     expect(sql).toMatch(/lastValue/i);
   });
 
-  it('nextOrderReadableId siembra desde el máximo existente del día', async () => {
+  it('nextOrderReadableId siembra desde el máximo existente del día si falta el contador', async () => {
     const queryRaw = jest
       .fn()
       .mockResolvedValueOnce([{ max_seq: 12 }])
       .mockResolvedValueOnce([{ lastValue: 13 }]);
-    const tx = { $queryRaw: queryRaw };
+    const tx = {
+      $queryRaw: queryRaw,
+      documentCounter: { findUnique: jest.fn(async () => null) },
+    };
     const now = new Date('2026-11-09T18:00:00.000Z');
     await expect(nextOrderReadableId(tx as never, now)).resolves.toBe(
       'LX-20261109-0013',

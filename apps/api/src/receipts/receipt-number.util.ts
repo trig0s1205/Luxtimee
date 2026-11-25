@@ -18,5 +18,20 @@ export function formatReceiptNumber(seq: number): string {
 export async function nextReceiptSequence(
   tx: Prisma.TransactionClient,
 ): Promise<number> {
-  return nextDocumentSequence(tx, RECEIPT_COUNTER_KEY, 1);
+  const finder = tx.documentCounter?.findUnique?.bind(tx.documentCounter);
+  let seed = 1;
+  if (finder) {
+    const existing = await finder({
+      where: { key: RECEIPT_COUNTER_KEY },
+      select: { lastValue: true },
+    });
+    if (!existing) {
+      const rows = await tx.$queryRaw<Array<{ max_seq: number | null }>>`
+        SELECT COALESCE(MAX("sequence"), 0) AS max_seq FROM "SaleReceipt"
+      `;
+      const maxExisting = Number(rows[0]?.max_seq ?? 0);
+      seed = Number.isFinite(maxExisting) && maxExisting >= 1 ? maxExisting + 1 : 1;
+    }
+  }
+  return nextDocumentSequence(tx, RECEIPT_COUNTER_KEY, seed);
 }

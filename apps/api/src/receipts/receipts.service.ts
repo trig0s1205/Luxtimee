@@ -72,6 +72,10 @@ export class ReceiptsService {
     private readonly pdfRenderer: ReceiptPdfRenderer,
   ) {}
 
+  loadReceiptConfig() {
+    return this.settings.getReceiptConfig();
+  }
+
   async issueInTx(
     tx: Prisma.TransactionClient,
     orderId: string,
@@ -166,7 +170,7 @@ export class ReceiptsService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        const raced = await this.prisma.saleReceipt.findUnique({
+        const raced = await tx.saleReceipt.findUnique({
           where: { orderId },
         });
         if (raced) return raced;
@@ -486,6 +490,10 @@ export class ReceiptsService {
       sellerName: receipt.sellerName,
       subtotal: receipt.subtotal,
       shippingCost: receipt.shippingCost,
+      discountAmount: Math.max(
+        0,
+        receipt.subtotal + receipt.shippingCost - receipt.total,
+      ),
       total: receipt.total,
       warrantyTerms: receipt.warrantyTerms,
       footerNote: business.footerNote ?? '',

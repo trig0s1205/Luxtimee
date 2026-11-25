@@ -21,6 +21,22 @@ describe('withTxnRetries', () => {
       ),
     ).toBe(true);
     expect(isTransientTxnError(new Error('stock insuficiente'))).toBe(false);
+    expect(
+      isTransientTxnError(
+        new Prisma.PrismaClientKnownRequestError('pool', {
+          code: 'P2024',
+          clientVersion: 'test',
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isTransientTxnError(
+        new Prisma.PrismaClientKnownRequestError('timeout', {
+          code: 'P2028',
+          clientVersion: 'test',
+        }),
+      ),
+    ).toBe(true);
   });
 
   it('reintenta y eventualmente cumple', async () => {
