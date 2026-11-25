@@ -150,6 +150,7 @@ describeLocal('POS concurrency (localhost DB)', () => {
       db,
       {} as never,
       {
+        loadReceiptConfig: jest.fn(async () => ({ businessName: 'LUXTIMEE' })),
         issueInTx: jest.fn(async (tx: unknown, orderId: string) => {
           const seq = await nextReceiptSequence(tx as never);
           return {
