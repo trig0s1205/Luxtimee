@@ -244,7 +244,6 @@ describeLocal('POS flow (localhost DB)', () => {
         categoryId,
         gender: 'Hombre',
         description: 'Reloj de prueba de catálogo',
-        videoUrl: 'https://cdn.example/video.mp4',
         primaryImageUrl: `https://cdn.example/${skuWeb}.jpg`,
         secondaryImageUrl: `https://cdn.example/${skuWeb}-2.jpg`,
       },

@@ -337,7 +337,6 @@ export class WatchesRepository {
                 OR coalesce(w.images[2], '') = ''
               )
             )
-            OR coalesce(w."videoUrl", '') = ''
             OR (
               coalesce(w."movementType", '') = ''
               AND w."mechanismId" IS NULL

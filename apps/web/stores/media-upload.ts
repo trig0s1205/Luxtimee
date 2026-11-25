@@ -1,19 +1,18 @@
 import { defineStore } from 'pinia';
-import { validateWatchVideoFile } from '~/utils/video-validation';
 import { extractApiErrorMessage } from '~/utils/api-error';
 import { invalidateStorefrontCatalogCaches } from '~/utils/storefront-cache';
 
 export type MediaFileStatus = 'queue' | 'uploading' | 'done' | 'error';
-export type MediaSlot = 'image1' | 'image2' | 'video';
+export type MediaSlot = 'image1' | 'image2';
 
 export type UploadJob = {
   id: string;
   watchId: string;
   model: string;
   brandName: string;
-  files: { image1?: File; image2?: File; video?: File };
+  files: { image1?: File; image2?: File };
   status: 'queue' | 'uploading' | 'done' | 'error';
-  fileStatuses: { image1: MediaFileStatus; image2: MediaFileStatus; video: MediaFileStatus };
+  fileStatuses: { image1: MediaFileStatus; image2: MediaFileStatus };
   errorMessage?: string;
   createdAt: number;
 };
@@ -23,11 +22,10 @@ type MediaSlotResult = { status: 'done' } | { status: 'error'; message?: string 
 const SLOT_LABEL: Record<MediaSlot, string> = {
   image1: 'Foto principal',
   image2: 'Foto secundaria',
-  video: 'Video',
 };
 
 function pendingSlots(job: UploadJob): MediaSlot[] {
-  return (['image1', 'image2', 'video'] as const).filter((slot) => job.fileStatuses[slot] !== 'done');
+  return (['image1', 'image2'] as const).filter((slot) => job.fileStatuses[slot] !== 'done');
 }
 
 export const useMediaUploadStore = defineStore('mediaUpload', {
@@ -45,8 +43,7 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
     enqueue(job: Omit<UploadJob, 'id' | 'status' | 'fileStatuses' | 'createdAt'>) {
       const hasImage1 = !!job.files.image1;
       const hasImage2 = !!job.files.image2;
-      const hasVideo = !!job.files.video;
-      if (!hasImage1 && !hasImage2 && !hasVideo) return;
+      if (!hasImage1 && !hasImage2) return;
 
       this.jobs.push({
         ...job,
@@ -55,7 +52,6 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
         fileStatuses: {
           image1: hasImage1 ? 'queue' : 'done',
           image2: hasImage2 ? 'queue' : 'done',
-          video: hasVideo ? 'queue' : 'done',
         },
         createdAt: Date.now(),
       });
@@ -75,21 +71,10 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
         activeJob.fileStatuses[slot] = 'uploading';
       }
 
-      const skipVideo = !activeJob.files.video || !toUpload.includes('video');
-      let videoClientError: string | null = null;
-      if (!skipVideo && activeJob.files.video) {
-        videoClientError = await validateWatchVideoFile(activeJob.files.video);
-        if (videoClientError) {
-          activeJob.fileStatuses.video = 'error';
-        }
-      }
-
-      const sendSlots = toUpload.filter((slot) => slot !== 'video' || !videoClientError);
-
-      if (sendSlots.length === 0) {
+      if (toUpload.length === 0) {
         activeJob.status = 'error';
-        activeJob.errorMessage = videoClientError || 'No hay archivos pendientes para subir.';
-        useToast().error(`Video inválido — ${activeJob.brandName} ${activeJob.model}`);
+        activeJob.errorMessage = 'No hay archivos pendientes para subir.';
+        useToast().error(`Error multimedia — ${activeJob.brandName} ${activeJob.model}`);
         this._processing = false;
         void this._processNext();
         return;
@@ -102,14 +87,11 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
 
         function buildFormData() {
           const fd = new FormData();
-          if (sendSlots.includes('image1') && activeJob.files.image1) {
+          if (toUpload.includes('image1') && activeJob.files.image1) {
             fd.append('image1', activeJob.files.image1);
           }
-          if (sendSlots.includes('image2') && activeJob.files.image2) {
+          if (toUpload.includes('image2') && activeJob.files.image2) {
             fd.append('image2', activeJob.files.image2);
-          }
-          if (sendSlots.includes('video') && activeJob.files.video) {
-            fd.append('video', activeJob.files.video);
           }
           return fd;
         }
@@ -139,16 +121,15 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
 
         if (!res.ok) {
           const apiMessage = payload?.message;
-          for (const slot of sendSlots) {
+          for (const slot of toUpload) {
             if (activeJob.fileStatuses[slot] === 'uploading') activeJob.fileStatuses[slot] = 'error';
           }
-          if (videoClientError) activeJob.fileStatuses.video = 'error';
 
           if (res.status === 401) {
             throw new Error('Tu sesión expiró. Recarga la página e intenta de nuevo.');
           }
           if (res.status === 413) {
-            throw new Error('Los archivos son demasiado grandes. Usa imágenes más pequeñas o un video más corto.');
+            throw new Error('Los archivos son demasiado grandes. Usa imágenes más pequeñas.');
           }
 
           throw { statusCode: res.status, data: payload, message: apiMessage };
@@ -157,7 +138,7 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
         const results = payload?.mediaResults;
         const errorParts: string[] = [];
 
-        for (const slot of sendSlots) {
+        for (const slot of toUpload) {
           const result = results?.[slot];
           if (result?.status === 'done') {
             activeJob.fileStatuses[slot] = 'done';
@@ -172,11 +153,6 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
           }
         }
 
-        if (videoClientError) {
-          activeJob.fileStatuses.video = 'error';
-          errorParts.push(`Video: ${videoClientError}`);
-        }
-
         const allDone = pendingSlots(activeJob).length === 0;
         if (allDone) {
           activeJob.status = 'done';
@@ -186,32 +162,22 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
           useToast().success(`Multimedia lista — ${activeJob.brandName} ${activeJob.model}`);
         } else {
           activeJob.status = 'error';
-          activeJob.errorMessage = errorParts.join(' · ') || videoClientError || 'Algunos archivos no se pudieron procesar.';
-          const photosOk = activeJob.fileStatuses.image1 === 'done' && activeJob.fileStatuses.image2 === 'done';
-          if (photosOk && activeJob.fileStatuses.video === 'error') {
-            useToast().error(`Fotos listas. El video no se pudo procesar — ${activeJob.brandName} ${activeJob.model}`);
-          } else {
-            useToast().error(`Error multimedia — ${activeJob.brandName} ${activeJob.model}`);
-          }
+          activeJob.errorMessage = errorParts.join(' · ') || 'Algunos archivos no se pudieron procesar.';
+          useToast().error(`Error multimedia — ${activeJob.brandName} ${activeJob.model}`);
         }
       } catch (err: unknown) {
-        for (const slot of sendSlots) {
+        for (const slot of toUpload) {
           if (activeJob.fileStatuses[slot] === 'uploading') activeJob.fileStatuses[slot] = 'error';
         }
-        if (videoClientError) activeJob.fileStatuses.video = 'error';
         activeJob.status = pendingSlots(activeJob).length === 0 ? 'done' : 'error';
         const fromApi = extractApiErrorMessage(err, '')
           || (err instanceof Error && err.name === 'TimeoutError'
-            ? 'La subida tardó demasiado. Usa un video más corto.'
+            ? 'La subida tardó demasiado. Intenta de nuevo.'
             : '')
           || (err instanceof Error && err.message && !err.message.startsWith('[')
             ? err.message
             : '');
-        const parts = [
-          fromApi,
-          videoClientError ? `Video: ${videoClientError}` : '',
-        ].filter(Boolean);
-        job.errorMessage = parts.join(' · ')
+        job.errorMessage = fromApi
           || 'No se pudo completar la subida. Revisa la conexión e intenta de nuevo.';
         useToast().error(`Error multimedia — ${activeJob.brandName} ${activeJob.model}`);
       } finally {
@@ -224,7 +190,7 @@ export const useMediaUploadStore = defineStore('mediaUpload', {
       const job = this.jobs.find((j) => j.id === jobId);
       if (!job || job.status === 'uploading') return;
       job.status = 'queue';
-      for (const slot of ['image1', 'image2', 'video'] as const) {
+      for (const slot of ['image1', 'image2'] as const) {
         if (job.fileStatuses[slot] === 'error') job.fileStatuses[slot] = 'queue';
       }
       job.errorMessage = undefined;

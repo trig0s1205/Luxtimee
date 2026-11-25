@@ -1,6 +1,5 @@
 import type { WatchStaffDto, WatchStatus } from '@luxtime/shared';
 import { extractApiErrorMessage, isBadRequest } from '~/utils/api-error';
-import { validateWatchVideoFile } from '~/utils/video-validation';
 import { invalidateStorefrontCatalogCaches } from '~/utils/storefront-cache';
 
 export type AdminWatchFormPayload = {
@@ -24,10 +23,8 @@ export type AdminWatchFormPayload = {
   mainImageIndex: number;
   primaryImageUrl?: string;
   secondaryImageUrl?: string;
-  videoUrl?: string;
   primaryImageFile?: File | null;
   secondaryImageFile?: File | null;
-  videoFile?: File | null;
 };
 
 export function useAdminWatchEditSubmit() {
@@ -42,16 +39,7 @@ export function useAdminWatchEditSubmit() {
   ): Promise<{ ok: boolean; publishedNow?: boolean }> {
     const hasNewPrimaryImage = !!form.primaryImageFile;
     const hasNewSecondaryImage = !!form.secondaryImageFile;
-    const hasVideo = !!form.videoFile;
-    const hasNewMedia = hasNewPrimaryImage || hasNewSecondaryImage || hasVideo;
-
-    if (form.videoFile) {
-      const videoError = await validateWatchVideoFile(form.videoFile);
-      if (videoError) {
-        toast.warning(videoError);
-        return { ok: false };
-      }
-    }
+    const hasNewMedia = hasNewPrimaryImage || hasNewSecondaryImage;
 
     const wasUnpublished = !editingWatch.isPublished;
 
@@ -112,7 +100,6 @@ export function useAdminWatchEditSubmit() {
           files: {
             ...(form.primaryImageFile ? { image1: form.primaryImageFile } : {}),
             ...(form.secondaryImageFile ? { image2: form.secondaryImageFile } : {}),
-            ...(hasVideo ? { video: form.videoFile! } : {}),
           },
         });
       }

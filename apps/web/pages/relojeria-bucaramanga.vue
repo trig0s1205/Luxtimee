@@ -4,7 +4,7 @@
     <h1>Relojería en Bucaramanga y Piedecuesta</h1>
     <p>
       LUXTIMEE nació en Piedecuesta para vender relojes con fotos reales, precios claros y entrega sin vueltas.
-      El catálogo público solo muestra piezas con stock confirmado: precio en pesos, ficha técnica y video de la referencia.
+      El catálogo público solo muestra piezas con stock confirmado: precio en pesos y ficha técnica de la referencia.
     </p>
 
     <section>
@@ -34,7 +34,7 @@
     <section>
       <h2>Ver la pieza en Santander</h2>
       <p>
-        Cada ficha trae fotos y video reales. Si estás en Santander, se puede coordinar una cita para ver el reloj antes de comprarlo.
+        Cada ficha trae fotos reales. Si estás en Santander, se puede coordinar una cita para ver el reloj antes de comprarlo.
       </p>
     </section>
 

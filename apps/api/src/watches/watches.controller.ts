@@ -47,10 +47,7 @@ import { Roles, Audit } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { FinancialStripInterceptor } from '../common/interceptors/financial-strip.interceptor';
-import {
-  MAX_IMAGE_BYTES,
-  MAX_VIDEO_BYTES,
-} from '../common/utils/file-magic.util';
+import { MAX_IMAGE_BYTES } from '../common/utils/file-magic.util';
 
 const UPLOAD_DIR = join(process.cwd(), 'uploads', 'watches');
 const ALLOWED_IMAGE_MIME = new Set([
@@ -93,16 +90,7 @@ function mediaFileFilter(
   cb: (error: Error | null, acceptFile: boolean) => void,
 ) {
   if (file.fieldname === 'video') {
-    if (
-      isGenericUploadMime(file.mimetype) ||
-      ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'].includes(
-        file.mimetype,
-      )
-    ) {
-      cb(null, true);
-      return;
-    }
-    cb(new BadRequestException('El video debe ser MP4, MOV o WEBM'), false);
+    cb(null, true);
     return;
   }
 
@@ -258,7 +246,7 @@ export class WatchesController {
       {
         storage: memoryStorage(),
         fileFilter: mediaFileFilter,
-        limits: { fileSize: MAX_VIDEO_BYTES, files: 3 },
+        limits: { fileSize: 120 * 1024 * 1024, files: 3 },
       },
     ),
   )
@@ -278,9 +266,7 @@ export class WatchesController {
     const video = files?.video?.[0];
 
     if (!image1 && !image2 && !video) {
-      throw new BadRequestException(
-        'Debes enviar al menos un archivo (foto o video)',
-      );
+      throw new BadRequestException('Debes enviar al menos una foto');
     }
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;

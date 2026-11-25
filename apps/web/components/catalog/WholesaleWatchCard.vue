@@ -9,18 +9,16 @@ const props = withDefaults(defineProps<{
   compact: false,
 });
 
-const { watchPrimaryImage, watchSecondaryImage, watchVideoUrl } = useMediaUrl();
+const { watchPrimaryImage, watchSecondaryImage } = useMediaUrl();
 const cart = useWholesaleCartStore();
 const analytics = useAnalytics();
 
 const slides = computed(() => {
-  const result: { type: 'image' | 'video'; url: string }[] = [];
+  const result: { url: string }[] = [];
   const front = watchPrimaryImage(props.watch);
   const back = watchSecondaryImage(props.watch);
-  const video = watchVideoUrl(props.watch);
-  if (front) result.push({ type: 'image', url: front });
-  if (back && back !== front) result.push({ type: 'image', url: back });
-  if (video) result.push({ type: 'video', url: video });
+  if (front) result.push({ url: front });
+  if (back && back !== front) result.push({ url: back });
   return result;
 });
 
@@ -84,16 +82,7 @@ const stockTone = computed(() => {
           :key="i"
           class="ww-slide"
         >
-          <video
-            v-if="slide.type === 'video'"
-            :src="slide.url"
-            class="ww-media"
-            controls
-            preload="none"
-            :poster="slides[0]?.type === 'image' ? slides[0].url : undefined"
-          />
           <img
-            v-else
             :src="slide.url"
             :alt="`${watch.brand.name} ${watch.model}`"
             class="ww-media ww-media-img"
