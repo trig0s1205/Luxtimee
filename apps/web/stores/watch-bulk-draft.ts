@@ -472,31 +472,6 @@ export const useWatchBulkDraftStore = defineStore('watchBulkDraft', {
       }
     },
 
-    async previewFiles() {
-      const preview = this.preview;
-      if (!preview) return [];
-      const files: Array<{ pairId: string; side: 'front' | 'back'; name: string; file: File }> = [];
-      for (const pair of preview.pairs) {
-        const stored = await idbGet(pair.id);
-        if (!stored) continue;
-        files.push({
-          pairId: pair.id,
-          side: 'front',
-          name: pair.frontName,
-          file: new File([stored.front], pair.frontName, { type: stored.frontType || 'image/jpeg' }),
-        });
-        if (stored.back && pair.backUrl) {
-          files.push({
-            pairId: pair.id,
-            side: 'back',
-            name: pair.backName || 'dorso.jpg',
-            file: new File([stored.back], pair.backName || 'dorso.jpg', { type: stored.backType || 'image/jpeg' }),
-          });
-        }
-      }
-      return files;
-    },
-
     async confirmPreview() {
       if (!this.preview || this.confirming) return;
       this.confirming = true;
