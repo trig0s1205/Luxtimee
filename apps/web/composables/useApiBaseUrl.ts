@@ -24,7 +24,7 @@ export function useApiBaseUrl() {
   return raw.replace(/\/$/, '') || raw;
 }
 
-/** Subidas grandes (fotos/video) van directo a Cloud Run; Vercel corta a ~4.5MB (413). */
+/** Subidas grandes (fotos) van directo al API; Vercel corta a ~4.5MB (413). */
 export function useApiUploadUrl() {
   const config = useRuntimeConfig();
   return (config.public.apiUploadUrl || config.public.apiBaseUrl) as string;

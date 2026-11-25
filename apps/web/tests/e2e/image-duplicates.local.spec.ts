@@ -137,14 +137,9 @@ test.describe('avisos de fotos repetidas', () => {
     await page.getByRole('button', { name: 'Carga por fotos' }).click();
     await page.locator('input.admin-bulk-draft-file').setInputFiles([front, back]);
     await page.getByRole('button', { name: 'Usar orden actual' }).click();
+    await expect(page.getByTestId('bulk-duplicate-warning')).toHaveCount(0);
     await page.getByRole('button', { name: 'Subir todo' }).click();
-    const bulk = page.getByTestId('bulk-duplicate-warning');
-    await expect(bulk).toBeVisible();
-    await expect(bulk).toContainText('Quitar todas las repetidas');
-    await bulk.screenshot({ path: '/opt/cursor/artifacts/aviso-carga-masiva.png' });
-    await bulk.getByRole('button', { name: 'Quitar todas las repetidas' }).click();
-    await expect(bulk).toHaveCount(0);
-    expect(uploads.filter((url) => url.includes('/watches/bulk-draft'))).toEqual([]);
+    await expect.poll(() => uploads.filter((url) => url.includes('/watches/bulk-draft')).length, { timeout: 40_000 }).toBeGreaterThan(0);
   });
 });
 

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-  MAX_VIDEO_DURATION_SEC,
   WatchStatus,
   type BrandDto,
   type CareTemplateDto,
@@ -9,7 +8,6 @@ import {
   type WatchStaffDto,
 } from '@luxtime/shared';
 import { calcMarginPercent } from '~/utils/margin';
-import { validateWatchVideoFile } from '~/utils/video-validation';
 
 type WatchFormPayload = {
   brandId: string;
@@ -35,10 +33,8 @@ type WatchFormPayload = {
   mainImageIndex: number;
   primaryImageUrl?: string;
   secondaryImageUrl?: string;
-  videoUrl?: string;
   primaryImageFile: File | null;
   secondaryImageFile: File | null;
-  videoFile: File | null;
   imagesOnly?: boolean;
 };
 
@@ -88,10 +84,8 @@ const form = reactive<WatchFormPayload>({
   mainImageIndex: props.watch?.mainImageIndex ?? 0,
   primaryImageUrl: props.watch?.primaryImageUrl ?? props.watch?.frontImageUrl ?? props.watch?.images?.[0] ?? undefined,
   secondaryImageUrl: props.watch?.secondaryImageUrl ?? props.watch?.backImageUrl ?? props.watch?.images?.[1] ?? undefined,
-  videoUrl: props.watch?.videoUrl ?? undefined,
   primaryImageFile: null,
   secondaryImageFile: null,
-  videoFile: null,
 });
 
 watch(
@@ -129,11 +123,9 @@ const duplicates = useImageDuplicateGuard();
 const imagesOnlyMode = ref(!props.watch?.id);
 const primaryInput = ref<HTMLInputElement | null>(null);
 const secondaryInput = ref<HTMLInputElement | null>(null);
-const videoInput = ref<HTMLInputElement | null>(null);
 const primaryPreview = ref<string | null>(null);
 const previewSrc = ref<string | null>(null);
 const secondaryPreview = ref<string | null>(null);
-const videoPreview = ref<string | null>(null);
 
 function setImageFile(slot: 'primary' | 'secondary', file: File | null) {
   mediaError.value = '';
@@ -149,25 +141,13 @@ function setImageFile(slot: 'primary' | 'secondary', file: File | null) {
   void duplicates.inspect(slot, file);
 }
 
-function setVideoFile(file: File | null) {
-  mediaError.value = '';
-  if (videoPreview.value) URL.revokeObjectURL(videoPreview.value);
-  form.videoFile = file;
-  videoPreview.value = file ? URL.createObjectURL(file) : null;
-}
-
 const IMAGE_ACCEPT_RE = /\.(jpe?g|png|webp)$/i;
-const VIDEO_ACCEPT_RE = /\.(mp4|webm|mov)$/i;
 
 function isAcceptedImageFile(file: File) {
   return file.type.startsWith('image/') || IMAGE_ACCEPT_RE.test(file.name);
 }
 
-function isAcceptedVideoFile(file: File) {
-  return file.type.startsWith('video/') || VIDEO_ACCEPT_RE.test(file.name);
-}
-
-const mediaDragDepth = reactive({ primary: 0, secondary: 0, video: 0, pair: 0 });
+const mediaDragDepth = reactive({ primary: 0, secondary: 0, pair: 0 });
 
 function isMediaDragOver(slot: keyof typeof mediaDragDepth) {
   return mediaDragDepth[slot] > 0;
@@ -202,29 +182,6 @@ function onImageDrop(slot: 'primary' | 'secondary', event: DragEvent) {
   setImageFile(slot, image);
 }
 
-async function onVideoDrop(event: DragEvent) {
-  event.preventDefault();
-  event.stopPropagation();
-  mediaDragDepth.video = 0;
-  const files = event.dataTransfer?.files;
-  if (!files?.length) return;
-  const file = [...files].find((f) => isAcceptedVideoFile(f));
-  if (!file) {
-    toast.warning('Solo video MP4, MOV o WEBM.');
-    return;
-  }
-  mediaError.value = '';
-  const validationError = await validateWatchVideoFile(file);
-  if (validationError) {
-    mediaError.value = validationError;
-    toast.warning(validationError);
-    activeTab.value = 2;
-    return;
-  }
-  setVideoFile(file);
-  toast.info('Video válido. Se optimizará al guardar (máx. 1080p, ~10 MB).');
-}
-
 function onPairImagesDrop(event: DragEvent) {
   event.preventDefault();
   event.stopPropagation();
@@ -243,29 +200,6 @@ function onImageSelect(slot: 'primary' | 'secondary', event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0] ?? null;
   if (file && isAcceptedImageFile(file)) setImageFile(slot, file);
   (event.target as HTMLInputElement).value = '';
-}
-
-function onVideoSelect(event: Event) {
-  void onVideoSelectAsync(event);
-}
-
-async function onVideoSelectAsync(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0] ?? null;
-  (event.target as HTMLInputElement).value = '';
-
-  if (!file) return;
-
-  mediaError.value = '';
-  const validationError = await validateWatchVideoFile(file);
-  if (validationError) {
-    mediaError.value = validationError;
-    toast.warning(validationError);
-    activeTab.value = 2;
-    return;
-  }
-
-  setVideoFile(file);
-  toast.info('Video válido. Se optimizará al guardar (máx. 1080p, ~10 MB).');
 }
 
 function swapImageSlots() {
@@ -308,29 +242,15 @@ function clearImageSlot(slot: 'primary' | 'secondary') {
   }
 }
 
-function clearVideoSlot() {
-  setVideoFile(null);
-  form.videoUrl = undefined;
-}
-
 onUnmounted(() => {
   if (primaryPreview.value) URL.revokeObjectURL(primaryPreview.value);
   if (secondaryPreview.value) URL.revokeObjectURL(secondaryPreview.value);
-  if (videoPreview.value) URL.revokeObjectURL(videoPreview.value);
 });
 
 function hasRequiredMedia() {
   const hasPrimary = !!(form.primaryImageFile || form.primaryImageUrl);
   const hasSecondary = !!(form.secondaryImageFile || form.secondaryImageUrl);
-  const hasVideo = !!(form.videoFile || form.videoUrl);
-
-  if (imagesOnlyMode.value && !isEdit.value) {
-    return hasPrimary && hasSecondary;
-  }
-  if (isEdit.value) {
-    return hasPrimary && hasSecondary;
-  }
-  return hasPrimary && hasSecondary && hasVideo;
+  return hasPrimary && hasSecondary;
 }
 
 const isBusy = computed(() => props.saving);
@@ -346,23 +266,11 @@ async function onSubmit() {
   }
 
   if (!hasRequiredMedia()) {
-    mediaError.value = imagesOnlyMode.value && !isEdit.value
-      ? 'Debes cargar foto principal y foto secundaria.'
-      : isEdit.value
-        ? 'Debes tener foto principal y foto secundaria.'
-        : 'Debes cargar foto principal, foto secundaria y video.';
+    mediaError.value = isEdit.value
+      ? 'Debes tener foto principal y foto secundaria.'
+      : 'Debes cargar foto principal y foto secundaria.';
     activeTab.value = 2;
     return;
-  }
-
-  if (form.videoFile) {
-    const validationError = await validateWatchVideoFile(form.videoFile);
-    if (validationError) {
-      mediaError.value = validationError;
-      toast.warning(validationError);
-      activeTab.value = 2;
-      return;
-    }
   }
 
   emit('submit', { ...form, imagesOnly: imagesOnlyMode.value });
@@ -405,7 +313,7 @@ const selectedCareTemplate = computed(() =>
       <div v-if="!isEdit" class="admin-images-only-banner">
         <UiLuxCheckbox
           v-model="imagesOnlyMode"
-          label="Solo imágenes (borrador) — la secretaria completa datos y video después"
+          label="Solo imágenes (borrador) — la secretaria completa los datos después"
         />
       </div>
 
@@ -545,7 +453,7 @@ const selectedCareTemplate = computed(() =>
       <!-- MULTIMEDIA -->
       <div v-show="activeTab === 2" class="admin-watch-tab-panel">
         <p v-if="imagesOnlyMode && !isEdit" class="admin-form-hint admin-form-hint--media">
-          Sube las dos fotos. El video lo agrega la secretaria al editar el reloj.
+          Sube las dos fotos del reloj.
         </p>
         <p v-if="mediaError" class="admin-media-error">{{ mediaError }}</p>
 
@@ -637,31 +545,6 @@ const selectedCareTemplate = computed(() =>
               @skip="rejectNewImage('secondary')"
               @keep="duplicates.keep('secondary')"
             />
-          </div>
-
-          <div class="admin-media-slot admin-media-slot--video">
-            <label>Video del reloj <span v-if="!imagesOnlyMode && !isEdit" class="admin-form-required">*</span></label>
-            <p class="admin-form-hint admin-form-hint--media">
-              Máx. {{ MAX_VIDEO_DURATION_SEC }} s · MP4, MOV o WEBM · Se optimiza a 1080p (~10 MB)
-              <template v-if="imagesOnlyMode || isEdit"> · Opcional en borrador</template>
-            </p>
-            <div
-              class="admin-media-preview admin-media-preview--video"
-              :class="{ 'is-drag-over': isMediaDragOver('video') }"
-              role="button"
-              tabindex="0"
-              @click="videoInput?.click()"
-              @keydown.enter.prevent="videoInput?.click()"
-              @dragenter="onMediaDragEnter('video', $event)"
-              @dragleave="onMediaDragLeave('video')"
-              @dragover="onMediaDragOver"
-              @drop="onVideoDrop"
-            >
-              <video v-if="videoPreview || form.videoUrl" :src="videoPreview || form.videoUrl" controls muted />
-              <span v-else>Arrastra aquí o haz clic<br>MP4 / MOV / WEBM</span>
-            </div>
-            <input ref="videoInput" type="file" accept="video/mp4,video/webm,video/quicktime,.mov,.mp4,.webm" class="hidden" @change="onVideoSelect">
-            <button v-if="videoPreview || form.videoUrl" type="button" class="admin-media-clear" @click="clearVideoSlot">Quitar</button>
           </div>
         </div>
 
@@ -947,7 +830,7 @@ const selectedCareTemplate = computed(() =>
 
 .admin-media-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
@@ -1001,8 +884,7 @@ const selectedCareTemplate = computed(() =>
   box-shadow: 0 0 0 1px rgba(200, 169, 110, 0.35);
 }
 
-.admin-media-preview img,
-.admin-media-preview video {
+.admin-media-preview img {
   width: 100%;
   height: 100%;
   object-fit: contain;

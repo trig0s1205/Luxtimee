@@ -40,7 +40,7 @@ describe('sellableWatchSql', () => {
     expect(text).toContain('w."isPublished" = true');
     expect(text).toContain('w."isActive" = true');
     expect(text).toContain('w.stock > 0');
-    expect(text).toContain('w."videoUrl"');
+    expect(text).not.toContain('videoUrl');
     expect(text).toContain('w."categoryId" IS NOT NULL');
     expect(sql.values).toContain('Pendiente de completar');
   });

@@ -22,13 +22,4 @@ export class AttachWatchMediaUrlsDto {
     { message: 'URL de foto secundaria inválida' },
   )
   secondaryImageUrl?: string;
-
-  @IsOptional()
-  @ValidateIf((o) => o.videoUrl !== undefined && o.videoUrl !== '')
-  @IsString()
-  @IsUrl(
-    { require_protocol: true, protocols: ['https', 'http'] },
-    { message: 'URL de video inválida' },
-  )
-  videoUrl?: string;
 }

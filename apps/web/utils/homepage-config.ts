@@ -86,7 +86,7 @@ export const DEFAULT_HOMEPAGE_CONFIG: HomepageConfigDto = {
       },
       {
         question: '¿Puedo ver el reloj antes de comprarlo?',
-        answer: 'Publicamos fotos y video reales de cada referencia. Si estás en Santander, podemos coordinar una cita para ver la pieza.',
+        answer: 'Publicamos fotos reales de cada referencia. Si estás en Santander, podemos coordinar una cita para ver la pieza.',
       },
     ],
   },

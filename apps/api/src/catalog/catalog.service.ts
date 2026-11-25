@@ -30,6 +30,7 @@ export class CatalogService {
       profitPercent: _profitPercent,
       wholesalePrice: _wholesalePrice,
       imageNeedsReview: _imageNeedsReview,
+      videoUrl: _videoUrl,
       ...rest
     } = watch;
 
@@ -39,7 +40,6 @@ export class CatalogService {
     const secondaryImageUrl = this.normalizeMediaUrl(
       rest.secondaryImageUrl as string | null,
     );
-    const videoUrl = this.normalizeMediaUrl(rest.videoUrl as string | null);
     const images = Array.isArray(rest.images)
       ? (rest.images as string[])
           .map((item) => this.normalizeMediaUrl(item))
@@ -62,7 +62,6 @@ export class CatalogService {
       ...rest,
       primaryImageUrl,
       secondaryImageUrl,
-      videoUrl,
       images,
       frontImageUrl,
       backImageUrl,
@@ -94,7 +93,6 @@ export class CatalogService {
       gender: { not: null },
       retailPrice: { gt: 0 },
       wholesalePrice: { gt: 0 },
-      videoUrl: { not: null },
       AND: [
         { NOT: { gender: '' } },
         { description: { not: null } },

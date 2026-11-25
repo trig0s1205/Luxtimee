@@ -103,7 +103,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
                 class="btn-gallery-link"
                 @click="closeProduct"
               >
-                Ver fotos y video del reloj →
+                Ver fotos del reloj →
               </NuxtLink>
             </div>
             <div class="detail-experience detail-experience--gold">

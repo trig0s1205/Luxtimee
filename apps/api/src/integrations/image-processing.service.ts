@@ -2,12 +2,10 @@ import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 
-function cloudinaryMessage(kind: 'imagen' | 'video', error: unknown): string {
+function cloudinaryMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : '';
   if (/timeout|timed out/i.test(raw)) {
-    return kind === 'imagen'
-      ? 'La carga tardó demasiado. Intenta de nuevo.'
-      : 'La carga del video tardó demasiado. Usa un clip más corto.';
+    return 'La carga tardó demasiado. Intenta de nuevo.';
   }
   if (/file size|too large|entity too large/i.test(raw)) {
     return 'El archivo pesa demasiado para guardarlo.';
@@ -18,7 +16,7 @@ function cloudinaryMessage(kind: 'imagen' | 'video', error: unknown): string {
   return 'Falló el proceso de carga. Intenta de nuevo.';
 }
 
-/** Subida y borrado en Cloudinary (fotos, videos, assets de homepage). */
+/** Subida y borrado en Cloudinary (fotos y assets de homepage). */
 @Injectable()
 export class ImageProcessingService {
   private readonly logger = new Logger(ImageProcessingService.name);
@@ -72,30 +70,23 @@ export class ImageProcessingService {
       return result.secure_url;
     } catch (error) {
       this.logger.warn('upload_failed kind=image reason=upstream');
-      throw new BadGatewayException(cloudinaryMessage('imagen', error));
+      throw new BadGatewayException(cloudinaryMessage(error));
     }
   }
 
-  async deleteCloudinaryAsset(
-    url: string,
-    resourceType: 'image' | 'video' = 'image',
-  ): Promise<void> {
+  async deleteCloudinaryAsset(url: string): Promise<void> {
     if (this.config.get('USE_MOCKS') === 'true') return;
-    const publicId = this.extractCloudinaryPublicId(url, resourceType);
+    const publicId = this.extractCloudinaryPublicId(url);
     if (!publicId) return;
     await cloudinary.uploader
-      .destroy(publicId, { resource_type: resourceType })
+      .destroy(publicId, { resource_type: 'image' })
       .catch(() => undefined);
   }
 
-  private extractCloudinaryPublicId(
-    url: string,
-    resourceType: 'image' | 'video',
-  ): string | null {
+  private extractCloudinaryPublicId(url: string): string | null {
     if (!url.includes('res.cloudinary.com')) return null;
-    const type = resourceType === 'video' ? 'video' : 'image';
     const match = url.match(
-      new RegExp(`\\/${type}\\/upload\\/(?:v\\d+\\/)?(.+)\\.[a-z0-9]+$`, 'i'),
+      /\/image\/upload\/(?:v\d+\/)?(.+)\.[a-z0-9]+$/i,
     );
     return match?.[1] ?? null;
   }
@@ -136,42 +127,4 @@ export class ImageProcessingService {
     );
   }
 
-  async uploadVideoToCloudinary(
-    buffer: Buffer,
-    publicId: string,
-  ): Promise<string> {
-    if (this.config.get('USE_MOCKS') === 'true') {
-      return `https://res.cloudinary.com/mock/video/upload/${publicId}.mp4`;
-    }
-
-    const folder = this.config.get<string>(
-      'CLOUDINARY_FOLDER',
-      'LUXTIMEE/watches',
-    );
-    try {
-      const result = await new Promise<{ secure_url: string }>(
-        (resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            {
-              folder,
-              public_id: publicId,
-              resource_type: 'video',
-              format: 'mp4',
-            },
-            (error, uploadResult) => {
-              if (error || !uploadResult)
-                reject(error ?? new Error('Upload de video fallido'));
-              else resolve(uploadResult);
-            },
-          );
-          stream.end(buffer);
-        },
-      );
-
-      return result.secure_url;
-    } catch (error) {
-      this.logger.warn('upload_failed kind=video reason=upstream');
-      throw new BadGatewayException(cloudinaryMessage('video', error));
-    }
-  }
 }

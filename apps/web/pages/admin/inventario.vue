@@ -3,7 +3,6 @@ import type { BrandDto, CareTemplateDto, CategoryDto, MechanismDto, InventoryIns
 import { WatchStatus } from '@luxtime/shared';
 import { extractApiErrorMessage, isAbortError, isBadRequest } from '~/utils/api-error';
 import { invalidateAdminCache, invalidateAdminCachePrefix } from '~/utils/admin-cache';
-import { validateWatchVideoFile } from '~/utils/video-validation';
 import { invalidateStorefrontCatalogCaches } from '~/utils/storefront-cache';
 import { searchEmptyMessage } from '~/utils/search-empty';
 import { INVENTORY_PAGE_SIZE, loadInventoryCount, mergeInventoryPage } from '~/utils/inventory-pagination';
@@ -33,10 +32,8 @@ type WatchFormPayload = {
   mainImageIndex: number;
   primaryImageUrl?: string;
   secondaryImageUrl?: string;
-  videoUrl?: string;
   primaryImageFile?: File | null;
   secondaryImageFile?: File | null;
-  videoFile?: File | null;
   imagesOnly?: boolean;
 };
 
@@ -316,31 +313,13 @@ async function handleSubmit(form: WatchFormPayload) {
   const hasNewImages = !!(form.primaryImageFile && form.secondaryImageFile);
   const hasNewPrimaryImage = !!form.primaryImageFile;
   const hasNewSecondaryImage = !!form.secondaryImageFile;
-  const hasVideo = !!form.videoFile;
-  const hasNewMedia = hasNewPrimaryImage || hasNewSecondaryImage || hasVideo;
+  const hasNewMedia = hasNewPrimaryImage || hasNewSecondaryImage;
   const imagesOnly = !!(form.imagesOnly && isCreate);
 
   if (isCreate && !hasNewImages) {
-    submitError.value = imagesOnly
-      ? 'Debes subir foto principal y foto secundaria.'
-      : 'Debes subir foto principal, foto secundaria y video.';
+    submitError.value = 'Debes subir foto principal y foto secundaria.';
     toast.warning(submitError.value);
     return;
-  }
-
-  if (isCreate && !imagesOnly && !hasVideo) {
-    submitError.value = 'Debes subir foto principal, foto secundaria y video.';
-    toast.warning(submitError.value);
-    return;
-  }
-
-  if (form.videoFile) {
-    const videoError = await validateWatchVideoFile(form.videoFile);
-    if (videoError) {
-      submitError.value = videoError;
-      toast.warning(videoError);
-      return;
-    }
   }
 
   if (imagesOnly && !(form.brandId || brands.value?.[0]?.id)) {
@@ -434,7 +413,6 @@ async function handleSubmit(form: WatchFormPayload) {
         files: {
           ...(form.primaryImageFile ? { image1: form.primaryImageFile } : {}),
           ...(form.secondaryImageFile ? { image2: form.secondaryImageFile } : {}),
-          ...(hasVideo ? { video: form.videoFile! } : {}),
         },
       });
     }

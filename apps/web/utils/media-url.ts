@@ -42,9 +42,6 @@ export function watchSecondaryImage(
   return resolveMediaUrl(watch.backImageUrl || watch.secondaryImageUrl || watch.images?.[1], assetsBaseUrl);
 }
 
-const CLOUDINARY_VIDEO_TRANSFORM = 'q_auto:good,f_mp4,w_1080,c_limit';
-
-/** Reemplaza transforms existentes en URLs Cloudinary image/upload. */
 export function cloudinaryImageUploadWithTransform(url: string, transform: string): string {
   const marker = '/image/upload/';
   const idx = url.indexOf(marker);
@@ -105,18 +102,4 @@ export function optimizeCloudinaryHeroWatchUrl(url?: string | null, width = 760)
     return url.replace(/\/image\/upload\/[^/]+\//, `/image/upload/${transform}/`);
   }
   return url.replace('/image/upload/', `/image/upload/${transform}/`);
-}
-
-export function optimizeCloudinaryVideoUrl(url?: string | null): string | undefined {
-  if (!url) return undefined;
-  if (!url.includes('res.cloudinary.com') || !url.includes('/video/upload/')) return url;
-  if (url.includes('/q_auto') || url.includes('/f_mp4')) return url;
-  return url.replace('/video/upload/', `/video/upload/${CLOUDINARY_VIDEO_TRANSFORM}/`);
-}
-
-export function watchVideoUrl(
-  watch: { videoUrl?: string | null },
-  assetsBaseUrl?: string,
-) {
-  return optimizeCloudinaryVideoUrl(resolveMediaUrl(watch.videoUrl, assetsBaseUrl));
 }

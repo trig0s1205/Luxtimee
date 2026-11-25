@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { groupImportMediaFiles } from '~/utils/import-photo-names';
 import { compressCatalogImage } from '~/utils/catalog-image';
-import { validateWatchVideoFile } from '~/utils/video-validation';
 
 type LookupRow = {
   importKey: string;
@@ -10,14 +9,12 @@ type LookupRow = {
   model: string | null;
   hasFront: boolean;
   hasBack: boolean;
-  hasVideo: boolean;
 };
 
 type RowState = {
   importKey: string;
   front?: File;
   back?: File;
-  video?: File;
   frontUrl?: string;
   backUrl?: string;
   lookup?: LookupRow;
@@ -76,12 +73,11 @@ async function onPick(e: Event) {
     if (!lookup?.watchId) status = 'sin-reloj';
     else if (!g.front) status = 'falta-dorso';
     else if (!g.back) status = 'falta-dorso';
-    else if (lookup.hasFront || lookup.hasBack || lookup.hasVideo) status = 'ya-tiene';
+    else if (lookup.hasFront || lookup.hasBack) status = 'ya-tiene';
     return {
       importKey: g.importKey,
       front: g.front,
       back: g.back,
-      video: g.video,
       frontUrl: g.front ? URL.createObjectURL(g.front) : undefined,
       backUrl: g.back ? URL.createObjectURL(g.back) : undefined,
       lookup,
@@ -112,10 +108,6 @@ async function uploadAll() {
       row.status = 'uploading';
       row.error = undefined;
       try {
-        if (row.video) {
-          const videoErr = await validateWatchVideoFile(row.video);
-          if (videoErr) throw new Error(videoErr);
-        }
         async function asFile(src: File, name: string) {
           const blob = await compressCatalogImage(src);
           return new File([blob], name, { type: blob.type || src.type });
@@ -133,7 +125,6 @@ async function uploadAll() {
           files: {
             image1,
             image2,
-            video: row.video,
           },
         });
         row.status = 'done';
@@ -153,7 +144,7 @@ async function uploadAll() {
   <div class="admin-import-photos">
     <label class="admin-pagination-btn" style="cursor: pointer">
       Fotos por Nº
-      <input type="file" class="sr-only" multiple accept="image/*,video/mp4" @change="onPick" />
+      <input type="file" class="sr-only" multiple accept="image/*" @change="onPick" />
     </label>
 
     <div v-if="open" class="admin-import-photos-panel">

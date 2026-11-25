@@ -154,7 +154,6 @@ export class WatchesImportService {
         backImageUrl: true,
         primaryImageUrl: true,
         secondaryImageUrl: true,
-        videoUrl: true,
       },
     });
 
@@ -178,7 +177,6 @@ export class WatchesImportService {
           model: null,
           hasFront: false,
           hasBack: false,
-          hasVideo: false,
         };
       }
       return {
@@ -188,7 +186,6 @@ export class WatchesImportService {
         model: w.model,
         hasFront: Boolean(w.frontImageUrl || w.primaryImageUrl),
         hasBack: Boolean(w.backImageUrl || w.secondaryImageUrl),
-        hasVideo: Boolean(w.videoUrl),
       };
     });
   }
@@ -466,7 +463,6 @@ export class WatchesImportService {
         movementType: normalized.movementType ?? 'Automático',
         mechanismId: normalized.mechanismId,
         images: [],
-        videoUrl: null,
       });
 
     return {

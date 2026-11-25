@@ -34,10 +34,9 @@ function jobStatusClass(job: UploadJob) {
   };
 }
 
-const fileRows: Array<{ key: 'image1' | 'image2' | 'video'; label: string }> = [
+const fileRows: Array<{ key: 'image1' | 'image2'; label: string }> = [
   { key: 'image1', label: 'Foto principal' },
   { key: 'image2', label: 'Foto secundaria' },
-  { key: 'video', label: 'Video' },
 ];
 </script>
 

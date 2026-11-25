@@ -97,7 +97,7 @@ test.describe('carga por fotos', () => {
     await prisma.$disconnect();
   });
 
-  test('revisa repetidas, sube y intercambia frente y dorso', async ({ page }) => {
+  test('sube pares parecidos y intercambia frente y dorso', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('LUXTIMEE-cookies', '1'));
     await gotoStaffLogin(page, 'http://127.0.0.1:3000');
     await page.waitForLoadState('networkidle');
@@ -126,21 +126,18 @@ test.describe('carga por fotos', () => {
     await expect(page.getByRole('button', { name: 'Usar orden actual' })).toBeVisible();
     await page.screenshot({ path: join(artifacts, 'despues-2-pares-desktop.png') });
     await page.getByRole('button', { name: 'Usar orden actual' }).click();
+    await expect(page.getByRole('list', { name: 'Progreso de la carga' })).toContainText('Revisar pares');
+    await expect(page.getByRole('button', { name: 'Intercambiar frente y dorso' }).first()).toBeVisible();
+    await expect(page.getByTestId('bulk-duplicate-warning')).toHaveCount(0);
+    const duplicateChecks: string[] = [];
+    const drafts: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/watches/image-duplicates')) duplicateChecks.push(request.url());
+      if (request.url().includes('/watches/bulk-draft')) drafts.push(request.url());
+    });
     await page.getByRole('button', { name: 'Subir todo' }).click();
-    const bulk = page.getByTestId('bulk-duplicate-warning');
-    await expect(bulk).toBeVisible();
-    await expect(bulk).toContainText('Muy parecida');
-    await expect(bulk).toContainText('Ya existe');
-    await page.screenshot({ path: join(artifacts, 'despues-3-repetidas-desktop.png') });
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.screenshot({ path: join(artifacts, 'despues-3-repetidas-mobile.png') });
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await bulk.getByRole('button', { name: 'Quitar de esta carga' }).first().click();
-    await expect(page.getByText('Se quitó el par completo')).toBeVisible();
-    const keep = bulk.getByRole('button', { name: 'Subir igual' });
-    const keepCount = await keep.count();
-    for (let index = 0; index < keepCount; index += 1) await keep.nth(index).click();
-    await page.getByRole('button', { name: 'Subir todo' }).click();
+    await expect.poll(() => drafts.length, { timeout: 40_000 }).toBe(2);
+    expect(duplicateChecks).toEqual([]);
     await expect(page.getByText('quedaron en borrador')).toBeVisible({ timeout: 40_000 });
     await page.screenshot({ path: join(artifacts, 'despues-4-listo-desktop.png') });
 

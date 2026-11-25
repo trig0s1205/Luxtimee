@@ -147,7 +147,7 @@ export class PackagingPhotosService {
 
     await this.prisma.packagingPhoto.delete({ where: { id } });
     this.cache.invalidateTag(CACHE_TAGS.packaging);
-    await this.imageProcessing.deleteCloudinaryAsset(existing.imageUrl, 'image');
+    await this.imageProcessing.deleteCloudinaryAsset(existing.imageUrl);
     return this.list();
   }
 

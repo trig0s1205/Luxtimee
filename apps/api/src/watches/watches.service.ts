@@ -44,7 +44,7 @@ import {
 
 const DRAFT_WATCH_MODEL = 'Pendiente de completar';
 
-export type MediaSlot = 'image1' | 'image2' | 'video';
+export type MediaSlot = 'image1' | 'image2';
 export type MediaSlotResult =
   { status: 'done' } | { status: 'error'; message: string };
 
@@ -170,8 +170,6 @@ export class WatchesService {
       backImageUrl:
         (data.backImageUrl as string | null | undefined) ??
         existing.backImageUrl,
-      videoUrl:
-        (data.videoUrl as string | null | undefined) ?? existing.videoUrl,
       images: (data.images as string[] | undefined) ?? existing.images,
     };
   }
@@ -253,7 +251,6 @@ export class WatchesService {
       movementType: dto.movementType ?? 'Automático',
       mechanismId: dto.mechanismId,
       images: dto.images ?? [],
-      videoUrl: null,
     });
     const data: Prisma.WatchCreateInput = {
       sku: 'PENDING',
@@ -551,10 +548,9 @@ export class WatchesService {
     _baseUrl: string,
   ) {
     const existing = await this.watchesRepository.findById(id);
-    if (!files.image1 && !files.image2 && !files.video) {
-      throw new BadRequestException(
-        'Debes enviar al menos un archivo (foto o video)',
-      );
+    void files.video;
+    if (!files.image1 && !files.image2) {
+      return { ...existing, mediaResults: {} };
     }
 
     const isProd = process.env.NODE_ENV === 'production';
@@ -616,29 +612,6 @@ export class WatchesService {
       );
     }
 
-    if (files.video) {
-      tasks.push(
-        (async () => {
-          try {
-            assertMediaFile(files.video!, 'video');
-            const videoUrl = await this.persistWatchVideo(
-              files.video!.buffer,
-              isProd,
-              writtenPaths,
-            );
-            data.videoUrl = videoUrl;
-            mediaResults.video = { status: 'done' };
-          } catch (error) {
-            this.logger.warn('upload_failed slot=video');
-            mediaResults.video = {
-              status: 'error',
-              message: slotErrorMessage(error),
-            };
-          }
-        })(),
-      );
-    }
-
     await Promise.all(tasks);
 
     const submitted = Object.keys(mediaResults) as MediaSlot[];
@@ -660,11 +633,7 @@ export class WatchesService {
           .map((slot) => {
             const result = mediaResults[slot];
             const label =
-              slot === 'video'
-                ? 'Video'
-                : slot === 'image1'
-                  ? 'Foto principal'
-                  : 'Foto secundaria';
+              slot === 'image1' ? 'Foto principal' : 'Foto secundaria';
             return result?.status === 'error'
               ? `${label}: ${result.message}`
               : label;
@@ -712,13 +681,11 @@ export class WatchesService {
         typeof data.secondaryImageUrl === 'string'
           ? data.secondaryImageUrl
           : existing.secondaryImageUrl,
-        typeof data.videoUrl === 'string' ? data.videoUrl : existing.videoUrl,
       ].filter((url): url is string => Boolean(url));
       await this.bestEffortDeleteUrls(
         [
           existing.primaryImageUrl,
           existing.secondaryImageUrl,
-          existing.videoUrl,
           ...(existing.images ?? []),
         ],
         keep,
@@ -775,27 +742,6 @@ export class WatchesService {
     await writeFile(path, buffer);
     writtenPaths.push(path);
     return `/uploads/watches/${name}`;
-  }
-
-  private async persistWatchVideo(
-    buffer: Buffer,
-    isProd: boolean,
-    writtenPaths: string[],
-  ): Promise<string> {
-    if (isProd) {
-      return this.imageProcessing.uploadVideoToCloudinary(
-        buffer,
-        `watch-video-${randomUUID()}`,
-      );
-    }
-
-    const videosDir = join(process.cwd(), 'uploads', 'watches', 'videos');
-    await mkdir(videosDir, { recursive: true });
-    const name = `watch-${randomUUID()}.mp4`;
-    const path = join(videosDir, name);
-    await writeFile(path, buffer);
-    writtenPaths.push(path);
-    return `/uploads/watches/videos/${name}`;
   }
 
   private async bestEffortDeleteUrls(

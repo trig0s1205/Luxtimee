@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue';
-import { findBatchDuplicates, type ImageDuplicateMatch, type ImageFingerprint } from '@luxtime/shared';
 import { selectionBadge } from '~/utils/bulk-photo-arrange';
-import { fingerprintImageFile } from '~/utils/image-fingerprint';
-import { storedDuplicateViews, type DuplicateHitView } from '~/utils/image-duplicates';
-import { duplicateRemovalNote, planDuplicatePairRemoval } from '~/utils/bulk-duplicate-removal';
+import { bulkUploadAction } from '~/utils/bulk-upload-action';
 import { useWatchBulkDraftStore } from '~/stores/watch-bulk-draft';
 
 const Draggable = defineAsyncComponent(() => import('vuedraggable'));
@@ -59,132 +56,18 @@ const flowStep = computed(() => {
   if (store.settlement && !store.pendingCount && !store.preparing && !store.preview && !store.board) return 4;
   if (store.jobs.length && !store.pendingCount && !store.preparing && !store.preview && !store.board) return 4;
   if (store.pendingCount || store.confirming || store.jobs.some((job) => job.status === 'running' || job.status === 'queued')) return 3;
-  if (store.preview || store.board || reviewing.value) return 2;
+  if (store.preview || store.board) return 2;
   return 1;
 });
-const steps = ['Elegir fotos', 'Revisar pares y repetidas', 'Subiendo', 'Listo'];
-const reviewing = ref(false);
-const reviewError = ref('');
+const steps = ['Elegir fotos', 'Revisar pares', 'Subiendo', 'Listo'];
 
-type BulkDuplicate = {
-  pairId: string;
-  side: 'front' | 'back';
-  name: string;
-  previewUrl: string;
-  hits: DuplicateHitView[];
-  decision: 'pending' | 'keep';
-};
-
-const duplicateReview = ref<BulkDuplicate[]>([]);
-const pairRemovalNote = ref('');
-
-function reviewKey(item: { pairId: string; side: 'front' | 'back' }) {
-  return `${item.pairId}:${item.side}`;
-}
-
-async function uploadAll() {
-  if (store.confirming || reviewing.value) return;
-  if (duplicateReview.value.some((item) => item.decision !== 'keep')) return;
-  duplicateReview.value = [];
-  await store.confirmPreview();
-}
-
-async function scanBeforeUpload() {
-  if (store.confirming || reviewing.value || !store.preview?.pairs.length) return;
-  if (duplicateReview.value.length) {
-    await uploadAll();
-    return;
-  }
-  reviewing.value = true;
-  reviewError.value = '';
-  try {
-    const api = useApi();
-    const assets = String(useRuntimeConfig().public.apiAssetsUrl || 'http://localhost:3001');
-    const files = await store.previewFiles();
-    const fingerprinted: Array<{
-      pairId: string;
-      side: 'front' | 'back';
-      name: string;
-      previewUrl: string;
-      id: string;
-    } & ImageFingerprint> = [];
-    for (const file of files) {
-      const fingerprint = await fingerprintImageFile(file.file);
-      const pair = store.preview?.pairs.find((item) => item.id === file.pairId);
-      fingerprinted.push({
-        ...file,
-        ...fingerprint,
-        id: reviewKey(file),
-        previewUrl: file.side === 'front' ? pair?.frontUrl || '' : pair?.backUrl || '',
-      });
-    }
-    let stored = new Map<string, ImageDuplicateMatch['duplicates']>();
-    if (fingerprinted.length) {
-      try {
-        const response = await api.post<{ matches: ImageDuplicateMatch[] }>('/watches/image-duplicates', {
-          items: fingerprinted.map((item) => ({
-            id: item.id,
-            contentHash: item.contentHash,
-            ...(item.perceptualHash ? { perceptualHash: item.perceptualHash } : {}),
-          })),
-        });
-        stored = new Map(response.matches.map((match) => [match.id, match.duplicates]));
-      } catch {
-        reviewError.value = 'No se pudo comparar con el inventario. Puedes subir igual.';
-      }
-    }
-    const batch = findBatchDuplicates(fingerprinted);
-    const previews = new Map(fingerprinted.map((item) => [item.id, item.previewUrl]));
-    const next: BulkDuplicate[] = [];
-    for (const item of fingerprinted) {
-      const hits = storedDuplicateViews(stored.get(item.id) ?? [], assets);
-      for (const other of batch.filter((hit) => hit.id === item.id)) {
-        hits.push({
-          key: `batch-${other.otherId}`,
-          thumb: previews.get(other.otherId),
-          kind: other.kind === 'exact' ? 'exact' : 'near',
-          caption: 'En este lote',
-        });
-      }
-      if (!hits.length) continue;
-      next.push({
-        pairId: item.pairId,
-        side: item.side,
-        name: item.name,
-        previewUrl: item.previewUrl,
-        hits,
-        decision: 'pending',
-      });
-    }
-    if (!next.length) {
-      await store.confirmPreview();
-      return;
-    }
-    duplicateReview.value = next;
-  } finally {
-    reviewing.value = false;
-  }
-}
-
-async function omitReview(items: BulkDuplicate[]) {
-  const plan = planDuplicatePairRemoval(
-    items,
-    (store.preview?.pairs ?? []).map((pair) => ({ id: pair.id, hasBack: !!pair.backUrl })),
-  );
-  for (const pairId of plan.removePairIds) await store.removePreviewWatch(pairId);
-  const note = duplicateRemovalNote(plan.partialPairIds.length);
-  if (note) pairRemovalNote.value = note;
-  const removed = new Set(plan.removePairIds);
-  duplicateReview.value = duplicateReview.value.filter((item) => !removed.has(item.pairId));
-}
-
-async function omitAllDuplicates() {
-  await omitReview(duplicateReview.value.filter((item) => item.decision === 'pending'));
-  if (!store.preview?.pairs.length) return;
-  if (!duplicateReview.value.some((item) => item.decision !== 'keep')) {
-    duplicateReview.value = [];
-    await store.confirmPreview();
-  }
+function uploadAll() {
+  if (bulkUploadAction({
+    confirming: store.confirming,
+    pairCount: store.preview?.pairs.length ?? 0,
+    similarityDecisions: [],
+  }) !== 'upload') return;
+  void store.confirmPreview();
 }
 
 function start() {
@@ -379,28 +262,13 @@ function close() {
               </li>
             </template>
           </Draggable>
-          <div v-if="duplicateReview.length" class="admin-bulk-dupes" data-testid="bulk-duplicate-warning">
-            <p class="admin-bulk-draft-warn">Compara solo la foto. Nada se sube hasta que elijas.</p>
-            <article v-for="item in duplicateReview" :key="reviewKey(item)">
-              <AdminImageDuplicateWarning
-                :incoming="item.previewUrl"
-                :hits="item.hits"
-                @zoom="zoomUrl = $event"
-                @skip="omitReview([item])"
-                @keep="item.decision = 'keep'"
-              />
-            </article>
-            <button type="button" class="admin-pagination-btn" @click="omitAllDuplicates()">Quitar todas las repetidas</button>
-          </div>
-          <p v-if="pairRemovalNote" class="admin-bulk-draft-copy">{{ pairRemovalNote }}</p>
-          <p v-if="reviewError" class="admin-bulk-draft-warn">{{ reviewError }}</p>
           <div class="admin-bulk-draft-actions">
-            <UiLuxButton variant="ghost" :disabled="store.confirming" @click="duplicateReview = []; store.cancelPreview()">Cancelar</UiLuxButton>
+            <UiLuxButton variant="ghost" :disabled="store.confirming" @click="store.cancelPreview()">Cancelar</UiLuxButton>
             <UiLuxButton
-              :disabled="store.confirming || reviewing || !readyCount || duplicateReview.some((item) => item.decision !== 'keep')"
-              @click="scanBeforeUpload()"
+              :disabled="bulkUploadAction({ confirming: store.confirming, pairCount: readyCount, similarityDecisions: [] }) !== 'upload'"
+              @click="uploadAll()"
             >
-              {{ reviewing ? 'Revisando fotos…' : 'Subir todo' }}
+              Subir todo
             </UiLuxButton>
           </div>
         </template>
@@ -795,17 +663,6 @@ function close() {
   justify-content: flex-end;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.admin-bulk-dupes {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.admin-bulk-dupes article {
-  padding: 4px 0;
 }
 
 .admin-bulk-draft-row--error {

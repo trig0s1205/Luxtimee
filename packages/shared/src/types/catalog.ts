@@ -81,7 +81,6 @@ export interface WatchPublicDto {
   mainImageIndex: number;
   primaryImageUrl?: string | null;
   secondaryImageUrl?: string | null;
-  videoUrl?: string | null;
   frontImageUrl: string | null;
   backImageUrl: string | null;
   warrantyTemplate?: WarrantyTemplateDto | null;
