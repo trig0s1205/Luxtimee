@@ -197,7 +197,10 @@ export class WatchesImportService {
 
   private async loadLookups(rows: RawImportRow[]): Promise<Lookups> {
     const [brands, categories, mechanisms, careTemplates] = await Promise.all([
-      this.prisma.brand.findMany({ select: { id: true, name: true } }),
+      this.prisma.brand.findMany({
+        where: { deletedAt: null },
+        select: { id: true, name: true },
+      }),
       this.prisma.category.findMany({ select: { id: true, name: true } }),
       this.prisma.mechanism.findMany({
         select: { id: true, name: true },

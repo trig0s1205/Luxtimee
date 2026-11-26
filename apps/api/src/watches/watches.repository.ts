@@ -392,12 +392,15 @@ export class WatchesRepository {
   }
 
   async brandExists(id: string) {
-    const brand = await this.prisma.brand.findUnique({ where: { id } });
+    const brand = await this.prisma.brand.findFirst({
+      where: { id, deletedAt: null },
+    });
     return !!brand;
   }
 
   async findFirstBrandId() {
     const brand = await this.prisma.brand.findFirst({
+      where: { deletedAt: null },
       orderBy: { name: 'asc' },
       select: { id: true },
     });
