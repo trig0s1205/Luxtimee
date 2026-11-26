@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
+  isPackagingExtraName,
   quoteWholesaleCart,
   type WholesaleExtraDef,
   type WholesalePackageDef,
@@ -60,11 +61,13 @@ export class WholesaleOffersService {
       }),
     ]);
     return {
-      extras: extras.map((extra) => ({
-        id: extra.id,
-        name: extra.name,
-        price: extra.price,
-      })),
+      extras: extras
+        .filter((extra) => !isPackagingExtraName(extra.name))
+        .map((extra) => ({
+          id: extra.id,
+          name: extra.name,
+          price: extra.price,
+        })),
       packages: packages.map((pkg) => ({
         id: pkg.id,
         name: pkg.name,
@@ -77,10 +80,20 @@ export class WholesaleOffersService {
     };
   }
 
+  async extrasForPricing(): Promise<WholesaleExtraDef[]> {
+    const extras = await this.prisma.wholesaleExtra.findMany({ orderBy: { name: 'asc' } });
+    return extras
+      .filter((extra) => extra.isActive || isPackagingExtraName(extra.name))
+      .map((extra) => ({ id: extra.id, name: extra.name, price: extra.price }));
+  }
+
   async quoteLines(lines: WholesaleQuoteInputLine[]) {
-    const catalog = await this.getPublicCatalog();
+    const [catalog, extras] = await Promise.all([
+      this.getPublicCatalog(),
+      this.extrasForPricing(),
+    ]);
     try {
-      return quoteWholesaleCart(lines, catalog.extras, catalog.packages);
+      return quoteWholesaleCart(lines, extras, catalog.packages);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudo cotizar el pedido';
       throw new BadRequestException(message);
@@ -89,6 +102,7 @@ export class WholesaleOffersService {
 
   async createExtra(input: { name: string; price: number; sortOrder?: number }) {
     const name = input.name.trim();
+    this.rejectPackagingExtra(name);
     try {
       return await this.prisma.wholesaleExtra.create({
         data: {
@@ -110,6 +124,7 @@ export class WholesaleOffersService {
     input: { name?: string; price?: number; sortOrder?: number; isActive?: boolean },
   ) {
     await this.ensureExtra(id);
+    if (input.name !== undefined) this.rejectPackagingExtra(input.name);
     try {
       return await this.prisma.wholesaleExtra.update({
         where: { id },
@@ -204,6 +219,12 @@ export class WholesaleOffersService {
     if (!current) throw new BadRequestException('Paquete no encontrado');
     await this.prisma.wholesalePackage.delete({ where: { id } });
     return { ok: true };
+  }
+
+  private rejectPackagingExtra(name: string) {
+    if (isPackagingExtraName(name)) {
+      throw new BadRequestException('La opción de empaque ya no está disponible');
+    }
   }
 
   private async ensureExtra(id: string) {

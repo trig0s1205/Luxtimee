@@ -1,3 +1,5 @@
+import { isPackagingExtraName } from '@luxtime/shared';
+
 export type LineExtraSelection = { extraId: string; quantity: number };
 
 export type MergeablePreOrderItem = {
@@ -124,24 +126,29 @@ export function repricePreservedWholesaleLine(input: {
   if (!Number.isInteger(watchUnitPrice) || watchUnitPrice < 0) {
     throw new Error('Precio guardado del pedido inválido');
   }
-  const extras = requested.map((extra) => {
+  const extras: PricedSnapshotExtra[] = [];
+  for (const extra of requested) {
+    const snap = snapById.get(extra.extraId);
+    const def = catalogById.get(extra.extraId);
+    if (!snap && def && isPackagingExtraName(def.name)) continue;
     if (!Number.isInteger(extra.quantity) || extra.quantity > MAX_EXTRA_QTY) {
       throw new Error('Cantidad de extra inválida');
     }
-    const snap = snapById.get(extra.extraId);
-    if (snap) return { ...snap, quantity: extra.quantity };
-    const def = catalogById.get(extra.extraId);
+    if (snap) {
+      extras.push({ ...snap, quantity: extra.quantity });
+      continue;
+    }
     if (!def) throw new Error('Esa opción extra no está disponible');
     if (!Number.isInteger(def.price) || def.price < 0) {
       throw new Error('Precio de extra inválido');
     }
-    return {
+    extras.push({
       extraId: def.id,
       name: def.name,
       unitPrice: def.price,
       quantity: extra.quantity,
-    };
-  });
+    });
+  }
   const extrasUnit = extras.reduce(
     (sum, extra) => sum + extra.unitPrice * extra.quantity,
     0,

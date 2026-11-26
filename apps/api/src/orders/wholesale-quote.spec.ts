@@ -26,7 +26,7 @@ describe('quoteWholesaleCart', () => {
     expect(quote.offers[0].applied).toBe(false);
   });
 
-  it('suma extras por reloj y no acepta quitar por debajo del piso', () => {
+  it('ignora el empaque (caja) y no lo suma al total', () => {
     const quote = quoteWholesaleCart(
       [{
         watchId: 'w1',
@@ -37,8 +37,24 @@ describe('quoteWholesaleCart', () => {
       extras,
       packages,
     );
-    expect(quote.lines[0].unitPrice).toBe(55000);
-    expect(quote.lines[0].lineTotal).toBe(110000);
+    expect(quote.lines[0].extras).toEqual([]);
+    expect(quote.lines[0].unitPrice).toBe(50000);
+    expect(quote.lines[0].lineTotal).toBe(100000);
+  });
+
+  it('suma extras que no son empaque', () => {
+    const quote = quoteWholesaleCart(
+      [{
+        watchId: 'w1',
+        quantity: 2,
+        wholesalePrice: 50000,
+        extras: [{ extraId: 'pila', quantity: 1 }],
+      }],
+      extras,
+      packages,
+    );
+    expect(quote.lines[0].unitPrice).toBe(52000);
+    expect(quote.lines[0].lineTotal).toBe(104000);
   });
 
   it('aplica el paquete más barato al llegar a la cantidad y suma extras encima', () => {
@@ -87,8 +103,8 @@ describe('quoteWholesaleCart', () => {
           quantity: 1,
           wholesalePrice: 50000,
           extras: [
-            { extraId: 'caja', quantity: 1 },
-            { extraId: 'caja', quantity: 1 },
+            { extraId: 'pila', quantity: 1 },
+            { extraId: 'pila', quantity: 1 },
           ],
         },
       ],
@@ -96,9 +112,9 @@ describe('quoteWholesaleCart', () => {
       packages,
     );
     expect(quote.lines[0].extras).toEqual([
-      { extraId: 'caja', name: 'Caja', unitPrice: 5000, quantity: 2 },
+      { extraId: 'pila', name: 'Pila', unitPrice: 2000, quantity: 2 },
     ]);
-    expect(quote.lines[0].unitPrice).toBe(60000);
+    expect(quote.lines[0].unitPrice).toBe(54000);
   });
 
   it('rechaza extras repetidos que superan el máximo', () => {
@@ -110,8 +126,8 @@ describe('quoteWholesaleCart', () => {
             quantity: 1,
             wholesalePrice: 50000,
             extras: [
-              { extraId: 'caja', quantity: 60 },
-              { extraId: 'caja', quantity: 50 },
+              { extraId: 'pila', quantity: 60 },
+              { extraId: 'pila', quantity: 50 },
             ],
           },
         ],

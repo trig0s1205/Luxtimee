@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PaginatedResponse, WatchStaffDto } from '@luxtime/shared';
+import { isPackagingExtraName, type PaginatedResponse, type WatchStaffDto } from '@luxtime/shared';
 import { extractApiErrorMessage } from '~/utils/api-error';
 import { watchPrimaryImage } from '~/utils/media-url';
 
@@ -26,6 +26,10 @@ const toast = useToast();
 const { data, refresh, pending } = useAdminCachedData(
   'wholesale-offers-admin',
   () => api.get<{ extras: ExtraRow[]; packages: PackageRow[] }>('/wholesale-offers'),
+);
+
+const visibleExtras = computed(() =>
+  (data.value?.extras ?? []).filter((extra) => !isPackagingExtraName(extra.name)),
 );
 
 const creatingExtra = ref(false);
@@ -167,20 +171,20 @@ async function removePackage(id: string) {
   }
 }
 
-useSeoMeta({ title: 'Opciones de empaque y extras — LUXTIMEE Admin' });
+useSeoMeta({ title: 'Extras — LUXTIMEE Admin' });
 </script>
 
 <template>
   <div class="admin-records-page">
     <UiSectionHeader
       label="Ventas"
-      title="Opciones de empaque y extras"
+      title="Extras"
       :refreshable="true"
       :refreshing="pending"
       @refresh="refresh()"
     />
     <p class="admin-records-hint">
-      Aquí solo se registran extras que el cliente puede pedir además del reloj: caja, paño, pila, estuche u otro.
+      Aquí solo se registran extras que el cliente puede pedir además del reloj, por ejemplo paño o pila. El empaque y la caja no se ofrecen ni se cobran.
       El nombre es lo que verá en la venta. El precio es un cobro extra por cada reloj, en pesos. No cambia el precio del reloj.
     </p>
 
@@ -193,8 +197,8 @@ useSeoMeta({ title: 'Opciones de empaque y extras — LUXTIMEE Admin' });
       <div class="grid gap-3 md:grid-cols-2">
         <label class="pack-field">
           <span>Nombre de la opción</span>
-          <UiLuxInput v-model="extraForm.name" placeholder="Ej. Caja" />
-          <small>Cómo debe aparecer en la venta. Ejemplos: Caja, Paño, Pila, Estuche.</small>
+          <UiLuxInput v-model="extraForm.name" placeholder="Ej. Pila" />
+          <small>Cómo debe aparecer en la venta. Ejemplos: Paño, Pila.</small>
         </label>
         <label class="pack-field">
           <span>Precio extra por reloj (COP)</span>
@@ -209,7 +213,7 @@ useSeoMeta({ title: 'Opciones de empaque y extras — LUXTIMEE Admin' });
       </div>
     </section>
 
-    <section v-for="extra in data?.extras ?? []" :key="extra.id" class="admin-record-export">
+    <section v-for="extra in visibleExtras" :key="extra.id" class="admin-record-export">
       <h3 class="pack-existing">{{ extra.name || 'Opción sin nombre' }}</h3>
       <div class="grid gap-3" :class="SHOW_WHOLESALE_OFFERS ? 'md:grid-cols-4' : 'md:grid-cols-3'">
         <label class="pack-field">
@@ -223,7 +227,7 @@ useSeoMeta({ title: 'Opciones de empaque y extras — LUXTIMEE Admin' });
         <label class="pack-field">
           <span>Orden en la lista</span>
           <UiLuxInput v-model.number="extra.sortOrder" type="number" min="0" placeholder="0" />
-          <small>0 sale primero. Ejemplo: caja = 0, paño = 1, pila = 2.</small>
+          <small>0 sale primero. Ejemplo: paño = 0, pila = 1.</small>
         </label>
         <div v-if="SHOW_WHOLESALE_OFFERS" class="pack-field">
           <span>Visible para el mayorista</span>

@@ -61,6 +61,11 @@ export interface WholesaleQuoteResult {
 
 const MAX_EXTRA_QTY = 99;
 
+/** Extras de empaque/caja: se ignoran al cotizar. El historial guardado no se borra. */
+export function isPackagingExtraName(name: string): boolean {
+  return /\b(empaque|packaging|caja|estuche|box)\b/i.test(name.trim());
+}
+
 function mergeExtraQuantities(extras: WholesaleExtraSelection[]) {
   const totals = new Map<string, number>();
   for (const extra of extras) {
@@ -85,22 +90,24 @@ export function quoteWholesaleCart(
       throw new Error('Precio mayorista inválido');
     }
     const selected = mergeExtraQuantities(line.extras ?? []);
-    const quotedExtras: WholesaleQuotedExtra[] = selected.map((extra) => {
+    const quotedExtras: WholesaleQuotedExtra[] = [];
+    for (const extra of selected) {
+      const def = extraById.get(extra.extraId);
+      if (def && isPackagingExtraName(def.name)) continue;
       if (!Number.isInteger(extra.quantity) || extra.quantity < 0 || extra.quantity > MAX_EXTRA_QTY) {
         throw new Error('Cantidad de extra inválida');
       }
-      const def = extraById.get(extra.extraId);
       if (!def) throw new Error('Esa opción extra no está disponible');
       if (!Number.isInteger(def.price) || def.price < 0) {
         throw new Error('Precio de extra inválido');
       }
-      return {
+      quotedExtras.push({
         extraId: def.id,
         name: def.name,
         unitPrice: def.price,
         quantity: extra.quantity,
-      };
-    });
+      });
+    }
     return { ...line, quotedExtras };
   });
 
