@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import type { CartItemDto, WatchPublicDto } from '@luxtime/shared';
+import { isPackagingExtraName, type CartItemDto, type WatchPublicDto } from '@luxtime/shared';
 
 const STORAGE_KEY = 'LUXTIMEE-cart-wholesale';
 
@@ -39,6 +39,7 @@ export const useWholesaleCartStore = defineStore('wholesale-cart', {
     },
 
     addFromWatch(watch: WatchPublicDto, quantity = 1, extras: WholesaleCartExtra[] = []) {
+      extras = extras.filter((extra) => !isPackagingExtraName(extra.name));
       this.hydrate();
       const stock = watch.stock ?? 0;
       const existing = this.items.find((i) => i.watchId === watch.id);
@@ -105,6 +106,7 @@ export const useWholesaleCartStore = defineStore('wholesale-cart', {
     },
 
     setExtra(watchId: string, extra: WholesaleCartExtra) {
+      if (isPackagingExtraName(extra.name)) return;
       this.hydrate();
       const item = this.items.find((row) => row.watchId === watchId);
       if (!item) return;
@@ -141,7 +143,7 @@ export const useWholesaleCartStore = defineStore('wholesale-cart', {
         quantity: item.quantity,
         deliveryNote: item.deliveryNote?.trim() || undefined,
         extras: (item.extras ?? [])
-          .filter((extra) => extra.quantity > 0)
+          .filter((extra) => extra.quantity > 0 && !isPackagingExtraName(extra.name ?? ''))
           .map((extra) => ({ extraId: extra.extraId, quantity: extra.quantity })),
       }));
     },

@@ -410,9 +410,9 @@ export class PreOrdersService {
     const hasFrozen = lineInputs.some((line) =>
       previousByWatch.has(line.watchId),
     );
-    const catalog = hasFrozen
-      ? await this.wholesaleOffers.getPublicCatalog()
-      : null;
+    const catalogExtras = hasFrozen
+      ? await this.wholesaleOffers.extrasForPricing()
+      : [];
 
     const lines = lineInputs.map((line) => {
       const prev = previousByWatch.get(line.watchId);
@@ -437,7 +437,7 @@ export class PreOrdersService {
           previousUnitPrice: prev.unitPrice,
           previousExtras: parseExtrasSnapshot(prev.extrasSnapshot),
           requestedExtras: line.extras,
-          catalogExtras: catalog?.extras ?? [],
+          catalogExtras,
         });
       } catch (error) {
         const message =

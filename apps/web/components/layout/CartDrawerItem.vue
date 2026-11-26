@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CartItemDto } from '@luxtime/shared';
+import { isPackagingExtraName, type CartItemDto } from '@luxtime/shared';
 import { formatCop } from '~/utils/format';
 import type { CartDrawerChannel } from '~/composables/useCartDrawer';
 
@@ -15,7 +15,7 @@ const cart = computed(() => (props.channel === 'wholesale' ? wholesaleCart : ret
 const extraLabel = computed(() => {
   if (props.channel !== 'wholesale') return '';
   return (props.item.extras ?? [])
-    .filter((extra) => extra.quantity > 0)
+    .filter((extra) => extra.quantity > 0 && !isPackagingExtraName(extra.name ?? ''))
     .map((extra) => `${extra.quantity} ${extra.name ?? 'extra'}`)
     .join(', ');
 });

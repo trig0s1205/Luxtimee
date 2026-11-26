@@ -60,6 +60,16 @@ describe('repricePreservedWholesaleLine', () => {
     });
     expect(priced.unitPrice).toBe(44000);
 
+    const ignored = repricePreservedWholesaleLine({
+      quantity: 1,
+      previousUnitPrice: 40000,
+      previousExtras: [],
+      requestedExtras: [{ extraId: 'caja', quantity: 1 }],
+      catalogExtras: [{ id: 'caja', name: 'Caja', price: 5000 }],
+    });
+    expect(ignored.unitPrice).toBe(40000);
+    expect(ignored.extras).toEqual([]);
+
     expect(() =>
       repricePreservedWholesaleLine({
         quantity: 1,
