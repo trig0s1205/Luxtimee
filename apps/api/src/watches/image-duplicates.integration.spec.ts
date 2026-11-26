@@ -43,6 +43,7 @@ describe('coincidencias de fotos', () => {
 
   beforeAll(async () => {
     assertSafeDatabase();
+    process.env.JWT_SECRET = SECRET;
     await prisma.$connect();
     const brand = await prisma.brand.create({
       data: { name: `Marca ${prefix}`, slug: prefix },
