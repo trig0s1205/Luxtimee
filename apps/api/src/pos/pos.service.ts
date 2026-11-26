@@ -19,9 +19,14 @@ import {
 } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import {
+  cashClosingNoteValid,
+  expectedDrawerCash,
   resolvePosDiscount,
   type PosCashClosingDto,
   type PosCashClosingPreviewDto,
+  type PosCashClosingsPageDto,
+  type PosCashOutDto,
+  type PosCashSaleLineDto,
   type PosCustomerHintDto,
   type PosMySaleDto,
   type PosSaleResultDto,
@@ -41,6 +46,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { nextOrderReadableId } from '../common/utils/document-counter.util';
 import { withTxnRetries } from '../common/utils/txn-retries.util';
 import { PrismaService } from '../prisma/prisma.service';
+import { expenseDate } from '../expenses/expenses.service';
 import {
   bogotaDayRange,
   todayBogotaYmd,
@@ -49,9 +55,11 @@ import { validatePosPayments } from '../receipts/payments.util';
 import { ReceiptsService } from '../receipts/receipts.service';
 import {
   CreateCashClosingDto,
+  CreateCashOutDto,
   CreatePosSaleDto,
   PosMySalesQueryDto,
 } from './dto/pos.dto';
+import { renderCashClosingPdf } from './cash-closing-pdf';
 import { PosCatalogService } from './pos-catalog.service';
 
 const POS_SALE_TX = { maxWait: 3_000, timeout: 8_000 } as const;
@@ -89,6 +97,7 @@ function toClosingDto(
     totalOther: number;
     totalSales: number;
     salesCount: number;
+    cashOutTotal?: number | null;
     notes: string | null;
     createdAt: Date;
     user?: { name: string } | null;
@@ -113,6 +122,7 @@ function toClosingDto(
     totalOther: row.totalOther,
     totalSales: row.totalSales,
     salesCount: row.salesCount,
+    cashOutTotal: row.cashOutTotal ?? 0,
     notes: row.notes,
     createdAt: row.createdAt.toISOString(),
   };
@@ -687,8 +697,16 @@ export class PosService {
     const date = dto.date.trim();
     this.assertCashDateAllowed(date, user.role);
     const totals = await this.computeCashTotals(date, user.id);
-    const expectedCash = dto.openingCash + totals.totalCash;
+    const expectedCash = expectedDrawerCash(
+      dto.openingCash,
+      totals.totalCash,
+      totals.cashOutTotal,
+    );
     const difference = dto.countedCash - expectedCash;
+    const notes = dto.notes ? sanitizePlainText(dto.notes, 500) || null : null;
+    if (!cashClosingNoteValid(difference, notes)) {
+      throw new BadRequestException('Explica por qué sobra o falta dinero');
+    }
     const businessDate = new Date(`${date}T00:00:00.000Z`);
 
     try {
@@ -706,7 +724,8 @@ export class PosService {
           totalOther: totals.totalOther,
           totalSales: totals.totalSales,
           salesCount: totals.salesCount,
-          notes: dto.notes ? sanitizePlainText(dto.notes, 500) || null : null,
+          cashOutTotal: totals.cashOutTotal,
+          notes,
         },
         include: { user: { select: { name: true } } },
       });
@@ -724,7 +743,12 @@ export class PosService {
     }
   }
 
-  async listCashClosings(from?: string, to?: string): Promise<PosCashClosingDto[]> {
+  async listCashClosings(
+    from?: string,
+    to?: string,
+    page = 1,
+    limit = 15,
+  ): Promise<PosCashClosingsPageDto> {
     const where: Prisma.CashClosingWhereInput = {};
     if (from || to) {
       where.businessDate = {
@@ -732,23 +756,89 @@ export class PosService {
         ...(to ? { lte: new Date(`${to}T00:00:00.000Z`) } : {}),
       };
     }
-    const rows = await this.prisma.cashClosing.findMany({
-      where,
-      include: { user: { select: { name: true } } },
-      orderBy: [{ businessDate: 'desc' }, { createdAt: 'desc' }],
-      take: 200,
-    });
-    return rows.map(toClosingDto);
+    return this.pageClosings(where, page, limit);
   }
 
-  async myCashClosings(userId: string): Promise<PosCashClosingDto[]> {
-    const rows = await this.prisma.cashClosing.findMany({
-      where: { userId },
-      include: { user: { select: { name: true } } },
-      orderBy: { businessDate: 'desc' },
-      take: 30,
+  async myCashClosings(
+    userId: string,
+    page = 1,
+    limit = 15,
+  ): Promise<PosCashClosingsPageDto> {
+    return this.pageClosings({ userId }, page, limit);
+  }
+
+  private async pageClosings(
+    where: Prisma.CashClosingWhereInput,
+    page: number,
+    limit: number,
+  ): Promise<PosCashClosingsPageDto> {
+    const take = Math.min(50, Math.max(1, limit));
+    const current = Math.max(1, page);
+    const [total, rows] = await Promise.all([
+      this.prisma.cashClosing.count({ where }),
+      this.prisma.cashClosing.findMany({
+        where,
+        include: { user: { select: { name: true } } },
+        orderBy: [{ businessDate: 'desc' }, { createdAt: 'desc' }],
+        skip: (current - 1) * take,
+        take,
+      }),
+    ]);
+    return {
+      items: rows.map(toClosingDto),
+      total,
+      page: current,
+      limit: take,
+    };
+  }
+
+  async createCashOut(dto: CreateCashOutDto, user: AuthenticatedUser) {
+    const date = dto.date.trim();
+    this.assertCashDateAllowed(date, user.role);
+    const name = sanitizePlainText(dto.name, 120);
+    if (!name) throw new BadRequestException('El concepto es obligatorio');
+    if (!Number.isInteger(dto.amount) || dto.amount <= 0) {
+      throw new BadRequestException('El valor debe ser mayor a 0');
+    }
+    const description = sanitizePlainText(dto.notes ?? '', 500) || null;
+    const created = await this.prisma.expense.create({
+      data: {
+        name,
+        description,
+        amount: dto.amount,
+        spentAt: expenseDate(date),
+        origin: 'LOCAL',
+        paidWithCash: true,
+        createdById: user.id,
+      },
+      include: { createdBy: { select: { name: true } } },
     });
-    return rows.map(toClosingDto);
+    return {
+      id: created.id,
+      name: created.name,
+      description: created.description,
+      amount: created.amount,
+      spentAt: created.spentAt.toISOString(),
+      createdAt: created.createdAt.toISOString(),
+      createdByName: created.createdBy?.name ?? null,
+    };
+  }
+
+  async cashClosingPdf(id: string, user: AuthenticatedUser) {
+    const row = await this.prisma.cashClosing.findUnique({
+      where: { id },
+      include: { user: { select: { name: true } } },
+    });
+    if (!row) throw new NotFoundException('Cierre no encontrado');
+    if (user.role === Role.VENDEDOR_LOCAL && row.userId !== user.id) {
+      throw new ForbiddenException();
+    }
+    const dto = toClosingDto(row);
+    const buffer = await renderCashClosingPdf(dto);
+    return {
+      filename: `Cierre-caja-${dto.businessDate}.pdf`,
+      buffer,
+    };
   }
 
   async computeCashTotals(date: string, userId: string) {
@@ -757,10 +847,7 @@ export class PosService {
       where: {
         registeredById: userId,
         paidAt: { gte: start, lt: end },
-        order: {
-          source: OrderSource.LOCAL,
-          canceledAt: null,
-        },
+        order: { source: OrderSource.LOCAL },
       },
       select: {
         amount: true,
@@ -772,6 +859,11 @@ export class PosService {
             readableId: true,
             customerName: true,
             total: true,
+            canceledAt: true,
+            receipt: { select: { number: true } },
+            items: {
+              select: { productName: true, productImage: true },
+            },
           },
         },
       },
@@ -781,19 +873,45 @@ export class PosService {
     let totalTransfer = 0;
     let totalCard = 0;
     let totalOther = 0;
-    const salesMap = new Map<
-      string,
-      {
-        readableId: string;
-        paidAt: string;
-        customerName: string;
-        total: number;
-        methods: string[];
-      }
-    >();
+    const activeOrders = new Set<string>();
+    const buckets: Record<'cash' | 'transfer' | 'card', Map<string, PosCashSaleLineDto>> = {
+      cash: new Map(),
+      transfer: new Map(),
+      card: new Map(),
+    };
+    const voided = new Map<string, PosCashSaleLineDto>();
 
     for (const payment of payments) {
-      const method = payment.method;
+      const order = payment.order;
+      const method = payment.method ?? '';
+      const watches = (order.items ?? []).map((item) => ({
+        name: item.productName,
+        imageUrl: item.productImage ?? null,
+      }));
+      if (order.canceledAt) {
+        const existing = voided.get(order.id);
+        if (existing) {
+          existing.portion += payment.amount;
+          if (payment.paidAt.toISOString() < existing.paidAt) {
+            existing.paidAt = payment.paidAt.toISOString();
+          }
+        } else {
+          voided.set(order.id, {
+            orderId: order.id,
+            readableId: order.readableId,
+            receiptNumber: order.receipt?.number ?? null,
+            paidAt: payment.paidAt.toISOString(),
+            customerName: order.customerName,
+            total: order.total,
+            portion: payment.amount,
+            method,
+            watches,
+          });
+        }
+        continue;
+      }
+
+      activeOrders.add(order.id);
       if (method === PaymentMethod.EFECTIVO) totalCash += payment.amount;
       else if (method === PaymentMethod.TRANSFERENCIA)
         totalTransfer += payment.amount;
@@ -801,25 +919,63 @@ export class PosService {
         totalCard += payment.amount;
       else totalOther += payment.amount;
 
-      const existing = salesMap.get(payment.order.id);
+      const bucket =
+        method === PaymentMethod.EFECTIVO
+          ? buckets.cash
+          : method === PaymentMethod.TRANSFERENCIA
+            ? buckets.transfer
+            : method === PaymentMethod.DATAFONO_BOLD
+              ? buckets.card
+              : null;
+      if (!bucket) continue;
+      const key = order.id;
+      const existing = bucket.get(key);
       if (existing) {
-        if (method && !existing.methods.includes(method)) {
-          existing.methods.push(method);
-        }
+        existing.portion += payment.amount;
       } else {
-        salesMap.set(payment.order.id, {
-          readableId: payment.order.readableId,
+        bucket.set(key, {
+          orderId: order.id,
+          readableId: order.readableId,
+          receiptNumber: order.receipt?.number ?? null,
           paidAt: payment.paidAt.toISOString(),
-          customerName: payment.order.customerName,
-          total: payment.order.total,
-          methods: method ? [method] : [],
+          customerName: order.customerName,
+          total: order.total,
+          portion: payment.amount,
+          method,
+          watches,
         });
       }
     }
 
-    const sales = [...salesMap.values()].sort((a, b) =>
-      a.paidAt < b.paidAt ? 1 : -1,
-    );
+    const sortLines = (rows: PosCashSaleLineDto[]) =>
+      rows.sort((a, b) => (a.paidAt < b.paidAt ? 1 : -1));
+
+    const day = expenseDate(date);
+    const cashOutRows = this.prisma.expense?.findMany
+      ? await this.prisma.expense.findMany({
+          where: {
+            origin: 'LOCAL',
+            paidWithCash: true,
+            spentAt: {
+              gte: new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 0, 0, 0)),
+              lte: new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 23, 59, 59, 999)),
+            },
+          },
+          include: { createdBy: { select: { name: true } } },
+          orderBy: { createdAt: 'desc' },
+        })
+      : [];
+    const cashOuts: PosCashOutDto[] = cashOutRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      amount: row.amount,
+      spentAt: row.spentAt.toISOString(),
+      createdAt: row.createdAt.toISOString(),
+      createdByName: row.createdBy?.name ?? null,
+    }));
+    const cashOutTotal = cashOuts.reduce((sum, row) => sum + row.amount, 0);
+
     const totalSales = totalCash + totalTransfer + totalCard + totalOther;
     return {
       totalCash,
@@ -827,8 +983,15 @@ export class PosService {
       totalCard,
       totalOther,
       totalSales,
-      salesCount: sales.length,
-      sales,
+      salesCount: activeOrders.size,
+      cashOutTotal,
+      cashOuts,
+      salesByMethod: {
+        cash: sortLines([...buckets.cash.values()]),
+        transfer: sortLines([...buckets.transfer.values()]),
+        card: sortLines([...buckets.card.values()]),
+      },
+      voidedSales: sortLines([...voided.values()]),
     };
   }
 }

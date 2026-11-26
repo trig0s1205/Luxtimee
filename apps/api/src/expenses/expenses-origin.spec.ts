@@ -112,6 +112,27 @@ describe('expenses origin', () => {
     expect(groupCall?.where?.origin).toBeUndefined();
   });
 
+  it('findAll puede limitar a gastos LOCAL pagados en efectivo', async () => {
+    let seen: Record<string, unknown> | undefined;
+    const prisma = {
+      expense: {
+        count: async () => 0,
+        findMany: async ({ where }: { where: Record<string, unknown> }) => {
+          seen = where;
+          return [];
+        },
+        aggregate: async () => ({ _sum: { amount: 0 } }),
+        groupBy: async () => [],
+      },
+    };
+    const service = new ExpensesService(prisma as never);
+    await service.findAll({ origin: 'LOCAL', paidWithCash: true });
+    expect(seen).toMatchObject({
+      origin: ExpenseOrigin.LOCAL,
+      paidWithCash: true,
+    });
+  });
+
   it('summary filtra por origin y siempre incluye byOrigin del periodo', async () => {
     const groupWheres: Array<Record<string, unknown>> = [];
     const prisma = {

@@ -87,6 +87,33 @@ export type PosVoidSaleResultDto = {
   } | null;
 };
 
+export type PosCashWatchDto = {
+  name: string;
+  imageUrl: string | null;
+};
+
+export type PosCashSaleLineDto = {
+  orderId: string;
+  readableId: string;
+  receiptNumber: string | null;
+  paidAt: string;
+  customerName: string;
+  total: number;
+  portion: number;
+  method: string;
+  watches: PosCashWatchDto[];
+};
+
+export type PosCashOutDto = {
+  id: string;
+  name: string;
+  description: string | null;
+  amount: number;
+  spentAt: string;
+  createdAt: string;
+  createdByName: string | null;
+};
+
 export type PosCashClosingPreviewDto = {
   date: string;
   totalCash: number;
@@ -95,13 +122,14 @@ export type PosCashClosingPreviewDto = {
   totalOther: number;
   totalSales: number;
   salesCount: number;
-  sales: Array<{
-    readableId: string;
-    paidAt: string;
-    customerName: string;
-    total: number;
-    methods: string[];
-  }>;
+  cashOutTotal: number;
+  cashOuts: PosCashOutDto[];
+  salesByMethod: {
+    cash: PosCashSaleLineDto[];
+    transfer: PosCashSaleLineDto[];
+    card: PosCashSaleLineDto[];
+  };
+  voidedSales: PosCashSaleLineDto[];
   alreadyClosed: boolean;
   closing: PosCashClosingDto | null;
 };
@@ -121,6 +149,14 @@ export type PosCashClosingDto = {
   totalOther: number;
   totalSales: number;
   salesCount: number;
+  cashOutTotal: number;
   notes: string | null;
   createdAt: string;
+};
+
+export type PosCashClosingsPageDto = {
+  items: PosCashClosingDto[];
+  total: number;
+  page: number;
+  limit: number;
 };

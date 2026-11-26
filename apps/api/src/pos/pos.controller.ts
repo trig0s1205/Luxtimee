@@ -6,12 +6,14 @@ import {
   Param,
   Post,
   Query,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Role } from '@prisma/client';
+import type { Response } from 'express';
 import { memoryStorage } from 'multer';
 import { Throttle } from '@nestjs/throttler';
 import { Audit, Roles } from '../common/decorators/metadata.decorators';
@@ -25,6 +27,7 @@ import {
   CashClosingPreviewQueryDto,
   CashClosingsQueryDto,
   CreateCashClosingDto,
+  CreateCashOutDto,
   CreatePosSaleDto,
   PosCatalogQueryDto,
   PosCustomersQueryDto,
@@ -139,13 +142,46 @@ export class PosController {
   }
 
   @Get('cash-closings/mine')
-  myCashClosings(@CurrentUser() user: AuthenticatedUser) {
-    return this.posService.myCashClosings(user.id);
+  @UseGuards(RolesGuard)
+  myCashClosings(
+    @Query() query: CashClosingsQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.posService.myCashClosings(user.id, query.page, query.limit);
   }
 
   @Get('cash-closings')
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
   listCashClosings(@Query() query: CashClosingsQueryDto) {
-    return this.posService.listCashClosings(query.from, query.to);
+    return this.posService.listCashClosings(
+      query.from,
+      query.to,
+      query.page,
+      query.limit,
+    );
+  }
+
+  @Post('cash-outs')
+  @UseGuards(RolesGuard)
+  @Audit('CREATE', 'Expense')
+  createCashOut(
+    @Body() dto: CreateCashOutDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.posService.createCashOut(dto, user);
+  }
+
+  @Get('cash-closings/:id/pdf')
+  @UseGuards(RolesGuard)
+  async cashClosingPdf(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
+    const { filename, buffer } = await this.posService.cashClosingPdf(id, user);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
   }
 }

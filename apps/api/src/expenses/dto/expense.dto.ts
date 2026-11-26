@@ -1,5 +1,6 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
@@ -37,6 +38,10 @@ export class CreateExpenseDto {
   @IsOptional()
   @IsIn(ORIGINS)
   origin?: (typeof ORIGINS)[number];
+
+  @IsOptional()
+  @IsBoolean()
+  paidWithCash?: boolean;
 }
 
 export class UpdateExpenseDto {
@@ -65,6 +70,10 @@ export class UpdateExpenseDto {
   @IsOptional()
   @IsIn(ORIGINS)
   origin?: (typeof ORIGINS)[number];
+
+  @IsOptional()
+  @IsBoolean()
+  paidWithCash?: boolean;
 }
 
 export class ExpensesQueryDto {
@@ -86,6 +95,13 @@ export class ExpensesQueryDto {
   @IsOptional()
   @IsIn(ORIGINS)
   origin?: (typeof ORIGINS)[number];
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === undefined || value === '' ? undefined : value === true || value === 'true',
+  )
+  @IsBoolean()
+  paidWithCash?: boolean;
 
   @IsOptional()
   @IsInt()
