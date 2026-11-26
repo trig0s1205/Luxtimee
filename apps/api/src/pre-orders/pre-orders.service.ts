@@ -315,6 +315,7 @@ export class PreOrdersService {
         whatsappLabel,
         productRef: watch.slug,
         productImage: watch.frontImageUrl,
+        cost: watch.cost && watch.cost > 0 ? watch.cost : null,
         deliveryNote: item.deliveryNote?.trim() || null,
         extras: (item.extras ?? []).filter((extra) => extra.quantity > 0),
       };
@@ -662,6 +663,7 @@ export class PreOrdersService {
               productImage: line.productImage,
               quantity: line.quantity,
               unitPrice: line.unitPrice,
+              unitCostSnapshot: line.cost && line.cost > 0 ? line.cost : null,
               priceType: line.priceType,
               deliveryNote: line.deliveryNote,
               extrasSnapshot: line.extrasSnapshot,
@@ -841,6 +843,7 @@ export class PreOrdersService {
             productImage: line.productImage,
             quantity: line.quantity,
             unitPrice: line.unitPrice,
+            unitCostSnapshot: line.cost && line.cost > 0 ? line.cost : null,
             priceType: line.priceType,
             deliveryNote: line.deliveryNote,
             extrasSnapshot: line.extrasSnapshot,

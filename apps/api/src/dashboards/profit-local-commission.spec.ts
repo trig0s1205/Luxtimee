@@ -61,17 +61,17 @@ function baseOrder(
   };
 }
 
-describe('comisión solo en canal web', () => {
-  it('WEB aplica comisión y LOCAL no', async () => {
+describe('la comisión ya no se resta de la ganancia', () => {
+  it('WEB y LOCAL conservan la ganancia bruta', async () => {
     const web = await serviceWith([
       baseOrder({ id: 'web', readableId: 'LX-WEB', source: OrderSource.WEB }),
     ]).getProfitDashboard('all');
     expect(web.items[0].channel).toBe('WEB');
-    expect(web.items[0].commissionPercent).toBe(10);
-    expect(web.items[0].commission).toBe(6_000);
-    expect(web.items[0].profit).toBe(54_000);
-    expect(web.totalCommission).toBe(6_000);
-    expect(web.byChannel.web.commission).toBe(6_000);
+    expect(web.items[0].commissionPercent).toBe(0);
+    expect(web.items[0].commission).toBe(0);
+    expect(web.items[0].profit).toBe(60_000);
+    expect(web.totalCommission).toBe(0);
+    expect(web.byChannel.web.commission).toBe(0);
     expect(web.byChannel.local.commission).toBe(0);
 
     const local = await serviceWith([
@@ -102,11 +102,11 @@ describe('comisión solo en canal web', () => {
 
     expect(result.totalRevenue).toBe(200_000);
     expect(result.totalCost).toBe(80_000);
-    expect(result.totalCommission).toBe(6_000);
-    expect(result.totalProfit).toBe(114_000);
+    expect(result.totalCommission).toBe(0);
+    expect(result.totalProfit).toBe(120_000);
     expect(result.byChannel.web.revenue).toBe(100_000);
     expect(result.byChannel.local.revenue).toBe(100_000);
-    expect(result.byChannel.total.commission).toBe(6_000);
+    expect(result.byChannel.total.commission).toBe(0);
   });
 
   it('ESPECIAL con WEB sigue pagando comisión', async () => {
@@ -130,9 +130,9 @@ describe('comisión solo en canal web', () => {
     ]).getProfitDashboard('all');
 
     expect(result.items[0].channel).toBe('WEB');
-    expect(result.items[0].commissionPercent).toBe(10);
-    expect(result.items[0].commission).toBe(6_000);
-    expect(result.totalCommission).toBe(6_000);
-    expect(result.totalProfit).toBe(54_000);
+    expect(result.items[0].commissionPercent).toBe(0);
+    expect(result.items[0].commission).toBe(0);
+    expect(result.totalCommission).toBe(0);
+    expect(result.totalProfit).toBe(60_000);
   });
 });

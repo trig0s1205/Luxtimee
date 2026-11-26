@@ -526,6 +526,7 @@ export class OrdersService {
                   null,
                 quantity: 1,
                 unitPrice: salePrice,
+                unitCostSnapshot: watch.cost && watch.cost > 0 ? watch.cost : null,
                 priceType: PriceType.RETAIL,
               },
             ],

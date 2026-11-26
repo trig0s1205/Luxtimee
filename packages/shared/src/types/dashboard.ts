@@ -15,6 +15,12 @@ export interface ProfitBreakdownItem {
   commission: number;
   channel: ProfitChannel;
   paidAt: string;
+  gross?: number;
+  discount?: number;
+  costStatus?: 'SNAPSHOT' | 'ESTIMATED' | 'MISSING';
+  productSku?: string;
+  brand?: string | null;
+  watchId?: string | null;
 }
 
 export interface ShippingBreakdownItem {
@@ -55,6 +61,45 @@ export interface ProfitDashboardDto {
   reinvestmentPercent: number;
   ownerProfitPercent: number;
   commissionPercent: number;
+  channel?: 'LOCAL' | 'WEB' | 'ALL';
+  rangeFrom?: string | null;
+  grossSales?: number;
+  discounts?: number;
+  netSales?: number;
+  marginPercent?: number | null;
+  operatingExpenses?: number;
+  payrollExpenses?: number;
+  units?: number;
+  orderCount?: number;
+  averageTicket?: number;
+  missingCostCount?: number;
+  missingCostRevenue?: number;
+  missingCostItems?: Array<{
+    orderId: string;
+    readableId: string;
+    productName: string;
+    productSku: string;
+    watchId: string | null;
+    quantity: number;
+    revenue: number;
+  }>;
+  topWatches?: Array<{ label: string; units: number; profit: number; revenue: number }>;
+  topBrands?: Array<{ label: string; units: number; profit: number; revenue: number }>;
+  paymentMethods?: Array<{ method: string; amount: number }>;
+  cashExpenses?: number;
+  payroll?: {
+    fundPercent: number;
+    invoiced: number;
+    fund: number;
+    payroll: number;
+    surplus: number;
+    neededPercent: number | null;
+    salesToCover: number | null;
+    channelInvoiced: number;
+    channelFund: number;
+    payrollExpensesPaid: number;
+    workers: Array<{ name: string; monthlySalary: number }>;
+  };
   totalInventoryInvestment: number;
   totalShippingRevenue: number;
   byChannel: ProfitByChannelDto;

@@ -89,10 +89,9 @@ export class WatchesService {
   }
 
   private async applyGlobalCommission(
-    data: Prisma.WatchCreateInput | Prisma.WatchUpdateInput,
+    _data: Prisma.WatchCreateInput | Prisma.WatchUpdateInput,
   ) {
-    const { percent } = await this.settingsService.getCommissionConfig();
-    data.secretaryCommissionPercentage = percent;
+    return;
   }
 
   private normalizeCost(cost?: number | null) {

@@ -18,6 +18,7 @@ export interface PricedLineInput {
   whatsappLabel?: string;
   productSku?: string;
   deliveryNote?: string | null;
+  cost?: number | null;
 }
 
 export interface PricedLine extends PricedLineInput {

@@ -287,15 +287,32 @@ export class SettingsService {
 
     await this.setJson('commission_percent', value);
 
-    const updated = await this.prisma.watch.updateMany({
-      where: { deletedAt: null },
-      data: { secretaryCommissionPercentage: value.percent },
-    });
-
     return {
       percent: value.percent,
-      updatedWatches: updated.count,
+      updatedWatches: 0,
     };
+  }
+
+  getPayrollConfig() {
+    return this.getJson<{ workers: Array<{ name: string; monthlySalary: number }> }>(
+      'payroll_config',
+      { workers: [] },
+    );
+  }
+
+  async setPayrollConfig(value: {
+    workers?: Array<{ name?: string; monthlySalary?: number }>;
+  }) {
+    const workers = (value.workers ?? [])
+      .map((worker) => ({
+        name: String(worker.name ?? '').trim().slice(0, 80),
+        monthlySalary: Math.max(0, Math.round(Number(worker.monthlySalary) || 0)),
+      }))
+      .filter((worker) => worker.name.length > 0);
+    if (workers.length > 50) {
+      throw new BadRequestException('Máximo 50 personas en nómina.');
+    }
+    return this.setJson('payroll_config', { workers });
   }
 
   getPlatformConfig() {

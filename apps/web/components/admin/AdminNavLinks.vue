@@ -246,7 +246,7 @@ function onNavigate() {
           to="/admin/ventas"
           prefetch
           class="admin-nav-link"
-          :class="{ active: isActive('/admin/ventas') }"
+          :class="{ active: route.path === '/admin/ventas' }"
           @click="onNavigate"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -254,6 +254,17 @@ function onNavigate() {
             <path d="M9 12h6M9 15h4" />
           </svg>
           Ventas
+        </NuxtLink>
+
+        <NuxtLink
+          v-if="auth.isSuperAdmin"
+          to="/admin/ventas/todas"
+          prefetch
+          class="admin-nav-link"
+          :class="{ active: isActive('/admin/ventas/todas') }"
+          @click="onNavigate"
+        >
+          Todas las ventas
         </NuxtLink>
 
         <NuxtLink

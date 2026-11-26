@@ -243,11 +243,16 @@ export class ReportsService {
     sheet.addRow(['Correo', owner.email]);
     sheet.addRow(['Teléfono', owner.phone ?? 'No registrado']);
     sheet.addRow(['Inversión en inventario', data.totalInventoryInvestment]);
-    sheet.addRow(['Ingresos por relojes', data.totalRevenue]);
+    sheet.addRow(['Canal', data.channel ?? 'ALL']);
+    sheet.addRow(['Ventas brutas', data.grossSales ?? data.totalRevenue]);
+    sheet.addRow(['Descuentos', data.discounts ?? 0]);
+    sheet.addRow(['Ventas netas', data.netSales ?? data.totalRevenue]);
     sheet.addRow(['Fondo de domicilios', data.totalShippingRevenue]);
+    sheet.addRow(['Costo de mercancía', data.totalCost]);
     sheet.addRow(['Ganancia bruta', data.totalGrossProfit]);
-    sheet.addRow(['Comisión secretaría', data.totalCommission]);
-    sheet.addRow(['Ganancia neta', data.totalProfit]);
+    sheet.addRow(['Gastos del canal', data.operatingExpenses ?? 0]);
+    sheet.addRow(['Ganancia neta después de gastos', data.totalProfit]);
+    sheet.addRow(['Fondo nómina (no se resta)', data.payroll?.fund ?? 0]);
     sheet.addRow([
       `Fondo reinversión (${data.reinvestmentPercent}%)`,
       data.totalReinvestmentFund,
@@ -494,7 +499,7 @@ export class ReportsService {
         cy,
         cardW2,
         CARD_H,
-        'Comisión Secretaría',
+        'Fondo nómina (no resta)',
         this.fmt(data.totalCommission),
       );
       cy += CARD_H + 6;

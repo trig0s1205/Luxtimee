@@ -413,6 +413,7 @@ model OrderItem {
   quantity     Int
   unitPrice    Int
   discountAmount Int       @default(0)
+  unitCostSnapshot Int?
   priceType    PriceType
   deliveryNote String?   @db.Text
   extrasSnapshot Json     @default("[]")
@@ -651,6 +652,7 @@ model Expense {
   spentAt     DateTime
   origin      ExpenseOrigin @default(PLATAFORMA)
   paidWithCash Boolean      @default(false)
+  category    String?
   createdById String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
