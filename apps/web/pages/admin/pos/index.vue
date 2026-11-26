@@ -754,11 +754,14 @@ onBeforeUnmount(() => {
                 <span class="pos-manual__meta">
                   <strong>{{ hit.brandName }} {{ hit.model }}</strong>
                   <span class="pos-manual__sku">{{ hit.sku }}</span>
-                  <span>{{ formatCop(hit.retailPrice) }}</span>
+                  <span class="pos-manual__price">{{ formatCop(hit.retailPrice) }}</span>
                 </span>
                 <span
                   class="pos-manual__badge"
-                  :class="{ 'is-last': hit.stock === 1 }"
+                  :class="{
+                    'is-last': hit.stock === 1,
+                    'is-out': hit.stock <= 0,
+                  }"
                 >
                   {{ stockBadge(hit.stock) }}
                 </span>
@@ -1311,19 +1314,44 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
-.pos-manual__status {
+.pos-manual .pos-manual__status {
   margin: 0.35rem 0 0;
+  padding: 0.65rem 0.75rem;
+  background: #ffffff;
+  border: 1px solid rgba(20, 20, 20, 0.12);
+  color: #5a5a5a;
+  box-shadow: 0 8px 20px rgba(20, 20, 20, 0.06);
 }
 
 .pos-manual__list {
   list-style: none;
+  box-sizing: border-box;
+  width: 100%;
   margin: 0.35rem 0 0;
   padding: 0;
-  border: 1px solid rgba(200, 169, 110, 0.28);
-  background: rgba(20, 20, 20, 0.96);
+  border: 1px solid rgba(20, 20, 20, 0.12);
+  background: #ffffff;
+  color: #1a1a1a;
   max-height: 320px;
   overflow: auto;
   z-index: 5;
+  box-shadow: 0 8px 20px rgba(20, 20, 20, 0.08);
+  color-scheme: light;
+  scrollbar-color: #d6d0c4 #ffffff;
+  scrollbar-width: thin;
+}
+
+.pos-manual__list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pos-manual__list::-webkit-scrollbar-track {
+  background: #ffffff;
+}
+
+.pos-manual__list::-webkit-scrollbar-thumb {
+  background: #d6d0c4;
+  border-radius: 8px;
 }
 
 .pos-manual__hit {
@@ -1333,16 +1361,21 @@ onBeforeUnmount(() => {
   gap: 0.65rem;
   align-items: center;
   text-align: left;
-  background: transparent;
+  background: #ffffff;
   border: 0;
-  color: inherit;
+  border-bottom: 1px solid rgba(20, 20, 20, 0.08);
+  color: #1a1a1a;
   padding: 0.65rem 0.75rem;
   cursor: pointer;
 }
 
+.pos-manual__list li:last-child .pos-manual__hit {
+  border-bottom: 0;
+}
+
 .pos-manual__hit:hover,
 .pos-manual__hit.is-active {
-  background: rgba(200, 169, 110, 0.14);
+  background: #f7f3ec;
 }
 
 .pos-manual__thumb {
@@ -1370,30 +1403,42 @@ onBeforeUnmount(() => {
 .pos-manual__meta strong {
   font-size: 0.92rem;
   line-height: 1.25;
+  color: #1a1a1a;
 }
 
-.pos-manual__sku {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+.pos-manual .pos-manual__sku,
+.pos-manual .pos-manual__price {
   font-size: 0.78rem;
-  color: #9ca3af;
+  letter-spacing: 0.02em;
+  color: #5a5a5a;
 }
 
-.pos-manual__badge {
+.pos-manual .pos-manual__sku {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.pos-manual .pos-manual__badge {
   display: inline-flex;
   align-items: center;
   min-height: 24px;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
-  background: rgba(200, 169, 110, 0.16);
-  color: #e8d7a8;
+  background: #f0eeea;
+  color: #3f3f3f;
   font-size: 0.72rem;
   font-weight: 600;
+  letter-spacing: 0.04em;
   white-space: nowrap;
 }
 
-.pos-manual__badge.is-last {
-  background: rgba(180, 83, 9, 0.22);
-  color: #fdba74;
+.pos-manual .pos-manual__badge.is-last {
+  background: #fff1e0;
+  color: #9a3412;
+}
+
+.pos-manual .pos-manual__badge.is-out {
+  background: #fde8e8;
+  color: #991b1b;
 }
 
 .pos-hints {
@@ -1512,7 +1557,7 @@ onBeforeUnmount(() => {
     grid-template-columns: 48px minmax(0, 1fr);
   }
 
-  .pos-manual__badge {
+  .pos-manual .pos-manual__badge {
     justify-self: start;
   }
 }
