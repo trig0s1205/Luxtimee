@@ -1,9 +1,12 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
 import { PaymentMethod, Prisma, Role } from '@prisma/client';
+import { expectedDrawerCash } from '@luxtime/shared';
 import { todayBogotaYmd } from '../receipts/bogota-time.util';
+import { renderCashClosingPdf } from './cash-closing-pdf';
 import { PosService } from './pos.service';
 
 function buildService(prisma: Record<string, unknown>) {
@@ -65,6 +68,7 @@ describe('POS cash closing', () => {
       cashClosing: {
         findUnique: async () => null,
       },
+      expense: { findMany: async () => [] },
     };
 
     const preview = await buildService(prisma).cashClosingPreview(
@@ -110,33 +114,63 @@ describe('POS cash closing', () => {
           };
         },
       },
+      expense: {
+        findMany: async () => [
+          {
+            id: 'g1',
+            name: 'Domicilio',
+            description: null,
+            amount: 10_000,
+            spentAt: new Date(`${today}T12:00:00.000Z`),
+            createdAt: new Date(`${today}T16:00:00.000Z`),
+            createdBy: { name: 'Ana' },
+          },
+        ],
+      },
     };
 
     const result = await buildService(prisma).createCashClosing(
       {
         date: today,
         openingCash: 100_000,
-        countedCash: 145_000,
-        notes: 'ok',
+        countedCash: 140_000,
+        notes: 'cuadró con la salida',
       },
       admin as never,
     );
 
+    expect(expectedDrawerCash(100_000, 50_000, 10_000)).toBe(140_000);
     expect(stored).toMatchObject({
       openingCash: 100_000,
-      countedCash: 145_000,
-      expectedCash: 150_000,
-      difference: -5_000,
+      countedCash: 140_000,
+      expectedCash: 140_000,
+      difference: 0,
+      cashOutTotal: 10_000,
       totalCash: 50_000,
       userId: 'admin1',
     });
-    expect(result.difference).toBe(-5_000);
-    expect(result.expectedCash).toBe(150_000);
+    expect(result.difference).toBe(0);
+    expect(result.expectedCash).toBe(140_000);
+  });
+
+  it('exige nota si la diferencia no es cero', async () => {
+    const prisma = {
+      orderPayment: { findMany: async () => [] },
+      expense: { findMany: async () => [] },
+      cashClosing: { create: async () => { throw new Error('no debe guardar'); } },
+    };
+    await expect(
+      buildService(prisma).createCashClosing(
+        { date: today, openingCash: 0, countedCash: 5_000, notes: 'ok' },
+        admin as never,
+      ),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('createCashClosing duplicado → ConflictException', async () => {
     const prisma = {
       orderPayment: { findMany: async () => [] },
+      expense: { findMany: async () => [] },
       cashClosing: {
         create: async () => {
           throw new Prisma.PrismaClientKnownRequestError('dup', {
@@ -157,6 +191,7 @@ describe('POS cash closing', () => {
   it('VENDEDOR_LOCAL no puede consultar fechas antiguas', async () => {
     const prisma = {
       orderPayment: { findMany: async () => [] },
+      expense: { findMany: async () => [] },
       cashClosing: { findUnique: async () => null },
     };
     await expect(
@@ -167,6 +202,7 @@ describe('POS cash closing', () => {
   it('ADMIN puede consultar cualquier fecha', async () => {
     const prisma = {
       orderPayment: { findMany: async () => [] },
+      expense: { findMany: async () => [] },
       cashClosing: { findUnique: async () => null },
     };
     const preview = await buildService(prisma).cashClosingPreview(
@@ -193,6 +229,7 @@ describe('POS cash closing', () => {
       totalSales: 50_000,
       salesCount: 1,
       notes: null,
+      cashOutTotal: null,
       createdAt: new Date(`${today}T20:00:00.000Z`),
       user: { name: 'Vendedor' },
     };
@@ -200,6 +237,7 @@ describe('POS cash closing', () => {
       orderPayment: {
         findMany: async () => [],
       },
+      expense: { findMany: async () => [] },
       cashClosing: {
         findUnique: async () => existing,
       },
@@ -212,5 +250,30 @@ describe('POS cash closing', () => {
     expect(preview.closing?.totalCash).toBe(50_000);
     expect(preview.closing?.expectedCash).toBe(60_000);
     expect(preview.totalCash).toBe(0);
+  });
+
+  it('el PDF del cierre cabe en una página', async () => {
+    const buffer = await renderCashClosingPdf({
+      id: 'c1',
+      businessDate: today,
+      userId: 'admin1',
+      userName: 'Admin',
+      openingCash: 1000,
+      countedCash: 800,
+      expectedCash: 900,
+      difference: -100,
+      totalCash: 400,
+      totalTransfer: 200,
+      totalCard: 100,
+      totalOther: 0,
+      totalSales: 700,
+      salesCount: 2,
+      cashOutTotal: 500,
+      notes: 'Faltó el cambio de un billete',
+      createdAt: new Date().toISOString(),
+    });
+    const text = buffer.toString('latin1');
+    expect(text.startsWith('%PDF')).toBe(true);
+    expect(text.match(/\/Type \/Page\b/g)?.length).toBe(1);
   });
 });

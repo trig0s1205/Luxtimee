@@ -650,6 +650,7 @@ model Expense {
   amount      Int
   spentAt     DateTime
   origin      ExpenseOrigin @default(PLATAFORMA)
+  paidWithCash Boolean      @default(false)
   createdById String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -659,6 +660,7 @@ model Expense {
   @@index([spentAt])
   @@index([name])
   @@index([origin])
+  @@index([origin, paidWithCash, spentAt])
 }
 
 model DocumentCounter {
@@ -758,6 +760,7 @@ model CashClosing {
   totalOther    Int
   totalSales    Int
   salesCount    Int
+  cashOutTotal  Int?
   notes         String?  @db.Text
   createdAt     DateTime @default(now())
 

@@ -12,6 +12,7 @@ export interface ExpenseDto {
   amount: number;
   spentAt: string;
   origin: ExpenseOrigin;
+  paidWithCash: boolean;
   createdById: string | null;
   createdByName: string | null;
   createdAt: string;
@@ -41,6 +42,7 @@ export interface CreateExpenseDto {
   amount: number;
   spentAt?: string;
   origin?: ExpenseOrigin;
+  paidWithCash?: boolean;
 }
 
 export interface UpdateExpenseDto {
@@ -49,4 +51,5 @@ export interface UpdateExpenseDto {
   amount?: number;
   spentAt?: string;
   origin?: ExpenseOrigin;
+  paidWithCash?: boolean;
 }

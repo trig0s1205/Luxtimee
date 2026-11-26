@@ -73,6 +73,7 @@ export class ExpensesService {
       amount: expense.amount,
       spentAt: expense.spentAt.toISOString(),
       origin: expense.origin,
+      paidWithCash: expense.paidWithCash ?? false,
       createdById: expense.createdById,
       createdByName: expense.createdBy?.name ?? null,
       createdAt: expense.createdAt.toISOString(),
@@ -104,6 +105,7 @@ export class ExpensesService {
     from?: string;
     to?: string;
     origin?: string;
+    paidWithCash?: boolean;
     page?: number;
     limit?: number;
   }) {
@@ -132,6 +134,7 @@ export class ExpensesService {
     const where: Prisma.ExpenseWhereInput = {
       ...baseWhere,
       ...(origin ? { origin } : {}),
+      ...(query.paidWithCash === true ? { paidWithCash: true } : {}),
     };
 
     const [total, rows, amountAgg, originGroups] = await Promise.all([
@@ -199,6 +202,7 @@ export class ExpensesService {
     const spentAt = expenseDate(dto.spentAt);
     const description = sanitizePlainText(dto.description ?? '', 500) || null;
     const origin = this.cleanOrigin(dto.origin) ?? ExpenseOrigin.PLATAFORMA;
+    const paidWithCash = dto.paidWithCash === true;
     const expense = await this.prisma.expense.create({
       data: {
         name,
@@ -206,6 +210,7 @@ export class ExpensesService {
         amount,
         spentAt,
         origin,
+        paidWithCash,
         createdById: createdById ?? null,
       },
       include: expenseInclude,
@@ -227,6 +232,7 @@ export class ExpensesService {
         ...(dto.amount !== undefined ? { amount: this.cleanAmount(dto.amount) } : {}),
         ...(dto.spentAt !== undefined ? { spentAt: expenseDate(dto.spentAt) } : {}),
         ...(dto.origin !== undefined ? { origin: this.cleanOrigin(dto.origin)! } : {}),
+        ...(dto.paidWithCash !== undefined ? { paidWithCash: dto.paidWithCash === true } : {}),
       },
       include: expenseInclude,
     });

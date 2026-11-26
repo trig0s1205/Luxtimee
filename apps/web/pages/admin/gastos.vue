@@ -37,6 +37,7 @@ const form = reactive({
   amount: null as number | null,
   spentAt: bogotaToday(),
   origin: ExpenseOrigin.PLATAFORMA as ExpenseOrigin,
+  paidWithCash: false,
 });
 
 const emptyList: ExpensesListDto = {
@@ -105,6 +106,7 @@ function resetForm() {
   form.amount = null;
   form.spentAt = bogotaToday();
   form.origin = ExpenseOrigin.PLATAFORMA;
+  form.paidWithCash = false;
 }
 
 function onSearchInput() {
@@ -126,6 +128,7 @@ function editExpense(expense: ExpenseDto) {
   form.amount = expense.amount;
   form.spentAt = isoDate(expense.spentAt);
   form.origin = expense.origin ?? ExpenseOrigin.PLATAFORMA;
+  form.paidWithCash = expense.paidWithCash === true;
 }
 
 async function save() {
@@ -147,6 +150,7 @@ async function save() {
       amount,
       spentAt: form.spentAt || bogotaToday(),
       origin: form.origin,
+      paidWithCash: form.paidWithCash,
     };
     if (editingId.value) {
       await api.patch(`/expenses/${editingId.value}`, payload);
@@ -246,11 +250,15 @@ useSeoMeta({ title: 'Gastos — LUXTIMEE Admin' });
         <label class="block space-y-2">
           <span class="text-xs uppercase tracking-widest text-lux-white-dim">Origen</span>
           <select v-model="form.origin" class="admin-record-select w-full" required>
-            <option :value="ExpenseOrigin.PLATAFORMA">{{ EXPENSE_ORIGIN_LABELS.PLATAFORMA }}</option>
-            <option :value="ExpenseOrigin.LOCAL">{{ EXPENSE_ORIGIN_LABELS.LOCAL }}</option>
+            <option :value="ExpenseOrigin.PLATAFORMA">Web</option>
+            <option :value="ExpenseOrigin.LOCAL">Local</option>
           </select>
         </label>
       </div>
+      <label class="caja-check">
+        <input v-model="form.paidWithCash" type="checkbox">
+        <span>Pagado en efectivo de caja</span>
+      </label>
       <div class="admin-record-actions">
         <button type="submit" class="admin-record-btn admin-record-btn--primary" :disabled="saving">
           {{ saving ? 'Guardando...' : editingId ? 'Guardar cambios' : 'Registrar gasto' }}
@@ -264,9 +272,9 @@ useSeoMeta({ title: 'Gastos — LUXTIMEE Admin' });
     <div class="admin-orders-search admin-expenses-toolbar">
       <UiLuxInput v-model="searchInput" placeholder="Buscar por nombre o descripción..." @input="onSearchInput" />
       <select v-model="originFilter" class="admin-filter-select" @change="onOriginFilterChange">
-        <option value="">Todos los orígenes</option>
-        <option :value="ExpenseOrigin.PLATAFORMA">{{ EXPENSE_ORIGIN_LABELS.PLATAFORMA }}</option>
-        <option :value="ExpenseOrigin.LOCAL">{{ EXPENSE_ORIGIN_LABELS.LOCAL }}</option>
+        <option value="">Todos</option>
+        <option :value="ExpenseOrigin.PLATAFORMA">Web</option>
+        <option :value="ExpenseOrigin.LOCAL">Local</option>
       </select>
       <p v-if="searchMiss" class="admin-search-empty" role="status">{{ searchMiss }}</p>
     </div>
@@ -282,6 +290,7 @@ useSeoMeta({ title: 'Gastos — LUXTIMEE Admin' });
               <span v-if="expense.description" class="admin-record-subtitle">{{ expense.description }}</span>
             </div>
             <UiLuxBadge :tone="originTone(expense.origin)">{{ originLabel(expense.origin) }}</UiLuxBadge>
+            <span v-if="expense.paidWithCash" class="admin-record-muted">Efectivo de caja</span>
           </div>
           <div class="admin-record-meta">
             <span class="admin-record-amount">{{ formatCop(expense.amount) }}</span>
@@ -331,6 +340,13 @@ useSeoMeta({ title: 'Gastos — LUXTIMEE Admin' });
   flex-wrap: wrap;
   gap: 0.75rem;
   align-items: center;
+}
+
+.caja-check {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.875rem;
 }
 
 .admin-record-select,

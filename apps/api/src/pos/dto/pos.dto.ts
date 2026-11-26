@@ -321,4 +321,37 @@ export class CashClosingsQueryDto {
   @IsString()
   @Matches(DATE_YMD)
   to?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  page?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  limit?: number;
+}
+
+export class CreateCashOutDto {
+  @IsString()
+  @Matches(DATE_YMD)
+  date!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  name!: string;
+
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  amount!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
 }
