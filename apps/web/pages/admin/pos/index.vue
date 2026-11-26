@@ -32,8 +32,6 @@ type CartLine = {
   limitedEditionNumber: string | null;
   warrantyMonths: number;
   quantity: number;
-  discountMode: 'amount' | 'percent';
-  discountValue: number;
 };
 
 type PaymentDraft = {
@@ -98,22 +96,8 @@ const subtotal = computed(() =>
   cart.value.reduce((sum, line) => sum + line.retailPrice * line.quantity, 0),
 );
 
-function lineDiscountOf(line: CartLine) {
-  const gross = line.retailPrice * line.quantity;
-  const raw = Math.max(0, Math.round(Number(line.discountValue) || 0));
-  const spec = line.discountMode === 'percent'
-    ? { percent: Math.min(100, raw) }
-    : { amount: Math.min(gross, raw) };
-  const resolved = resolvePosDiscount(gross, spec);
-  return resolved.ok ? resolved.discount : 0;
-}
-
-const lineDiscountTotal = computed(() =>
-  cart.value.reduce((sum, line) => sum + lineDiscountOf(line), 0),
-);
-
 const globalDiscount = computed(() => {
-  const base = Math.max(0, subtotal.value - lineDiscountTotal.value);
+  const base = Math.max(0, subtotal.value);
   const raw = Math.max(0, Math.round(Number(globalDiscountValue.value) || 0));
   const spec = globalDiscountMode.value === 'percent'
     ? { percent: Math.min(100, raw) }
@@ -122,7 +106,7 @@ const globalDiscount = computed(() => {
   return resolved.ok ? resolved.discount : 0;
 });
 
-const discountTotal = computed(() => lineDiscountTotal.value + globalDiscount.value);
+const discountTotal = computed(() => globalDiscount.value);
 const saleTotal = computed(() => Math.max(0, subtotal.value - discountTotal.value));
 
 const paymentsSum = computed(() =>
@@ -343,8 +327,6 @@ function upsertWatch(watch: PosWatchDto, qty = 1) {
       limitedEditionNumber: watch.limitedEditionNumber,
       warrantyMonths: watch.warrantyMonths,
       quantity: qty,
-      discountMode: 'amount',
-      discountValue: 0,
     });
   }
   playBeep('ok');
@@ -553,12 +535,6 @@ function salePayload() {
     items: cart.value.map((line) => ({
       watchId: line.watchId,
       quantity: line.quantity,
-      discountAmount: line.discountMode === 'amount'
-        ? Math.min(line.retailPrice * line.quantity, Math.max(0, Math.round(Number(line.discountValue) || 0)))
-        : undefined,
-      discountPercent: line.discountMode === 'percent'
-        ? Math.min(100, Math.max(0, Math.round(Number(line.discountValue) || 0)))
-        : undefined,
     })),
     payments: payments.value.map((p) => ({
       method: p.method,
@@ -572,7 +548,7 @@ function salePayload() {
     note: note.value.trim() || undefined,
     discountAmount: globalDiscountMode.value === 'amount'
       ? Math.min(
-          Math.max(0, subtotal.value - lineDiscountTotal.value),
+          Math.max(0, subtotal.value),
           Math.max(0, Math.round(Number(globalDiscountValue.value) || 0)),
         )
       : undefined,
@@ -815,20 +791,6 @@ onBeforeUnmount(() => {
                 Stock insuficiente. Ajusta la cantidad o quita el reloj.
               </span>
             </div>
-            <div class="pos-cart__discount">
-              <select v-model="line.discountMode" class="admin-input">
-                <option value="amount">$ desc.</option>
-                <option value="percent">% desc.</option>
-              </select>
-              <input
-                v-model.number="line.discountValue"
-                class="admin-input"
-                type="number"
-                min="0"
-                :max="line.discountMode === 'percent' ? 100 : line.retailPrice * line.quantity"
-                step="1"
-              >
-            </div>
             <div class="pos-cart__qty">
               <button
                 type="button"
@@ -848,7 +810,7 @@ onBeforeUnmount(() => {
             </div>
             <div class="pos-cart__side">
               <p class="pos-cart__line-total">
-                {{ formatCop(line.retailPrice * line.quantity - lineDiscountOf(line)) }}
+                {{ formatCop(line.retailPrice * line.quantity) }}
               </p>
               <button
                 type="button"
@@ -1133,16 +1095,14 @@ onBeforeUnmount(() => {
   gap: 1rem;
 }
 
-.pos-discount,
-.pos-cart__discount {
+.pos-discount {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
   align-items: center;
 }
 
-.pos-discount .admin-input,
-.pos-cart__discount .admin-input {
+.pos-discount .admin-input {
   width: auto;
   min-width: 0;
 }

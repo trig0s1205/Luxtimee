@@ -28,8 +28,8 @@ test('POS local: catálogo, descuento, efectivo, comprobante y anulación', asyn
   await page.locator('.pos-card', { hasText: 'QA-0010' }).getByRole('button', { name: 'Agregar' }).click();
   await expect(page.locator('.pos-cart__sku', { hasText: 'QA-0010' })).toBeVisible();
 
-  await page.locator('.pos-cart__discount select').selectOption('percent');
-  await page.locator('.pos-cart__discount input').fill('10');
+  await page.locator('.pos-discount select').selectOption('percent');
+  await page.locator('.pos-discount input[type="number"]').fill('10');
   await page.getByPlaceholder('Motivo del descuento').fill('Promo de mostrador');
   await page.getByPlaceholder('Nombre del cliente').fill('Cliente QA');
   await page.getByPlaceholder('Monto recibido').fill('200000');
