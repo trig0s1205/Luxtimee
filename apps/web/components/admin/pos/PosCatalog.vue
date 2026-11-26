@@ -171,6 +171,7 @@ onBeforeUnmount(() => {
         placeholder="Buscar por marca, modelo o SKU…"
         aria-label="Buscar por marca, modelo o SKU"
         @input="onSearchInput"
+        @keydown.enter.prevent="reload"
       >
       <label class="pos-catalog__brand">
         <span>Marca</span>

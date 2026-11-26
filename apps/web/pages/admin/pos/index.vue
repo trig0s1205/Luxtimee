@@ -100,9 +100,10 @@ const subtotal = computed(() =>
 
 function lineDiscountOf(line: CartLine) {
   const gross = line.retailPrice * line.quantity;
+  const raw = Math.max(0, Math.round(Number(line.discountValue) || 0));
   const spec = line.discountMode === 'percent'
-    ? { percent: Math.round(Number(line.discountValue) || 0) }
-    : { amount: Math.round(Number(line.discountValue) || 0) };
+    ? { percent: Math.min(100, raw) }
+    : { amount: Math.min(gross, raw) };
   const resolved = resolvePosDiscount(gross, spec);
   return resolved.ok ? resolved.discount : 0;
 }
@@ -113,9 +114,10 @@ const lineDiscountTotal = computed(() =>
 
 const globalDiscount = computed(() => {
   const base = Math.max(0, subtotal.value - lineDiscountTotal.value);
+  const raw = Math.max(0, Math.round(Number(globalDiscountValue.value) || 0));
   const spec = globalDiscountMode.value === 'percent'
-    ? { percent: Math.round(Number(globalDiscountValue.value) || 0) }
-    : { amount: Math.round(Number(globalDiscountValue.value) || 0) };
+    ? { percent: Math.min(100, raw) }
+    : { amount: Math.min(base, raw) };
   const resolved = resolvePosDiscount(base, spec);
   return resolved.ok ? resolved.discount : 0;
 });
@@ -552,10 +554,10 @@ function salePayload() {
       watchId: line.watchId,
       quantity: line.quantity,
       discountAmount: line.discountMode === 'amount'
-        ? Math.round(Number(line.discountValue) || 0)
+        ? Math.min(line.retailPrice * line.quantity, Math.max(0, Math.round(Number(line.discountValue) || 0)))
         : undefined,
       discountPercent: line.discountMode === 'percent'
-        ? Math.round(Number(line.discountValue) || 0)
+        ? Math.min(100, Math.max(0, Math.round(Number(line.discountValue) || 0)))
         : undefined,
     })),
     payments: payments.value.map((p) => ({
@@ -569,10 +571,13 @@ function salePayload() {
     })),
     note: note.value.trim() || undefined,
     discountAmount: globalDiscountMode.value === 'amount'
-      ? Math.round(Number(globalDiscountValue.value) || 0)
+      ? Math.min(
+          Math.max(0, subtotal.value - lineDiscountTotal.value),
+          Math.max(0, Math.round(Number(globalDiscountValue.value) || 0)),
+        )
       : undefined,
     discountPercent: globalDiscountMode.value === 'percent'
-      ? Math.round(Number(globalDiscountValue.value) || 0)
+      ? Math.min(100, Math.max(0, Math.round(Number(globalDiscountValue.value) || 0)))
       : undefined,
     discountReason: discountReason.value.trim() || undefined,
     idempotencyKey: idempotencyKey.value,
@@ -652,7 +657,7 @@ onBeforeUnmount(() => {
           v-if="successSale.changeTotal > 0"
           class="pos-success-modal__change"
         >
-          Cambio a entregar
+          Vuelto a entregar
           <strong>{{ formatCop(successSale.changeTotal) }}</strong>
         </p>
         <div class="pos-success-modal__actions">
@@ -973,10 +978,11 @@ onBeforeUnmount(() => {
                 type="number"
                 min="0"
                 step="1"
-                placeholder="Recibido"
+                placeholder="Monto recibido"
+                aria-label="Monto recibido"
               >
               <span class="admin-record-muted">
-                Cambio:
+                Vuelto:
                 {{
                   formatCop(
                     Math.max(
@@ -1059,7 +1065,7 @@ onBeforeUnmount(() => {
               Pagos {{ formatCop(paymentsSum) }} / {{ formatCop(saleTotal) }}
               · Restante: {{ formatCop(remaining) }}
               <span v-if="changePreview">
-                · Cambio {{ formatCop(changePreview) }}
+                · Vuelto {{ formatCop(changePreview) }}
               </span>
             </p>
             <p
