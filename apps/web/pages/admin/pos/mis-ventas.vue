@@ -27,12 +27,17 @@ const limit = 25;
 const pending = ref(false);
 const items = ref<PosMySaleDto[]>([]);
 const total = ref(0);
+const voidedCount = ref(0);
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / limit)));
 const isAdmin = computed(() => auth.isStaff || auth.isSuperAdmin);
 const voidTarget = ref<PosMySaleDto | null>(null);
 const voidReason = ref('');
 const voidPending = ref(false);
+const hideTarget = ref<PosMySaleDto | null>(null);
+const hidePending = ref(false);
+const bulkHideOpen = ref(false);
+const bulkHidePending = ref(false);
 
 function sameBogotaDay(iso: string) {
   const saleDay = new Intl.DateTimeFormat('en-CA', {
@@ -58,6 +63,7 @@ async function load() {
       total: number;
       page: number;
       limit: number;
+      voidedCount: number;
     }>('/pos/my-sales', {
       date: date.value,
       page: page.value,
@@ -66,6 +72,7 @@ async function load() {
     });
     items.value = data.items;
     total.value = data.total;
+    voidedCount.value = data.voidedCount ?? 0;
     page.value = data.page;
   } catch (err: unknown) {
     toast.error(extractApiErrorMessage(err, 'No se pudieron cargar las ventas.'));
@@ -93,6 +100,49 @@ async function confirmVoid() {
     toast.error(extractApiErrorMessage(err, 'No se pudo anular la venta.'));
   } finally {
     voidPending.value = false;
+  }
+}
+
+function dropHidden(id: string) {
+  const next = items.value.filter((sale) => sale.id !== id);
+  if (next.length === items.value.length) return;
+  items.value = next;
+  total.value = Math.max(0, total.value - 1);
+  voidedCount.value = Math.max(0, voidedCount.value - 1);
+}
+
+async function confirmHide() {
+  if (!hideTarget.value) return;
+  const id = hideTarget.value.id;
+  hidePending.value = true;
+  try {
+    await api.post(`/pos/sales/${id}/hide`);
+    hideTarget.value = null;
+    dropHidden(id);
+    toast.success('Venta eliminada de Mis ventas.');
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo eliminar la venta.'));
+  } finally {
+    hidePending.value = false;
+  }
+}
+
+async function confirmBulkHide() {
+  bulkHidePending.value = true;
+  try {
+    const result = await api.post<{ hidden: number }>('/pos/sales/hide-voided', {
+      date: date.value,
+      sellerId: isAdmin.value && sellerId.value ? sellerId.value : undefined,
+    });
+    bulkHideOpen.value = false;
+    items.value = items.value.filter((sale) => !isVoided(sale));
+    total.value = Math.max(0, total.value - result.hidden);
+    voidedCount.value = 0;
+    toast.success('Ventas anuladas eliminadas de Mis ventas.');
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudieron eliminar las ventas.'));
+  } finally {
+    bulkHidePending.value = false;
   }
 }
 
@@ -152,6 +202,14 @@ onMounted(() => {
       <button type="button" class="admin-record-btn admin-record-btn--ghost" :disabled="pending" @click="load">
         Actualizar
       </button>
+      <button
+        v-if="isAdmin && voidedCount > 0"
+        type="button"
+        class="admin-record-btn admin-record-btn--danger"
+        @click="bulkHideOpen = true"
+      >
+        Eliminar todas las anuladas
+      </button>
     </div>
 
     <div v-if="pending && !items.length" class="admin-record-empty">Cargando ventas…</div>
@@ -192,6 +250,14 @@ onMounted(() => {
             >
               Anular
             </button>
+            <button
+              v-if="isAdmin && isVoided(sale)"
+              type="button"
+              class="admin-record-btn admin-record-btn--danger"
+              @click="hideTarget = sale"
+            >
+              Eliminar
+            </button>
           </div>
         </div>
       </article>
@@ -217,6 +283,32 @@ onMounted(() => {
           <button type="button" class="admin-record-btn admin-record-btn--ghost" @click="voidTarget = null">Cancelar</button>
           <button type="button" class="admin-record-btn admin-record-btn--primary" :disabled="voidReason.trim().length < 5 || voidPending" @click="confirmVoid">
             {{ voidPending ? 'Anulando…' : 'Anular' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="hideTarget" class="admin-modal-backdrop" @click.self="hideTarget = null">
+      <div class="admin-modal" role="dialog" aria-modal="true">
+        <h2 class="admin-record-title">Eliminar venta</h2>
+        <p class="admin-record-muted">¿Eliminar esta venta anulada? Ya no aparecerá en Mis ventas.</p>
+        <div class="admin-record-actions">
+          <button type="button" class="admin-record-btn admin-record-btn--ghost" @click="hideTarget = null">Cancelar</button>
+          <button type="button" class="admin-record-btn admin-record-btn--danger" :disabled="hidePending" @click="confirmHide">
+            {{ hidePending ? 'Eliminando…' : 'Eliminar' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="bulkHideOpen" class="admin-modal-backdrop" @click.self="bulkHideOpen = false">
+      <div class="admin-modal" role="dialog" aria-modal="true">
+        <h2 class="admin-record-title">Eliminar ventas anuladas</h2>
+        <p class="admin-record-muted">¿Eliminar las {{ voidedCount }} ventas anuladas? Ya no aparecerán en Mis ventas.</p>
+        <div class="admin-record-actions">
+          <button type="button" class="admin-record-btn admin-record-btn--ghost" @click="bulkHideOpen = false">Cancelar</button>
+          <button type="button" class="admin-record-btn admin-record-btn--danger" :disabled="bulkHidePending" @click="confirmBulkHide">
+            {{ bulkHidePending ? 'Eliminando…' : 'Eliminar' }}
           </button>
         </div>
       </div>

@@ -131,6 +131,18 @@ export class PosMySalesQueryDto {
   limit?: number;
 }
 
+export class HideVoidedPosSalesDto {
+  @IsOptional()
+  @IsString()
+  @Matches(DATE_YMD)
+  date?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  sellerId?: string;
+}
+
 export class PosCustomerDto {
   @IsString()
   @MinLength(2)

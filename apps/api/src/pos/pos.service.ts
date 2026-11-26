@@ -568,27 +568,117 @@ export class PosService {
     return result;
   }
 
-  async mySales(
-    query: PosMySalesQueryDto,
+  private mySalesWhere(
+    query: Pick<PosMySalesQueryDto, 'date' | 'sellerId'>,
     user: AuthenticatedUser,
-  ): Promise<{ items: PosMySaleDto[]; total: number; page: number; limit: number }> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 25;
+  ): Prisma.OrderWhereInput {
     const date = query.date?.trim() || todayBogotaYmd();
     const { start, end } = bogotaDayRange(date);
-
     const where: Prisma.OrderWhereInput = {
       source: OrderSource.LOCAL,
       createdAt: { gte: start, lt: end },
+      hiddenAt: null,
     };
     if (user.role === Role.VENDEDOR_LOCAL) {
       where.sellerId = user.id;
     } else if (query.sellerId) {
       where.sellerId = query.sellerId;
     }
+    return where;
+  }
 
-    const [total, orders] = await Promise.all([
+  private isVoidedSale(order: {
+    status: OrderStatus | null;
+    receipt?: { voidedAt: Date | null } | null;
+  }) {
+    return order.status === OrderStatus.CANCELADO || Boolean(order.receipt?.voidedAt);
+  }
+
+  async hideSale(id: string, user: AuthenticatedUser) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        source: true,
+        status: true,
+        hiddenAt: true,
+        receipt: { select: { voidedAt: true } },
+      },
+    });
+    if (!order || order.source !== OrderSource.LOCAL) {
+      throw new NotFoundException('Venta no encontrada');
+    }
+    if (!this.isVoidedSale(order)) {
+      throw new BadRequestException('Solo se pueden eliminar ventas anuladas');
+    }
+    if (order.hiddenAt) {
+      return {
+        orderId: order.id,
+        hiddenAt: order.hiddenAt.toISOString(),
+        alreadyHidden: true,
+      };
+    }
+    const hiddenAt = new Date();
+    await this.prisma.order.update({
+      where: { id: order.id },
+      data: { hiddenAt, hiddenById: user.id },
+    });
+    return {
+      orderId: order.id,
+      hiddenAt: hiddenAt.toISOString(),
+      alreadyHidden: false,
+    };
+  }
+
+  async hideVoidedSales(
+    query: Pick<PosMySalesQueryDto, 'date' | 'sellerId'>,
+    user: AuthenticatedUser,
+  ) {
+    const result = await this.prisma.order.updateMany({
+      where: {
+        AND: [
+          this.mySalesWhere(query, user),
+          {
+            OR: [
+              { status: OrderStatus.CANCELADO },
+              { receipt: { is: { voidedAt: { not: null } } } },
+            ],
+          },
+        ],
+      },
+      data: { hiddenAt: new Date(), hiddenById: user.id },
+    });
+    return { hidden: result.count };
+  }
+
+  async mySales(
+    query: PosMySalesQueryDto,
+    user: AuthenticatedUser,
+  ): Promise<{
+    items: PosMySaleDto[];
+    total: number;
+    voidedCount: number;
+    page: number;
+    limit: number;
+  }> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 25;
+    const where = this.mySalesWhere(query, user);
+    const voidedWhere: Prisma.OrderWhereInput = {
+      AND: [
+        where,
+        {
+          OR: [
+            { status: OrderStatus.CANCELADO },
+            { receipt: { is: { voidedAt: { not: null } } } },
+          ],
+        },
+      ],
+    };
+
+    const [total, voidedCount, orders] = await Promise.all([
       this.prisma.order.count({ where }),
+      this.prisma.order.count({ where: voidedWhere }),
       this.prisma.order.findMany({
         where,
         include: {
@@ -635,6 +725,7 @@ export class PosService {
         sellerName: order.seller?.name ?? null,
       })),
       total,
+      voidedCount,
       page,
       limit,
     };

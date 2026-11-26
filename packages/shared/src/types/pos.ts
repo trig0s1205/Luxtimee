@@ -75,6 +75,12 @@ export type PosMySaleDto = {
   sellerName: string | null;
 };
 
+export type PosHideSaleResultDto = {
+  orderId: string;
+  hiddenAt: string;
+  alreadyHidden: boolean;
+};
+
 export type PosVoidSaleResultDto = {
   orderId: string;
   readableId: string;
