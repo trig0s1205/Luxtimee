@@ -82,6 +82,35 @@ type ClaimDetail = ClaimListItem & {
   }>;
 };
 
+type ReceiptListItem = {
+  id: string;
+  number: string;
+  saleDate: string;
+  customerName: string;
+  total: number;
+  paymentMethod: string;
+  status: 'EMITIDO' | 'ANULADO';
+  orderId: string | null;
+  orderReadableId: string;
+};
+
+type ReceiptListStatus = '' | 'EMITIDO' | 'ANULADO';
+
+const listItems = ref<ReceiptListItem[]>([]);
+const listTotal = ref(0);
+const listPage = ref(1);
+const listPageSize = 20;
+const listPending = ref(false);
+const listQuery = ref('');
+const listStatus = ref<ReceiptListStatus>('');
+const listFrom = ref('');
+const listTo = ref('');
+let listTimer: ReturnType<typeof setTimeout> | null = null;
+
+const listTotalPages = computed(() =>
+  Math.max(1, Math.ceil(listTotal.value / listPageSize)),
+);
+
 const searchInput = ref('');
 const searchTerm = ref('');
 const searching = ref(false);
@@ -120,6 +149,65 @@ function formatDate(value: string) {
     year: 'numeric',
   });
 }
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString('es-CO', {
+    timeZone: 'America/Bogota',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+async function loadReceipts() {
+  listPending.value = true;
+  try {
+    const data = await api.get<{
+      items: ReceiptListItem[];
+      total: number;
+      page: number;
+    }>('/receipts', {
+      q: listQuery.value.trim() || undefined,
+      status: listStatus.value || undefined,
+      from: listFrom.value || undefined,
+      to: listTo.value || undefined,
+      page: listPage.value,
+      pageSize: listPageSize,
+    });
+    listItems.value = data.items;
+    listTotal.value = data.total;
+    listPage.value = data.page;
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudieron cargar los comprobantes.'));
+  } finally {
+    listPending.value = false;
+  }
+}
+
+function onListQueryInput() {
+  if (listTimer) clearTimeout(listTimer);
+  listTimer = setTimeout(() => {
+    listPage.value = 1;
+    void loadReceipts();
+  }, 300);
+}
+
+function onListFilterChange() {
+  listPage.value = 1;
+  void loadReceipts();
+}
+
+function goToListPage(next: number) {
+  listPage.value = next;
+  void loadReceipts();
+}
+
+onMounted(() => {
+  void loadReceipts();
+});
 
 function warrantyTone(status: SearchItem['warrantyStatus']) {
   if (status === 'VIGENTE') return 'pagado' as const;
@@ -364,6 +452,88 @@ watch(claimStatus, () => {
 <template>
   <div class="admin-records-page">
     <UiSectionHeader label="Local" title="Comprobantes y garantías" />
+
+    <div class="admin-comprobantes-filters">
+      <UiLuxInput
+        v-model="listQuery"
+        placeholder="N.º de comprobante, cliente o documento"
+        @input="onListQueryInput"
+      />
+      <select v-model="listStatus" class="admin-filter-select" @change="onListFilterChange">
+        <option value="">Todos</option>
+        <option value="EMITIDO">Emitidos</option>
+        <option value="ANULADO">Anulados</option>
+      </select>
+      <label class="admin-comprobantes-date">
+        <span>Desde</span>
+        <input v-model="listFrom" type="date" class="admin-input" @change="onListFilterChange">
+      </label>
+      <label class="admin-comprobantes-date">
+        <span>Hasta</span>
+        <input v-model="listTo" type="date" class="admin-input" @change="onListFilterChange">
+      </label>
+    </div>
+
+    <p v-if="listPending && !listItems.length" class="admin-record-empty">Cargando comprobantes…</p>
+    <p v-else-if="!listItems.length" class="admin-record-empty">No hay comprobantes con estos filtros.</p>
+    <p v-else class="admin-record-muted">
+      {{ listTotal }} comprobante{{ listTotal === 1 ? '' : 's' }}
+    </p>
+
+    <div class="admin-records-list">
+      <article
+        v-for="receipt in listItems"
+        :key="receipt.id"
+        class="admin-record-card"
+      >
+        <div class="admin-record-summary">
+          <div class="admin-record-summary-main">
+            <div>
+              <span class="admin-record-title">{{ receipt.number }}</span>
+              <span class="admin-record-subtitle">{{ formatDateTime(receipt.saleDate) }}</span>
+            </div>
+            <UiLuxBadge :tone="receipt.status === 'ANULADO' ? 'cancelado' : 'pagado'">
+              {{ receipt.status === 'ANULADO' ? 'Anulado' : 'Emitido' }}
+            </UiLuxBadge>
+          </div>
+          <div class="admin-record-meta">
+            <span>{{ receipt.customerName }}</span>
+            <span class="admin-record-amount">{{ formatCop(receipt.total) }}</span>
+            <span class="admin-record-muted">{{ receipt.paymentMethod }}</span>
+            <span class="admin-record-muted">Pedido {{ receipt.orderReadableId }}</span>
+          </div>
+          <div class="admin-record-summary-actions">
+            <button
+              type="button"
+              class="admin-record-btn admin-record-btn--ghost"
+              @click="downloadReceipt(receipt.id)"
+            >
+              Ver PDF
+            </button>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <nav v-if="listTotalPages > 1" class="admin-records-pagination" aria-label="Paginación de comprobantes">
+      <button
+        type="button"
+        class="admin-records-page-btn"
+        :disabled="listPage <= 1 || listPending"
+        @click="goToListPage(listPage - 1)"
+      >
+        Anterior
+      </button>
+      <span class="admin-records-page-info">Página {{ listPage }} de {{ listTotalPages }}</span>
+      <button
+        type="button"
+        class="admin-records-page-btn"
+        :disabled="listPage >= listTotalPages || listPending"
+        @click="goToListPage(listPage + 1)"
+      >
+        Siguiente
+      </button>
+    </nav>
 
     <div class="admin-comprobantes-tabs" role="tablist">
       <button
@@ -679,10 +849,27 @@ watch(claimStatus, () => {
 </template>
 
 <style scoped>
+.admin-comprobantes-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(9rem, 0.6fr) auto auto;
+  gap: 0.75rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+.admin-comprobantes-date {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
 .admin-comprobantes-tabs {
   display: flex;
   gap: 0.75rem;
-  margin-bottom: 1.25rem;
+  margin: 1.5rem 0 1.25rem;
 }
 
 .admin-comprobantes-item {
@@ -741,7 +928,17 @@ watch(claimStatus, () => {
   background: #111111;
 }
 
+@media (max-width: 900px) {
+  .admin-comprobantes-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 767px) {
+  .admin-comprobantes-filters {
+    grid-template-columns: 1fr;
+  }
+
   .admin-comprobantes-tabs,
   .admin-record-actions,
   .admin-record-summary,

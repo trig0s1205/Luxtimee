@@ -25,6 +25,61 @@ function buildService(prisma: Record<string, unknown>, pdf?: ReceiptPdfRenderer)
 }
 
 describe('ReceiptsService', () => {
+  it('lista comprobantes paginados, más recientes primero, con estado y medio de pago', async () => {
+    const findMany = jest.fn(async () => [
+      {
+        id: 'r1',
+        number: 'LXT-000003',
+        saleDate: new Date('2026-06-01T15:00:00.000Z'),
+        customerName: 'Ana Pérez',
+        total: 250000,
+        voidedAt: null,
+        orderId: 'o1',
+        orderReadableId: 'LX-9',
+        paymentsSnapshot: [{ label: 'Efectivo' }],
+      },
+    ]);
+    const count = jest.fn(async () => 1);
+    const service = buildService({ saleReceipt: { findMany, count } });
+    const result = await service.list({
+      page: 1,
+      pageSize: 20,
+      status: 'EMITIDO',
+      q: 'Ana',
+    });
+    expect(result.total).toBe(1);
+    expect(result.pageSize).toBe(20);
+    expect(result.items[0]).toMatchObject({
+      number: 'LXT-000003',
+      status: 'EMITIDO',
+      paymentMethod: 'Efectivo',
+      orderReadableId: 'LX-9',
+    });
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: { saleDate: 'desc' },
+        skip: 0,
+        take: 20,
+        where: expect.objectContaining({ voidedAt: null }),
+      }),
+    );
+  });
+
+  it('filtra anulados y rechaza un rango de fechas invertido', async () => {
+    const findMany = jest.fn(async () => []);
+    const count = jest.fn(async () => 0);
+    const service = buildService({ saleReceipt: { findMany, count } });
+    await service.list({ status: 'ANULADO' });
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { voidedAt: { not: null } },
+      }),
+    );
+    await expect(
+      service.list({ from: '2026-06-10', to: '2026-06-01' }),
+    ).rejects.toThrow('anterior o igual');
+  });
+
   it('emite con snapshot (garantía de watch, cliente vacío → Cliente de mostrador)', async () => {
     const created: Record<string, unknown> = {};
     const queryRaw = jest.fn();

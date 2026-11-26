@@ -18,6 +18,7 @@ import {
 import { Roles } from '../common/decorators/metadata.decorators';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReceiptListQueryDto } from './dto/receipt-list.dto';
 import { ReceiptSearchQueryDto } from './dto/receipt-search.dto';
 import { ReceiptsService } from './receipts.service';
 
@@ -28,6 +29,12 @@ export class ReceiptsController {
     private readonly receiptsService: ReceiptsService,
     private readonly prisma: PrismaService,
   ) {}
+
+  @Get()
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  list(@Query() query: ReceiptListQueryDto) {
+    return this.receiptsService.list(query);
+  }
 
   @Get('search')
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.VENDEDOR_LOCAL)
