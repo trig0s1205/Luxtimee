@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import {
   OrderStage,
   OrderStatus,
@@ -21,7 +21,9 @@ import {
   formatReceiptNumber,
   nextReceiptSequence,
 } from './receipt-number.util';
-import { buildReceiptSearchWhere } from './receipt-search.util';
+import { bogotaDayRange } from './bogota-time.util';
+import type { ReceiptListQueryDto } from './dto/receipt-list.dto';
+import { buildReceiptSearchWhere, normalizeReceiptNumberQuery } from './receipt-search.util';
 import { computeWarrantyEnd, warrantyStatus } from './warranty.util';
 import {
   ReceiptPdfRenderer,
@@ -325,6 +327,85 @@ export class ReceiptsService {
     return this.toDto(receipt);
   }
 
+  async list(query: ReceiptListQueryDto) {
+    const page = query.page ?? 1;
+    const pageSize = Math.min(100, query.pageSize ?? 20);
+    const where = this.buildListWhere(query);
+    const [total, rows] = await Promise.all([
+      this.prisma.saleReceipt.count({ where }),
+      this.prisma.saleReceipt.findMany({
+        where,
+        orderBy: { saleDate: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true,
+          number: true,
+          saleDate: true,
+          customerName: true,
+          total: true,
+          voidedAt: true,
+          orderId: true,
+          orderReadableId: true,
+          paymentsSnapshot: true,
+        },
+      }),
+    ]);
+
+    return {
+      items: rows.map((receipt) => ({
+        id: receipt.id,
+        number: receipt.number,
+        saleDate: receipt.saleDate.toISOString(),
+        customerName: receipt.customerName,
+        total: receipt.total,
+        paymentMethod: paymentMethodLabel(receipt.paymentsSnapshot),
+        status: receipt.voidedAt ? 'ANULADO' : 'EMITIDO',
+        orderId: receipt.orderId,
+        orderReadableId: receipt.orderReadableId,
+      })),
+      total,
+      page,
+      pageSize,
+    };
+  }
+
+  private buildListWhere(query: ReceiptListQueryDto): Prisma.SaleReceiptWhereInput {
+    const where: Prisma.SaleReceiptWhereInput = {};
+    const q = query.q?.trim() ?? '';
+    if (q) {
+      const ors: Prisma.SaleReceiptWhereInput[] = [
+        { number: { contains: q, mode: 'insensitive' } },
+        { customerName: { contains: q, mode: 'insensitive' } },
+        { customerDocument: { contains: q, mode: 'insensitive' } },
+      ];
+      const normalized = normalizeReceiptNumberQuery(q);
+      if (normalized) ors.push({ number: normalized });
+      where.OR = ors;
+    }
+    if (query.status === 'ANULADO') where.voidedAt = { not: null };
+    else if (query.status === 'EMITIDO') where.voidedAt = null;
+
+    if (query.from || query.to) {
+      let start: Date | undefined;
+      let end: Date | undefined;
+      try {
+        if (query.from) start = bogotaDayRange(query.from).start;
+        if (query.to) end = bogotaDayRange(query.to).end;
+      } catch {
+        throw new BadRequestException('Rango de fechas inválido.');
+      }
+      if (start && end && start >= end) {
+        throw new BadRequestException('La fecha inicial debe ser anterior o igual a la final.');
+      }
+      where.saleDate = {
+        ...(start ? { gte: start } : {}),
+        ...(end ? { lt: end } : {}),
+      };
+    }
+    return where;
+  }
+
   async search(query: { q?: string; page?: number; limit?: number }) {
     const page = query.page ?? 1;
     const limit = Math.min(100, query.limit ?? 20);
@@ -516,4 +597,17 @@ export class ReceiptsService {
       items: receipt.items,
     };
   }
+}
+
+function paymentMethodLabel(snapshot: Prisma.JsonValue): string {
+  if (!Array.isArray(snapshot) || snapshot.length === 0) return 'No especificado';
+  const labels = snapshot
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null;
+      const label = 'label' in entry ? entry.label : null;
+      return typeof label === 'string' && label.trim() ? label.trim() : null;
+    })
+    .filter((label): label is string => Boolean(label));
+  const unique = [...new Set(labels)];
+  return unique.length ? unique.join(' + ') : 'No especificado';
 }
