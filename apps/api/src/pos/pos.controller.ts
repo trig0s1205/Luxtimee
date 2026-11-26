@@ -26,6 +26,7 @@ import {
   CashClosingsQueryDto,
   CreateCashClosingDto,
   CreatePosSaleDto,
+  HideVoidedPosSalesDto,
   PosCatalogQueryDto,
   PosCustomersQueryDto,
   PosMySalesQueryDto,
@@ -111,6 +112,23 @@ export class PosController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.posService.voidSale(id, dto.reason, user);
+  }
+
+  @Post('sales/hide-voided')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @Audit('HIDE', 'Order')
+  hideVoidedSales(
+    @Body() dto: HideVoidedPosSalesDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.posService.hideVoidedSales(dto, user);
+  }
+
+  @Post('sales/:id/hide')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @Audit('HIDE', 'Order')
+  hideSale(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.posService.hideSale(id, user);
   }
 
   @Get('my-sales')

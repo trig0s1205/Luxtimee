@@ -133,6 +133,7 @@ model User {
   orderPayments      OrderPayment[]     @relation("RegisteredPayments")
   expenses           Expense[]          @relation("CreatedExpenses")
   soldOrders         Order[]            @relation("SoldOrders")
+  hiddenOrders       Order[]            @relation("HiddenOrders")
   issuedReceipts     SaleReceipt[]      @relation("ReceiptSeller")
   cashClosings       CashClosing[]      @relation("CashClosings")
   warrantyClaims     WarrantyClaim[]    @relation("ClaimCreatedBy")
@@ -374,6 +375,8 @@ model Order {
   shippedAt        DateTime?
   deliveredAt      DateTime?
   canceledAt       DateTime?
+  hiddenAt         DateTime?
+  hiddenById       String?
   suspendedAt      DateTime?
   preOrderActiveAt DateTime     @default(now())
   createdAt        DateTime     @default(now())
@@ -384,6 +387,7 @@ model Order {
   shippingZone ShippingZone? @relation(fields: [shippingZoneId], references: [id])
   assignedTo   User?         @relation("AssignedOrders", fields: [assignedToId], references: [id])
   seller       User?         @relation("SoldOrders", fields: [sellerId], references: [id], onDelete: SetNull)
+  hiddenBy     User?         @relation("HiddenOrders", fields: [hiddenById], references: [id], onDelete: SetNull)
   items        OrderItem[]
   warrantyHistories WarrantyHistory[]
   payments     OrderPayment[]
@@ -395,6 +399,7 @@ model Order {
   @@index([wholesaleAccessId])
   @@index([source])
   @@index([sellerId])
+  @@index([hiddenAt])
 }
 
 model OrderItem {

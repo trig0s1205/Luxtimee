@@ -217,6 +217,9 @@ export class OrdersService {
 
     if (options.source) {
       filters.push({ source: options.source });
+      if (options.source === OrderSource.LOCAL) {
+        filters.push({ hiddenAt: null });
+      }
     } else if (options.type === OrderType.DETAL) {
       filters.push({ source: { not: OrderSource.LOCAL } });
     }
