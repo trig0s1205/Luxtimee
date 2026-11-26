@@ -11,6 +11,7 @@ type RequestOptions = {
   body?: unknown;
   query?: Record<string, QueryValue>;
   signal?: AbortSignal;
+  timeout?: number;
   _retried?: boolean;
 };
 
@@ -46,7 +47,7 @@ export function useApi() {
         query: options.query,
         signal: options.signal,
         credentials: 'include',
-        timeout: API_TIMEOUT_MS,
+        timeout: options.timeout ?? API_TIMEOUT_MS,
       });
       return response as T;
     } catch (err: unknown) {
@@ -118,7 +119,8 @@ export function useApi() {
   return {
     get: <T>(path: string, query?: Record<string, QueryValue>, init?: { signal?: AbortSignal }) =>
       request<T>(path, { query, signal: init?.signal }),
-    post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
+    post: <T>(path: string, body?: unknown, init?: { timeout?: number }) =>
+      request<T>(path, { method: 'POST', body, timeout: init?.timeout }),
     postBlob,
     patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
     del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),

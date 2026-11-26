@@ -72,7 +72,11 @@ export class ReceiptsController {
 
   @Get(':id/pdf')
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.VENDEDOR_LOCAL)
-  async pdfById(@Param('id') id: string, @Res() res: Response) {
+  async pdfById(
+    @Param('id') id: string,
+    @Query('inline') inline: string | undefined,
+    @Res() res: Response,
+  ) {
     const exists = await this.prisma.saleReceipt.findUnique({
       where: { id },
       select: { id: true },
@@ -80,9 +84,10 @@ export class ReceiptsController {
     if (!exists) throw new NotFoundException('Comprobante no encontrado');
     const { filename, buffer } = await this.receiptsService.getPdf(id);
     res.setHeader('Content-Type', 'application/pdf');
+    const disposition = inline === '1' || inline === 'true' ? 'inline' : 'attachment';
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="${filename}"`,
+      `${disposition}; filename="${filename}"`,
     );
     res.send(buffer);
   }

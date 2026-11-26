@@ -54,15 +54,12 @@ export function formatOrderReadableId(
  * Siguiente LX-YYYYMMDD-NNNN usando DocumentCounter diario (día civil Bogotá).
  * Semilla = máximo sufijo ya usado ese día + 1 (seguro tras el count() viejo).
  */
-export async function nextOrderReadableId(
+async function seedFromExistingReadableIds(
   tx: Prisma.TransactionClient,
-  now = new Date(),
-): Promise<string> {
-  const ymd = bogotaYmdCompact(now);
-  const key = orderReadableIdKey(ymd);
+  ymd: string,
+): Promise<number> {
   const matchPattern = `^LX-${ymd}-[0-9]+$`;
   const capturePattern = `^LX-${ymd}-([0-9]+)$`;
-
   const maxRows = await tx.$queryRaw<Array<{ max_seq: number | null }>>`
     SELECT MAX(
       CAST(substring("readableId" from ${capturePattern}) AS INTEGER)
@@ -71,10 +68,30 @@ export async function nextOrderReadableId(
     WHERE "readableId" ~ ${matchPattern}
   `;
   const maxExisting = Number(maxRows[0]?.max_seq ?? 0);
-  const seed = Number.isFinite(maxExisting) && maxExisting >= 1
-    ? maxExisting + 1
-    : 1;
+  return Number.isFinite(maxExisting) && maxExisting >= 1 ? maxExisting + 1 : 1;
+}
 
+/**
+ * Siguiente LX-YYYYMMDD-NNNN. Si el contador del día ya existe, solo incrementa.
+ * La semilla (máximo ya usado) se calcula una vez, cuando falta la fila.
+ */
+export async function nextOrderReadableId(
+  tx: Prisma.TransactionClient,
+  now = new Date(),
+): Promise<string> {
+  const ymd = bogotaYmdCompact(now);
+  const key = orderReadableIdKey(ymd);
+  const finder = tx.documentCounter?.findUnique?.bind(tx.documentCounter);
+  let seed = 1;
+  if (!finder) {
+    seed = await seedFromExistingReadableIds(tx, ymd);
+  } else {
+    const existing = await finder({
+      where: { key },
+      select: { lastValue: true },
+    });
+    seed = existing ? 1 : await seedFromExistingReadableIds(tx, ymd);
+  }
   const seq = await nextDocumentSequence(tx, key, seed);
   return formatOrderReadableId(ymd, seq);
 }

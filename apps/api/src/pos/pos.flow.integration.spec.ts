@@ -335,7 +335,15 @@ describeLocal('POS flow (localhost DB)', () => {
     deny(ExpensesController.prototype.findAll, ExpensesController);
     deny(LabelsController.prototype.pdf, LabelsController);
     deny(PosController.prototype.listCashClosings, PosController);
-    deny(PosController.prototype.voidSale, PosController);
+    expect(
+      roles.canActivate(
+        httpContext(
+          Role.VENDEDOR_LOCAL,
+          PosController.prototype.voidSale,
+          PosController,
+        ),
+      ),
+    ).toBe(true);
     expect(
       roles.canActivate(
         httpContext(

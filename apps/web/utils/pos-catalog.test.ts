@@ -4,7 +4,9 @@ import {
   fallbackGallery,
   hasActiveCatalogFilters,
   photoInitials,
+  catalogPageList,
   safeCatalogItems,
+  whatsappPhoneCo,
   stockBadge,
   warrantyLabel,
 } from './pos-catalog';
@@ -32,6 +34,13 @@ describe('pos-catalog helpers', () => {
     assert.deepEqual(safeCatalogItems({}), []);
     assert.deepEqual(safeCatalogItems(null), []);
     assert.deepEqual(safeCatalogItems({ items: 'x' }), []);
+  });
+
+  it('catalogPageList y teléfono de WhatsApp', () => {
+    assert.deepEqual(catalogPageList(1, 3), [1, 2, 3]);
+    assert.deepEqual(catalogPageList(5, 12)[0], 1);
+    assert.equal(whatsappPhoneCo('300 123 4567'), '573001234567');
+    assert.equal(whatsappPhoneCo(''), null);
   });
 
   it('photoInitials y filtros activos', () => {

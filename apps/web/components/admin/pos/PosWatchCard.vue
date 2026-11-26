@@ -28,7 +28,12 @@ const imageSrc = computed(() => {
   return optimizeCloudinaryImageUrl(resolve(raw) ?? raw, 160);
 });
 
-const atLimit = computed(() => props.cartQty >= props.watch.stock);
+const atLimit = computed(() => props.watch.stock <= 0 || props.cartQty >= props.watch.stock);
+const addLabel = computed(() => {
+  if (props.watch.stock <= 0) return 'Sin stock';
+  if (atLimit.value) return 'Sin más unidades';
+  return 'Agregar';
+});
 const initials = computed(() =>
   photoInitials(props.watch.brandName, props.watch.model),
 );
@@ -89,7 +94,7 @@ watch(
         :disabled="atLimit"
         @click="emit('add')"
       >
-        {{ atLimit ? 'Sin más unidades' : 'Agregar' }}
+        {{ addLabel }}
       </button>
     </div>
   </article>
@@ -98,18 +103,18 @@ watch(
 <style scoped>
 .pos-card {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 0.65rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
   min-width: 0;
   overflow: hidden;
-  padding: 0.5rem;
+  padding: 0.65rem;
 }
 
 .pos-card__media {
-  flex: 0 0 72px;
-  width: 72px;
-  height: 72px;
+  flex: 0 0 auto;
+  width: 100%;
+  height: 140px;
   border: 0;
   border-radius: 4px;
   background: #f7f3ea;
@@ -119,8 +124,8 @@ watch(
 }
 
 .pos-card__media img {
-  width: 72px;
-  height: 72px;
+  width: 100%;
+  height: 140px;
   object-fit: cover;
   display: block;
   border-radius: 4px;
@@ -129,8 +134,8 @@ watch(
 .pos-card__placeholder {
   display: grid;
   place-content: center;
-  width: 72px;
-  height: 72px;
+  width: 100%;
+  height: 140px;
   border-radius: 4px;
   color: #8a7a5a;
   background: #f3eee3;
@@ -168,9 +173,10 @@ watch(
   font-weight: 600;
   line-height: 1.15;
   grid-column: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .pos-card__sku {
@@ -218,9 +224,7 @@ watch(
 }
 
 .pos-card__add {
-  grid-column: 2;
-  grid-row: 1 / span 5;
-  align-self: center;
+  grid-column: 1 / -1;
   min-height: 36px;
   padding: 0.25rem 0.7rem;
   white-space: nowrap;

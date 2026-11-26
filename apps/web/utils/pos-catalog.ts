@@ -33,6 +33,32 @@ export function fallbackGallery(
   return [];
 }
 
+/** Números de página con elipsis: 1 2 3 … N */
+export function catalogPageList(page: number, totalPages: number): Array<number | '…'> {
+  const last = Math.max(1, totalPages);
+  const current = Math.min(Math.max(1, page), last);
+  if (last <= 7) return Array.from({ length: last }, (_, i) => i + 1);
+  const wanted = [1, last, current - 1, current, current + 1].filter(
+    (n) => n >= 1 && n <= last,
+  );
+  const unique = [...new Set(wanted)].sort((a, b) => a - b);
+  const out: Array<number | '…'> = [];
+  for (let i = 0; i < unique.length; i += 1) {
+    if (i > 0 && unique[i] - unique[i - 1] > 1) out.push('…');
+    out.push(unique[i]);
+  }
+  return out;
+}
+
+/** Teléfono Colombia para wa.me. 10 dígitos → 57… */
+export function whatsappPhoneCo(raw: string | null | undefined): string | null {
+  const digits = (raw ?? '').replace(/\D/g, '');
+  if (digits.length === 10) return `57${digits}`;
+  if (digits.length === 12 && digits.startsWith('57')) return digits;
+  if (digits.length >= 11 && digits.length <= 15) return digits;
+  return null;
+}
+
 /** Guarda data.items del catálogo POS. */
 export function safeCatalogItems<T>(data: unknown): T[] {
   if (!data || typeof data !== 'object') return [];

@@ -190,12 +190,28 @@ describe('PosService.voidSale', () => {
     expect(invalidateTag).not.toHaveBeenCalled();
   });
 
-  it('403 para VENDEDOR_LOCAL antes de abrir la transacción', async () => {
-    const { service, $transaction } = build(localOrder());
+  it('403 para VENDEDOR_LOCAL si la venta no es suya o no es de hoy', async () => {
+    const other = build(localOrder({ sellerId: 'otro' }));
     await expect(
-      service.voidSale('o1', 'Cliente devolvió el reloj', seller),
+      other.service.voidSale('o1', 'Cliente devolvió el reloj', seller),
     ).rejects.toBeInstanceOf(ForbiddenException);
-    expect($transaction).not.toHaveBeenCalled();
+    expect(other.update).not.toHaveBeenCalled();
+
+    const oldSale = build(localOrder());
+    await expect(
+      oldSale.service.voidSale('o1', 'Cliente devolvió el reloj', seller),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(oldSale.update).not.toHaveBeenCalled();
+  });
+
+  it('el vendedor anula su venta del día', async () => {
+    jest.spyOn(stockTx, 'restoreWatchStock').mockResolvedValue(undefined);
+    const { service, update } = build(
+      localOrder({ paidAt: new Date(), createdAt: new Date() }),
+    );
+    const result = await service.voidSale('o1', 'Cliente devolvió el reloj', seller);
+    expect(update).toHaveBeenCalled();
+    expect(result.status).toBe('CANCELADO');
   });
 
   it('404 si la venta no existe', async () => {
@@ -251,7 +267,7 @@ describe('PosService.voidSale', () => {
 describe('POST /pos/sales/:id/void permisos y auditoría', () => {
   const guard = new RolesGuard(new Reflector());
 
-  it('solo ADMIN y SUPER_ADMIN, con auditoría VOID Order', () => {
+  it('ADMIN, SUPER_ADMIN y VENDEDOR_LOCAL, con auditoría VOID Order', () => {
     expect(Reflect.getMetadata(AUDIT_KEY, PosController.prototype.voidSale)).toEqual({
       action: 'VOID',
       entity: 'Order',
@@ -259,10 +275,9 @@ describe('POST /pos/sales/:id/void permisos y auditoría', () => {
     expect(Reflect.getMetadata(ROLES_KEY, PosController.prototype.voidSale)).toEqual([
       Role.ADMIN,
       Role.SUPER_ADMIN,
+      Role.VENDEDOR_LOCAL,
     ]);
-    expect(() => guard.canActivate(httpContext(Role.VENDEDOR_LOCAL))).toThrow(
-      ForbiddenException,
-    );
+    expect(guard.canActivate(httpContext(Role.VENDEDOR_LOCAL))).toBe(true);
     expect(guard.canActivate(httpContext(Role.ADMIN))).toBe(true);
     expect(guard.canActivate(httpContext(Role.SUPER_ADMIN))).toBe(true);
   });

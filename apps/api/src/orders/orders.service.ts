@@ -142,6 +142,7 @@ export class OrdersService {
         watchThumbnail: item.watch.frontImageUrl ?? item.productImage ?? null,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        discountAmount: item.discountAmount,
         priceType: item.priceType,
         deliveryNote: item.deliveryNote,
         extrasSnapshot: item.extrasSnapshot,
@@ -172,7 +173,7 @@ export class OrdersService {
     order: {
       readableId: string;
       customerName: string;
-      customerEmail: string;
+      customerEmail: string | null;
       customerPhone: string | null;
       wholesaleAccessId: string | null;
     },

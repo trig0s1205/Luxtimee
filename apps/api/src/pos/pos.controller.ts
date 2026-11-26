@@ -97,8 +97,13 @@ export class PosController {
     return this.posService.createSale(dto, user);
   }
 
+  @Get('sales/by-idempotency/:key')
+  saleByIdempotency(@Param('key') key: string) {
+    return this.posService.findSaleByIdempotencyKey(key);
+  }
+
   @Post('sales/:id/void')
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.VENDEDOR_LOCAL)
   @Audit('VOID', 'Order')
   voidSale(
     @Param('id') id: string,

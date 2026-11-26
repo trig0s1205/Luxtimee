@@ -150,6 +150,7 @@ describeLocal('POS concurrency (localhost DB)', () => {
       db,
       {} as never,
       {
+        loadReceiptConfig: jest.fn(async () => ({ businessName: 'LUXTIMEE' })),
         issueInTx: jest.fn(async (tx: unknown, orderId: string) => {
           const seq = await nextReceiptSequence(tx as never);
           return {
@@ -304,7 +305,7 @@ describeLocal('POS concurrency (localhost DB)', () => {
     }
   });
 
-  it('contador atrasado alcanza el máximo de readableId del día', async () => {
+  it('contador existente solo incrementa; no reescanea readableId', async () => {
     const now = new Date('2099-04-04T18:00:00.000Z');
     const ymd = bogotaYmdCompact(now);
     const key = orderReadableIdKey(ymd);
@@ -325,8 +326,8 @@ describeLocal('POS concurrency (localhost DB)', () => {
     try {
       const first = await prisma.$transaction((tx) => nextOrderReadableId(tx, now));
       const second = await prisma.$transaction((tx) => nextOrderReadableId(tx, now));
-      expect(first).toBe(formatOrderReadableId(ymd, 11));
-      expect(second).toBe(formatOrderReadableId(ymd, 12));
+      expect(first).toBe(formatOrderReadableId(ymd, 3));
+      expect(second).toBe(formatOrderReadableId(ymd, 4));
     } finally {
       await prisma.order.deleteMany({
         where: { customerEmail: `${prefix}-catchup@pos.local` },

@@ -60,6 +60,9 @@ export type PosMySaleDto = {
   createdAt: string;
   customerName: string;
   total: number;
+  discountAmount?: number;
+  discountReason?: string | null;
+  sellerId?: string | null;
   methods: string[];
   receiptId: string | null;
   receiptNumber: string | null;

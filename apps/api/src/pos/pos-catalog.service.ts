@@ -205,7 +205,11 @@ export class PosCatalogService {
   private async buildCatalogWhere(
     query: PosCatalogQueryDto,
   ): Promise<Prisma.WatchWhereInput> {
-    const where: Prisma.WatchWhereInput = { ...posSellableWhere() };
+    const where: Prisma.WatchWhereInput = {
+      deletedAt: null,
+      isActive: true,
+      ...(query.inStock === false ? {} : { stock: { gt: 0 } }),
+    };
 
     const brand = clean(query.brand);
     if (brand) {
@@ -276,7 +280,7 @@ export class PosCatalogService {
 
   async listCatalog(query: PosCatalogQueryDto): Promise<PosCatalogPageDto> {
     const page = Math.max(1, query.page ?? 1);
-    const limit = Math.min(48, Math.max(1, query.limit ?? 24));
+    const limit = Math.min(48, Math.max(1, query.limit ?? 30));
     const where = await this.buildCatalogWhere(query);
     const orderBy = this.buildOrderBy(query.sort);
 

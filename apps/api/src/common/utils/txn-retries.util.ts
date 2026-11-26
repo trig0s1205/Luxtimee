@@ -24,7 +24,13 @@ function targetIncludes(
 /** Errores transitorios de concurrencia / pool / unicidad de consecutivos. */
 export function isTransientTxnError(error: unknown): boolean {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    if (error.code === 'P2034' || error.code === 'P2024') return true;
+    if (
+      error.code === 'P2034' ||
+      error.code === 'P2024' ||
+      error.code === 'P2028'
+    ) {
+      return true;
+    }
     if (
       error.code === 'P2002' &&
       targetIncludes(error.meta?.target, [
@@ -50,7 +56,7 @@ export async function withTxnRetries<T>(
   run: () => Promise<T>,
   options?: { maxAttempts?: number },
 ): Promise<T> {
-  const maxAttempts = options?.maxAttempts ?? 10;
+  const maxAttempts = options?.maxAttempts ?? 3;
   let lastError: unknown;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {

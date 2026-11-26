@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -17,13 +18,14 @@ import {
   Role,
 } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import type {
-  PosCashClosingDto,
-  PosCashClosingPreviewDto,
-  PosCustomerHintDto,
-  PosMySaleDto,
-  PosSaleResultDto,
-  PosVoidSaleResultDto,
+import {
+  resolvePosDiscount,
+  type PosCashClosingDto,
+  type PosCashClosingPreviewDto,
+  type PosCustomerHintDto,
+  type PosMySaleDto,
+  type PosSaleResultDto,
+  type PosVoidSaleResultDto,
 } from '@luxtime/shared';
 import { CACHE_TAGS } from '../common/cache/cache.decorator';
 import { MemoryCacheService } from '../common/cache/memory-cache.service';
@@ -51,6 +53,26 @@ import {
   PosMySalesQueryDto,
 } from './dto/pos.dto';
 import { PosCatalogService } from './pos-catalog.service';
+
+const POS_SALE_TX = { maxWait: 3_000, timeout: 8_000 } as const;
+
+function isIdempotencyConflict(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002' &&
+    JSON.stringify(error.meta?.target ?? '').includes('posIdempotencyKey')
+  );
+}
+
+function discountOrThrow(
+  gross: number,
+  amount?: number,
+  percent?: number,
+) {
+  const resolved = resolvePosDiscount(gross, { amount, percent });
+  if (resolved.ok === false) throw new BadRequestException(resolved.message);
+  return resolved.discount;
+}
 
 function toClosingDto(
   row: {
@@ -98,6 +120,8 @@ function toClosingDto(
 
 @Injectable()
 export class PosService {
+  private readonly logger = new Logger(PosService.name);
+
   constructor(
     private prisma: PrismaService,
     private catalog: PosCatalogService,
@@ -164,27 +188,33 @@ export class PosService {
     return { url };
   }
 
+  async findSaleByIdempotencyKey(key: string): Promise<PosSaleResultDto> {
+    const found = await this.saleResultByKey(key);
+    if (!found) throw new NotFoundException('Venta no encontrada');
+    return found;
+  }
+
   async createSale(
     dto: CreatePosSaleDto,
     user: AuthenticatedUser,
   ): Promise<PosSaleResultDto> {
-    const qtyByWatch = new Map<string, number>();
-    for (const item of dto.items) {
-      qtyByWatch.set(
-        item.watchId,
-        (qtyByWatch.get(item.watchId) ?? 0) + item.quantity,
-      );
-    }
-    const lines = [...qtyByWatch.entries()].map(([watchId, quantity]) => ({
-      watchId,
-      quantity,
-    }));
+    const started = Date.now();
+    const mark = (step: string, t0 = started) => {
+      this.logger.log(`createSale ${step} ${Date.now() - t0}ms`);
+    };
 
+    if (dto.idempotencyKey) {
+      const existing = await this.saleResultByKey(dto.idempotencyKey);
+      mark('idempotency-lookup');
+      if (existing) {
+        this.logger.log('createSale idempotent-hit');
+        return existing;
+      }
+    }
+
+    const watchIds = [...new Set(dto.items.map((item) => item.watchId))];
     const watches = await this.prisma.watch.findMany({
-      where: {
-        id: { in: lines.map((line) => line.watchId) },
-        deletedAt: null,
-      },
+      where: { id: { in: watchIds }, deletedAt: null },
       select: {
         id: true,
         sku: true,
@@ -198,29 +228,62 @@ export class PosService {
         brand: { select: { name: true } },
       },
     });
-    if (watches.length !== lines.length) {
+    mark('watches');
+    if (watches.length !== watchIds.length) {
       throw new BadRequestException('Reloj no encontrado');
     }
     const watchById = new Map(watches.map((watch) => [watch.id, watch]));
 
+    const grouped = new Map<
+      string,
+      { quantity: number; lineDiscount: number; unitPrice: number }
+    >();
     let subtotal = 0;
-    const itemCreates = lines.map((line) => {
-      const watch = watchById.get(line.watchId)!;
-      const unitPrice = watch.retailPrice;
-      subtotal += unitPrice * line.quantity;
-      return {
-        watchId: watch.id,
-        productName: `${watch.brand.name} ${watch.model}`.trim(),
-        productSku: watch.sku,
-        productRef: watch.reference ?? watch.sku,
-        productImage:
-          watch.frontImageUrl ?? watch.primaryImageUrl ?? watch.images[0] ?? null,
-        quantity: line.quantity,
-        unitPrice,
-        priceType: PriceType.RETAIL,
+    for (const item of dto.items) {
+      const watch = watchById.get(item.watchId)!;
+      const gross = watch.retailPrice * item.quantity;
+      const lineDiscount = discountOrThrow(
+        gross,
+        item.discountAmount,
+        item.discountPercent,
+      );
+      subtotal += gross;
+      const prev = grouped.get(item.watchId) ?? {
+        quantity: 0,
+        lineDiscount: 0,
+        unitPrice: watch.retailPrice,
       };
-    });
-    const total = subtotal;
+      grouped.set(item.watchId, {
+        quantity: prev.quantity + item.quantity,
+        lineDiscount: prev.lineDiscount + lineDiscount,
+        unitPrice: watch.retailPrice,
+      });
+    }
+    const lineDiscountTotal = [...grouped.values()].reduce(
+      (sum, line) => sum + line.lineDiscount,
+      0,
+    );
+    const afterLines = subtotal - lineDiscountTotal;
+    const globalDiscount = discountOrThrow(
+      afterLines,
+      dto.discountAmount,
+      dto.discountPercent,
+    );
+    const discountAmount = lineDiscountTotal + globalDiscount;
+    const total = afterLines - globalDiscount;
+    if (total < 0) {
+      throw new BadRequestException('El total no puede ser negativo');
+    }
+    if (discountAmount > 0) {
+      const reason = sanitizePlainText(dto.discountReason ?? '', 200);
+      if (reason.length < 3) {
+        throw new BadRequestException(
+          'El motivo del descuento debe tener al menos 3 caracteres',
+        );
+      }
+      dto.discountReason = reason;
+    }
+    mark('totals');
 
     const { normalized, changeTotal } = validatePosPayments(total, dto.payments);
 
@@ -229,85 +292,123 @@ export class PosService {
       ? sanitizePlainText(dto.customer.document, 30) || null
       : null;
     const customerPhone = dto.customer.phone?.trim() || null;
-    const customerEmail = dto.customer.email?.trim() || '';
-    const note = dto.note
-      ? sanitizePlainText(dto.note, 300) || null
-      : null;
+    const customerEmail = dto.customer.email?.trim() || null;
+    const note = dto.note ? sanitizePlainText(dto.note, 300) || null : null;
+    const discountReason =
+      discountAmount > 0 ? (dto.discountReason ?? null) : null;
 
-    const result = await withTxnRetries(async () => {
-      const now = new Date();
-      return this.prisma.$transaction(async (tx) => {
-        await reserveWatchStock(
-          tx,
-          lines.map((line) => ({
-            watchId: line.watchId,
-            quantity: line.quantity,
-          })),
-          {
+    const receiptConfig = await this.receiptsService.loadReceiptConfig();
+    mark('receipt-config');
+
+    const lines = [...grouped.entries()].map(([watchId, line]) => ({
+      watchId,
+      quantity: line.quantity,
+    }));
+    const itemRows = [...grouped.entries()].map(([watchId, line]) => {
+      const watch = watchById.get(watchId)!;
+      return {
+        watchId: watch.id,
+        productName: `${watch.brand.name} ${watch.model}`.trim(),
+        productSku: watch.sku,
+        productRef: watch.reference ?? watch.sku,
+        productImage:
+          watch.frontImageUrl ?? watch.primaryImageUrl ?? watch.images[0] ?? null,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        discountAmount: line.lineDiscount,
+        priceType: PriceType.RETAIL,
+      };
+    });
+
+    let attempt = 0;
+    let result: PosSaleResultDto;
+    try {
+      result = await withTxnRetries(async () => {
+        attempt += 1;
+        const txStarted = Date.now();
+        this.logger.log(`createSale attempt ${attempt}`);
+        const txResult = await this.prisma.$transaction(async (tx) => {
+          await reserveWatchStock(tx, lines, {
             requireActive: true,
             message:
               'Stock insuficiente: otra venta se llevó este reloj. Actualiza el carrito.',
             inactiveMessage: 'Este reloj ya no está disponible',
-          },
-        );
-
-        const readableId = await nextOrderReadableId(tx, now);
-        const created = await tx.order.create({
-          data: {
-            readableId,
-            stage: OrderStage.ORDER,
-            status: OrderStatus.ENTREGADO,
-            type: OrderType.DETAL,
-            source: OrderSource.LOCAL,
-            customerName,
-            customerDocument,
-            customerPhone,
-            customerEmail,
-            customerAddress: 'Venta en local',
-            shippingCost: 0,
-            depositExpected: 0,
-            depositConfirmed: false,
-            subtotal,
-            total,
-            paidAt: now,
-            deliveredAt: now,
-            sellerId: user.id,
-            specialNote: note,
-            items: { create: itemCreates },
-            payments: {
-              create: normalized.map((payment) => ({
-                type: OrderPaymentType.SALDO,
-                amount: payment.amount,
-                paidAt: now,
-                registeredById: user.id,
-                method: payment.method as PaymentMethod,
-                reference: payment.reference,
-                proofUrl: payment.proofUrl,
-                cardLast4: payment.cardLast4,
-                cashReceived: payment.cashReceived,
-                changeGiven: payment.changeGiven,
-              })),
+          });
+          const now = new Date();
+          const readableId = await nextOrderReadableId(tx, now);
+          const created = await tx.order.create({
+            data: {
+              readableId,
+              stage: OrderStage.ORDER,
+              status: OrderStatus.ENTREGADO,
+              type: OrderType.DETAL,
+              source: OrderSource.LOCAL,
+              customerName,
+              customerDocument,
+              customerPhone,
+              customerEmail,
+              customerAddress: 'Venta en local',
+              shippingCost: 0,
+              depositExpected: 0,
+              depositConfirmed: false,
+              subtotal,
+              discountAmount,
+              discountReason,
+              total,
+              posIdempotencyKey: dto.idempotencyKey ?? null,
+              paidAt: now,
+              deliveredAt: now,
+              sellerId: user.id,
+              specialNote: note,
             },
-          },
-          select: { id: true, readableId: true },
-        });
-
-        const receipt = await this.receiptsService.issueInTx(tx, created.id, {
-          channel: 'LOCAL',
-          saleDate: now,
-          sellerId: user.id,
-        });
-
-        return {
-          orderId: created.id,
-          readableId: created.readableId,
-          receiptId: receipt.id,
-          receiptNumber: receipt.number,
-          total,
-          changeTotal,
-        };
-      }, STOCK_TRANSACTION);
-    });
+            select: { id: true, readableId: true },
+          });
+          await tx.orderItem.createMany({
+            data: itemRows.map((row) => ({ ...row, orderId: created.id })),
+          });
+          await tx.orderPayment.createMany({
+            data: normalized.map((payment) => ({
+              orderId: created.id,
+              type: OrderPaymentType.SALDO,
+              amount: payment.amount,
+              paidAt: now,
+              registeredById: user.id,
+              method: payment.method as PaymentMethod,
+              reference: payment.reference,
+              proofUrl: payment.proofUrl,
+              cardLast4: payment.cardLast4,
+              cashReceived: payment.cashReceived,
+              changeGiven: payment.changeGiven,
+            })),
+          });
+          const receipt = await this.receiptsService.issueInTx(tx, created.id, {
+            channel: 'LOCAL',
+            saleDate: now,
+            sellerId: user.id,
+            config: receiptConfig,
+          });
+          return {
+            orderId: created.id,
+            readableId: created.readableId,
+            receiptId: receipt.id,
+            receiptNumber: receipt.number,
+            total,
+            changeTotal,
+          };
+        }, POS_SALE_TX);
+        this.logger.log(
+          `createSale tx-ok attempt ${attempt} ${Date.now() - txStarted}ms`,
+        );
+        return txResult;
+      });
+    } catch (error) {
+      if (dto.idempotencyKey && isIdempotencyConflict(error)) {
+        const existing = await this.saleResultByKey(dto.idempotencyKey);
+        if (existing) return existing;
+      }
+      throw error;
+    }
+    mark(`done attempts=${attempt}`);
 
     this.cache.invalidateTag(CACHE_TAGS.catalog);
     await this.notificationsService.emit({
@@ -323,12 +424,40 @@ export class PosService {
     return result;
   }
 
+  private async saleResultByKey(key: string): Promise<PosSaleResultDto | null> {
+    const order = await this.prisma.order.findUnique({
+      where: { posIdempotencyKey: key },
+      select: {
+        id: true,
+        readableId: true,
+        total: true,
+        payments: { select: { changeGiven: true } },
+        receipt: { select: { id: true, number: true } },
+      },
+    });
+    if (!order?.receipt) return null;
+    const changeTotal = order.payments.reduce(
+      (sum, payment) => sum + (payment.changeGiven ?? 0),
+      0,
+    );
+    return {
+      orderId: order.id,
+      readableId: order.readableId,
+      receiptId: order.receipt.id,
+      receiptNumber: order.receipt.number,
+      total: order.total,
+      changeTotal,
+    };
+  }
+
   async voidSale(
     orderId: string,
     rawReason: string,
     user: AuthenticatedUser,
   ): Promise<PosVoidSaleResultDto> {
-    if (user.role !== Role.ADMIN && user.role !== Role.SUPER_ADMIN) {
+    const isAdmin = user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN;
+    const isSeller = user.role === Role.VENDEDOR_LOCAL;
+    if (!isAdmin && !isSeller) {
       throw new ForbiddenException('No tienes permisos para esta acción');
     }
     const reason = sanitizePlainText(rawReason, 500);
@@ -364,6 +493,19 @@ export class PosService {
           throw new BadRequestException(
             'Solo se pueden anular ventas del local',
           );
+        }
+        if (isSeller) {
+          if (order.sellerId !== user.id) {
+            throw new ForbiddenException(
+              'Solo puedes anular tus propias ventas',
+            );
+          }
+          const saleDay = todayBogotaYmd(order.paidAt ?? order.createdAt);
+          if (saleDay !== todayBogotaYmd()) {
+            throw new ForbiddenException(
+              'Solo puedes anular ventas del día de hoy',
+            );
+          }
         }
         if (
           order.canceledAt ||
@@ -474,6 +616,9 @@ export class PosService {
         createdAt: order.createdAt.toISOString(),
         customerName: order.customerName,
         total: order.total,
+        discountAmount: order.discountAmount,
+        discountReason: order.discountReason,
+        sellerId: order.sellerId,
         methods: order.payments
           .map((p) => p.method)
           .filter((m): m is PaymentMethod => !!m),

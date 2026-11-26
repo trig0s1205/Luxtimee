@@ -58,6 +58,7 @@ export type ReceiptPdfInput = {
   sellerName: string;
   subtotal: number;
   shippingCost: number;
+  discountAmount?: number;
   total: number;
   warrantyTerms: string;
   footerNote?: string | null;
@@ -303,6 +304,17 @@ export class ReceiptPdfRenderer {
       align: 'right',
     });
     y += 14;
+    const discountAmount =
+      receipt.discountAmount ??
+      Math.max(0, receipt.subtotal + receipt.shippingCost - receipt.total);
+    if (discountAmount > 0) {
+      doc.text('Descuento', totalsX, y, { width: 80 });
+      doc.text(formatCopAmount(discountAmount), totalsX + 80, y, {
+        width: contentWidth * 0.45 - 80,
+        align: 'right',
+      });
+      y += 14;
+    }
     if (receipt.shippingCost > 0) {
       doc.text('Envío', totalsX, y, { width: 80 });
       doc.text(formatCopAmount(receipt.shippingCost), totalsX + 80, y, {

@@ -71,8 +71,8 @@ Memoria: `NODE_OPTIONS=--max-old-space-size=1024`, `mem_limit: 1400m` (~600 MB p
 | `PORT` / `HOST` | sí | `3000` / `0.0.0.0` | set-env |
 | `FRONTEND_URL` | sí | sitio Vercel | Daniel |
 | `STAFF_LOGIN_SLUG` | sí | igual a `NUXT_PUBLIC_STAFF_LOGIN_SLUG` | Daniel |
-| `DATABASE_URL` | sí | Supabase → Transaction pooler + `?pgbouncer=true` | Daniel |
-| `DIRECT_URL` | sí | Supabase → Direct o Session (5432), IPv4 | Daniel |
+| `DATABASE_URL` | sí | Supabase → Transaction pooler (puerto 6543) + `?pgbouncer=true&connection_limit=10&pool_timeout=20` | Daniel |
+| `DIRECT_URL` | sí | Supabase → conexión directa (5432) solo para `migrate.sh`. No uses el pooler de transacciones. | Daniel |
 | `JWT_*` / `CRON_SECRET` | sí | generar (`set-env` / openssl) | Daniel |
 | `CLIENT_IP_SECRET` | sí | **mismo** que `NUXT_CLIENT_IP_SECRET` en Vercel | Daniel |
 | `COOKIE_SAME_SITE` | sí | fijo `lax` | set-env |

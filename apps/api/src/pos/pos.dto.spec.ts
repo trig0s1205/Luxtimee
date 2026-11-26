@@ -4,7 +4,7 @@ import { validate } from 'class-validator';
 import { CreatePosSaleDto, PosCatalogQueryDto, VoidPosSaleDto } from './dto/pos.dto';
 
 describe('POS DTOs', () => {
-  it('rechaza serial, unitPrice o discount en ítems', async () => {
+  it('rechaza serial o unitPrice en ítems y acepta descuento', async () => {
     const dto = plainToInstance(CreatePosSaleDto, {
       customer: { name: 'Ana' },
       items: [
@@ -13,16 +13,28 @@ describe('POS DTOs', () => {
           quantity: 1,
           serial: 'ABC',
           unitPrice: 1,
-          discount: 10,
+          discountAmount: 10,
         },
       ],
       payments: [{ method: 'EFECTIVO', amount: 1, cashReceived: 1 }],
+      discountPercent: 5,
+      discountReason: 'Promo',
     });
     const errors = await validate(dto, {
       whitelist: true,
       forbidNonWhitelisted: true,
     });
-    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some((error) => error.property === 'items')).toBe(true);
+
+    const ok = plainToInstance(CreatePosSaleDto, {
+      customer: { name: 'Ana' },
+      items: [{ watchId: 'w1', quantity: 1, discountAmount: 10 }],
+      payments: [{ method: 'EFECTIVO', amount: 1, cashReceived: 1 }],
+      discountPercent: 5,
+      discountReason: 'Promo local',
+      idempotencyKey: '6c1b4b4e-1c1a-4c2a-9c2a-6c1b4b4e1c1a',
+    });
+    expect(await validate(ok)).toHaveLength(0);
   });
 
   it('el motivo de anulación se recorta y exige entre 5 y 500 caracteres', async () => {

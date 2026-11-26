@@ -41,12 +41,11 @@ async function login(page: Page, email: string, password: string) {
 }
 
 async function scanSku(page: Page, sku: string) {
-  const scan = page.getByPlaceholder(
-    'Escanea el código o busca por SKU, marca o modelo',
-  );
-  await scan.click();
-  await scan.fill('');
+  const search = page.getByPlaceholder('SKU, marca o modelo');
+  await search.click();
+  await search.fill('');
   await page.keyboard.type(sku, { delay: 8 });
+  await expect(page.getByRole('option').first()).toBeVisible();
   await page.keyboard.press('Enter');
   await expect(page.locator('.pos-cart__sku', { hasText: sku })).toBeVisible();
 }
@@ -60,7 +59,7 @@ async function payAndSell(
   await page.locator('.pos-payments select').first().selectOption({ label: method });
   await page.getByPlaceholder('Monto').fill(String(PRICE));
   if (method === 'Efectivo') {
-    await page.getByPlaceholder('Recibido').fill(String(PRICE + 20_000));
+    await page.getByPlaceholder('Monto recibido').fill(String(PRICE + 20_000));
   }
   if (method === 'Transferencia') {
     await page.getByPlaceholder('Referencia (opcional)').fill('TRX-UI');
@@ -83,7 +82,7 @@ async function payAndSell(
   }
 }
 
-test('vendedor local: POS, escáner, catálogo y tres pagos', async ({ page }) => {
+test('vendedor local: POS, catálogo y tres pagos', async ({ page }) => {
   await login(page, 'ui-seller@pos.local', 'vendedor-local-qa');
   await expect(page).toHaveURL(/\/admin\/pos$/);
   await expect(page.getByRole('heading', { name: 'POS' })).toBeVisible();
@@ -94,13 +93,15 @@ test('vendedor local: POS, escáner, catálogo y tres pagos', async ({ page }) =
   await page.goto('/admin/inventario');
   await expect(page).toHaveURL(/\/admin\/pos$/);
 
-  const catalogSearch = page.getByPlaceholder('Buscar en catálogo');
+  const catalogSearch = page.getByPlaceholder('Buscar por marca, modelo o SKU…');
   await expect(catalogSearch).toBeVisible();
   await catalogSearch.fill('LT-100');
   await expect(page.locator('.pos-card__sku', { hasText: 'LT-1005' })).toBeVisible();
   await expect(page.locator('.pos-card img').first()).toBeVisible();
   await expect(page.getByText(/Quedan \d|Última unidad/).first()).toBeVisible();
   await expect(page.getByText('Cargando')).toHaveCount(0);
+  await expect(page.getByText('Cargar más')).toHaveCount(0);
+  await expect(page.getByText('Lector listo')).toHaveCount(0);
   await shot(page, '02-catalogo-visual');
 
   await scanSku(page, 'LT-1001');

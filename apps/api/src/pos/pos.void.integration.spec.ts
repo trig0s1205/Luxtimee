@@ -280,11 +280,14 @@ describeLocal('POS void sale (localhost DB)', () => {
     });
   });
 
-  it('VENDEDOR_LOCAL recibe 403 y la venta sigue vigente', async () => {
+  it('otro vendedor recibe 403 y la venta sigue vigente', async () => {
     const sale = await sell(`Prohibido ${prefix}`);
     const stock = (await saleWatch()).stock;
     await expect(
-      pos.voidSale(sale.orderId, REASON, sellerUser()),
+      pos.voidSale(sale.orderId, REASON, {
+        ...sellerUser(),
+        id: 'otro-vendedor',
+      }),
     ).rejects.toBeInstanceOf(ForbiddenException);
     const row = await prisma.order.findUniqueOrThrow({ where: { id: sale.orderId } });
     expect(row.status).toBe(OrderStatus.ENTREGADO);
@@ -296,9 +299,7 @@ describeLocal('POS void sale (localhost DB)', () => {
     expect(receipt.voidedAt).toBeNull();
 
     const guard = new RolesGuard(new Reflector());
-    expect(() => guard.canActivate(httpContext(Role.VENDEDOR_LOCAL))).toThrow(
-      ForbiddenException,
-    );
+    expect(guard.canActivate(httpContext(Role.VENDEDOR_LOCAL))).toBe(true);
   });
 
   it('rechaza un pedido que no es del local', async () => {
