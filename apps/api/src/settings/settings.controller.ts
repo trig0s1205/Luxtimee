@@ -160,6 +160,23 @@ export class SettingsController {
     return this.settingsService.setCommissionConfig(body);
   }
 
+  @Get('payroll')
+  @Roles(Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard, FinancialGuard)
+  @Financial()
+  getPayroll() {
+    return this.settingsService.getPayrollConfig();
+  }
+
+  @Patch('payroll')
+  @Roles(Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard, FinancialGuard)
+  @Financial()
+  @Audit('UPDATE', 'Setting')
+  setPayroll(@Body() body: { workers?: Array<{ name?: string; monthlySalary?: number }> }) {
+    return this.settingsService.setPayrollConfig(body ?? {});
+  }
+
   @Get('homepage')
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @UseGuards(RolesGuard)

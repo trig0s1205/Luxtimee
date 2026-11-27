@@ -58,6 +58,8 @@ const profit = reactive<ProfitConfigDto>({
   ownerProfitPercent: 65,
 });
 const commission = reactive<CommissionConfigDto>({ percent: 5 });
+const payrollWorkers = ref<Array<{ name: string; monthlySalary: number }>>([]);
+const savingPayroll = ref(false);
 const receipt = reactive<ReceiptConfigDto>({
   businessName: 'LUXTIMEE',
   ownerName: '',
@@ -146,6 +148,12 @@ useAsyncData('admin-config', async () => {
       profit.ownerProfitPercent = profitRes.ownerProfitPercent ?? (100 - profit.reinvestmentPercent);
     }
     if (commissionRes) commission.percent = commissionRes.percent;
+    if (auth.isSuperAdmin) {
+      const payrollRes = await api
+        .get<{ workers: Array<{ name: string; monthlySalary: number }> }>('/settings/payroll')
+        .catch(() => null);
+      payrollWorkers.value = payrollRes?.workers ?? [];
+    }
   }
 
   const homepageRes = await api.get<HomepageConfigDto>('/settings/homepage').catch(() => null);
@@ -252,6 +260,27 @@ async function saveReceiptSettings() {
     toast.error(extractApiErrorMessage(err, 'No se pudo guardar el comprobante.'));
   } finally {
     savingReceipt.value = false;
+  }
+}
+
+async function savePayroll() {
+  savingPayroll.value = true;
+  try {
+    const saved = await api.patch<{ workers: Array<{ name: string; monthlySalary: number }> }>(
+      '/settings/payroll',
+      {
+        workers: payrollWorkers.value.map((worker) => ({
+          name: worker.name,
+          monthlySalary: Number(worker.monthlySalary) || 0,
+        })),
+      },
+    );
+    payrollWorkers.value = saved.workers;
+    toast.success('Nómina guardada.');
+  } catch (err: unknown) {
+    toast.error(extractApiErrorMessage(err, 'No se pudo guardar la nómina.'));
+  } finally {
+    savingPayroll.value = false;
   }
 }
 
@@ -978,13 +1007,41 @@ function onConfigImageClick(event: MouseEvent) {
       </section>
 
       <section v-if="auth.isSuperAdmin" class="admin-config-card">
+        <h2>Equipo y nómina</h2>
+        <p class="admin-config-hint">
+          Sueldos mensuales. El fondo es el porcentaje de las ventas netas facturadas del mes (local y web) y no se resta de la ganancia.
+        </p>
+        <div v-for="(worker, index) in payrollWorkers" :key="index" class="admin-config-fields admin-config-fields--grid">
+          <label>
+            <span>Nombre</span>
+            <UiLuxInput v-model="worker.name" type="text" />
+          </label>
+          <label>
+            <span>Sueldo mensual</span>
+            <UiLuxInput v-model="worker.monthlySalary" type="number" min="0" step="1" />
+          </label>
+          <button type="button" class="admin-record-btn admin-record-btn--ghost" @click="payrollWorkers.splice(index, 1)">
+            Quitar
+          </button>
+        </div>
+        <div class="admin-record-actions">
+          <button type="button" class="admin-record-btn admin-record-btn--ghost" @click="payrollWorkers.push({ name: '', monthlySalary: 0 })">
+            Agregar persona
+          </button>
+          <button type="button" class="admin-record-btn admin-record-btn--primary" :disabled="savingPayroll" @click="savePayroll">
+            {{ savingPayroll ? 'Guardando...' : 'Guardar nómina' }}
+          </button>
+        </div>
+      </section>
+
+      <section v-if="auth.isSuperAdmin" class="admin-config-card">
         <h2>Finanzas y dashboard de ganancia</h2>
         <p class="admin-config-hint">
           Estos porcentajes alimentan el dashboard de ganancia. Los cambios aplican de inmediato en los cálculos del periodo.
         </p>
         <div class="admin-config-fields admin-config-fields--grid">
           <label>
-            <span>% Comisión secretaría</span>
+            <span>% Fondo de nómina y mantenimiento</span>
             <UiLuxInput v-model="commission.percent" type="number" min="0" max="100" step="0.01" />
           </label>
           <label>

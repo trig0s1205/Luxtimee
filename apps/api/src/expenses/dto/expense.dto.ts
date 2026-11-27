@@ -42,6 +42,10 @@ export class CreateExpenseDto {
   @IsOptional()
   @IsBoolean()
   paidWithCash?: boolean;
+
+  @IsOptional()
+  @IsIn(['NOMINA', ''])
+  category?: 'NOMINA' | '' | null;
 }
 
 export class UpdateExpenseDto {
@@ -74,6 +78,10 @@ export class UpdateExpenseDto {
   @IsOptional()
   @IsBoolean()
   paidWithCash?: boolean;
+
+  @IsOptional()
+  @IsIn(['NOMINA', ''])
+  category?: 'NOMINA' | '' | null;
 }
 
 export class ExpensesQueryDto {

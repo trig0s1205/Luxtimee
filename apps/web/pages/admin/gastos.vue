@@ -38,6 +38,7 @@ const form = reactive({
   spentAt: bogotaToday(),
   origin: ExpenseOrigin.PLATAFORMA as ExpenseOrigin,
   paidWithCash: false,
+  category: '' as '' | 'NOMINA',
 });
 
 const emptyList: ExpensesListDto = {
@@ -107,6 +108,7 @@ function resetForm() {
   form.spentAt = bogotaToday();
   form.origin = ExpenseOrigin.PLATAFORMA;
   form.paidWithCash = false;
+  form.category = '';
 }
 
 function onSearchInput() {
@@ -129,6 +131,7 @@ function editExpense(expense: ExpenseDto) {
   form.spentAt = isoDate(expense.spentAt);
   form.origin = expense.origin ?? ExpenseOrigin.PLATAFORMA;
   form.paidWithCash = expense.paidWithCash === true;
+  form.category = expense.category === 'NOMINA' ? 'NOMINA' : '';
 }
 
 async function save() {
@@ -151,6 +154,7 @@ async function save() {
       spentAt: form.spentAt || bogotaToday(),
       origin: form.origin,
       paidWithCash: form.paidWithCash,
+      category: form.category || null,
     };
     if (editingId.value) {
       await api.patch(`/expenses/${editingId.value}`, payload);
@@ -246,6 +250,13 @@ useSeoMeta({ title: 'Gastos — LUXTIMEE Admin' });
             required
             class="w-full bg-lux-black-2 border border-lux-gold/20 px-4 py-3 text-sm"
           >
+        </label>
+        <label class="block space-y-2">
+          <span class="text-xs uppercase tracking-widest text-lux-white-dim">Categoría</span>
+          <select v-model="form.category" class="admin-record-select w-full">
+            <option value="">Sin categoría</option>
+            <option value="NOMINA">Nómina</option>
+          </select>
         </label>
         <label class="block space-y-2">
           <span class="text-xs uppercase tracking-widest text-lux-white-dim">Origen</span>

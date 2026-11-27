@@ -231,6 +231,7 @@ export class PosService {
         model: true,
         reference: true,
         retailPrice: true,
+        cost: true,
         stock: true,
         frontImageUrl: true,
         primaryImageUrl: true,
@@ -326,6 +327,7 @@ export class PosService {
         quantity: line.quantity,
         unitPrice: line.unitPrice,
         discountAmount: line.lineDiscount,
+        unitCostSnapshot: watch.cost && watch.cost > 0 ? watch.cost : null,
         priceType: PriceType.RETAIL,
       };
     });

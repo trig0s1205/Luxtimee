@@ -13,6 +13,7 @@ export interface ExpenseDto {
   spentAt: string;
   origin: ExpenseOrigin;
   paidWithCash: boolean;
+  category?: string | null;
   createdById: string | null;
   createdByName: string | null;
   createdAt: string;
@@ -43,6 +44,7 @@ export interface CreateExpenseDto {
   spentAt?: string;
   origin?: ExpenseOrigin;
   paidWithCash?: boolean;
+  category?: 'NOMINA' | '' | null;
 }
 
 export interface UpdateExpenseDto {
@@ -52,4 +54,5 @@ export interface UpdateExpenseDto {
   spentAt?: string;
   origin?: ExpenseOrigin;
   paidWithCash?: boolean;
+  category?: 'NOMINA' | '' | null;
 }

@@ -74,6 +74,7 @@ export class ExpensesService {
       spentAt: expense.spentAt.toISOString(),
       origin: expense.origin,
       paidWithCash: expense.paidWithCash ?? false,
+      category: expense.category ?? null,
       createdById: expense.createdById,
       createdByName: expense.createdBy?.name ?? null,
       createdAt: expense.createdAt.toISOString(),
@@ -92,6 +93,12 @@ export class ExpensesService {
       throw new BadRequestException('El valor debe ser mayor a 0');
     }
     return value;
+  }
+
+  private cleanCategory(value?: string | null) {
+    if (!value) return null;
+    if (value === 'NOMINA') return 'NOMINA';
+    throw new BadRequestException('Categoría de gasto no válida');
   }
 
   private cleanOrigin(value?: string | null): ExpenseOrigin | undefined {
@@ -211,6 +218,7 @@ export class ExpensesService {
         spentAt,
         origin,
         paidWithCash,
+        category: this.cleanCategory(dto.category),
         createdById: createdById ?? null,
       },
       include: expenseInclude,
@@ -233,6 +241,7 @@ export class ExpensesService {
         ...(dto.spentAt !== undefined ? { spentAt: expenseDate(dto.spentAt) } : {}),
         ...(dto.origin !== undefined ? { origin: this.cleanOrigin(dto.origin)! } : {}),
         ...(dto.paidWithCash !== undefined ? { paidWithCash: dto.paidWithCash === true } : {}),
+        ...(dto.category !== undefined ? { category: this.cleanCategory(dto.category) } : {}),
       },
       include: expenseInclude,
     });

@@ -1,11 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { OrderStage, OrderStatus, OrderType, Prisma } from '@prisma/client';
-import { profitBreakdownFromLine } from '../orders/special-sale.util';
-import {
-  allocateAmounts,
-  cashEventsForOrder,
-  recognizeCollected,
-} from '../orders/order-payments.util';
+import { OrderSource, OrderStage, OrderStatus, OrderType, Prisma } from '@prisma/client';
+import { cashEventsForOrder } from '../orders/order-payments.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import { PreOrdersService } from '../pre-orders/pre-orders.service';
@@ -22,9 +17,16 @@ import {
 } from '@luxtime/shared';
 import {
   channelForSource,
-  commissionPercentForSource,
   summarizeProfitByChannel,
 } from './profit-channel.util';
+import {
+  linesFromOrder,
+  payrollFund,
+  profitPeriodRange,
+  type ProfitChannelFilter,
+  type ProfitOrderInput,
+  type ProfitPeriod,
+} from './profit-math';
 
 @Injectable()
 export class DashboardsService {
@@ -35,12 +37,21 @@ export class DashboardsService {
   ) {}
 
   async getProfitDashboard(
-    period: 'day' | 'week' | 'month' | 'all' = 'month',
+    period: ProfitPeriod = 'month',
+    channel: ProfitChannelFilter = 'ALL',
   ): Promise<ProfitDashboardDto> {
-    const since = this.periodStart(period);
-    const [commissionConfig, profitConfig] = await Promise.all([
+    const since = profitPeriodRange(period).since;
+    const payrollLoader = (
+      this.settingsService as {
+        getPayrollConfig?: () => Promise<{
+          workers?: Array<{ name?: string; monthlySalary?: number }>;
+        }>;
+      }
+    ).getPayrollConfig;
+    const [commissionConfig, profitConfig, payrollConfig] = await Promise.all([
       this.settingsService.getCommissionConfig(),
       this.settingsService.getProfitConfig(),
+      payrollLoader ? payrollLoader.call(this.settingsService) : Promise.resolve({ workers: [] }),
     ]);
     const commissionPercent = commissionConfig.percent;
     const reinvestmentPercent = profitConfig.reinvestmentPercent ?? 35;
@@ -53,11 +64,12 @@ export class DashboardsService {
       OrderStatus.ENTREGADO,
     ];
 
-    const [orders, inventoryWatches] = await Promise.all([
+    const [orders, inventoryWatches, expenses] = await Promise.all([
       this.prisma.order.findMany({
         where: {
           stage: OrderStage.ORDER,
           canceledAt: null,
+          hiddenAt: null,
           status: { in: activeStatuses },
           ...(since
             ? {
@@ -71,9 +83,10 @@ export class DashboardsService {
             : {}),
         },
         include: {
-          items: { include: { watch: true } },
+          items: { include: { watch: { include: { brand: { select: { name: true } } } } } },
           shippingZone: { select: { name: true } },
-          payments: { select: { amount: true, paidAt: true } },
+          seller: { select: { name: true } },
+          payments: { select: { amount: true, paidAt: true, method: true } },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -81,6 +94,7 @@ export class DashboardsService {
         where: { deletedAt: null },
         select: { cost: true, stock: true },
       }),
+      this.loadExpenses(since),
     ]);
 
     const totalInventoryInvestment = inventoryWatches.reduce(
@@ -88,116 +102,139 @@ export class DashboardsService {
       0,
     );
 
-    const items = orders.flatMap((order) => {
-      const lineTotals = order.items.map(
-        (item) => item.unitPrice * item.quantity,
-      );
-      const lineSum = lineTotals.reduce((sum, value) => sum + value, 0);
-      const subtotal = order.subtotal || lineSum;
-      const recognized = recognizeCollected({
-        subtotal,
-        shippingCost: order.shippingCost,
-        events: cashEventsForOrder({
-          ...order,
-          total: order.total || subtotal + order.shippingCost,
-        }),
-        since,
-      });
-      if (recognized.product <= 0 || !recognized.paidAt) return [];
-
-      const allocations = allocateAmounts(lineTotals, recognized.product);
-      return order.items.flatMap((item, index) => {
-        const revenue = allocations[index] ?? 0;
-        if (revenue <= 0) return [];
-        const lineTotal = lineTotals[index] ?? 0;
-        const lineCommissionPercent = commissionPercentForSource(
-          order.source,
-          commissionPercent,
-        );
-        const priced = profitBreakdownFromLine({
-          orderType: order.type,
-          unitPrice: item.unitPrice,
-          quantity: item.quantity,
-          liveCost: item.watch.cost,
-          costSnapshot: order.specialCostSnapshot,
-          commissionPercent: lineCommissionPercent,
-        });
-        const ratio = lineTotal > 0 ? revenue / lineTotal : 0;
-        const cost = ratio >= 1 ? priced.cost : Math.round(priced.cost * ratio);
-        const grossProfit = revenue - cost;
-        const commission = Math.round(
-          grossProfit * (lineCommissionPercent / 100),
-        );
-        return [
-          {
-            orderId: order.id,
-            readableId: order.readableId,
-            orderType: order.type,
-            orderStatus: order.status ?? OrderStatus.PENDIENTE,
-            priceType: item.priceType,
-            productName: item.productName,
-            quantity: item.quantity,
-            revenue,
-            cost,
-            profit: grossProfit - commission,
-            commissionPercent: lineCommissionPercent,
-            commission,
-            channel: channelForSource(order.source),
-            paidAt: recognized.paidAt.toISOString(),
-          },
-        ];
-      });
-    });
-
-    const totalRevenue = items.reduce((s, i) => s + i.revenue, 0);
-    const totalCost = items.reduce((s, i) => s + i.cost, 0);
-    const totalGrossProfit = totalRevenue - totalCost;
-    const totalCommission = items.reduce((s, i) => s + i.commission, 0);
-    const totalProfit = totalGrossProfit - totalCommission;
-    const totalReinvestmentFund = Math.round(
-      totalProfit * (reinvestmentPercent / 100),
+    const monthRange = profitPeriodRange('month');
+    const payrollOrders =
+      period === 'day' || period === 'week'
+        ? await this.prisma.order.findMany({
+            where: {
+              stage: OrderStage.ORDER,
+              canceledAt: null,
+              hiddenAt: null,
+              status: { in: activeStatuses },
+              ...(monthRange.since
+                ? {
+                    OR: [
+                      { payments: { some: { paidAt: { gte: monthRange.since } } } },
+                      { paidAt: { gte: monthRange.since } },
+                      { createdAt: { gte: monthRange.since } },
+                      { updatedAt: { gte: monthRange.since } },
+                    ],
+                  }
+                : {}),
+            },
+            include: {
+              items: { include: { watch: { include: { brand: { select: { name: true } } } } } },
+              seller: { select: { name: true } },
+              payments: { select: { amount: true, paidAt: true, method: true } },
+            },
+          })
+        : orders;
+    const built = (orders as ProfitOrderInput[]).map((order) =>
+      linesFromOrder(order, since),
     );
-    const totalOwnerProfit = Math.round(
-      totalProfit * (ownerProfitPercent / 100),
+    const monthLines = (payrollOrders as ProfitOrderInput[]).flatMap(
+      (order) => linesFromOrder(order, monthRange.since).lines,
     );
+    const allLines = built.flatMap((row) => row.lines);
+    const lines =
+      channel === 'ALL' ? allLines : allLines.filter((line) => line.channel === channel);
 
-    const shippingItems = orders.flatMap((order) => {
-      const lineSum = order.items.reduce(
-        (sum, item) => sum + item.unitPrice * item.quantity,
-        0,
-      );
-      const recognized = recognizeCollected({
-        subtotal: order.subtotal || lineSum,
-        shippingCost: order.shippingCost,
-        events: cashEventsForOrder({
-          ...order,
-          total: order.total || (order.subtotal || lineSum) + order.shippingCost,
-        }),
-        since,
-      });
-      if (recognized.shipping <= 0 || !recognized.paidAt) return [];
-
+    const shippingItems = built.flatMap((row, index) => {
+      const order = orders[index];
+      if (row.shipping <= 0 || !row.paidAt) return [];
+      const lineChannel = channelForSource(order.source);
+      if (channel !== 'ALL' && lineChannel !== channel) return [];
       return [
         {
           orderId: order.id,
           readableId: order.readableId,
           orderType: order.type,
           orderStatus: order.status ?? OrderStatus.PENDIENTE,
-          shippingCost: recognized.shipping,
+          shippingCost: row.shipping,
           shippingZoneName: order.shippingZone?.name ?? null,
-          channel: channelForSource(order.source),
-          paidAt: recognized.paidAt.toISOString(),
+          channel: lineChannel,
+          paidAt: row.paidAt,
         },
       ];
     });
 
+    const known = lines.filter((line) => line.costStatus !== 'MISSING');
+    const grossSales = lines.reduce((sum, line) => sum + line.gross, 0);
+    const discounts = lines.reduce((sum, line) => sum + line.discount, 0);
+    const totalRevenue = lines.reduce((sum, line) => sum + line.revenue, 0);
+    const totalCost = known.reduce((sum, line) => sum + line.cost, 0);
+    const knownRevenue = known.reduce((sum, line) => sum + line.revenue, 0);
+    const totalGrossProfit = knownRevenue - totalCost;
+    const expenseRows = expenses.filter((expense) =>
+      this.expenseMatchesChannel(expense.origin, channel),
+    );
+    const payrollExpenseRows = expenseRows.filter(
+      (expense) => expense.category === 'NOMINA',
+    );
+    const operatingRows = expenseRows.filter(
+      (expense) => expense.category !== 'NOMINA',
+    );
+    const operatingExpenses = operatingRows.reduce((sum, row) => sum + row.amount, 0);
+    const payrollExpenses = payrollExpenseRows.reduce((sum, row) => sum + row.amount, 0);
+    const totalProfit = totalGrossProfit - operatingExpenses;
+    const totalCommission = 0;
+    const totalReinvestmentFund = Math.round(
+      totalProfit * (reinvestmentPercent / 100),
+    );
+    const totalOwnerProfit = Math.round(
+      totalProfit * (ownerProfitPercent / 100),
+    );
     const totalShippingRevenue = shippingItems.reduce(
       (sum, item) => sum + item.shippingCost,
       0,
     );
+    const orderIds = new Set(lines.map((line) => line.orderId));
+    const units = lines.reduce((sum, line) => sum + line.quantity, 0);
+    const missing = lines.filter((line) => line.costStatus === 'MISSING');
+    const monthChannel = channel === 'ALL'
+      ? monthLines
+      : monthLines.filter((line) => line.channel === channel);
+    const payrollTotal = (payrollConfig.workers ?? []).reduce(
+      (sum, worker) => sum + Math.max(0, Math.round(worker.monthlySalary ?? 0)),
+      0,
+    );
+    const fund = payrollFund({
+      invoiced: monthLines.reduce((sum, line) => sum + line.revenue, 0),
+      percent: commissionPercent,
+      payroll: payrollTotal,
+      channelInvoiced: monthChannel.reduce((sum, line) => sum + line.revenue, 0),
+    });
+
+    const items = lines.map((line) => ({
+      orderId: line.orderId,
+      readableId: line.readableId,
+      orderType: line.orderType,
+      orderStatus: line.orderStatus,
+      priceType: 'RETAIL',
+      productName: line.productName,
+      productSku: line.productSku,
+      quantity: line.quantity,
+      revenue: line.revenue,
+      gross: line.gross,
+      discount: line.discount,
+      cost: line.costStatus === 'MISSING' ? 0 : line.cost,
+      profit: line.costStatus === 'MISSING' ? 0 : line.profit,
+      commissionPercent: 0,
+      commission: 0,
+      channel: line.channel,
+      paidAt: line.paidAt,
+      costStatus: line.costStatus,
+      brand: line.brand,
+      watchId: line.watchId,
+    }));
+
+    const byChannel = summarizeProfitByChannel(items, shippingItems);
+    this.applyChannelExpenses(byChannel, expenses);
 
     return {
       period,
+      channel,
+      rangeFrom: since?.toISOString() ?? null,
       totalRevenue,
       totalCost,
       totalGrossProfit,
@@ -210,7 +247,45 @@ export class DashboardsService {
       commissionPercent,
       totalInventoryInvestment,
       totalShippingRevenue,
-      byChannel: summarizeProfitByChannel(items, shippingItems),
+      grossSales,
+      discounts,
+      netSales: totalRevenue,
+      marginPercent: knownRevenue > 0 ? (totalGrossProfit / knownRevenue) * 100 : null,
+      operatingExpenses,
+      payrollExpenses,
+      units,
+      orderCount: orderIds.size,
+      averageTicket: orderIds.size > 0 ? Math.round(totalRevenue / orderIds.size) : 0,
+      missingCostCount: missing.length,
+      missingCostRevenue: missing.reduce((sum, line) => sum + line.revenue, 0),
+      missingCostItems: missing.map((line) => ({
+        orderId: line.orderId,
+        readableId: line.readableId,
+        productName: line.productName,
+        productSku: line.productSku,
+        watchId: line.watchId,
+        quantity: line.quantity,
+        revenue: line.revenue,
+      })),
+      topWatches: this.rankTops(known, (line) => line.productSku || line.productName, (line) => line.productName),
+      topBrands: this.rankTops(
+        known.filter((line) => line.brand),
+        (line) => line.brand || '',
+        (line) => line.brand || '',
+      ),
+      paymentMethods: this.paymentBreakdown(orders, lines, since),
+      cashExpenses: operatingRows
+        .filter((row) => row.paidWithCash)
+        .reduce((sum, row) => sum + row.amount, 0),
+      payroll: {
+        ...fund,
+        payrollExpensesPaid: payrollExpenses,
+        workers: (payrollConfig.workers ?? []).map((worker) => ({
+          name: worker.name ?? '',
+          monthlySalary: Math.max(0, Math.round(worker.monthlySalary ?? 0)),
+        })),
+      },
+      byChannel,
       items,
       shippingItems,
     };
@@ -585,6 +660,199 @@ export class DashboardsService {
     if (period === 'month') return 'Este mes';
     if (period === '3months') return '3 meses';
     return 'Histórico';
+  }
+
+  private async loadExpenses(since: Date | null) {
+    const finder = this.prisma.expense?.findMany;
+    if (!finder) return [] as Array<{
+      amount: number;
+      origin: string;
+      category: string | null;
+      paidWithCash: boolean;
+      spentAt: Date;
+      name: string;
+    }>;
+    return finder.call(this.prisma.expense, {
+      where: since ? { spentAt: { gte: since } } : {},
+      select: {
+        amount: true,
+        origin: true,
+        category: true,
+        paidWithCash: true,
+        spentAt: true,
+        name: true,
+      },
+    });
+  }
+
+  private expenseMatchesChannel(origin: string, channel: ProfitChannelFilter) {
+    if (channel === 'LOCAL') return origin === 'LOCAL';
+    if (channel === 'WEB') return origin === 'PLATAFORMA';
+    return true;
+  }
+
+  private applyChannelExpenses(
+    byChannel: ProfitDashboardDto['byChannel'],
+    expenses: Array<{ amount: number; origin: string; category: string | null }>,
+  ) {
+    const operating = expenses.filter((row) => row.category !== 'NOMINA');
+    const local = operating
+      .filter((row) => row.origin === 'LOCAL')
+      .reduce((sum, row) => sum + row.amount, 0);
+    const web = operating
+      .filter((row) => row.origin === 'PLATAFORMA')
+      .reduce((sum, row) => sum + row.amount, 0);
+    byChannel.local.profit -= local;
+    byChannel.web.profit -= web;
+    byChannel.total.profit -= local + web;
+  }
+
+  private rankTops<T extends { quantity: number; profit: number; revenue: number }>(
+    lines: T[],
+    keyOf: (line: T) => string,
+    labelOf: (line: T) => string,
+  ) {
+    const map = new Map<string, { label: string; units: number; profit: number; revenue: number }>();
+    for (const line of lines) {
+      const key = keyOf(line);
+      if (!key) continue;
+      const row = map.get(key) ?? { label: labelOf(line), units: 0, profit: 0, revenue: 0 };
+      row.units += line.quantity;
+      row.profit += line.profit;
+      row.revenue += line.revenue;
+      map.set(key, row);
+    }
+    return [...map.values()]
+      .sort((a, b) => b.profit - a.profit || b.units - a.units)
+      .slice(0, 5);
+  }
+
+  private paymentBreakdown(
+    orders: Array<{ id: string; payments?: Array<{ amount: number; paidAt: Date | string; method?: string | null }> | null }>,
+    lines: Array<{ orderId: string }>,
+    since: Date | null,
+  ) {
+    const ids = new Set(lines.map((line) => line.orderId));
+    const totals: Record<string, number> = {};
+    for (const order of orders) {
+      if (!ids.has(order.id)) continue;
+      for (const payment of order.payments ?? []) {
+        const at = new Date(payment.paidAt);
+        if (since && at < since) continue;
+        const method = payment.method || 'NO_ESPECIFICADO';
+        totals[method] = (totals[method] ?? 0) + payment.amount;
+      }
+    }
+    return Object.entries(totals).map(([method, amount]) => ({ method, amount }));
+  }
+
+  async listFinancialSales(query: {
+    channel?: ProfitChannelFilter;
+    from?: string;
+    to?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const channel = query.channel ?? 'ALL';
+    const page = Math.max(1, query.page ?? 1);
+    const limit = Math.min(100, Math.max(1, query.limit ?? 25));
+    const since = query.from ? profitPeriodRange('day', new Date(`${query.from}T12:00:00-05:00`)).since : null;
+    const until = query.to
+      ? new Date((profitPeriodRange('day', new Date(`${query.to}T12:00:00-05:00`)).since ?? new Date()).getTime() + 86400000)
+      : null;
+    const search = query.search?.trim();
+    const activeStatuses = [
+      OrderStatus.PENDIENTE,
+      OrderStatus.PAGADO,
+      OrderStatus.ENVIADO,
+      OrderStatus.ENTREGADO,
+    ];
+    const orders = await this.prisma.order.findMany({
+      where: {
+        stage: OrderStage.ORDER,
+        canceledAt: null,
+        hiddenAt: null,
+        status: { in: activeStatuses },
+        ...(channel === 'LOCAL'
+          ? { source: OrderSource.LOCAL }
+          : channel === 'WEB'
+            ? { source: { not: OrderSource.LOCAL } }
+            : {}),
+        ...(search
+          ? {
+              OR: [
+                { customerName: { contains: search, mode: 'insensitive' } },
+                { readableId: { contains: search, mode: 'insensitive' } },
+                { items: { some: { productName: { contains: search, mode: 'insensitive' } } } },
+                { items: { some: { productSku: { contains: search, mode: 'insensitive' } } } },
+              ],
+            }
+          : {}),
+      },
+      include: {
+        items: { include: { watch: { include: { brand: { select: { name: true } } } } } },
+        seller: { select: { name: true } },
+        payments: { select: { amount: true, paidAt: true, method: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const rows = (orders as ProfitOrderInput[])
+      .map((order) => {
+        const built = linesFromOrder(order, since, until);
+        if (!built.lines.length) return null;
+        const lines = built.lines;
+        const net = lines.reduce((sum, line) => sum + line.revenue, 0);
+        const gross = lines.reduce((sum, line) => sum + line.gross, 0);
+        const discount = lines.reduce((sum, line) => sum + line.discount, 0);
+        const known = lines.filter((line) => line.costStatus !== 'MISSING');
+        const cost = known.reduce((sum, line) => sum + line.cost, 0);
+        const profit = known.reduce((sum, line) => sum + line.profit, 0);
+        const knownRevenue = known.reduce((sum, line) => sum + line.revenue, 0);
+        const missing = lines.some((line) => line.costStatus === 'MISSING');
+        const estimated = lines.some((line) => line.costStatus === 'ESTIMATED');
+        return {
+          orderId: order.id,
+          readableId: order.readableId,
+          paidAt: built.paidAt,
+          channel: lines[0].channel,
+          sellerName: lines[0].sellerName,
+          customerName: order.customerName ?? '',
+          image: lines.find((line) => line.productImage)?.productImage ?? null,
+          watches: lines.map((line) => line.productName).join(', '),
+          paymentMethods: [
+            ...new Set((order.payments ?? []).map((payment) => payment.method || 'NO_ESPECIFICADO')),
+          ],
+          gross,
+          discount,
+          net,
+          cost: missing && known.length === 0 ? null : cost,
+          profit: missing && known.length === 0 ? null : profit,
+          marginPercent: knownRevenue > 0 ? (profit / knownRevenue) * 100 : null,
+          costStatus: missing ? 'MISSING' : estimated ? 'ESTIMATED' : 'SNAPSHOT',
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => row != null);
+
+    const totals = rows.reduce(
+      (acc, row) => {
+        acc.gross += row.gross;
+        acc.discount += row.discount;
+        acc.net += row.net;
+        acc.cost += row.cost ?? 0;
+        acc.profit += row.profit ?? 0;
+        return acc;
+      },
+      { gross: 0, discount: 0, net: 0, cost: 0, profit: 0 },
+    );
+    const start = (page - 1) * limit;
+    return {
+      items: rows.slice(start, start + limit),
+      total: rows.length,
+      page,
+      limit,
+      totals,
+    };
   }
 
   private periodStart(period: string) {

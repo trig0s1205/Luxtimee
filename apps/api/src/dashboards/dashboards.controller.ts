@@ -35,8 +35,35 @@ export class DashboardsController {
   @Get('profit')
   @Roles(Role.SUPER_ADMIN)
   @Financial()
-  profit(@Query('period') period?: 'day' | 'week' | 'month' | 'all') {
-    return this.dashboardsService.getProfitDashboard(period ?? 'month');
+  profit(
+    @Query('period') period?: 'day' | 'week' | 'month' | 'all',
+    @Query('channel') channel?: string,
+  ) {
+    return this.dashboardsService.getProfitDashboard(
+      period ?? 'month',
+      this.channel(channel),
+    );
+  }
+
+  @Get('sales')
+  @Roles(Role.SUPER_ADMIN)
+  @Financial()
+  sales(
+    @Query('channel') channel?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.dashboardsService.listFinancialSales({
+      channel: this.channel(channel),
+      from,
+      to,
+      search,
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 25,
+    });
   }
 
   @Get('health')
@@ -69,11 +96,15 @@ export class DashboardsController {
   @Financial()
   async exportExcel(
     @Query('period') period: string,
+    @Query('channel') channel: string,
     @CurrentUser() user: AuthenticatedUser,
     @Res() res: Response,
   ) {
     const safePeriod = this.assertExportPeriod(period);
-    const data = await this.dashboardsService.getProfitDashboard(safePeriod);
+    const data = await this.dashboardsService.getProfitDashboard(
+      safePeriod,
+      this.channel(channel),
+    );
     const buffer = await this.reportsService.buildProfitExcel(
       data,
       this.toReportOwner(user),
@@ -94,11 +125,15 @@ export class DashboardsController {
   @Financial()
   async exportPdf(
     @Query('period') period: string,
+    @Query('channel') channel: string,
     @CurrentUser() user: AuthenticatedUser,
     @Res() res: Response,
   ) {
     const safePeriod = this.assertExportPeriod(period);
-    const data = await this.dashboardsService.getProfitDashboard(safePeriod);
+    const data = await this.dashboardsService.getProfitDashboard(
+      safePeriod,
+      this.channel(channel),
+    );
     const buffer = await this.reportsService.buildProfitPdf(
       data,
       this.toReportOwner(user),
@@ -109,6 +144,11 @@ export class DashboardsController {
       `attachment; filename="LUXTIMEE-ganancia-${safePeriod}.pdf"`,
     );
     res.send(buffer);
+  }
+
+  private channel(value?: string): 'LOCAL' | 'WEB' | 'ALL' {
+    if (value === 'LOCAL' || value === 'WEB' || value === 'ALL') return value;
+    return 'ALL';
   }
 
   private assertExportPeriod(period: string): ProfitReportPeriod {
